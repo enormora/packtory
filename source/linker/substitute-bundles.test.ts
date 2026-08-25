@@ -239,20 +239,26 @@ const passthroughResult = {
 } as const;
 
 suite('substitute-bundles', function () {
-    test('doesn’t substitute anything when the given dependencies are empty', function () {
-        const inputGraph = buildInputGraph(entryFooSetup);
-        const substitutedGraph = substituteDependencies(inputGraph, [], []);
-        const result = substitutedGraph.flatten([ '/entry.js' ]);
+    suite('passthrough', function () {
+        test('doesn’t substitute anything when the given dependencies are empty', function () {
+            const inputGraph = buildInputGraph(entryFooSetup);
+            const substitutedGraph = substituteDependencies(inputGraph, [], []);
+            const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(result, passthroughResult);
-    });
+            assert.deepStrictEqual(result, passthroughResult);
+        });
 
-    test('doesn’t substitute anything when the given dependencies has only files that don’t match', function () {
-        const inputGraph = buildInputGraph(entryFooSetup);
-        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/bar.js') ], []);
-        const result = substitutedGraph.flatten([ '/entry.js' ]);
+        test('doesn’t substitute anything when the given dependencies has only files that don’t match', function () {
+            const inputGraph = buildInputGraph(entryFooSetup);
+            const substitutedGraph = substituteDependencies(
+                inputGraph,
+                [ bundleSource('first-package', '/bar.js') ],
+                []
+            );
+            const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(result, passthroughResult);
+            assert.deepStrictEqual(result, passthroughResult);
+        });
     });
 
     test('throws when a dependency owns a referenced file but does not expose it publicly', function () {

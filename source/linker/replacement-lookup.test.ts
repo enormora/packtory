@@ -4,7 +4,7 @@ import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { explicitPackageSurface, implicitPackageSurface } from '../package-surface/surface.ts';
 import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
-import { findAllPathReplacements } from './replacement-lookup.ts';
+import { findAllPathReplacements, type ImportPathReplacementRequest } from './replacement-lookup.ts';
 
 function targetFileDescription(
     sourceFilePath: string,
@@ -195,9 +195,17 @@ function implicitPeerBundleWithFeatureDeclarationExport(): BundleSubstitutionSou
     });
 }
 
+function pathOnlyReplacementRequest(sourceFilePath: string): ImportPathReplacementRequest {
+    return {
+        sourceFilePath,
+        requiredExportNames: new Set(),
+        requiresNamespaceExport: false
+    };
+}
+
 suite('replacement-lookup', function () {
     test('findAllPathReplacements returns no replacements when no bundle owns any of the files', function () {
-        const result = findAllPathReplacements([ '/x/a.ts' ], [], []);
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/x/a.ts') ], [], []);
 
         assertDeepSubset(result, {
             importPathReplacements: {
@@ -210,7 +218,7 @@ suite('replacement-lookup', function () {
     test('findAllPathReplacements maps each file to the public target path of the owning bundle', function () {
         const bundle = exposingBundle('pkg-b', '/b/helpers.ts', 'helpers.ts');
 
-        const result = findAllPathReplacements([ '/b/helpers.ts' ], [ bundle ], []);
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.ts') ], [ bundle ], []);
 
         assert.deepStrictEqual(
             result.importPathReplacements.get('/b/helpers.ts'),
@@ -228,7 +236,7 @@ suite('replacement-lookup', function () {
             ]
         });
 
-        const result = findAllPathReplacements([ '/b/helpers.d.ts' ], [ bundle ], []);
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [ bundle ], []);
 
         assert.deepStrictEqual(
             result.importPathReplacements.get('/b/helpers.d.ts'),
@@ -245,7 +253,7 @@ suite('replacement-lookup', function () {
         });
 
         try {
-            findAllPathReplacements([ '/b/internal.ts' ], [ bundle ], []);
+            findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.ts') ], [ bundle ], []);
             assert.fail('expected findAllPathReplacements to throw');
         } catch (error) {
             assert.ok(error instanceof Error);
@@ -263,7 +271,7 @@ suite('replacement-lookup', function () {
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
         });
 
-        const result = findAllPathReplacements([ '/b/index.js.map' ], [ bundle ], []);
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/index.js.map') ], [ bundle ], []);
 
         assert.strictEqual(result.importPathReplacements.has('/b/index.js.map'), false);
     });
@@ -272,7 +280,11 @@ suite('replacement-lookup', function () {
         const bundleB = exposingBundle('pkg-b', '/b/helpers.ts', 'helpers.ts');
         const bundleC = exposingBundle('pkg-c', '/c/helpers.ts', 'helpers.ts');
 
-        const result = findAllPathReplacements([ '/b/helpers.ts', '/c/helpers.ts' ], [ bundleB, bundleC ], []);
+        const result = findAllPathReplacements(
+            [ pathOnlyReplacementRequest('/b/helpers.ts'), pathOnlyReplacementRequest('/c/helpers.ts') ],
+            [ bundleB, bundleC ],
+            []
+        );
 
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b', 'pkg-c' ]);
     });
@@ -288,7 +300,7 @@ suite('replacement-lookup', function () {
                 );
             const bundle = peerBundleWithEntryDeclaration(content);
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -307,7 +319,7 @@ suite('replacement-lookup', function () {
                 );
             const bundle = peerBundleWithEntryDeclaration(content);
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -320,7 +332,7 @@ suite('replacement-lookup', function () {
                 'export { internal } from "./internal.js";\n'
             );
 
-            const result = findAllPathReplacements([ '/b/internal.js' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.js') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.js'),
@@ -336,7 +348,7 @@ suite('replacement-lookup', function () {
             );
 
             assert.throws(function () {
-                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+                findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
             }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
 
@@ -346,7 +358,7 @@ suite('replacement-lookup', function () {
             );
 
             assert.throws(function () {
-                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+                findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
             }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
 
@@ -356,7 +368,7 @@ suite('replacement-lookup', function () {
             );
 
             assert.throws(function () {
-                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+                findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
             }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
     });
@@ -365,7 +377,7 @@ suite('replacement-lookup', function () {
         test('findAllPathReplacements tolerates circular peer declaration exports', function () {
             const bundle = peerBundleWithCircularDeclarations();
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -376,7 +388,7 @@ suite('replacement-lookup', function () {
         test('findAllPathReplacements keeps the shortest peer module that reaches an internal declaration', function () {
             const bundle = peerBundleWithDuplicateDeclarationExports();
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -387,7 +399,7 @@ suite('replacement-lookup', function () {
         test('findAllPathReplacements keeps the first peer module when reachable specifiers tie', function () {
             const bundle = peerBundleWithEqualDeclarationExports();
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -398,7 +410,7 @@ suite('replacement-lookup', function () {
         test('findAllPathReplacements maps implicit peer internals through secondary roots', function () {
             const bundle = implicitPeerBundleWithFeatureDeclarationExport();
 
-            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.d.ts'),
@@ -421,7 +433,7 @@ suite('replacement-lookup', function () {
             });
 
             assert.throws(function () {
-                findAllPathReplacements([ '/b/internal.js' ], [], [ bundle ]);
+                findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.js') ], [], [ bundle ]);
             }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.js" for cross-package substitution$/u);
         });
 
@@ -431,7 +443,7 @@ suite('replacement-lookup', function () {
             );
 
             try {
-                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+                findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.d.ts') ], [], [ bundle ]);
                 assert.fail('expected findAllPathReplacements to throw');
             } catch (error) {
                 assert.ok(error instanceof Error);

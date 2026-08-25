@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { isDefined } from 'remeda';
 import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
+import { bfsClosure, type BfsClosureDependencies } from '../dead-code-eliminator/reachability/bfs-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { rootSourceFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
@@ -12,6 +12,12 @@ import type { BundleSubstitutionSource } from './linked-bundle.ts';
 export type ImportPathReplacement = {
     readonly emittedSpecifier: string;
     readonly packageName: string;
+};
+
+export type ImportPathReplacementRequest = {
+    readonly sourceFilePath: string;
+    readonly requiredExportNames: ReadonlySet<string>;
+    readonly requiresNamespaceExport: boolean;
 };
 
 export type Replacements = {
@@ -34,13 +40,10 @@ type ContentLookup = {
     readonly contentBySourcePath: ReadonlyMap<string, BundleSubstitutionSource['contents'][number]>;
     readonly sourcePathByTargetPath: ReadonlyMap<string, string>;
 };
-type SourceFilePathQueue = {
-    readonly push: (sourceFilePath: string) => unknown;
-};
-type SpecifierRecord = {
-    readonly get: (key: string) => string | undefined;
-    readonly set: (key: string, value: string) => unknown;
-};
+
+function isDefined<T>(value: T | undefined): value is T {
+    return value !== undefined;
+}
 
 function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
@@ -52,28 +55,27 @@ function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     return { contentBySourcePath, sourcePathByTargetPath };
 }
 
-type PossibleModuleSpecifierStatement = Readonly<typescript.Statement> & {
-    readonly moduleSpecifier?: typescript.Node;
-};
-
-function exportDeclarationModuleSpecifier(
+function exportDeclaration(
     statement: Readonly<typescript.Statement>
-): PossibleModuleSpecifierStatement | undefined {
+): Readonly<typescript.ExportDeclaration> | undefined {
     if (!typescript.isExportDeclaration(statement)) {
         return undefined;
     }
     return statement;
 }
 
-function moduleSpecifierText(statement: PossibleModuleSpecifierStatement): string | undefined {
+function moduleSpecifierText(statement: Readonly<typescript.ExportDeclaration>): string | undefined {
     const { moduleSpecifier } = statement;
     if (moduleSpecifier === undefined) {
         return undefined;
     }
-    return typescript.isStringLiteral(moduleSpecifier) ? moduleSpecifier.text : undefined;
+    if (!typescript.isStringLiteral(moduleSpecifier) || !moduleSpecifier.text.startsWith('.')) {
+        return undefined;
+    }
+    return moduleSpecifier.text;
 }
 
-function exportedModuleSpecifiers(content: string): readonly string[] {
+function exportDeclarations(content: string): readonly Readonly<typescript.ExportDeclaration>[] {
     const sourceFile = typescript.createSourceFile(
         content,
         content,
@@ -81,149 +83,254 @@ function exportedModuleSpecifiers(content: string): readonly string[] {
     );
     return sourceFile
         .statements
-        .map(exportDeclarationModuleSpecifier)
-        .filter(isDefined)
-        .map(moduleSpecifierText)
+        .map(exportDeclaration)
         .filter(isDefined);
 }
 
-function exportedTargetPath(currentTargetFilePath: string, specifier: string): string | undefined {
-    if (!specifier.startsWith('.')) {
-        return undefined;
-    }
+function exportedTargetPath(currentTargetFilePath: string, specifier: string): string {
     return path.posix.normalize(path.posix.join(path.posix.dirname(currentTargetFilePath), specifier));
 }
 
-function enqueueExportedSourceFilePaths(
+function exportedSourceFilePaths(
     lookup: ContentLookup,
-    pending: SourceFilePathQueue,
     currentTargetFilePath: string,
     specifier: string
-): void {
+): readonly string[] {
     const targetPath = exportedTargetPath(currentTargetFilePath, specifier);
-    if (targetPath === undefined) {
-        return;
-    }
-    const sourcePaths = [ targetPath, ...declarationCompanionCandidates(targetPath) ]
-        .map(function (candidate) {
-            return lookup.sourcePathByTargetPath.get(candidate);
-        })
-        .filter(isDefined);
-    for (const sourcePath of sourcePaths) {
-        pending.push(sourcePath);
-    }
-}
-
-function publicExportedSourceFilePaths(
-    initialSourceFilePaths: readonly string[],
-    lookup: ContentLookup
-): ReadonlySet<string> {
-    const pending = Array.from(initialSourceFilePaths);
-    const visited = new Set<string>();
-
-    function visitSourceFilePath(sourceFilePath: string): void {
-        const content = lookup.contentBySourcePath.get(sourceFilePath);
-        if (content !== undefined && !visited.has(sourceFilePath)) {
-            visited.add(sourceFilePath);
-            for (const specifier of exportedModuleSpecifiers(content.fileDescription.content)) {
-                enqueueExportedSourceFilePaths(lookup, pending, content.fileDescription.targetFilePath, specifier);
+    const sourceFilePaths: string[] = [];
+    for (const candidate of [ targetPath, ...declarationCompanionCandidates(targetPath) ]) {
+        for (const [ targetFilePath, sourceFilePath ] of lookup.sourcePathByTargetPath) {
+            if (targetFilePath === candidate) {
+                sourceFilePaths.push(sourceFilePath);
             }
         }
     }
-
-    for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-        visitSourceFilePath(next);
-    }
-
-    return visited;
+    return sourceFilePaths;
 }
 
-function recordShortestSpecifier(
-    specifiersBySourcePath: SpecifierRecord,
-    sourceFilePaths: ReadonlySet<string>,
-    specifier: string
-): void {
-    for (const sourceFilePath of sourceFilePaths) {
-        const current = specifiersBySourcePath.get(sourceFilePath);
-        if (current === undefined || specifier.length < current.length) {
-            specifiersBySourcePath.set(sourceFilePath, specifier);
+type ExportState = {
+    readonly sourceFilePath: string;
+    readonly exportName: string | undefined;
+};
+
+function namedExports(
+    declaration: Readonly<typescript.ExportDeclaration>
+): readonly Readonly<typescript.ExportSpecifier>[] {
+    const { exportClause } = declaration;
+    if (exportClause === undefined || !typescript.isNamedExports(exportClause)) {
+        return [];
+    }
+    return Array.from(exportClause.elements);
+}
+
+function isExportStar(declaration: Readonly<typescript.ExportDeclaration>): boolean {
+    return declaration.exportClause === undefined;
+}
+
+function declarationSourceFilePaths(
+    lookup: ContentLookup,
+    currentTargetFilePath: string,
+    declaration: Readonly<typescript.ExportDeclaration>
+): readonly string[] {
+    return exportedSourceFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
+}
+
+const pathClosureDependencies = {
+    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
+        return visited.has(value);
+    }
+} as const;
+
+function exportStateValue(value: unknown, property: keyof ExportState): unknown {
+    return Reflect.get(new Object(value), property);
+}
+
+function sourceFilePathForState(state: ExportState): string {
+    return state.sourceFilePath;
+}
+
+const exportClosureDependencies: BfsClosureDependencies = {
+    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
+        return Array.from(visited).some(function (state) {
+            return exportStateValue(state, 'sourceFilePath') === exportStateValue(value, 'sourceFilePath') &&
+                exportStateValue(state, 'exportName') === exportStateValue(value, 'exportName');
+        });
+    }
+};
+
+function exportedStateNames(
+    lookup: ContentLookup,
+    state: ExportState
+): readonly ExportState[] {
+    const content = lookup.contentBySourcePath.get(sourceFilePathForState(state));
+    if (content === undefined) {
+        return Array.from(new Set<ExportState>());
+    }
+
+    return exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
+        const sourceFilePaths = declarationSourceFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
+        const exportStarStates = sourceFilePaths
+            .filter(function () {
+                return state.exportName !== 'default' && isExportStar(declaration);
+            })
+            .map(function (nextSourceFilePath) {
+                return { sourceFilePath: nextSourceFilePath, exportName: state.exportName };
+            });
+        const namedExportStates = namedExports(declaration)
+            .filter(function (namedExport) {
+                return namedExport.name.text === state.exportName;
+            })
+            .flatMap(function (namedExport) {
+                const sourceExportName = namedExport.propertyName?.text ?? namedExport.name.text;
+                return sourceFilePaths.map(function (nextSourceFilePath) {
+                    return { sourceFilePath: nextSourceFilePath, exportName: sourceExportName };
+                });
+            });
+        return [ ...exportStarStates, ...namedExportStates ];
+    });
+}
+
+function publicModuleCanExport(
+    rootSourceFilePathsForModule: readonly string[],
+    lookup: ContentLookup,
+    request: ImportPathReplacementRequest,
+    exportName: string | undefined
+): boolean {
+    const closure = bfsClosure(
+        rootSourceFilePathsForModule.map(function (sourceFilePath) {
+            return { sourceFilePath, exportName };
+        }),
+        function (state) {
+            return exportedStateNames(lookup, state);
+        },
+        new Set(),
+        { dependencies: exportClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+    );
+    return Array.from(closure).some(function (state) {
+        return sourceFilePathForState(state) === request.sourceFilePath;
+    });
+}
+
+function publicModuleReachesSourceFile(
+    rootSourceFilePathsForModule: readonly string[],
+    lookup: ContentLookup,
+    request: ImportPathReplacementRequest
+): boolean {
+    const closure = bfsClosure(
+        rootSourceFilePathsForModule,
+        function (sourceFilePath) {
+            const content = lookup.contentBySourcePath.get(sourceFilePath);
+            return content === undefined
+                ? new Array<string>()
+                : exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
+                    return declarationSourceFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
+                });
+        },
+        new Set(),
+        { dependencies: pathClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+    );
+    return closure.has(request.sourceFilePath);
+}
+
+function publicModuleCanSatisfyRequest(
+    rootSourceFilePathsForModule: readonly string[],
+    lookup: ContentLookup,
+    request: ImportPathReplacementRequest
+): boolean {
+    if (request.requiredExportNames.size === 0 && !request.requiresNamespaceExport) {
+        return publicModuleReachesSourceFile(rootSourceFilePathsForModule, lookup, request);
+    }
+    for (const exportName of request.requiredExportNames) {
+        if (!publicModuleCanExport(rootSourceFilePathsForModule, lookup, request, exportName)) {
+            return false;
         }
     }
+
+    if (!request.requiresNamespaceExport) {
+        return true;
+    }
+
+    return publicModuleCanExport(rootSourceFilePathsForModule, lookup, request, undefined);
+}
+
+function shortestSpecifier(specifiers: readonly string[]): string | undefined {
+    const [ specifier ] = specifiers.toSorted(function (left, right) {
+        return left.length - right.length;
+    });
+    return specifier;
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     surface: ExplicitPackageSurface,
-    sourceFilePath: string
+    request: ImportPathReplacementRequest
 ): string | undefined {
     const lookup = createContentLookup(bundle);
-    const specifiersBySourcePath = new Map<string, string>();
+    const specifiers: string[] = [];
     const moduleEntries = surface.packageInterface.modules ?? [];
     for (const moduleEntry of moduleEntries) {
         const root = getRoot(bundle, moduleEntry.root);
         const rootPaths = rootSourceFilePaths(root);
-        recordShortestSpecifier(
-            specifiersBySourcePath,
-            publicExportedSourceFilePaths(rootPaths, lookup),
-            toPackageSpecifier(bundle.name, moduleEntry.export)
-        );
+        const candidate = toPackageSpecifier(bundle.name, moduleEntry.export);
+        if (publicModuleCanSatisfyRequest(rootPaths, lookup, request)) {
+            specifiers.push(candidate);
+        }
     }
 
-    return specifiersBySourcePath.get(sourceFilePath);
+    return shortestSpecifier(specifiers);
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     surface: ImplicitPackageSurface,
-    sourceFilePath: string
+    request: ImportPathReplacementRequest
 ): string | undefined {
     const lookup = createContentLookup(bundle);
-    const specifiersBySourcePath = new Map<string, string>();
+    const specifiers: string[] = [];
     const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
-    recordShortestSpecifier(
-        specifiersBySourcePath,
-        publicExportedSourceFilePaths(rootSourceFilePaths(defaultRoot), lookup),
-        bundle.name
-    );
-
-    for (const root of Object.values(bundle.roots)) {
-        recordShortestSpecifier(
-            specifiersBySourcePath,
-            publicExportedSourceFilePaths(rootSourceFilePaths(root), lookup),
-            toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
-        );
+    if (publicModuleCanSatisfyRequest(rootSourceFilePaths(defaultRoot), lookup, request)) {
+        specifiers.push(bundle.name);
     }
 
-    return specifiersBySourcePath.get(sourceFilePath) ?? getPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    for (const root of Object.values(bundle.roots)) {
+        const candidate = toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`);
+        if (publicModuleCanSatisfyRequest(rootSourceFilePaths(root), lookup, request)) {
+            specifiers.push(candidate);
+        }
+    }
+
+    return shortestSpecifier(specifiers) ?? getPublicModuleSpecifierForSourcePath(bundle, request.sourceFilePath);
 }
 
 function getExistingPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
-    sourceFilePath: string
+    request: ImportPathReplacementRequest
 ): string | undefined {
     const { surface } = bundle;
     if (surface.mode === 'implicit') {
-        return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, sourceFilePath);
+        return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, request);
     }
 
-    return getExplicitPublicModuleSpecifierForSourcePath(bundle, surface, sourceFilePath);
+    return getExplicitPublicModuleSpecifierForSourcePath(bundle, surface, request);
 }
 
 function findReplacementInBundles(
-    file: string,
+    request: ImportPathReplacementRequest,
     bundles: readonly BundleSubstitutionSource[],
-    getTargetPath: (bundle: BundleSubstitutionSource, sourceFilePath: string) => string | undefined
+    getTargetPath: (bundle: BundleSubstitutionSource, request: ImportPathReplacementRequest) => string | undefined
 ): ImportPathReplacement | undefined {
     for (const bundle of bundles) {
-        const targetPath = getTargetPath(bundle, file);
+        const targetPath = getTargetPath(bundle, request);
         if (targetPath !== undefined) {
             return {
                 emittedSpecifier: targetPath,
                 packageName: bundle.name
             };
         }
-        if (needsImportReplacement(file) && ownsSourcePath(file, bundle)) {
-            throw new Error(`Package "${bundle.name}" does not expose "${file}" for cross-package substitution`);
+        if (needsImportReplacement(request.sourceFilePath) && ownsSourcePath(request.sourceFilePath, bundle)) {
+            throw new Error(
+                `Package "${bundle.name}" does not expose "${request.sourceFilePath}" for cross-package substitution`
+            );
         }
     }
 
@@ -231,19 +338,21 @@ function findReplacementInBundles(
 }
 
 function findReplacement(
-    file: string,
+    request: ImportPathReplacementRequest,
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): ImportPathReplacement | undefined {
     const dependencyReplacement = findReplacementInBundles(
-        file,
+        request,
         bundleDependencies,
-        getPublicModuleSpecifierForSourcePath
+        function (bundle, replacementRequest) {
+            return getPublicModuleSpecifierForSourcePath(bundle, replacementRequest.sourceFilePath);
+        }
     );
     if (dependencyReplacement !== undefined) {
         return dependencyReplacement;
     }
-    return findReplacementInBundles(file, bundlePeerDependencies, getExistingPublicModuleSpecifierForSourcePath);
+    return findReplacementInBundles(request, bundlePeerDependencies, getExistingPublicModuleSpecifierForSourcePath);
 }
 
 function withSubstitutedSourcePath(
@@ -262,7 +371,7 @@ function withSubstitutedSourcePath(
 }
 
 export function findAllPathReplacements(
-    files: readonly string[],
+    requests: readonly ImportPathReplacementRequest[],
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
@@ -270,15 +379,15 @@ export function findAllPathReplacements(
     const matchedBundleDependencies: string[] = [];
     let substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 
-    for (const file of files) {
-        const replacement = findReplacement(file, bundleDependencies, bundlePeerDependencies);
+    for (const request of requests) {
+        const replacement = findReplacement(request, bundleDependencies, bundlePeerDependencies);
         if (replacement !== undefined) {
-            importPathReplacements.set(file, replacement);
+            importPathReplacements.set(request.sourceFilePath, replacement);
             matchedBundleDependencies.push(replacement.packageName);
             substitutedSourceFilePathsByPackageName = withSubstitutedSourcePath(
                 substitutedSourceFilePathsByPackageName,
                 replacement.packageName,
-                file
+                request.sourceFilePath
             );
         }
     }
