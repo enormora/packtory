@@ -22,11 +22,26 @@ function memberHasImpureStaticInit(member: TsMorphNode, settings: DeadCodeElimin
     return initializer !== undefined && !isPureExpression(initializer, settings);
 }
 
+function memberHasImpureComputedName(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
+    if (
+        !TsMorphNode.isMethodDeclaration(member) &&
+        !TsMorphNode.isPropertyDeclaration(member) &&
+        !TsMorphNode.isGetAccessorDeclaration(member) &&
+        !TsMorphNode.isSetAccessorDeclaration(member)
+    ) {
+        return false;
+    }
+    const name = member.getNameNode();
+    return TsMorphNode.isComputedPropertyName(name) && !isPureExpression(name.getExpression(), settings);
+}
+
 function classMemberIsImpure(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
     if (TsMorphNode.isClassStaticBlockDeclaration(member)) {
         return true;
     }
-    return memberHasDecorators(member) || memberHasImpureStaticInit(member, settings);
+    return memberHasDecorators(member) ||
+        memberHasImpureComputedName(member, settings) ||
+        memberHasImpureStaticInit(member, settings);
 }
 
 export function hasClassImpurity(
@@ -34,6 +49,10 @@ export function hasClassImpurity(
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
     if (classDeclaration.getDecorators().length > 0) {
+        return true;
+    }
+    const extendsExpression = classDeclaration.getExtends()?.getExpression();
+    if (extendsExpression !== undefined && !isPureExpression(extendsExpression, settings)) {
         return true;
     }
     return classDeclaration.getMembers().some(function (member) {

@@ -23,17 +23,40 @@ suite('side-effect-classifier declarations and imports', function () {
         test('treats a type alias as pure', function () {
             assert.deepStrictEqual(classify('type Foo = string;'), []);
         });
+    });
 
+    suite('side-effect-classifier enum and namespace declarations', function () {
         test('treats an enum declaration as pure', function () {
             assert.deepStrictEqual(classify('enum Foo { A, B }'), []);
         });
 
-        test('treats a const enum declaration as pure', function () {
-            assert.deepStrictEqual(classify('const enum Foo { A = 1 }'), []);
+        test('flags an enum declaration with an impure member initializer', function () {
+            assert.deepStrictEqual(classify('enum Foo { A = getValue() }'), [ {
+                line: 1,
+                kind: 'enum declaration'
+            } ]);
         });
 
-        test('treats a namespace declaration as pure', function () {
-            assert.deepStrictEqual(classify('namespace Foo { export const x: number = 1; }'), []);
+        test('treats a const enum declaration as pure', function () {
+            assert.deepStrictEqual(classify('const enum Foo { A = getValue() }'), []);
+        });
+
+        test('flags a namespace declaration as impure', function () {
+            assert.deepStrictEqual(classify('namespace Foo { export const x: number = 1; }'), [ {
+                line: 1,
+                kind: 'module declaration'
+            } ]);
+        });
+
+        test('treats an ambient namespace declaration as pure', function () {
+            assert.deepStrictEqual(classify('declare namespace Foo { const x: number; }'), []);
+        });
+
+        test('flags a namespace declaration with an impure statement', function () {
+            assert.deepStrictEqual(classify('namespace Foo { console.log("init"); }'), [ {
+                line: 1,
+                kind: 'module declaration'
+            } ]);
         });
     });
 

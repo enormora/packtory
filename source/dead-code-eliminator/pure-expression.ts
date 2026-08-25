@@ -3,6 +3,8 @@ import {
     SyntaxKind,
     type CallExpression,
     type Expression,
+    type Identifier,
+    type Node as TsMorphNodeType,
     type NewExpression
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
@@ -26,6 +28,19 @@ type PurityRule = (
     settings: DeadCodeEliminationSettings | undefined
 ) => boolean;
 
+const alwaysAvailableDeclarationKinds = new Set<SyntaxKind>([
+    SyntaxKind.FunctionDeclaration,
+    SyntaxKind.ImportClause,
+    SyntaxKind.ImportSpecifier,
+    SyntaxKind.NamespaceImport,
+    SyntaxKind.Parameter
+]);
+const orderedDeclarationKinds = new Set<SyntaxKind>([
+    SyntaxKind.ClassDeclaration,
+    SyntaxKind.EnumDeclaration,
+    SyntaxKind.VariableDeclaration
+]);
+
 function isPureArrayElement(element: Expression, recurse: ExpressionPurityChecker): boolean {
     if (TsMorphNode.isOmittedExpression(element)) {
         return true;
@@ -36,7 +51,26 @@ function isPureArrayElement(element: Expression, recurse: ExpressionPurityChecke
     return recurse(element);
 }
 
+function computedPropertyNameExpression(property: TsMorphNode): Expression | undefined {
+    if (
+        TsMorphNode.isPropertyAssignment(property) ||
+        TsMorphNode.isMethodDeclaration(property) ||
+        TsMorphNode.isGetAccessorDeclaration(property) ||
+        TsMorphNode.isSetAccessorDeclaration(property)
+    ) {
+        const name = property.getNameNode();
+        if (TsMorphNode.isComputedPropertyName(name)) {
+            return name.getExpression();
+        }
+    }
+    return undefined;
+}
+
 function isPurePropertyAssignment(property: TsMorphNode, recurse: ExpressionPurityChecker): boolean {
+    const computedNameExpression = computedPropertyNameExpression(property);
+    if (computedNameExpression !== undefined && !recurse(computedNameExpression)) {
+        return false;
+    }
     if (TsMorphNode.isPropertyAssignment(property)) {
         return recurse(property.getInitializerOrThrow());
     }
@@ -44,6 +78,36 @@ function isPurePropertyAssignment(property: TsMorphNode, recurse: ExpressionPuri
         return recurse(property.getExpression());
     }
     return inherentlyPurePropertyKinds.has(property.getKind());
+}
+
+function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expression: Identifier): boolean {
+    return Math.sign(expression.getStart() - declaration.getEnd()) === 1;
+}
+
+function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expression: Identifier): boolean {
+    const kind = declaration.getKind();
+    if (alwaysAvailableDeclarationKinds.has(kind)) {
+        return true;
+    }
+    if (orderedDeclarationKinds.has(kind)) {
+        return declarationIsAvailableBeforeRead(declaration, expression);
+    }
+
+    return false;
+}
+
+function identifierDeclarations(expression: Identifier): readonly TsMorphNodeType[] {
+    const symbol = expression.getSymbol();
+    return symbol?.getDeclarations() ?? [];
+}
+
+function isPureIdentifierRead(expression: Identifier): boolean {
+    if (expression.getText() === 'undefined') {
+        return true;
+    }
+    return identifierDeclarations(expression).some(function (declaration) {
+        return declarationMakesIdentifierReadPure(declaration, expression);
+    });
 }
 
 function isPureBuiltinCallExpression(
@@ -192,6 +256,9 @@ function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return isPureIdentifierRead(unwrapped);
+    }
     const recurse: ExpressionPurityChecker = function (candidate) {
         return isPureExpression(candidate, settings);
     };

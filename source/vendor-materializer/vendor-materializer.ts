@@ -15,6 +15,7 @@ import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VendorEntry } from './vendor-entry.ts';
 
 export const vendorMaterializerFailureType = {
+    dependencyNotFound: 'dependency-not-found',
     invalidDependencyName: 'invalid-dependency-name',
     symlinkTargetOutsidePackage: 'symlink-target-outside-package'
 } as const;
@@ -32,7 +33,19 @@ type InvalidDependencyNameFailure = {
     readonly invalidDependencyName: string;
 };
 
-export type VendorMaterializerFailure = InvalidDependencyNameFailure | SymlinkTargetOutsidePackageFailure;
+type DependencyNotFoundFailure = {
+    readonly type: typeof vendorMaterializerFailureType.dependencyNotFound;
+    readonly sourcePackageName: string | undefined;
+    readonly dependencyName: string;
+};
+
+type VendorMaterializerFailures = readonly [
+    DependencyNotFoundFailure,
+    InvalidDependencyNameFailure,
+    SymlinkTargetOutsidePackageFailure
+];
+
+export type VendorMaterializerFailure = VendorMaterializerFailures[number];
 
 export type MaterializedExternals = {
     readonly entries: readonly VendorEntry[];
@@ -40,8 +53,16 @@ export type MaterializedExternals = {
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
 };
 
+type VendorMaterializerFileManager = {
+    readonly checkReadability: FileManager['checkReadability'];
+    readonly getRealPath: FileManager['getRealPath'];
+    readonly getTransferableFileDescriptionFromPath: FileManager['getTransferableFileDescriptionFromPath'];
+    readonly listDirectoryEntries: FileManager['listDirectoryEntries'];
+    readonly readFile: FileManager['readFile'];
+};
+
 export type VendorMaterializerDependencies = {
-    readonly fileManager: Pick<FileManager, 'checkReadability' | 'getRealPath' | 'listDirectoryEntries' | 'readFile'>;
+    readonly fileManager: VendorMaterializerFileManager;
 };
 
 type MaterializeExternalsOptions = {
@@ -69,6 +90,8 @@ function packageManifestSchema(): z.ZodMiniType<{
 type QueueItem = {
     readonly name: string;
     readonly fromFolder: string;
+    readonly required: boolean;
+    readonly sourcePackageName: string | undefined;
 };
 
 type VisitedPackageRegistry = {
@@ -95,8 +118,8 @@ type Closure = {
 };
 
 type ParsedManifestSummary = {
-    readonly transitiveDependencyNames: readonly string[];
-    readonly peerDependencyNames: readonly string[];
+    readonly dependencies: readonly string[];
+    readonly peers: readonly string[];
 };
 
 function getPackageArgumentName(name: string): string | undefined {
@@ -121,12 +144,11 @@ function parseManifestSummary(
 ): Result<ParsedManifestSummary, InvalidDependencyNameFailure> {
     const parsed = safeParse(packageManifestSchema(), JSON.parse(content));
     if (!parsed.success) {
-        return Result.ok({ transitiveDependencyNames: [], peerDependencyNames: [] });
+        return Result.ok({ dependencies: [], peers: [] });
     }
     const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
     const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
-    const transitiveDependencyNames = dependencyNames.concat(peerDependencyNames);
-    const invalidDependencyName = findFirstInvalidDependencyName(transitiveDependencyNames);
+    const invalidDependencyName = findFirstInvalidDependencyName(dependencyNames.concat(peerDependencyNames));
     if (invalidDependencyName !== undefined) {
         return Result.err({
             type: vendorMaterializerFailureType.invalidDependencyName,
@@ -135,12 +157,16 @@ function parseManifestSummary(
         });
     }
     return Result.ok({
-        transitiveDependencyNames,
-        peerDependencyNames
+        dependencies: dependencyNames,
+        peers: peerDependencyNames
     });
 }
 
-type FileWalkerDependencies = Pick<FileManager, 'getRealPath' | 'listDirectoryEntries'>;
+type FileWalkerDependencies = {
+    readonly getRealPath: FileManager['getRealPath'];
+    readonly getTransferableFileDescriptionFromPath: FileManager['getTransferableFileDescriptionFromPath'];
+    readonly listDirectoryEntries: FileManager['listDirectoryEntries'];
+};
 type PackageDirectoryEntry = Awaited<ReturnType<FileWalkerDependencies['listDirectoryEntries']>>[number];
 type PackageDirectoryWalk = {
     readonly rootDirectory: string;
@@ -150,6 +176,25 @@ type PackageDirectoryState = {
     readonly packageDirectory: PackageDirectoryWalk;
     readonly collected: VendorEntryCollection;
 };
+
+async function collectPackageFileEntry(
+    walker: FileWalkerDependencies,
+    state: PackageDirectoryState,
+    relativeEntryPath: string
+): Promise<void> {
+    const sourceAbsolutePath = path.join(state.packageDirectory.rootDirectory, relativeEntryPath);
+    const targetRelativePath = bundledInstalledDependencyPath(state.packageDirectory.packageName, relativeEntryPath);
+    const fileDescription = await walker.getTransferableFileDescriptionFromPath(
+        sourceAbsolutePath,
+        targetRelativePath
+    );
+    state.collected.push({
+        sourceAbsolutePath,
+        sourcePackageRootPath: state.packageDirectory.rootDirectory,
+        targetRelativePath,
+        isExecutable: fileDescription.isExecutable
+    });
+}
 
 async function getResolvedTargetPath(
     walker: FileWalkerDependencies,
@@ -246,12 +291,7 @@ const walkPackageDirectory = async function (
             return walkPackageDirectory(walker, state, relativeEntryPath);
         }
 
-        state.collected.push({
-            sourceAbsolutePath: path.join(state.packageDirectory.rootDirectory, relativeEntryPath),
-            sourcePackageRootPath: state.packageDirectory.rootDirectory,
-            targetRelativePath: bundledInstalledDependencyPath(state.packageDirectory.packageName, relativeEntryPath),
-            isExecutable: false
-        });
+        await collectPackageFileEntry(walker, state, relativeEntryPath);
         return Result.ok(undefined);
     };
 
@@ -268,16 +308,27 @@ const walkPackageDirectory = async function (
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
 
-    function scheduleTransitiveDependencies(
-        closure: Closure,
+    function queueItem(
+        name: string,
         fromFolder: string,
-        dependencyNames: readonly string[]
+        sourcePackageName: string | undefined,
+        required: boolean
+    ): QueueItem {
+        return { name, fromFolder, required, sourcePackageName };
+    }
+
+    function scheduleManifestDependencies(
+        closure: Closure,
+        name: string,
+        realPath: string,
+        summary: ParsedManifestSummary
     ): void {
-        closure.pendingPackages.scheduleAll(
-            dependencyNames.map(function (dependencyName) {
-                return { name: dependencyName, fromFolder };
-            })
-        );
+        closure.pendingPackages.scheduleAll(summary.dependencies.map(function (dependencyName) {
+            return queueItem(dependencyName, realPath, name, true);
+        }));
+        closure.pendingPackages.scheduleAll(summary.peers.map(function (dependencyName) {
+            return queueItem(dependencyName, realPath, name, false);
+        }));
     }
 
     async function collectVendorEntries(
@@ -326,8 +377,8 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             return Result.err(summaryResult.error);
         }
 
-        scheduleTransitiveDependencies(closure, realPath, summaryResult.value.transitiveDependencyNames);
-        closure.peerRequirements.set(name, summaryResult.value.peerDependencyNames);
+        scheduleManifestDependencies(closure, name, realPath, summaryResult.value);
+        closure.peerRequirements.set(name, summaryResult.value.peers);
         const collectedResult = await collectVendorEntries(name, realPath);
         if (collectedResult.isErr) {
             return Result.err(collectedResult.error);
@@ -347,6 +398,13 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
 
         const realPath = await findPackageRealPath(item.name, item.fromFolder);
         if (realPath === undefined) {
+            if (item.required) {
+                return Result.err({
+                    type: vendorMaterializerFailureType.dependencyNotFound,
+                    sourcePackageName: item.sourcePackageName,
+                    dependencyName: item.name
+                });
+            }
             return Result.ok(undefined);
         }
 
@@ -383,9 +441,9 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             const closure: Closure = {
                 visited: new Set<string>(),
                 entries,
-                pendingPackages: createWorklist(
+                pendingPackages: createWorklist<QueueItem>(
                     options.initialDependencyNames.map(function (name) {
-                        return { name, fromFolder: options.projectFolder };
+                        return queueItem(name, options.projectFolder, undefined, true);
                     })
                 ),
                 peerRequirements: new Map<string, readonly string[]>()

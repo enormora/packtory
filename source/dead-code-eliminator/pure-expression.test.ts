@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
-import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, type Expression } from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, SyntaxKind, type Expression } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
@@ -34,8 +34,20 @@ function initializerFromRealProject(content: string): Expression {
     return sourceFile.getVariableDeclarationOrThrow('schema').getInitializerOrThrow();
 }
 
+function variableInitializer(content: string, name: string): Expression {
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
+    const declarations = project.getSourceFileOrThrow('index.ts').getDescendantsOfKind(SyntaxKind.VariableDeclaration);
+    const declaration = declarations.find(function (candidate) {
+        return candidate.getName() === name;
+    });
+    if (declaration === undefined) {
+        assert.fail(`expected variable declaration "${name}"`);
+    }
+    return declaration.getInitializerOrThrow();
+}
+
 suite('pure-expression', function () {
-    suite('literal and expression purity', function () {
+    suite('literal and array purity', function () {
         test('isPureExpression returns true for a primitive literal', function () {
             assert.strictEqual(isPureExpression(firstVariableInitializerExpression('const a = 1;'), undefined), true);
         });
@@ -60,7 +72,9 @@ suite('pure-expression', function () {
                 false
             );
         });
+    });
 
+    suite('object and expression purity', function () {
         test('isPureExpression returns true for an object literal of pure assignments', function () {
             assert.strictEqual(
                 isPureExpression(
@@ -71,6 +85,47 @@ suite('pure-expression', function () {
             );
         });
 
+        test('isPureExpression returns false for an object literal with an impure computed property name', function () {
+            assert.strictEqual(
+                isPureExpression(firstVariableInitializerExpression('const a = { [compute()]: 1 };'), undefined),
+                false
+            );
+        });
+
+        test('isPureExpression returns false for an object literal with an impure computed method name', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression('const a = { [compute()]() { return 1; } };'),
+                    undefined
+                ),
+                false
+            );
+        });
+
+        test('isPureExpression returns false for an object literal with an impure computed accessor name', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression(
+                        'const a = { get [compute()]() { return 1; }, set value(input) {} };'
+                    ),
+                    undefined
+                ),
+                false
+            );
+        });
+
+        test('isPureExpression returns true for an object literal with a pure spread value', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression('const spread = { x: 1 };\nconst a = { ...spread };'),
+                    undefined
+                ),
+                true
+            );
+        });
+    });
+
+    suite('operator and call purity', function () {
         test('isPureExpression returns true for a strict-equality binary expression of pure operands', function () {
             assert.strictEqual(
                 isPureExpression(firstVariableInitializerExpression('const a = 1 === 2;'), undefined),
@@ -94,7 +149,104 @@ suite('pure-expression', function () {
                 false
             );
         });
+    });
 
+    suite('identifier purity', function () {
+        test('isPureExpression returns false for an unresolved identifier read', function () {
+            assert.strictEqual(
+                isPureExpression(firstVariableInitializerExpression('const a = missing;'), undefined),
+                false
+            );
+        });
+
+        test('isPureExpression returns false for an identifier bound only to a type alias', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression('type MissingValue = string;\nconst a = MissingValue;'),
+                    undefined
+                ),
+                false
+            );
+        });
+
+        test('isPureExpression returns false for an identifier bound only to a declared namespace', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression(
+                        'declare namespace MissingValue { const x: string; }\nconst a = MissingValue;'
+                    ),
+                    undefined
+                ),
+                false
+            );
+        });
+
+        test('isPureExpression returns false for a temporal-dead-zone identifier read', function () {
+            const expression = firstVariableInitializerExpression('const a = later;\nconst later = 1;');
+
+            assert.strictEqual(isPureExpression(expression, undefined), false);
+        });
+    });
+
+    suite('available identifier purity', function () {
+        test('isPureExpression returns true for an earlier local variable read', function () {
+            const expression = firstVariableInitializerExpression('const previous = 1;\nconst a = previous;');
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+
+        test('isPureExpression returns true for an earlier local class read', function () {
+            const expression = firstVariableInitializerExpression('class Previous {}\nconst a = Previous;');
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+
+        test('isPureExpression returns true for an earlier local enum read', function () {
+            const expression = firstVariableInitializerExpression('enum Previous { Value }\nconst a = Previous;');
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+
+        test('isPureExpression returns true for a hoisted function declaration read', function () {
+            const expression = firstVariableInitializerExpression('const a = make;\nfunction make() { return 1; }');
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+
+        test('isPureExpression returns true for import and namespace import reads', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression('import value from "lib";\nconst a = value;'),
+                    undefined
+                ),
+                true
+            );
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression('import * as namespace from "lib";\nconst a = namespace;'),
+                    undefined
+                ),
+                true
+            );
+        });
+
+        test('isPureExpression returns true for a parameter read', function () {
+            const expression = variableInitializer(
+                'function build(input: string) { const schema = input; return schema; }',
+                'schema'
+            );
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+
+        test('isPureExpression returns true for the undefined identifier', function () {
+            const expression = firstVariableInitializerExpression('const a = undefined;');
+
+            assert.strictEqual(isPureExpression(expression, undefined), true);
+        });
+    });
+
+    suite('annotated call purity', function () {
         test('isPureExpression returns true for a pure-annotated call with pure arguments', function () {
             assert.strictEqual(
                 isPureExpression(

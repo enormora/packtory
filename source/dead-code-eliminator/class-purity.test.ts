@@ -38,6 +38,18 @@ suite('class-purity', function () {
         assert.strictEqual(hasClassImpurity(declaration, undefined), true);
     });
 
+    test('hasClassImpurity returns true when the class extends an impure expression', function () {
+        const declaration = classDeclaration('class Foo extends compute() {}');
+
+        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+    });
+
+    test('hasClassImpurity returns true when a member has an impure computed name', function () {
+        const declaration = classDeclaration('class Foo { [compute()]() {} }');
+
+        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+    });
+
     test('hasClassImpurity returns false when a static field has a pure literal initializer', function () {
         const declaration = classDeclaration('class Foo { static items = 1; }');
 

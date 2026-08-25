@@ -133,8 +133,11 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
         settings: {
             registryUrl,
             auth: {
-                type: 'bearer-token',
-                token
+                publish: {
+                    type: 'bearer-token',
+                    token
+                },
+                metadata: 'anonymous'
             }
         },
         async close() {

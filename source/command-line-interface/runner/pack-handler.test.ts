@@ -249,45 +249,77 @@ suite('pack-handler', function () {
             );
         });
 
-        test('surfaces the vendored package, escaped entry path, and resolved target when a vendor symlink leaves its package directory', async function () {
-            await expectFailure(
-                {
-                    type: 'vendor-symlink-target-outside-package',
-                    packageName: 'pkg-a',
-                    vendoredPackageName: 'evil-helper',
-                    entryRelativePath: 'config/defaults.json',
-                    resolvedTargetPath: '/Users/victim/.npmrc'
-                },
-                [
-                    /escapes its package directory\n- "evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
-                ]
-            );
-        });
+        suite('vendor failures', function () {
+            test('surfaces the vendored package, escaped entry path, and resolved target when a vendor symlink leaves its package directory', async function () {
+                await expectFailure(
+                    {
+                        type: 'vendor-symlink-target-outside-package',
+                        packageName: 'pkg-a',
+                        vendoredPackageName: 'evil-helper',
+                        entryRelativePath: 'config/defaults.json',
+                        resolvedTargetPath: '/Users/victim/.npmrc'
+                    },
+                    [
+                        /escapes its package directory\n- "evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
+                    ]
+                );
+            });
 
-        test('identifies the source manifest and offending key when a vendored package.json carries an invalid dependency name', async function () {
-            await expectFailure(
-                {
-                    type: 'vendor-invalid-dependency-name',
-                    packageName: 'pkg-a',
-                    sourcePackageName: 'legit-utils',
-                    invalidDependencyName: '../../legit-utils'
-                },
-                [
-                    /invalid dependency name\n- "legit-utils" declares dependency "\.\.\/\.\.\/legit-utils" which is not a valid npm package name/u
-                ]
-            );
-        });
+            test('identifies the source manifest and offending key when a vendored package.json carries an invalid dependency name', async function () {
+                await expectFailure(
+                    {
+                        type: 'vendor-invalid-dependency-name',
+                        packageName: 'pkg-a',
+                        sourcePackageName: 'legit-utils',
+                        invalidDependencyName: '../../legit-utils'
+                    },
+                    [
+                        /invalid dependency name\n- "legit-utils" declares dependency "\.\.\/\.\.\/legit-utils" which is not a valid npm package name/u
+                    ]
+                );
+            });
 
-        test('labels the source as the configured external set when an invalid dependency name is supplied directly to the materializer', async function () {
-            await expectFailure(
-                {
-                    type: 'vendor-invalid-dependency-name',
-                    packageName: 'pkg-a',
-                    sourcePackageName: undefined,
-                    invalidDependencyName: '../escape'
-                },
-                [ /invalid dependency name\n- the configured external set declares dependency "\.\.\/escape"/u ]
-            );
+            test('labels the source as the configured external set when an invalid dependency name is supplied directly to the materializer', async function () {
+                await expectFailure(
+                    {
+                        type: 'vendor-invalid-dependency-name',
+                        packageName: 'pkg-a',
+                        sourcePackageName: undefined,
+                        invalidDependencyName: '../escape'
+                    },
+                    [ /invalid dependency name\n- the configured external set declares dependency "\.\.\/escape"/u ]
+                );
+            });
+
+            test('prints the missing vendored dependency source and name', async function () {
+                await expectFailure(
+                    {
+                        type: 'vendor-dependency-not-found',
+                        packageName: 'pkg-a',
+                        sourcePackageName: 'left-pad',
+                        dependencyName: 'missing-runtime'
+                    },
+                    [
+                        /required vendored dependency/u,
+                        /- "left-pad" needs "missing-runtime"/u
+                    ]
+                );
+            });
+
+            test('labels direct runtime imports when the root package dependency cannot be found', async function () {
+                await expectFailure(
+                    {
+                        type: 'vendor-dependency-not-found',
+                        packageName: 'pkg-a',
+                        sourcePackageName: undefined,
+                        dependencyName: 'missing-runtime'
+                    },
+                    [
+                        /required vendored dependency/u,
+                        /- runtime imports need "missing-runtime"/u
+                    ]
+                );
+            });
         });
 
         test('summarises partial resolve failures with recursive cause messages', async function () {

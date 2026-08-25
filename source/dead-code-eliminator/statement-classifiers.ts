@@ -1,8 +1,10 @@
 import {
     SyntaxKind,
     type ClassDeclaration,
+    type EnumDeclaration,
     type ExportAssignment,
     type ImportDeclaration,
+    type ModuleDeclaration,
     type Statement,
     type VariableStatement
 } from 'ts-morph';
@@ -40,6 +42,30 @@ function classifyClassDeclaration(
     return undefined;
 }
 
+function classifyEnumDeclaration(
+    statement: EnumDeclaration,
+    settings: DeadCodeEliminationSettings | undefined
+): string | undefined {
+    if (statement.isConstEnum()) {
+        return undefined;
+    }
+    for (const member of statement.getMembers()) {
+        const initializer = member.getInitializer();
+        if (initializer !== undefined && !isPureExpression(initializer, settings)) {
+            return 'enum declaration';
+        }
+    }
+
+    return undefined;
+}
+
+function classifyModuleDeclaration(statement: ModuleDeclaration): string | undefined {
+    if (statement.isAmbient()) {
+        return undefined;
+    }
+    return 'module declaration';
+}
+
 function classifyVariableStatement(
     statement: VariableStatement,
     settings: DeadCodeEliminationSettings | undefined
@@ -72,6 +98,17 @@ function classDeclarationClassifier(
     return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), settings);
 }
 
+function enumDeclarationClassifier(
+    statement: Statement,
+    settings: DeadCodeEliminationSettings | undefined
+): string | undefined {
+    return classifyEnumDeclaration(statement.asKindOrThrow(SyntaxKind.EnumDeclaration), settings);
+}
+
+function moduleDeclarationClassifier(statement: Statement): string | undefined {
+    return classifyModuleDeclaration(statement.asKindOrThrow(SyntaxKind.ModuleDeclaration));
+}
+
 function variableStatementClassifier(
     statement: Statement,
     settings: DeadCodeEliminationSettings | undefined
@@ -97,13 +134,16 @@ function executableStatementClassifierFor(kind: SyntaxKind): StatementClassifier
     if (kind === SyntaxKind.ClassDeclaration) {
         return classDeclarationClassifier;
     }
+    if (kind === SyntaxKind.EnumDeclaration) {
+        return enumDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.ModuleDeclaration) {
+        return moduleDeclarationClassifier;
+    }
     if (kind === SyntaxKind.VariableStatement) {
         return variableStatementClassifier;
     }
-    if (kind === SyntaxKind.ExpressionStatement) {
-        return expressionStatementClassifier;
-    }
-    return undefined;
+    return kind === SyntaxKind.ExpressionStatement ? expressionStatementClassifier : undefined;
 }
 
 export function statementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
