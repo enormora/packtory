@@ -156,18 +156,46 @@ describe('replacement-lookup symbol reachability', function () {
             assertReplacement([ namedRequest('/b/internal.d.ts', [ 'Internal' ]) ], bundle);
         });
 
-        it('accepts alias chains that preserve the public requested name', function () {
-            const bundle = peerBundle([
-                testResource('/b/entry.d.ts', 'entry.d.ts', 'export type { Public as Private } from "./middle.js";\n'),
-                testResource(
-                    '/b/middle.d.ts',
-                    'middle.d.ts',
-                    'export type { Private as Public } from "./internal.js";\n'
-                ),
-                testResource('/b/internal.d.ts', 'internal.d.ts', '')
-            ]);
+        describe('alias chains', function () {
+            it('accepts alias chains that preserve the public requested name', function () {
+                const bundle = peerBundle([
+                    testResource(
+                        '/b/entry.d.ts',
+                        'entry.d.ts',
+                        'export type { Public as Private } from "./middle.js";\n'
+                    ),
+                    testResource(
+                        '/b/middle.d.ts',
+                        'middle.d.ts',
+                        'export type { Private as Public } from "./internal.js";\n'
+                    ),
+                    testResource('/b/internal.d.ts', 'internal.d.ts', '')
+                ]);
 
-            assertReplacement([ namedRequest('/b/internal.d.ts', [ 'Private' ]) ], bundle);
+                assertReplacement([ namedRequest('/b/internal.d.ts', [ 'Private' ]) ], bundle);
+            });
+
+            it('accepts alias chains that revisit a file under a different export name', function () {
+                const bundle = peerBundle([
+                    testResource(
+                        '/b/entry.d.ts',
+                        'entry.d.ts',
+                        'export type { Public as Private } from "./middle.js";\n'
+                    ),
+                    testResource(
+                        '/b/middle.d.ts',
+                        'middle.d.ts',
+                        [
+                            'export type { Internal as Public } from "./middle.js";',
+                            'export type { Internal } from "./internal.js";'
+                        ]
+                            .join('\n')
+                    ),
+                    testResource('/b/internal.d.ts', 'internal.d.ts', '')
+                ]);
+
+                assertReplacement([ namedRequest('/b/internal.d.ts', [ 'Private' ]) ], bundle);
+            });
         });
 
         it('accepts namespace imports through export stars with declaration companions', function () {

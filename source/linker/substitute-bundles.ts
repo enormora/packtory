@@ -59,17 +59,7 @@ function replacementRequestForSourceFilePath(
     requestsBySourceFilePath: ReplacementRequestRecord,
     sourceFilePath: string
 ): ImportPathReplacementRequest {
-    const request = createReplacementRequest(sourceFilePath);
-    const existing = requestsBySourceFilePath.get(sourceFilePath);
-    return existing ?? request;
-}
-
-function initialReplacementRequests(directDependencies: readonly string[]): ReplacementRequestRecord {
-    const requestsBySourceFilePath = new Map<string, ImportPathReplacementRequest>();
-    for (const sourceFilePath of directDependencies) {
-        requestsBySourceFilePath.set(sourceFilePath, createReplacementRequest(sourceFilePath));
-    }
-    return requestsBySourceFilePath;
+    return requestsBySourceFilePath.get(sourceFilePath) ?? createReplacementRequest(sourceFilePath);
 }
 
 function addRequiredExportName(
@@ -142,7 +132,10 @@ function recordStaticRequirements(
 }
 
 function collectImportRequirements(node: ResourceGraphNode): readonly ImportPathReplacementRequest[] {
-    const requestsBySourceFilePath = initialReplacementRequests(Array.from(node.adjacentNodeIds));
+    const requestsBySourceFilePath = new Map<string, ImportPathReplacementRequest>();
+    for (const sourceFilePath of node.adjacentNodeIds) {
+        requestsBySourceFilePath.set(sourceFilePath, createReplacementRequest(sourceFilePath));
+    }
     const sourceFile = node.data.project?.getSourceFile(node.data.fileDescription.sourceFilePath);
     if (sourceFile !== undefined) {
         recordStaticRequirements(requestsBySourceFilePath, sourceFile);

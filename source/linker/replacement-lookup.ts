@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { isDefined } from 'remeda';
 import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
+import { bfsClosure, type BfsClosureDependencies } from '../dead-code-eliminator/reachability/bfs-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { rootSourceFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
@@ -40,17 +40,10 @@ type ContentLookup = {
     readonly contentBySourcePath: ReadonlyMap<string, BundleSubstitutionSource['contents'][number]>;
     readonly sourcePathByTargetPath: ReadonlyMap<string, string>;
 };
-type SourceFilePathQueue = {
-    readonly push: (sourceFilePath: string) => unknown;
-};
-type SpecifierRecord = {
-    readonly get: (key: string) => string | undefined;
-    readonly set: (key: string, value: string) => unknown;
-};
-type ReachabilitySearch = {
-    readonly has: (key: string) => boolean;
-    readonly add: (key: string) => unknown;
-};
+
+function isDefined<T>(value: T | undefined): value is T {
+    return value !== undefined;
+}
 
 function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
@@ -94,31 +87,8 @@ function exportDeclarations(content: string): readonly Readonly<typescript.Expor
         .filter(isDefined);
 }
 
-function exportedModuleSpecifiers(content: string): readonly string[] {
-    return exportDeclarations(content)
-        .map(moduleSpecifierText)
-        .filter(isDefined);
-}
-
 function exportedTargetPath(currentTargetFilePath: string, specifier: string): string {
     return path.posix.normalize(path.posix.join(path.posix.dirname(currentTargetFilePath), specifier));
-}
-
-function enqueueExportedSourceFilePaths(
-    lookup: ContentLookup,
-    pending: SourceFilePathQueue,
-    currentTargetFilePath: string,
-    specifier: string
-): void {
-    const targetPath = exportedTargetPath(currentTargetFilePath, specifier);
-    const sourcePaths = [ targetPath, ...declarationCompanionCandidates(targetPath) ]
-        .map(function (candidate) {
-            return lookup.sourcePathByTargetPath.get(candidate);
-        })
-        .filter(isDefined);
-    for (const sourcePath of sourcePaths) {
-        pending.push(sourcePath);
-    }
 }
 
 function exportedSourceFilePaths(
@@ -137,51 +107,11 @@ function exportedSourceFilePaths(
     }
     return sourceFilePaths;
 }
-function publicExportedSourceFilePaths(
-    initialSourceFilePaths: readonly string[],
-    lookup: ContentLookup
-): ReadonlySet<string> {
-    const pending = Array.from(initialSourceFilePaths);
-    const visited = new Set<string>();
 
-    function visitSourceFilePath(sourceFilePath: string): void {
-        const content = lookup.contentBySourcePath.get(sourceFilePath);
-        if (content !== undefined && !visited.has(sourceFilePath)) {
-            visited.add(sourceFilePath);
-            for (const specifier of exportedModuleSpecifiers(content.fileDescription.content)) {
-                enqueueExportedSourceFilePaths(lookup, pending, content.fileDescription.targetFilePath, specifier);
-            }
-        }
-    }
-
-    for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-        visitSourceFilePath(next);
-    }
-
-    return visited;
-}
-
-type ExportNameQuery = {
-    readonly lookup: ContentLookup;
-    readonly targetSourceFilePath: string;
-    readonly exportName: string;
-    readonly visited: ReachabilitySearch;
+type ExportState = {
+    readonly sourceFilePath: string;
+    readonly exportName: string | undefined;
 };
-type ExportNamespaceQuery = {
-    readonly lookup: ContentLookup;
-    readonly targetSourceFilePath: string;
-    readonly visited: ReachabilitySearch;
-};
-type ExportNameResolver = (query: ExportNameQuery, sourceFilePath: string) => boolean;
-type ExportNamespaceResolver = (query: ExportNamespaceQuery, sourceFilePath: string) => boolean;
-
-function exportedName(namedExport: Readonly<typescript.ExportSpecifier>): string {
-    return namedExport.name.text;
-}
-
-function sourceName(namedExport: Readonly<typescript.ExportSpecifier>): string {
-    return namedExport.propertyName?.text ?? namedExport.name.text;
-}
 
 function namedExports(
     declaration: Readonly<typescript.ExportDeclaration>
@@ -197,24 +127,6 @@ function isExportStar(declaration: Readonly<typescript.ExportDeclaration>): bool
     return declaration.exportClause === undefined;
 }
 
-function reachabilityKey(sourceFilePath: string, targetSourceFilePath: string, exportName: string): string {
-    return `${sourceFilePath}\0${targetSourceFilePath}\0${exportName}`;
-}
-
-function visitReachability(
-    sourceFilePath: string,
-    targetSourceFilePath: string,
-    exportName: string,
-    visited: ReachabilitySearch
-): boolean {
-    const key = reachabilityKey(sourceFilePath, targetSourceFilePath, exportName);
-    if (visited.has(key)) {
-        return false;
-    }
-    visited.add(key);
-    return true;
-}
-
 function declarationSourceFilePaths(
     lookup: ContentLookup,
     currentTargetFilePath: string,
@@ -223,103 +135,101 @@ function declarationSourceFilePaths(
     return exportedSourceFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
 }
 
-function exportStarCanExportName(
-    resolveExportName: ExportNameResolver,
-    query: ExportNameQuery,
-    sourceFilePaths: readonly string[],
-    declaration: Readonly<typescript.ExportDeclaration>
-): boolean {
-    return isExportStar(declaration) &&
-        query.exportName !== 'default' &&
-        sourceFilePaths.some(function (sourceFilePath) {
-            return resolveExportName(query, sourceFilePath);
-        });
+const pathClosureDependencies = {
+    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
+        return visited.has(value);
+    }
+} as const;
+
+function exportStateValue(value: unknown, property: keyof ExportState): unknown {
+    return Reflect.get(new Object(value), property);
 }
 
-function namedExportCanExportName(
-    resolveExportName: ExportNameResolver,
-    query: ExportNameQuery,
-    sourceFilePaths: readonly string[],
-    namedExport: Readonly<typescript.ExportSpecifier>
-): boolean {
-    if (exportedName(namedExport) !== query.exportName) {
-        return false;
+function sourceFilePathForState(state: ExportState): string {
+    return state.sourceFilePath;
+}
+
+const exportClosureDependencies: BfsClosureDependencies = {
+    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
+        return Array.from(visited).some(function (state) {
+            return exportStateValue(state, 'sourceFilePath') === exportStateValue(value, 'sourceFilePath') &&
+                exportStateValue(state, 'exportName') === exportStateValue(value, 'exportName');
+        });
     }
-    return sourceFilePaths.some(function (sourceFilePath) {
-        return resolveExportName({ ...query, exportName: sourceName(namedExport) }, sourceFilePath);
+};
+
+function exportedStateNames(
+    lookup: ContentLookup,
+    state: ExportState
+): readonly ExportState[] {
+    const content = lookup.contentBySourcePath.get(sourceFilePathForState(state));
+    if (content === undefined) {
+        return Array.from(new Set<ExportState>());
+    }
+
+    return exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
+        const sourceFilePaths = declarationSourceFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
+        const exportStarStates = sourceFilePaths
+            .filter(function () {
+                return state.exportName !== 'default' && isExportStar(declaration);
+            })
+            .map(function (nextSourceFilePath) {
+                return { sourceFilePath: nextSourceFilePath, exportName: state.exportName };
+            });
+        const namedExportStates = namedExports(declaration)
+            .filter(function (namedExport) {
+                return namedExport.name.text === state.exportName;
+            })
+            .flatMap(function (namedExport) {
+                const sourceExportName = namedExport.propertyName?.text ?? namedExport.name.text;
+                return sourceFilePaths.map(function (nextSourceFilePath) {
+                    return { sourceFilePath: nextSourceFilePath, exportName: sourceExportName };
+                });
+            });
+        return [ ...exportStarStates, ...namedExportStates ];
     });
 }
 
-function declarationCanExportName(
-    resolveExportName: ExportNameResolver,
-    query: ExportNameQuery,
-    currentTargetFilePath: string,
-    declaration: Readonly<typescript.ExportDeclaration>
+function publicModuleCanExport(
+    rootSourceFilePathsForModule: readonly string[],
+    lookup: ContentLookup,
+    request: ImportPathReplacementRequest,
+    exportName: string | undefined
 ): boolean {
-    const sourceFilePaths = declarationSourceFilePaths(query.lookup, currentTargetFilePath, declaration);
-    return exportStarCanExportName(resolveExportName, query, sourceFilePaths, declaration) ||
-        namedExports(declaration).some(function (namedExport) {
-            return namedExportCanExportName(resolveExportName, query, sourceFilePaths, namedExport);
-        });
-}
-
-function sourceFileCanExportName(query: ExportNameQuery, sourceFilePath: string): boolean {
-    if (sourceFilePath === query.targetSourceFilePath) {
-        return true;
-    }
-    if (!visitReachability(sourceFilePath, query.targetSourceFilePath, query.exportName, query.visited)) {
-        return false;
-    }
-
-    const content = query.lookup.contentBySourcePath.get(sourceFilePath);
-    return content !== undefined &&
-        exportDeclarations(content.fileDescription.content).some(function (declaration) {
-            return declarationCanExportName(
-                sourceFileCanExportName,
-                query,
-                content.fileDescription.targetFilePath,
-                declaration
-            );
-        });
-}
-
-function declarationCanExportNamespace(
-    resolveExportNamespace: ExportNamespaceResolver,
-    query: ExportNamespaceQuery,
-    currentTargetFilePath: string,
-    declaration: Readonly<typescript.ExportDeclaration>
-): boolean {
-    const sourceFilePaths = declarationSourceFilePaths(query.lookup, currentTargetFilePath, declaration);
-    return isExportStar(declaration) && sourceFilePaths.some(function (sourceFilePath) {
-        return resolveExportNamespace(query, sourceFilePath);
+    const closure = bfsClosure(
+        rootSourceFilePathsForModule.map(function (sourceFilePath) {
+            return { sourceFilePath, exportName };
+        }),
+        function (state) {
+            return exportedStateNames(lookup, state);
+        },
+        new Set(),
+        { dependencies: exportClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+    );
+    return Array.from(closure).some(function (state) {
+        return sourceFilePathForState(state) === request.sourceFilePath;
     });
 }
 
-function sourceFileCanExportNamespace(query: ExportNamespaceQuery, sourceFilePath: string): boolean {
-    if (sourceFilePath === query.targetSourceFilePath) {
-        return true;
-    }
-    if (
-        !visitReachability(
-            sourceFilePath,
-            query.targetSourceFilePath,
-            query.targetSourceFilePath,
-            query.visited
-        )
-    ) {
-        return false;
-    }
-
-    const content = query.lookup.contentBySourcePath.get(sourceFilePath);
-    return content !== undefined &&
-        exportDeclarations(content.fileDescription.content).some(function (declaration) {
-            return declarationCanExportNamespace(
-                sourceFileCanExportNamespace,
-                query,
-                content.fileDescription.targetFilePath,
-                declaration
-            );
-        });
+function publicModuleReachesSourceFile(
+    rootSourceFilePathsForModule: readonly string[],
+    lookup: ContentLookup,
+    request: ImportPathReplacementRequest
+): boolean {
+    const closure = bfsClosure(
+        rootSourceFilePathsForModule,
+        function (sourceFilePath) {
+            const content = lookup.contentBySourcePath.get(sourceFilePath);
+            return content === undefined
+                ? new Array<string>()
+                : exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
+                    return declarationSourceFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
+                });
+        },
+        new Set(),
+        { dependencies: pathClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+    );
+    return closure.has(request.sourceFilePath);
 }
 
 function publicModuleCanSatisfyRequest(
@@ -327,17 +237,11 @@ function publicModuleCanSatisfyRequest(
     lookup: ContentLookup,
     request: ImportPathReplacementRequest
 ): boolean {
+    if (request.requiredExportNames.size === 0 && !request.requiresNamespaceExport) {
+        return publicModuleReachesSourceFile(rootSourceFilePathsForModule, lookup, request);
+    }
     for (const exportName of request.requiredExportNames) {
-        const canExportName = rootSourceFilePathsForModule.some(function (sourceFilePath) {
-            const query = {
-                lookup,
-                targetSourceFilePath: request.sourceFilePath,
-                exportName,
-                visited: new Set<string>()
-            };
-            return sourceFileCanExportName(query, sourceFilePath);
-        });
-        if (!canExportName) {
+        if (!publicModuleCanExport(rootSourceFilePathsForModule, lookup, request, exportName)) {
             return false;
         }
     }
@@ -346,39 +250,14 @@ function publicModuleCanSatisfyRequest(
         return true;
     }
 
-    return rootSourceFilePathsForModule.some(function (sourceFilePath) {
-        const query = {
-            lookup,
-            targetSourceFilePath: request.sourceFilePath,
-            visited: new Set<string>()
-        };
-        return sourceFileCanExportNamespace(query, sourceFilePath);
+    return publicModuleCanExport(rootSourceFilePathsForModule, lookup, request, undefined);
+}
+
+function shortestSpecifier(specifiers: readonly string[]): string | undefined {
+    const [ specifier ] = specifiers.toSorted(function (left, right) {
+        return left.length - right.length;
     });
-}
-
-function exportedSourceFilePathsForRequest(
-    rootPaths: readonly string[],
-    lookup: ContentLookup,
-    request: ImportPathReplacementRequest
-): ReadonlySet<string> {
-    const sourceFilePaths = publicExportedSourceFilePaths(rootPaths, lookup);
-    if (!publicModuleCanSatisfyRequest(rootPaths, lookup, request)) {
-        return new Set();
-    }
-    return sourceFilePaths;
-}
-
-function recordShortestSpecifier(
-    specifiersBySourcePath: SpecifierRecord,
-    sourceFilePaths: ReadonlySet<string>,
-    specifier: string
-): void {
-    for (const sourceFilePath of sourceFilePaths) {
-        const current = specifiersBySourcePath.get(sourceFilePath);
-        if (current === undefined || specifier.length < current.length) {
-            specifiersBySourcePath.set(sourceFilePath, specifier);
-        }
-    }
+    return specifier;
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
@@ -387,19 +266,18 @@ function getExplicitPublicModuleSpecifierForSourcePath(
     request: ImportPathReplacementRequest
 ): string | undefined {
     const lookup = createContentLookup(bundle);
-    const specifiersBySourcePath = new Map<string, string>();
+    const specifiers: string[] = [];
     const moduleEntries = surface.packageInterface.modules ?? [];
     for (const moduleEntry of moduleEntries) {
         const root = getRoot(bundle, moduleEntry.root);
         const rootPaths = rootSourceFilePaths(root);
-        recordShortestSpecifier(
-            specifiersBySourcePath,
-            exportedSourceFilePathsForRequest(rootPaths, lookup, request),
-            toPackageSpecifier(bundle.name, moduleEntry.export)
-        );
+        const candidate = toPackageSpecifier(bundle.name, moduleEntry.export);
+        if (publicModuleCanSatisfyRequest(rootPaths, lookup, request)) {
+            specifiers.push(candidate);
+        }
     }
 
-    return specifiersBySourcePath.get(request.sourceFilePath);
+    return shortestSpecifier(specifiers);
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
@@ -408,25 +286,20 @@ function getImplicitPublicModuleSpecifierForSourcePath(
     request: ImportPathReplacementRequest
 ): string | undefined {
     const lookup = createContentLookup(bundle);
-    const specifiersBySourcePath = new Map<string, string>();
+    const specifiers: string[] = [];
     const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
-    recordShortestSpecifier(
-        specifiersBySourcePath,
-        exportedSourceFilePathsForRequest(rootSourceFilePaths(defaultRoot), lookup, request),
-        bundle.name
-    );
-
-    for (const root of Object.values(bundle.roots)) {
-        const rootPaths = rootSourceFilePaths(root);
-        recordShortestSpecifier(
-            specifiersBySourcePath,
-            exportedSourceFilePathsForRequest(rootPaths, lookup, request),
-            toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
-        );
+    if (publicModuleCanSatisfyRequest(rootSourceFilePaths(defaultRoot), lookup, request)) {
+        specifiers.push(bundle.name);
     }
 
-    return specifiersBySourcePath.get(request.sourceFilePath) ??
-        getPublicModuleSpecifierForSourcePath(bundle, request.sourceFilePath);
+    for (const root of Object.values(bundle.roots)) {
+        const candidate = toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`);
+        if (publicModuleCanSatisfyRequest(rootSourceFilePaths(root), lookup, request)) {
+            specifiers.push(candidate);
+        }
+    }
+
+    return shortestSpecifier(specifiers) ?? getPublicModuleSpecifierForSourcePath(bundle, request.sourceFilePath);
 }
 
 function getExistingPublicModuleSpecifierForSourcePath(
