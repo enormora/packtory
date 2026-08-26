@@ -227,27 +227,86 @@ suite('replacement-lookup', function () {
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
     });
 
-    test('findAllPathReplacements maps declaration companions to the JavaScript package subpath', function () {
-        const bundle = linkedBundle({
-            name: 'pkg-b',
-            contents: [
-                analyzedBundleResource('/b/helpers.js', { targetFilePath: 'helpers.js' }),
-                analyzedBundleResource('/b/helpers.d.ts', { targetFilePath: 'helpers.d.ts' })
-            ]
+    suite('substitution promotion records', function () {
+        test('findAllPathReplacements maps declaration companions to the JavaScript package subpath', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [
+                    analyzedBundleResource('/b/helpers.js', { targetFilePath: 'helpers.js' }),
+                    analyzedBundleResource('/b/helpers.d.ts', { targetFilePath: 'helpers.d.ts' })
+                ]
+            });
+
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [ bundle ], []);
+
+            assert.deepStrictEqual({
+                replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
+                bundleDependencies: result.bundleDependencies,
+                substitutedSourceFilePathsByPackageName: result.substitutedSourceFilePathsByPackageName
+            }, {
+                replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
+                bundleDependencies: [ 'pkg-b' ],
+                substitutedSourceFilePathsByPackageName: new Map([
+                    [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
+                ])
+            });
         });
 
-        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [ bundle ], []);
+        test('findAllPathReplacements does not record non-code substitutions for promotion', function () {
+            const bundle = exposingBundle('pkg-b', '/b/data.json', 'data.json');
 
-        assert.deepStrictEqual({
-            replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
-            bundleDependencies: result.bundleDependencies,
-            substitutedSourceFilePathsByPackageName: result.substitutedSourceFilePathsByPackageName
-        }, {
-            replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
-            bundleDependencies: [ 'pkg-b' ],
-            substitutedSourceFilePathsByPackageName: new Map([
-                [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
-            ])
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/data.json') ], [ bundle ], []);
+
+            assert.deepStrictEqual({
+                replacement: result.importPathReplacements.get('/b/data.json'),
+                substitutedSourceFilePathsByPackageName: result.substitutedSourceFilePathsByPackageName
+            }, {
+                replacement: { emittedSpecifier: 'pkg-b', packageName: 'pkg-b' },
+                substitutedSourceFilePathsByPackageName: new Map()
+            });
+        });
+
+        test('findAllPathReplacements records JavaScript substitutions from public roots', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [],
+                roots: {
+                    main: {
+                        js: targetFileDescription('/b/public.js', 'public.js')
+                    }
+                },
+                surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
+            });
+
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/public.js') ], [ bundle ], []);
+
+            assert.deepStrictEqual(
+                result.substitutedSourceFilePathsByPackageName,
+                new Map([
+                    [ 'pkg-b', new Set([ '/b/public.js' ]) ]
+                ])
+            );
+        });
+
+        test('findAllPathReplacements records declaration-only substitutions for promotion', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [
+                    analyzedBundleResource('/b/types.d.ts', { targetFilePath: 'types.d.ts' })
+                ]
+            });
+
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/types.d.ts') ], [ bundle ], []);
+
+            assert.deepStrictEqual({
+                replacement: result.importPathReplacements.get('/b/types.d.ts'),
+                substitutedSourceFilePathsByPackageName: result.substitutedSourceFilePathsByPackageName
+            }, {
+                replacement: { emittedSpecifier: 'pkg-b/types.d.ts', packageName: 'pkg-b' },
+                substitutedSourceFilePathsByPackageName: new Map([
+                    [ 'pkg-b', new Set([ '/b/types.d.ts' ]) ]
+                ])
+            });
         });
     });
 

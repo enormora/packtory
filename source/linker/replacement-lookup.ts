@@ -29,9 +29,9 @@ export type Replacements = {
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
-type BundleReplacementLookup = {
-    readonly bundleDependencies: readonly BundleSubstitutionSource[];
-    readonly bundlePeerDependencies: readonly BundleSubstitutionSource[];
+type ReplacementMatch = {
+    readonly bundle: BundleSubstitutionSource;
+    readonly replacement: ImportPathReplacement;
 };
 
 export function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
@@ -326,13 +326,16 @@ function findReplacementInBundles(
     request: ImportPathReplacementRequest,
     bundles: readonly BundleSubstitutionSource[],
     getTargetPath: (bundle: BundleSubstitutionSource, request: ImportPathReplacementRequest) => string | undefined
-): ImportPathReplacement | undefined {
+): ReplacementMatch | undefined {
     for (const bundle of bundles) {
         const targetPath = getTargetPath(bundle, request);
         if (targetPath !== undefined) {
             return {
-                emittedSpecifier: targetPath,
-                packageName: bundle.name
+                bundle,
+                replacement: {
+                    emittedSpecifier: targetPath,
+                    packageName: bundle.name
+                }
             };
         }
         if (needsImportReplacement(request.sourceFilePath) && ownsSourcePath(request.sourceFilePath, bundle)) {
@@ -349,7 +352,7 @@ function findReplacement(
     request: ImportPathReplacementRequest,
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
-): ImportPathReplacement | undefined {
+): ReplacementMatch | undefined {
     const dependencyReplacement = findReplacementInBundles(
         request,
         bundleDependencies,
@@ -385,13 +388,8 @@ function contentWithSourceFilePath(
 
 function runtimeSourceFilePathForDeclaration(
     bundle: BundleSubstitutionSource,
-    declarationSourceFilePath: string
+    declarationContent: BundleSubstitutionSource['contents'][number]
 ): string | undefined {
-    const declarationContent = contentWithSourceFilePath(bundle, declarationSourceFilePath);
-    if (declarationContent === undefined) {
-        return undefined;
-    }
-
     const runtimeContent = bundle.contents.find(function (content) {
         return declarationCompanionCandidates(content.fileDescription.targetFilePath)
             .includes(declarationContent.fileDescription.targetFilePath);
@@ -403,23 +401,20 @@ function substitutedSourceFilePathsFor(
     bundle: BundleSubstitutionSource,
     file: string
 ): readonly string[] {
-    if (declarationCompanionCandidates(file).length > 0) {
-        return [
-            file
-        ];
-    }
-
-    if (!isDeclarationCompanionFilePath(file)) {
-        return [];
-    }
-
-    const runtimeSourceFilePath = runtimeSourceFilePathForDeclaration(bundle, file);
-    if (runtimeSourceFilePath === undefined) {
-        return contentWithSourceFilePath(bundle, file) === undefined
+    const content = contentWithSourceFilePath(bundle, file);
+    if (content === undefined || !isDeclarationCompanionFilePath(content.fileDescription.targetFilePath)) {
+        return declarationCompanionCandidates(file).length === 0
             ? []
             : [
                 file
             ];
+    }
+
+    const runtimeSourceFilePath = runtimeSourceFilePathForDeclaration(bundle, content);
+    if (runtimeSourceFilePath === undefined) {
+        return [
+            file
+        ];
     }
 
     return [
@@ -428,39 +423,14 @@ function substitutedSourceFilePathsFor(
     ];
 }
 
-function bundleNamed(
-    bundles: readonly BundleSubstitutionSource[],
-    packageName: string
-): BundleSubstitutionSource | undefined {
-    return bundles.find(function (bundle) {
-        return bundle.name === packageName;
-    });
-}
-
-function bundleForReplacement(
-    replacement: ImportPathReplacement,
-    bundleLookup: BundleReplacementLookup
-): BundleSubstitutionSource | undefined {
-    return bundleNamed([
-        ...bundleLookup.bundleDependencies,
-        ...bundleLookup.bundlePeerDependencies
-    ], replacement.packageName);
-}
-
 function withSubstitutedSourcePaths(
     substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
-    replacement: ImportPathReplacement,
-    request: ImportPathReplacementRequest,
-    bundleLookup: BundleReplacementLookup
+    match: ReplacementMatch,
+    request: ImportPathReplacementRequest
 ): ReadonlyMap<string, ReadonlySet<string>> {
-    const bundle = bundleForReplacement(replacement, bundleLookup);
-    if (bundle === undefined) {
-        return substitutedSourceFilePathsByPackageName;
-    }
-
     let updated = substitutedSourceFilePathsByPackageName;
-    for (const sourceFilePath of substitutedSourceFilePathsFor(bundle, request.sourceFilePath)) {
-        updated = withSubstitutedSourcePath(updated, replacement.packageName, sourceFilePath);
+    for (const sourceFilePath of substitutedSourceFilePathsFor(match.bundle, request.sourceFilePath)) {
+        updated = withSubstitutedSourcePath(updated, match.replacement.packageName, sourceFilePath);
     }
     return updated;
 }
@@ -472,17 +442,15 @@ export function findAllPathReplacements(
 ): Replacements {
     const importPathReplacements = new Map<string, ImportPathReplacement>();
     const matchedBundleDependencies: string[] = [];
-    const bundleLookup: BundleReplacementLookup = { bundleDependencies, bundlePeerDependencies };
     let substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 
-    function recordReplacement(replacement: ImportPathReplacement, request: ImportPathReplacementRequest): void {
-        importPathReplacements.set(request.sourceFilePath, replacement);
-        matchedBundleDependencies.push(replacement.packageName);
+    function recordReplacement(match: ReplacementMatch, request: ImportPathReplacementRequest): void {
+        importPathReplacements.set(request.sourceFilePath, match.replacement);
+        matchedBundleDependencies.push(match.replacement.packageName);
         substitutedSourceFilePathsByPackageName = withSubstitutedSourcePaths(
             substitutedSourceFilePathsByPackageName,
-            replacement,
-            request,
-            bundleLookup
+            match,
+            request
         );
     }
 
