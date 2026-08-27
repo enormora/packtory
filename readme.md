@@ -143,7 +143,7 @@ Packtory supports two versioning modes:
    - Download and extract the tarball of the latest version in-memory.
    - Compare the contents of all files from the downloaded tarball with the contents of all files resolved from the bundler:
      - If all files are the same, no new version is needed.
-     - If there are any differences, increase the latest version number by one (patch version), generate a new `package.json`, create a tarball, and publish the new version.
+     - If there are any differences, increase the latest version number by one (patch version), generate a new `package.json`, verify that the exact target version is not already published with different artifacts, create a tarball, and publish the new version.
    - If no version is available in the registry, an initial version will be built and published with version `0.0.1` (default but can be changed in the configuration).
 
 2. **Manual Versioning:**
@@ -153,6 +153,7 @@ Packtory supports two versioning modes:
    - `provideVersion(input)` runs after Packtory has calculated the package attribution files. The input contains `packageName`, `currentVersion`, `targetSourceFiles`, `ignoredAttributionPaths`, `registrySettings`, and `stage`.
    - The returned version is validated like a static manual version. Returning `currentVersion` keeps the package on the current registry version when no release is needed.
    - Version sources are still manual versioning from Packtory's perspective because the source chooses the exact version. Packtory's automatic mode is reserved for artifact comparison plus patch bumps.
+   - Before publishing, Packtory verifies the exact chosen version. A version that already exists with different artifacts, or exists without being tagged `latest`, fails before any publish write starts.
 
 ```javascript
 versioning: {

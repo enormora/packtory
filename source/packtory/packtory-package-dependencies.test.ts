@@ -104,6 +104,7 @@ function packageProcessor(): PackageProcessor {
         },
         build: unexpectedPackageProcessorCall,
         buildAndPublish: unexpectedPackageProcessorCall,
+        publishPreparedPackage: unexpectedPackageProcessorCall,
         tryBuildAndPublish: unexpectedPackageProcessorCall
     };
 }
@@ -118,6 +119,7 @@ function failingPackageProcessor(failure: Error): PackageProcessor {
         },
         build: unexpectedPackageProcessorCall,
         buildAndPublish: unexpectedPackageProcessorCall,
+        publishPreparedPackage: unexpectedPackageProcessorCall,
         tryBuildAndPublish: unexpectedPackageProcessorCall
     };
 }

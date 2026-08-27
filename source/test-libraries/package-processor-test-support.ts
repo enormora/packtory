@@ -85,6 +85,7 @@ export type ProcessorOverrides = {
     readonly linkBundle?: SinonSpy;
     readonly determineCurrentVersion?: SinonSpy;
     readonly findCurrentHeadPublishedVersion?: SinonSpy;
+    readonly verifyBundlePublishTarget?: SinonSpy;
     readonly addVersion?: SinonSpy;
     readonly increaseVersion?: SinonSpy;
     readonly checkBundleAlreadyPublished?: SinonSpy;
@@ -101,6 +102,7 @@ export type ProcessorContext = {
     readonly linkBundle: SinonSpy;
     readonly determineCurrentVersion: SinonSpy;
     readonly findCurrentHeadPublishedVersion: SinonSpy;
+    readonly verifyBundlePublishTarget: SinonSpy;
     readonly addVersion: SinonSpy;
     readonly increaseVersion: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
@@ -115,6 +117,7 @@ type ProcessorSpies = {
     readonly linkBundle: SinonSpy;
     readonly determineCurrentVersion: SinonSpy;
     readonly findCurrentHeadPublishedVersion: SinonSpy;
+    readonly verifyBundlePublishTarget: SinonSpy;
     readonly addVersion: SinonSpy;
     readonly increaseVersion: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
@@ -135,6 +138,10 @@ function createDefaultProcessorSpies(): ProcessorSpies {
         linkBundle: fake.resolves(createLinkedBundle()),
         determineCurrentVersion: fake.resolves(Maybe.nothing()),
         findCurrentHeadPublishedVersion: fake.resolves(undefined),
+        verifyBundlePublishTarget: fake.resolves({
+            alreadyPublished: false,
+            publishedArtifacts: Maybe.nothing()
+        }),
         addVersion: fake.returns(createVersionedBundle()),
         increaseVersion: fake.returns(createVersionedBundle('package-a', '1.2.4')),
         checkBundleAlreadyPublished: fake.resolves({
@@ -164,6 +171,10 @@ function createProcessorSpies(overrides: ProcessorOverrides): ProcessorSpies {
             overrides.findCurrentHeadPublishedVersion,
             defaults.findCurrentHeadPublishedVersion
         ),
+        verifyBundlePublishTarget: providedSpy(
+            overrides.verifyBundlePublishTarget,
+            defaults.verifyBundlePublishTarget
+        ),
         addVersion: providedSpy(overrides.addVersion, defaults.addVersion),
         increaseVersion: providedSpy(overrides.increaseVersion, defaults.increaseVersion),
         checkBundleAlreadyPublished: providedSpy(
@@ -189,6 +200,7 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
         bundleEmitter: {
             determineCurrentVersion: spies.determineCurrentVersion,
             findCurrentHeadPublishedVersion: spies.findCurrentHeadPublishedVersion,
+            verifyBundlePublishTarget: spies.verifyBundlePublishTarget,
             checkBundleAlreadyPublished: spies.checkBundleAlreadyPublished,
             publish: spies.publish
         },
@@ -213,6 +225,7 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
         linkBundle: spies.linkBundle,
         determineCurrentVersion: spies.determineCurrentVersion,
         findCurrentHeadPublishedVersion: spies.findCurrentHeadPublishedVersion,
+        verifyBundlePublishTarget: spies.verifyBundlePublishTarget,
         addVersion: spies.addVersion,
         increaseVersion: spies.increaseVersion,
         checkBundleAlreadyPublished: spies.checkBundleAlreadyPublished,

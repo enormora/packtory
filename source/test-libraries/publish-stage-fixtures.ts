@@ -15,6 +15,14 @@ export function publishableConfigFixture(name: string): ValidConfigResult {
     return validConfigFixture({ packages: [ packageConfigFixture({ name, publishSettings: publicPublishSettings }) ] });
 }
 
+export function publishableConfigFixtures(packageNames: readonly string[]): ValidConfigResult {
+    return validConfigFixture({
+        packages: packageNames.map(function (name) {
+            return packageConfigFixture({ name, publishSettings: publicPublishSettings });
+        })
+    });
+}
+
 export function resolvedPublishPackageFixture(name: string): ResolvedPackage {
     return {
         name,

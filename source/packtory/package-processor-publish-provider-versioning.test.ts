@@ -9,7 +9,8 @@ import {
     createVersionedBundle
 } from '../test-libraries/package-processor-test-support.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
-import type { BuildAndPublishResult, DetermineVersionAndPublishOptions } from './package-processor.ts';
+import type { BuildAndPublishResult } from './package-processor.ts';
+import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
 
 type VersionedBundleInput = { readonly version: string; };
 type VersionedBundleBuilder = {

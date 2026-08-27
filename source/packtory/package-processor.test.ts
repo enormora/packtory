@@ -13,7 +13,8 @@ import {
     createVersionedBundle,
     getCallArgs
 } from '../test-libraries/package-processor-test-support.ts';
-import type { DetermineVersionAndPublishOptions, PackageProcessor } from './package-processor.ts';
+import type { PackageProcessor } from './package-processor.ts';
+import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
 
 type TransformationInput = {
     readonly transformationsEnabled: boolean;

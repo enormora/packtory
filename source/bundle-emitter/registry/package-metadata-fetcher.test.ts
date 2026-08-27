@@ -7,6 +7,7 @@ import { fakeNpmFetch, registryTarballBytes } from '../../test-libraries/registr
 import {
     fetchLatestPackageReleaseMetadata,
     fetchLatestPackageVersion,
+    fetchPackageVersionReleaseMetadata,
     fetchStagedPackageVersions,
     type NpmFetch
 } from './package-metadata-fetcher.ts';
@@ -14,7 +15,9 @@ import type { TarballIntegrity } from './tarball-integrity.ts';
 
 const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
 const latestVersion = '1.2.3';
+const targetVersion = '1.2.4';
 const tarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.3.tgz';
+const targetTarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.4.tgz';
 const matchingIntegrity = `sha512-${createHash('sha512').update(registryTarballBytes).digest('base64')}`;
 const matchingShasum = [ '9ef2570c89e65b9f', 'e47687b0b49e122e', '59354bef' ].join('');
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
@@ -342,6 +345,117 @@ suite('package-metadata-fetcher', function () {
                     'Version publish time "not-a-date" is not a valid timestamp'
                 );
             }
+        });
+    });
+
+    suite('exact package release metadata', function () {
+        test('fetchPackageVersionReleaseMetadata returns metadata for a non-latest version', async function () {
+            const result = await fetchPackageVersionReleaseMetadata(
+                fakeNpmFetch(
+                    fake.resolves({
+                        name: 'pkg-a',
+                        'dist-tags': { latest: latestVersion },
+                        time: { [targetVersion]: '2026-05-20T10:00:00.000Z' },
+                        versions: {
+                            [latestVersion]: { dist: { tarball: tarballUrl } },
+                            [targetVersion]: {
+                                dist: {
+                                    tarball: targetTarballUrl,
+                                    integrity: matchingIntegrity,
+                                    shasum: matchingShasum
+                                },
+                                gitHead: 'abcdef123456'
+                            }
+                        }
+                    })
+                ),
+                'pkg-a',
+                targetVersion,
+                settings
+            );
+
+            assert.deepStrictEqual(
+                result.unwrapOr({
+                    version: '',
+                    tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
+                    publishedAt: undefined,
+                    gitHead: undefined,
+                    latestVersion: undefined
+                }),
+                {
+                    version: targetVersion,
+                    tarballUrl: targetTarballUrl,
+                    tarballIntegrity: { integrity: matchingIntegrity, shasum: matchingShasum },
+                    publishedAt: new Date('2026-05-20T10:00:00.000Z'),
+                    gitHead: 'abcdef123456',
+                    latestVersion
+                }
+            );
+        });
+
+        test('fetchPackageVersionReleaseMetadata returns Nothing when the exact version is missing', async function () {
+            const result = await fetchPackageVersionReleaseMetadata(
+                fakeNpmFetch(fake.resolves(latestPackageResponse())),
+                'pkg-a',
+                targetVersion,
+                settings
+            );
+
+            assert.strictEqual(result.isNothing, true);
+        });
+
+        test('fetchPackageVersionReleaseMetadata returns Nothing when the package is missing', async function () {
+            const result = await fetchPackageVersionReleaseMetadata(
+                fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+                'pkg-a',
+                targetVersion,
+                settings
+            );
+
+            assert.strictEqual(result.isNothing, true);
+        });
+
+        test('fetchPackageVersionReleaseMetadata throws when exact version digest metadata is invalid', async function () {
+            await assert.rejects(async function () {
+                await fetchPackageVersionReleaseMetadata(
+                    fakeNpmFetch(
+                        fake.resolves({
+                            name: 'pkg-a',
+                            'dist-tags': { latest: latestVersion },
+                            versions: {
+                                [targetVersion]: {
+                                    dist: {
+                                        tarball: targetTarballUrl,
+                                        integrity: 42
+                                    }
+                                }
+                            }
+                        })
+                    ),
+                    'pkg-a',
+                    targetVersion,
+                    settings
+                );
+            }, { message: 'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.4"' });
+        });
+
+        test('fetchPackageVersionReleaseMetadata throws when exact version publish time is invalid', async function () {
+            await assert.rejects(async function () {
+                await fetchPackageVersionReleaseMetadata(
+                    fakeNpmFetch(
+                        fake.resolves({
+                            name: 'pkg-a',
+                            'dist-tags': { latest: latestVersion },
+                            time: { [targetVersion]: 'not-a-date' },
+                            versions: { [targetVersion]: { dist: { tarball: targetTarballUrl } } }
+                        })
+                    ),
+                    'pkg-a',
+                    targetVersion,
+                    settings
+                );
+            }, { message: 'Version publish time "not-a-date" is not a valid timestamp' });
         });
     });
 

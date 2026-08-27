@@ -65,6 +65,7 @@ type TestPackageProcessor = {
     readonly resolveAndLinkWithPromotedDeclarationCompanions: SinonSpy;
     readonly tryBuildAndPublish: SinonSpy;
     readonly buildAndPublish: SinonSpy;
+    readonly publishPreparedPackage: SinonSpy;
     readonly build: () => Promise<never>;
 };
 
@@ -271,6 +272,7 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
         resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,
         tryBuildAndPublish,
         buildAndPublish,
+        publishPreparedPackage: buildAndPublish,
         async build() {
             throw new Error('Not implemented in tests');
         }

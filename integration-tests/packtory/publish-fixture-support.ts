@@ -4,6 +4,7 @@ import npmFetch from 'npm-registry-fetch';
 import { publish } from 'libnpmpublish';
 import { loadPackageJson } from '../load-package-json.ts';
 import type { RegistryDetails } from '../registry.ts';
+import { createTarballBuilder, type TarballBuilder } from '../../source/tar/tarball-builder.ts';
 import {
     buildAndPublishAll,
     type PacktoryConfig,
@@ -13,6 +14,8 @@ import { createRegistryClient } from '../../source/bundle-emitter/registry/regis
 import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
 const timers = process.getBuiltinModule('node:timers');
+const fs = process.getBuiltinModule('node:fs').promises;
+const nodeCrypto = process.getBuiltinModule('node:crypto');
 
 const registryClient = createRegistryClient({
     npmFetch,
@@ -61,6 +64,44 @@ type PublishFixturePackagesInput = {
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
     readonly authMode?: 'basic' | 'bearer';
     readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
+};
+type PublishTaggedVersionInput = {
+    readonly distTag: string;
+    readonly latestVersion: string;
+    readonly name: string;
+    readonly registryDetails: RegistryDetails;
+    readonly version: string;
+};
+type StoredPackageDocument = {
+    readonly _id: string;
+    readonly name: string;
+    readonly 'dist-tags': Readonly<Record<string, string>>;
+    readonly versions: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+    readonly time: Readonly<Record<string, string>>;
+    readonly users: Readonly<Record<string, never>>;
+    readonly _uplinks: Readonly<Record<string, never>>;
+    readonly _distfiles: Readonly<Record<string, { readonly url: string; }>>;
+    readonly _attachments: Readonly<Record<string, { readonly version: string; }>>;
+    readonly _rev: string;
+};
+type TarballData = Awaited<ReturnType<TarballBuilder['build']>>;
+type StoredPackageDocumentInput = {
+    readonly attachmentName: string;
+    readonly distTag: string;
+    readonly latestVersion: string;
+    readonly manifest: Readonly<Record<string, unknown>>;
+    readonly name: string;
+    readonly packageIntegrity: string;
+    readonly tarballUrl: string;
+    readonly version: string;
+};
+type WriteStoredPackageInput = {
+    readonly attachmentName: string;
+    readonly name: string;
+    readonly packageDocument: StoredPackageDocument;
+    readonly registryDetails: RegistryDetails;
+    readonly tarball: TarballData;
+    readonly version: string;
 };
 
 function createRegistrySettings(
@@ -159,6 +200,112 @@ export async function publishFixturePackages(input: PublishFixturePackagesInput)
 
     const outcome = await buildAndPublishAll({ ...config, registrySettings }, { dryRun: false, stage: false });
     return outcome.result;
+}
+
+async function createTarballIntegrity(tarball: TarballData): Promise<string> {
+    const digest = await nodeCrypto.webcrypto.subtle.digest('SHA-512', new Uint8Array(tarball));
+    return `sha512-${Buffer.from(digest).toString('base64')}`;
+}
+
+function createStoredPackageDocument(input: StoredPackageDocumentInput): StoredPackageDocument {
+    const publishedDate = new Date();
+    const publishedAt = publishedDate.toISOString();
+    return {
+        _id: input.name,
+        name: input.name,
+        'dist-tags': {
+            latest: input.latestVersion,
+            [input.distTag]: input.version
+        },
+        versions: {
+            [input.latestVersion]: {
+                ...input.manifest,
+                version: input.latestVersion,
+                dist: {
+                    integrity: input.packageIntegrity,
+                    tarball: input.tarballUrl
+                }
+            },
+            [input.version]: {
+                ...input.manifest,
+                dist: {
+                    integrity: input.packageIntegrity,
+                    tarball: input.tarballUrl
+                }
+            }
+        },
+        time: {
+            created: publishedAt,
+            modified: publishedAt,
+            [input.latestVersion]: publishedAt,
+            [input.version]: publishedAt
+        },
+        users: {},
+        _uplinks: {},
+        _distfiles: {
+            [input.attachmentName]: { url: input.tarballUrl }
+        },
+        _attachments: {
+            [input.attachmentName]: {
+                version: input.version
+            }
+        },
+        _rev: '1-fixture'
+    };
+}
+
+async function writeStoredPackage(input: WriteStoredPackageInput): Promise<void> {
+    const packageFolder = path.join(input.registryDetails.storageDirectory, input.name);
+    await fs.mkdir(packageFolder, { recursive: true });
+    await fs.writeFile(path.join(packageFolder, input.attachmentName), input.tarball);
+    await fs.writeFile(path.join(packageFolder, 'package.json'), JSON.stringify(input.packageDocument, null, '\t'));
+
+    const registrySettings = createRegistrySettings(input.registryDetails);
+    const metadata = await registryClient.fetchVersionReleaseMetadata(input.name, input.version, registrySettings);
+    if (metadata.isNothing) {
+        throw new Error(`Seeded tagged fixture version "${input.name}@${input.version}" was not readable`);
+    }
+}
+
+export async function publishTaggedRegistryVersion(input: PublishTaggedVersionInput): Promise<void> {
+    const manifest = {
+        name: input.name,
+        version: input.version,
+        type: 'module'
+    };
+    const tarball = await createTarballBuilder().build([
+        {
+            filePath: 'package/package.json',
+            content: JSON.stringify(manifest),
+            isExecutable: false
+        },
+        {
+            filePath: 'package/index.js',
+            content: 'export {};\n',
+            isExecutable: false
+        }
+    ]);
+    const attachmentName = `${input.name}-${input.version}.tgz`;
+    const tarballUrl = `${input.registryDetails.registryUrl}/${input.name}/-/${attachmentName}`;
+    const packageIntegrity = await createTarballIntegrity(tarball);
+    const packageDocument = createStoredPackageDocument({
+        attachmentName,
+        distTag: input.distTag,
+        latestVersion: input.latestVersion,
+        manifest,
+        name: input.name,
+        packageIntegrity,
+        tarballUrl,
+        version: input.version
+    });
+    await writeStoredPackage({
+        attachmentName,
+        name: input.name,
+        packageDocument,
+        registryDetails: input.registryDetails,
+        tarball,
+        version: input.version
+    });
 }
 
 export function assertPublishSucceeded(result: PublishAllResult): void {

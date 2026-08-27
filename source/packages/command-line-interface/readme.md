@@ -89,6 +89,7 @@ packtory <command> [options]
 - Packages that have never been published are rendered with a `[first publish]` chip and every bundled file in the **Added** group.
 - Packages whose new build is byte-equal to the published version are rendered as a single dim `no changes` line.
 - A package that fails earlier in the dry-run build appears in the document `Issues` section rather than as a per-package diff entry.
+- A package whose selected target version already exists with different artifacts, or exists without being tagged `latest`, appears in `Issues` before publish can start.
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output. Failure-only runs go directly to standard output.
 - `packtory release-diff` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
 - `release-diff` is read-only: it never publishes and never writes to the registry. It is currently terminal-only; an HTML/`--open` variant and an `--against <version>` selector are not part of this release.

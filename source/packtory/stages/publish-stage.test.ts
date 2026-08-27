@@ -75,14 +75,11 @@ suite('publish-stage', function () {
         );
     });
 
-    test('determineVersionAndPublishAll exposes the published bundle via selectNext and the version+status via createProgressEvent', async function () {
+    test('determineVersionAndPublishAll exposes dry-run bundles via selectNext and progress events', async function () {
         const bundle = versionedPublishBundleFixture('pkg-a', '2.0.0');
         const published = buildAndPublishResultFixture(bundle);
         const processor: PackageProcessor = {
             ...stubPackageProcessor,
-            async buildAndPublish() {
-                return published;
-            },
             async tryBuildAndPublish() {
                 return published;
             }
@@ -99,7 +96,7 @@ suite('publish-stage', function () {
             },
             config,
             [ resolvedPublishPackageFixture('pkg-a') ],
-            { dryRun: false, stage: false }
+            { dryRun: true, stage: false }
         );
 
         assert.partialDeepStrictEqual(capture, {
@@ -120,7 +117,7 @@ suite('publish-stage', function () {
         const config = publishableConfigFixture('pkg-a');
         const processor: PackageProcessor = {
             ...stubPackageProcessor,
-            async buildAndPublish() {
+            async tryBuildAndPublish() {
                 throw new Error('publish failed');
             }
         };

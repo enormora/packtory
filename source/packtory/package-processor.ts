@@ -7,14 +7,10 @@ import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 import { createResolveAndBuildOperations } from './package-processor-build.ts';
-import {
-    createPublishOperations,
-    type BuildAndPublishResult as PublishBuildAndPublishResult,
-    type DetermineVersionAndPublishOptions as PublishDetermineVersionAndPublishOptions
-} from './package-processor-publish.ts';
+import { createPublishOperations, type PublishOperations } from './package-processor-publish.ts';
 
-export type BuildAndPublishResult = PublishBuildAndPublishResult;
-export type DetermineVersionAndPublishOptions = PublishDetermineVersionAndPublishOptions;
+export type BuildAndPublishResult = Awaited<ReturnType<PublishOperations['tryBuildAndPublish']>>;
+type DetermineVersionAndPublishOptions = Parameters<PublishOperations['tryBuildAndPublish']>[0];
 
 export type PackageProcessorDependencies = {
     readonly progressBroadcaster: ProgressBroadcastProvider;
@@ -39,6 +35,10 @@ export type PackageProcessor = {
     ) => Promise<Awaited<ReturnType<BundleLinker['linkBundle']>>>;
     build: (options: BuildOptions) => Promise<Awaited<ReturnType<VersionManager['addVersion']>>>;
     buildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
+    publishPreparedPackage: (
+        options: DetermineVersionAndPublishOptions,
+        result: BuildAndPublishResult
+    ) => Promise<BuildAndPublishResult>;
     tryBuildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
 };
 
