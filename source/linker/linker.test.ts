@@ -258,7 +258,7 @@ suite('linker', function () {
         assert.deepStrictEqual(
             result.substitutedSourceFilePathsByPackageName,
             new Map([
-                [ 'bundle-dependency', new Set([ '/src/dep.js' ]) ]
+                [ 'bundle-dependency', new Set([ '/src/dep.js', '/src/dep.d.ts' ]) ]
             ])
         );
     });

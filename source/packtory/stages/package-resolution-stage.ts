@@ -1,5 +1,6 @@
 import { mapValues } from 'remeda';
 import type { Result } from 'true-myth';
+import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
 import { resolveRootsAndSurface } from '../../resource-resolver/resource-resolve-options.ts';
 import { withFailureCapture } from '../../report/decorators.ts';
@@ -58,7 +59,9 @@ function collectPromotedSourcePathsByPackageName(
         ) {
             const existing = promotedSourcePathsByPackageName.get(packageName) ?? new Set<string>();
             for (const sourceFilePath of sourceFilePaths) {
-                existing.add(sourceFilePath);
+                if (declarationCompanionCandidates(sourceFilePath).length > 0) {
+                    existing.add(sourceFilePath);
+                }
             }
             promotedSourcePathsByPackageName.set(packageName, existing);
         }

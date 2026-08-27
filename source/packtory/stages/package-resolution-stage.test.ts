@@ -147,7 +147,7 @@ suite('package-resolution-stage', function () {
         assert.strictEqual(capture.emitScheduledEvents, true);
     });
 
-    test('resolvePackages reruns resolution with promoted source paths after substitutions are observed', async function () {
+    test('resolvePackages reruns resolution with runtime paths from substitution records', async function () {
         const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
         const promotionCalls: {
             readonly packageName: string;
@@ -157,7 +157,7 @@ suite('package-resolution-stage', function () {
         async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
             resolveAndLinkCallCount += 1;
             const substitutions = options.name === 'pkg-b'
-                ? new Map([ [ 'pkg-a', new Set([ '/src/pkg-a/internal.js' ]) ] ])
+                ? new Map([ [ 'pkg-a', new Set([ '/src/pkg-a/internal.js', '/src/pkg-a/internal.d.ts' ]) ] ])
                 : new Map();
             return linkedBundle(options.name, substitutions);
         }
