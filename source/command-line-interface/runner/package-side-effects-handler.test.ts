@@ -88,7 +88,7 @@ suite('package-side-effects-handler', function () {
 
         const exitCode = await runPackageSideEffectsHandler({
             log(message) {
-                log(message);
+                log(stripVTControlCharacters(message));
             },
             packtory,
             spinnerRenderer: sideEffectsSpinnerRenderer,
