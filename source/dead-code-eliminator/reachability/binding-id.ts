@@ -1,4 +1,6 @@
 import type { Node as TsMorphNode } from 'ts-morph';
+import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
+import type { DeclarationNodeIndex } from './identifier-target-collector.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 
 export type FileBindingSet = {
@@ -6,18 +8,71 @@ export type FileBindingSet = {
     readonly bindings: readonly BindingDescriptor[];
 };
 
+type BindingIdsByName = ReadonlyMap<string, string>;
+type DeclarationIdsByName = ReadonlyMap<string, readonly string[]>;
+
 export function bindingId(filePath: string, name: string): string {
     return `${filePath}::${name}`;
 }
 
-export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): Map<TsMorphNode, string> {
-    const index = new Map<TsMorphNode, string>();
+function bindingIdsByFile(files: readonly FileBindingSet[]): Map<string, BindingIdsByName> {
+    const result = new Map<string, BindingIdsByName>();
     for (const file of files) {
-        for (const binding of file.bindings) {
-            index.set(binding.declarationNode, bindingId(file.sourceFilePath, binding.name));
+        result.set(
+            file.sourceFilePath,
+            new Map(
+                file.bindings.map(function (binding) {
+                    return [ binding.name, bindingId(file.sourceFilePath, binding.name) ];
+                })
+            )
+        );
+    }
+    return result;
+}
+
+function companionBindingId(
+    binding: BindingDescriptor,
+    file: FileBindingSet,
+    idsByFile: ReadonlyMap<string, BindingIdsByName>
+): string | undefined {
+    for (const [ sourceFilePath, bindingIds ] of idsByFile) {
+        if (declarationCompanionCandidates(sourceFilePath).includes(file.sourceFilePath)) {
+            return bindingIds.get(binding.name);
         }
     }
-    return index;
+    return undefined;
+}
+
+function declarationBindingIds(
+    binding: BindingDescriptor,
+    file: FileBindingSet,
+    idsByFile: ReadonlyMap<string, BindingIdsByName>
+): readonly string[] {
+    const companionId = companionBindingId(binding, file, idsByFile);
+    return [
+        bindingId(file.sourceFilePath, binding.name),
+        ...companionId === undefined ? [] : [ companionId ]
+    ];
+}
+
+export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): DeclarationNodeIndex {
+    const idsByNode = new Map<TsMorphNode, readonly string[]>();
+    const idsByFileAndName = new Map<string, DeclarationIdsByName>();
+    const idsByFile = bindingIdsByFile(files);
+    function addFileDeclarationIds(file: FileBindingSet): void {
+        const idsByName = new Map<string, readonly string[]>();
+        for (const binding of file.bindings) {
+            const bindingIds = declarationBindingIds(binding, file, idsByFile);
+            idsByNode.set(binding.declarationNode, bindingIds);
+            idsByName.set(binding.name, bindingIds);
+        }
+        idsByFileAndName.set(file.sourceFilePath, idsByName);
+    }
+
+    for (const file of files) {
+        addFileDeclarationIds(file);
+    }
+    return { idsByNode, idsByFileAndName };
 }
 
 export function buildBindingsByFile(files: readonly FileBindingSet[]): Map<string, Set<string>> {
