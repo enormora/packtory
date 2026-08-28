@@ -12,6 +12,7 @@ import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
 import { createInspectPackageDependenciesValidated } from './packtory-package-dependencies.ts';
+import { createInspectPackageSideEffectsValidated } from './packtory-package-side-effects.ts';
 import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import { createRunPackAllValidated, createRunPackValidated } from './packtory-pack.ts';
@@ -24,6 +25,7 @@ import {
     configError,
     createPackOutcome,
     createPackageDependencyInspectionOutcome,
+    createPackageSideEffectsInspectionOutcome,
     createPackageTreeOutcome,
     createReleasePlanOutcome,
     createPublishAllOutcome,
@@ -36,6 +38,9 @@ import {
     type PackageDependencyInspection as PackageDependencyInspectionBase,
     type PackageDependencyInspectionOutcome as PackageDependencyInspectionOutcomeBase,
     type PackageDependencyInspectionResult as PackageDependencyInspectionResultBase,
+    type PackageSideEffectsInspection as PackageSideEffectsInspectionBase,
+    type PackageSideEffectsInspectionOutcome as PackageSideEffectsInspectionOutcomeBase,
+    type PackageSideEffectsInspectionResult as PackageSideEffectsInspectionResultBase,
     type PackageTree,
     type PackageTreeOutcome,
     type PackAllOutcome as PackAllOutcomeBase,
@@ -95,6 +100,9 @@ export type PackageReleaseAnalysisClassification = PackageReleaseAnalysisClassif
 export type PackageDependencyInspection = PackageDependencyInspectionBase;
 export type PackageDependencyInspectionOutcome = PackageDependencyInspectionOutcomeBase;
 export type PackageDependencyInspectionResult = PackageDependencyInspectionResultBase;
+export type PackageSideEffectsInspection = PackageSideEffectsInspectionBase;
+export type PackageSideEffectsInspectionOutcome = PackageSideEffectsInspectionOutcomeBase;
+export type PackageSideEffectsInspectionResult = PackageSideEffectsInspectionResultBase;
 export type ResolveAndLinkFailure = ResolveAndLinkFailureBase;
 export type Packtory = PacktoryBase;
 
@@ -127,6 +135,7 @@ type ValidatedRunners = {
     readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
     readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
+    readonly inspectPackageSideEffectsValidated: ReturnType<typeof createInspectPackageSideEffectsValidated>;
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
 };
 
@@ -142,6 +151,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         runPackValidated: createRunPackValidated(dependencies),
         runPackAllValidated: createRunPackAllValidated(dependencies),
         inspectPackageDependenciesValidated: createInspectPackageDependenciesValidated(dependencies),
+        inspectPackageSideEffectsValidated: createInspectPackageSideEffectsValidated(dependencies),
         inspectPackageTreeValidated: createInspectPackageTreeValidated(dependencies)
     };
 }
@@ -169,6 +179,12 @@ type PackAllPackagesInput = {
 type InspectPackageDependenciesInput = {
     readonly config: unknown;
     readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
+    readonly packageName: string;
+};
+
+type InspectPackageSideEffectsInput = {
+    readonly config: unknown;
+    readonly inspectPackageSideEffectsValidated: ReturnType<typeof createInspectPackageSideEffectsValidated>;
     readonly packageName: string;
 };
 
@@ -272,6 +288,17 @@ async function inspectPackageDependenciesWithValidation(
     return createPackageDependencyInspectionOutcome(result);
 }
 
+async function inspectPackageSideEffectsWithValidation(
+    input: InspectPackageSideEffectsInput
+): Promise<PackageSideEffectsInspectionOutcome> {
+    const validation = validateConfigWithoutRegistry(input.config);
+    if (validation.isErr) {
+        return createPackageSideEffectsInspectionOutcome(Result.err(configError(validation.error)));
+    }
+    const result = await input.inspectPackageSideEffectsValidated(validation.value, input.packageName);
+    return createPackageSideEffectsInspectionOutcome(result);
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const {
         resolveAndLinkAllValidated,
@@ -282,6 +309,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         runPackValidated,
         runPackAllValidated,
         inspectPackageDependenciesValidated,
+        inspectPackageSideEffectsValidated,
         inspectPackageTreeValidated
     } = createValidatedRunners(dependencies);
 
@@ -422,6 +450,13 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             return inspectPackageDependenciesWithValidation({
                 config,
                 inspectPackageDependenciesValidated,
+                packageName
+            });
+        },
+        async inspectPackageSideEffects(config, packageName) {
+            return inspectPackageSideEffectsWithValidation({
+                config,
+                inspectPackageSideEffectsValidated,
                 packageName
             });
         },

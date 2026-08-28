@@ -5,6 +5,7 @@ import { Maybe, Result } from 'true-myth';
 import { fakeCheckRunner } from '../test-libraries/check-fixtures.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import {
+    analyzedBundleResource,
     bundleResource,
     linkedBundle,
     versionedBundleWithManifest,
@@ -333,6 +334,22 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
     };
 }
 
+function createPureSideEffectsEliminator(): TestDeadCodeEliminator {
+    return {
+        async eliminate(inputs) {
+            return inputs.map(function (input) {
+                return {
+                    ...input.bundle,
+                    contents: [
+                        analyzedBundleResource('/package-a/index.js', { targetFilePath: 'index.js' })
+                    ],
+                    sideEffectsField: false
+                };
+            });
+        }
+    };
+}
+
 suite('packtory', function () {
     suite('resolve', function () {
         test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
@@ -535,6 +552,34 @@ suite('packtory', function () {
                     'Expected planReleaseAgainstLatestPublished() should fail but it did not'
                 );
                 assert.strictEqual(error.type, 'config');
+            });
+        });
+
+        suite('side effects', function () {
+            test('inspectPackageSideEffects() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.inspectPackageSideEffects({ invalid: true }, 'package-a');
+
+                const error = getErrResult(result, 'Expected inspectPackageSideEffects() should fail but it did not');
+                assert.strictEqual(error.type, 'config');
+            });
+
+            test('inspectPackageSideEffects() returns side effect inspection on success', async function () {
+                const { packtory } = createPacktoryUnderTest({
+                    deadCodeEliminator: createPureSideEffectsEliminator()
+                });
+
+                const { result } = await packtory.inspectPackageSideEffects(createConfigWithoutRegistry(), 'package-a');
+
+                assert.deepStrictEqual(
+                    getOkResult(result, 'Expected inspectPackageSideEffects() should succeed'),
+                    {
+                        packageName: 'package-a',
+                        packageJsonDecision: { type: 'side-effects-false' },
+                        impureFiles: []
+                    }
+                );
             });
         });
     });

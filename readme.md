@@ -495,7 +495,7 @@ Files whose top-level statements are impure are left fully intact. The static si
 
 The same static analysis also drives, regardless of any `checks` configuration:
 
-1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` or `mainPackageJson` always wins over the auto-emitted value.
+1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins over the auto-emitted value.
 2. **The `noSideEffects` check rule** - opt-in CI enforcement that a package is tree-shakable.
 
 ### Dead Code Elimination Configuration
@@ -509,6 +509,8 @@ The same static analysis also drives, regardless of any `checks` configuration:
 ```
 
 `deadCodeElimination` may also live in `commonPackageSettings` to apply to every package; per-package values override the common setting. When `enabled: false`, the analyzer still runs (so the auto-emitted `sideEffects` and the `noSideEffects` rule keep working), but no declarations are removed from the package's source files.
+
+Use `packtory inspect side-effects <package>` to see the generated `sideEffects` decision and the runtime files, lines, and analyzer reasons that prevented `"sideEffects": false`.
 
 ### Source maps
 

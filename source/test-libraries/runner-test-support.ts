@@ -32,6 +32,7 @@ export type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
     readonly inspectPackageDependencies?: SinonSpy;
+    readonly inspectPackageSideEffects?: SinonSpy;
     readonly inspectPackageTree?: SinonSpy;
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
     readonly packAllPackages?: SinonSpy;
@@ -149,6 +150,17 @@ function createInspectPackageDependenciesFixture(overrides: Overrides): SinonSpy
         fake.resolves({ result: Result.ok({ packageName: 'pkg-a', dependencies: [] }) });
 }
 
+function createInspectPackageSideEffectsFixture(overrides: Overrides): SinonSpy {
+    return overrides.inspectPackageSideEffects ??
+        fake.resolves({
+            result: Result.ok({
+                packageName: 'pkg-a',
+                packageJsonDecision: { type: 'side-effects-false' },
+                impureFiles: []
+            })
+        });
+}
+
 export function createGitHubReleaseClientFixture(
     overrides: Readonly<Partial<GitHubReleaseClientFixture>>
 ): GitHubReleaseClientFixture {
@@ -184,6 +196,7 @@ function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunner
         diffAgainstLatestPublished: overrides.diffAgainstLatestPublished ??
             fake.resolves(toReleaseDiffOutcome(Result.ok([]))),
         inspectPackageDependencies: createInspectPackageDependenciesFixture(overrides),
+        inspectPackageSideEffects: createInspectPackageSideEffectsFixture(overrides),
         inspectPackageTree: createInspectPackageTreeFixture(overrides),
         planReleaseAgainstLatestPublished: overrides.planReleaseAgainstLatestPublished ??
             fake.resolves({

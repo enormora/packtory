@@ -10,6 +10,7 @@ import {
 } from '../../report/terminal-renderer/terminal-package-dependencies-renderer.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import { runPackageInspectionHandler } from './package-inspection-handler.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
@@ -69,26 +70,19 @@ function formatPackageDependenciesFailure(error: PackageDependencyInspectionFail
     return 'Package dependencies could not be inspected';
 }
 
-async function inspectPackageDependencies(dependencies: PackageDependenciesHandlerDependencies): Promise<number> {
-    const { configLoader, flags, log, packtory, spinnerRenderer } = dependencies;
-    const outcome = await packtory.inspectPackageDependencies(await configLoader.load(), flags.packageName);
-    spinnerRenderer.stopAll();
-
-    if (outcome.result.isErr) {
-        log(formatPackageDependenciesFailure(outcome.result.error, flags.trace));
-        return 1;
-    }
-
-    log(renderTerminalPackageDependencies(outcome.result.value).trimEnd());
-    return 0;
-}
-
 export async function runPackageDependenciesHandler(
     dependencies: PackageDependenciesHandlerDependencies
 ): Promise<number> {
-    try {
-        return await inspectPackageDependencies(dependencies);
-    } finally {
-        dependencies.spinnerRenderer.stopAll();
-    }
+    const { configLoader, flags, log, packtory, spinnerRenderer } = dependencies;
+    return await runPackageInspectionHandler({
+        log,
+        spinnerRenderer,
+        async inspect() {
+            return await packtory.inspectPackageDependencies(await configLoader.load(), flags.packageName);
+        },
+        renderFailure(error) {
+            return formatPackageDependenciesFailure(error, flags.trace);
+        },
+        renderSuccess: renderTerminalPackageDependencies
+    });
 }
