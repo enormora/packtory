@@ -22,6 +22,7 @@ import { getParseExitCode } from './command-parsing.ts';
 import { runConfigInspectHandler } from './config-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPackageDependenciesHandler } from './package-dependencies-handler.ts';
+import { runPackageSideEffectsHandler } from './package-side-effects-handler.ts';
 import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
@@ -89,6 +90,7 @@ const inspectCommandName = 'inspect';
 const inspectConfigCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
+const sideEffectsInspectCommandName = 'side-effects';
 const treeCommandName = 'tree';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
@@ -390,6 +392,22 @@ export function createCommandLineInterfaceRunner(
                         },
                         async handler({ packageName }) {
                             exitCode = await runPackageDependenciesHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configLoader,
+                                flags: { packageName, trace: traceEnabled }
+                            });
+                        }
+                    }),
+                    [sideEffectsInspectCommandName]: command({
+                        name: sideEffectsInspectCommandName,
+                        description: 'Prints why package.json sideEffects is false, listed, or omitted.',
+                        args: {
+                            packageName: positional({ type: string, displayName: 'package' })
+                        },
+                        async handler({ packageName }) {
+                            exitCode = await runPackageSideEffectsHandler({
                                 log,
                                 packtory,
                                 spinnerRenderer,

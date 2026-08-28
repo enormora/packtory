@@ -430,11 +430,71 @@ export function createPackageDependencyInspectionOutcome(
     return { result };
 }
 
+type SideEffectsFalseDecision = { readonly type: 'side-effects-false'; };
+type SideEffectsListDecision = { readonly type: 'side-effects-list'; readonly paths: readonly string[]; };
+type SideEffectsOmittedDecision = {
+    readonly type: 'side-effects-omitted';
+    readonly reason: 'every-runtime-file-has-side-effects';
+};
+type UserProvidedSideEffectsDecision = {
+    readonly type: 'user-provided-side-effects';
+    readonly providedValue: unknown;
+    readonly generated: GeneratedPackageSideEffectsDecision;
+};
+
+type GeneratedPackageSideEffectsDecisions = readonly [
+    SideEffectsFalseDecision,
+    SideEffectsListDecision,
+    SideEffectsOmittedDecision
+];
+
+type PackageSideEffectsDecisions = readonly [
+    GeneratedPackageSideEffectsDecision,
+    UserProvidedSideEffectsDecision
+];
+
+export type GeneratedPackageSideEffectsDecision = GeneratedPackageSideEffectsDecisions[number];
+
+export type PackageSideEffectsDecision = PackageSideEffectsDecisions[number];
+
+export type PackageSideEffectsFile = {
+    readonly sourcePath: string;
+    readonly packagePath: string;
+    readonly statements: readonly {
+        readonly line: number;
+        readonly kind: string;
+    }[];
+};
+
+export type PackageSideEffectsInspection = {
+    readonly packageName: string;
+    readonly packageJsonDecision: PackageSideEffectsDecision;
+    readonly impureFiles: readonly PackageSideEffectsFile[];
+};
+
+export type PackageSideEffectsInspectionFailure = ConfigError | PackPackageFailure | PartialErrorResult;
+
+export type PackageSideEffectsInspectionResult = Result<
+    PackageSideEffectsInspection,
+    PackageSideEffectsInspectionFailure
+>;
+
+export type PackageSideEffectsInspectionOutcome = {
+    readonly result: PackageSideEffectsInspectionResult;
+};
+
+export function createPackageSideEffectsInspectionOutcome(
+    result: PackageSideEffectsInspectionResult
+): PackageSideEffectsInspectionOutcome {
+    return { result };
+}
+
 export type Packtory = {
     analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
     diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
     inspectPackageDependencies: (config: unknown, packageName: string) => Promise<PackageDependencyInspectionOutcome>;
+    inspectPackageSideEffects: (config: unknown, packageName: string) => Promise<PackageSideEffectsInspectionOutcome>;
     planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
     packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
