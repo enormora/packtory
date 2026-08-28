@@ -70,7 +70,7 @@
         "@enormora/eslint-config-mocha-node-assert": "0.0.16",
         "@enormora/eslint-config-node": "0.0.46",
         "@enormora/eslint-config-typescript": "0.0.69",
-        "@enormora/objectory": "0.0.15",
+        "@enormora/objectory": "0.0.16",
         "@jridgewell/gen-mapping": "0.3.13",
         "@ls-lint/ls-lint": "2.3.1",
         "@packtory/cli": "0.0.99",
