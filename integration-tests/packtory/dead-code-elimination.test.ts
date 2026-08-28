@@ -211,6 +211,25 @@ suite('dead-code-elimination', function () {
         assertDeadDependencyMetadataRemoved(consumer);
     });
 
+    test('preserves a runtime config object imported from a promoted declaration companion module', async function () {
+        const fixturePath = path.join(
+            process.cwd(),
+            'integration-tests/fixtures/dead-code-elimination-declaration-companion-regression'
+        );
+        const config = await consumerProducerConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const producer = findPackage(packages, 'pkg-producer');
+        const shared = findResource(producer, 'pkg-producer/shared.js');
+
+        assert.ok(
+            shared.fileDescription.content.includes('export const sharedConfig'),
+            'sharedConfig must remain because emitted modules still import it'
+        );
+        assert.strictEqual(shared.fileDescription.content.includes('unusedConfig'), false);
+        assert.strictEqual(await runEmittedPackageApi(producer, 'pkg-producer/index.js'), 'error');
+    });
+
     test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
         const { result } = await resolveAndLinkAll(await duplicatedFilesConfig(fixturePath));
