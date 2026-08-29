@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { bundleResource, linkedBundle, type BundleFixtureLinkedBundle } from '../test-libraries/bundle-fixtures.ts';
+import { assertDceEquivalent, type DceOracleEntry } from '../test-libraries/dce-oracle-test-support.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
     bundleForCodeFile,
@@ -41,6 +43,178 @@ function declarationImportBundle(): BundleFixtureLinkedBundle {
                     targetFilePath: 'index.js'
                 },
                 declarationFile: privateDeclarationResource.fileDescription
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+}
+
+function companionRegressionResource(
+    sourceFilePath: string,
+    targetFilePath: string,
+    content: string
+): LinkedBundleResource {
+    return {
+        ...bundleResource(sourceFilePath, { content, targetFilePath }),
+        isSubstituted: false
+    };
+}
+
+function companionRegressionProducerBundle(): BundleFixtureLinkedBundle {
+    const index = companionRegressionResource(
+        '/src/pkg-producer/index.js',
+        'pkg-producer/index.js',
+        [
+            'import { baseSharedConfig } from "./base-shared.js";',
+            '',
+            'const baseRuleConfig = {',
+            '    plugins: {',
+            '        ...baseSharedConfig.plugins',
+            '    },',
+            '    rules: {',
+            '        ...baseSharedConfig.rules',
+            '    }',
+            '};',
+            '',
+            'export const producerConfig = [ baseRuleConfig ];',
+            '',
+            'export function api() {',
+            '    return producerConfig[0].rules["example/basic-rule"];',
+            '}',
+            ''
+        ]
+            .join('\n')
+    );
+    const baseShared = companionRegressionResource(
+        '/src/pkg-producer/base-shared.js',
+        'pkg-producer/base-shared.js',
+        [
+            'import { sharedConfig } from "./shared.js";',
+            '',
+            'export const baseSharedConfig = {',
+            '    plugins: {',
+            '        ...sharedConfig.plugins',
+            '    },',
+            '    rules: {',
+            '        ...sharedConfig.rules',
+            '    }',
+            '};',
+            ''
+        ]
+            .join('\n')
+    );
+    const baseSharedDeclaration = companionRegressionResource(
+        '/src/pkg-producer/base-shared.d.ts',
+        'pkg-producer/base-shared.d.ts',
+        [
+            'export declare const baseSharedConfig: {',
+            '    readonly rules: {',
+            "        readonly 'example/basic-rule': 'error';",
+            '    };',
+            '};',
+            ''
+        ]
+            .join('\n')
+    );
+    const shared = companionRegressionResource(
+        '/src/pkg-producer/shared.js',
+        'pkg-producer/shared.js',
+        [
+            'import { plugin } from "./plugin.js";',
+            '',
+            'const unusedConfig = {',
+            '    rules: {',
+            '        unused: "off"',
+            '    }',
+            '};',
+            '',
+            'export const sharedConfig = {',
+            '    plugins: {',
+            '        example: plugin',
+            '    },',
+            '    rules: {',
+            '        "example/basic-rule": "error"',
+            '    }',
+            '};',
+            ''
+        ]
+            .join('\n')
+    );
+    const sharedDeclaration = companionRegressionResource(
+        '/src/pkg-producer/shared.d.ts',
+        'pkg-producer/shared.d.ts',
+        [
+            'export declare const sharedConfig: {',
+            '    readonly rules: {',
+            "        readonly 'example/basic-rule': 'error';",
+            '    };',
+            '};',
+            ''
+        ]
+            .join('\n')
+    );
+    const plugin = companionRegressionResource(
+        '/src/pkg-producer/plugin.js',
+        'pkg-producer/plugin.js',
+        [
+            'export const plugin = {',
+            '    rules: {',
+            '        "basic-rule": {}',
+            '    }',
+            '};',
+            ''
+        ]
+            .join('\n')
+    );
+
+    return linkedBundle({
+        name: 'pkg-producer',
+        contents: [ index, baseShared, baseSharedDeclaration, shared, sharedDeclaration, plugin ],
+        roots: {
+            main: {
+                js: {
+                    content: index.fileDescription.content,
+                    isExecutable: false,
+                    sourceFilePath: '/src/pkg-producer/index.js',
+                    targetFilePath: 'pkg-producer/index.js'
+                }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+}
+
+function companionRegressionConsumerBundle(): BundleFixtureLinkedBundle {
+    return linkedBundle({
+        name: 'pkg-consumer',
+        contents: [
+            companionRegressionResource(
+                '/src/pkg-consumer/index.js',
+                'pkg-consumer/index.js',
+                [
+                    'import { baseSharedConfig } from "../pkg-producer/base-shared.js";',
+                    '',
+                    'export const consumerConfig = {',
+                    '    plugins: {',
+                    '        ...baseSharedConfig.plugins',
+                    '    },',
+                    '    rules: {',
+                    '        ...baseSharedConfig.rules',
+                    '    }',
+                    '};',
+                    ''
+                ]
+                    .join('\n')
+            )
+        ],
+        roots: {
+            main: {
+                js: {
+                    content: '',
+                    isExecutable: false,
+                    sourceFilePath: '/src/pkg-consumer/index.js',
+                    targetFilePath: 'pkg-consumer/index.js'
+                }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
@@ -231,6 +405,22 @@ suite('eliminator reachability seeds', function () {
             assertDefined(runtimeHelper);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
+        });
+
+        test('eliminate preserves behavior with declaration companions in a runtime import chain', async function () {
+            const consumer = companionRegressionConsumerBundle();
+            const producer = companionRegressionProducerBundle();
+            const entry: DceOracleEntry = {
+                bundleName: 'pkg-producer',
+                targetFilePath: 'pkg-producer/index.js',
+                exportName: 'api'
+            };
+
+            await assertDceEquivalent({
+                name: 'declaration companion runtime import chain',
+                entry,
+                eliminationInputs: inputs(consumer, producer)
+            });
         });
 
         test('eliminate keeps type exports imported by public declaration files', async function () {
