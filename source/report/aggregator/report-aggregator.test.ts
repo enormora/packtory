@@ -15,7 +15,7 @@ function aggregatorWithEffectiveConfig(): ReportAggregator {
 }
 
 function registerArtifactReportTests(): void {
-    test('only transformed DCE files contribute changed status when outputs are materialized', function () {
+    test('only transformed dead code elimination files contribute changed status when outputs are materialized', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 

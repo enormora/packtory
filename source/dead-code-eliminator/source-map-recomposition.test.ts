@@ -78,7 +78,7 @@ suite('source-map-recomposition', function () {
         assert.notStrictEqual(recomposed[0]?.fileDescription.content, resource.fileDescription.content);
     });
 
-    test('buildMapPathTransformIndex applies linker transforms before DCE transforms without full code text', function () {
+    test('buildMapPathTransformIndex applies linker transforms before dead code elimination transforms without full code text', function () {
         const linkerTransform = toSourceMapTransform(buildTextTransformMap(
             'import "./dep.js";\nexport const live = 1;\n',
             'import "pkg";\nexport const live = 1;\n'

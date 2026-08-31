@@ -51,7 +51,7 @@ suite('html-renderer', function () {
                 '<span class="tree-name">index.js</span>',
                 '<span class="tree-meta">source · 20 B</span>',
                 '<span class="badge status-changed">changed</span>',
-                '<span class="badge secondary">DCE</span>'
+                '<span class="badge secondary">dead code elimination</span>'
             ]
                 .every(function (fragment) {
                     return html.includes(fragment);

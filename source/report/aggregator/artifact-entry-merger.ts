@@ -1,6 +1,6 @@
 import type { ArtifactBadge, ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 
-// eslint-disable-next-line max-statements -- artifact entry merging intentionally reconciles rewrite and DCE state in one pass
+// eslint-disable-next-line max-statements -- artifact entry merging intentionally reconciles rewrite and dead code elimination state in one pass
 export function mergeArtifactEntry(
     entry: ArtifactEntry,
     rewrittenSourcePaths: ReadonlySet<string>,

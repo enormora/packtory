@@ -28,7 +28,7 @@ suite('terminal-package-tree-renderer', function () {
                 'pkg-a',
                 '  • package.json (manifest, 2 B) [generated]',
                 '    ▸ src/',
-                '    • src/index.js (source, 20 B) [changed, DCE]',
+                '    • src/index.js (source, 20 B) [changed, dead code elimination]',
                 ''
             ]
                 .join('\n')

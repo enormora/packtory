@@ -3,7 +3,10 @@ import { suite, test } from 'mocha';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { bundleResource, linkedBundle, type BundleFixtureLinkedBundle } from '../test-libraries/bundle-fixtures.ts';
-import { assertDceEquivalent, type DceOracleEntry } from '../test-libraries/dce-oracle-test-support.ts';
+import {
+    assertDeadCodeEliminationEquivalent,
+    type DeadCodeEliminationOracleEntry
+} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
     bundleForCodeFile,
@@ -410,13 +413,13 @@ suite('eliminator reachability seeds', function () {
         test('eliminate preserves behavior with declaration companions in a runtime import chain', async function () {
             const consumer = companionRegressionConsumerBundle();
             const producer = companionRegressionProducerBundle();
-            const entry: DceOracleEntry = {
+            const entry: DeadCodeEliminationOracleEntry = {
                 bundleName: 'pkg-producer',
                 targetFilePath: 'pkg-producer/index.js',
                 exportName: 'api'
             };
 
-            await assertDceEquivalent({
+            await assertDeadCodeEliminationEquivalent({
                 name: 'declaration companion runtime import chain',
                 entry,
                 eliminationInputs: inputs(consumer, producer)

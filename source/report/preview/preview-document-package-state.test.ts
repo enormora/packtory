@@ -195,8 +195,8 @@ suite('preview-document package state', function () {
             assert.strictEqual(artifactStatusLabel('unchanged'), 'unchanged');
         });
 
-        test('artifactBadgeLabel returns "DCE" for dead-code-elimination and "rewrite" for import-path-rewrite', function () {
-            assert.strictEqual(artifactBadgeLabel('dead-code-elimination'), 'DCE');
+        test('artifactBadgeLabel returns "dead code elimination" for dead-code-elimination and "rewrite" for import-path-rewrite', function () {
+            assert.strictEqual(artifactBadgeLabel('dead-code-elimination'), 'dead code elimination');
             assert.strictEqual(artifactBadgeLabel('import-path-rewrite'), 'rewrite');
         });
     });

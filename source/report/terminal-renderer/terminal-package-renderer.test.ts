@@ -21,7 +21,7 @@ suite('terminal-package-renderer', function () {
                 'pkg-a 1.0.0 -> 1.0.1',
                 '  • package.json (manifest, 2 B) [generated]',
                 '  ▸ src/',
-                '    • src/index.js (source, 20 B) [changed, DCE]',
+                '    • src/index.js (source, 20 B) [changed, dead code elimination]',
                 '  Eliminated source files',
                 '    - /workspace/src/unused.js (14 B)',
                 '  Diffs',
