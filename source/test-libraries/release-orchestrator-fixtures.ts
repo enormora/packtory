@@ -103,6 +103,9 @@ const releasePackageProcessorOperations: ReleasePackageProcessorOperations = {
     async buildAndPublish() {
         throw new Error('buildAndPublish() should not be called in release dry runs');
     },
+    async publishPreparedPackage() {
+        throw new Error('publishPreparedPackage() should not be called in release dry runs');
+    },
     async resolveAndLink() {
         throw new Error('resolveAndLink() should not be called in release tests');
     },

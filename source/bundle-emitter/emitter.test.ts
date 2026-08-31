@@ -48,6 +48,7 @@ function namedBundle(): VersionedBundleWithManifest {
 
 type Overrides = {
     readonly fetchLatestVersion?: SinonSpy;
+    readonly fetchVersionReleaseMetadata?: SinonSpy;
     readonly fetchStagedVersions?: SinonSpy;
     readonly fetchLatestReleaseMetadata?: SinonSpy;
     readonly collectContents?: SinonSpy;
@@ -79,6 +80,10 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
                 overrides.fetchLatestVersion,
                 fake
             ) as unknown as BundleEmitterDependencies['registryClient']['fetchLatestVersion'],
+            fetchVersionReleaseMetadata: createSpy(
+                overrides.fetchVersionReleaseMetadata,
+                fake
+            ) as unknown as BundleEmitterDependencies['registryClient']['fetchVersionReleaseMetadata'],
             fetchStagedVersions: createSpy(
                 overrides.fetchStagedVersions,
                 fake

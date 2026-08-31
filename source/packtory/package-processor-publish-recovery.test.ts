@@ -11,9 +11,9 @@ import {
 } from '../test-libraries/package-processor-test-support.ts';
 import type {
     BuildAndPublishResult,
-    DetermineVersionAndPublishOptions,
     PackageProcessor
 } from './package-processor.ts';
+import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
 
 type ConfirmedPublishScenario = {
     readonly checkBundleAlreadyPublished: SinonSpy;

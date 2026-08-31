@@ -44,6 +44,7 @@ function createPlainProcessor(overrides: Partial<PackageProcessor> = {}): Packag
         ),
         build: processorMethod(overrides.build),
         buildAndPublish: processorMethod(overrides.buildAndPublish),
+        publishPreparedPackage: processorMethod(overrides.publishPreparedPackage),
         tryBuildAndPublish: processorMethod(overrides.tryBuildAndPublish)
     };
 }
@@ -264,6 +265,32 @@ function registerStageTimingTests(): void {
     });
 }
 
+function registerPreparedPublishTimingTests(): void {
+    test('withStageTimings.publishPreparedPackage emits stage "publish" and forwards the result', async function () {
+        const { broadcaster, received } = createStagePayloadCollector();
+        const sentinel = { sentinel: 'publish-prepared' };
+        const wrapped = withStageTimings(
+            createPlainProcessor({
+                publishPreparedPackage: fake.resolves(sentinel) as unknown as PackageProcessor['publishPreparedPackage']
+            }),
+            broadcaster.provider
+        );
+
+        const result = await wrapped.publishPreparedPackage(
+            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+                PackageProcessor['publishPreparedPackage']
+            >[0],
+            {} as Parameters<PackageProcessor['publishPreparedPackage']>[1]
+        );
+
+        assert.strictEqual(result, sentinel);
+        assert.partialDeepStrictEqual(expectPayload(received), {
+            packageName: 'pkg-b',
+            stage: 'publish'
+        });
+    });
+}
+
 function registerFailureCaptureTests(): void {
     test('withFailureCapture forwards the wrapped success value when execute resolves', async function () {
         const broadcaster = createProgressBroadcaster();
@@ -404,5 +431,6 @@ function registerFailureCaptureTests(): void {
 
 suite('decorators', function () {
     registerStageTimingTests();
+    registerPreparedPublishTimingTests();
     registerFailureCaptureTests();
 });

@@ -143,7 +143,7 @@ Packtory supports two versioning modes:
    - Download and extract the tarball of the latest version in-memory.
    - Compare the contents of all files from the downloaded tarball with the contents of all files resolved from the bundler:
      - If all files are the same, no new version is needed.
-     - If there are any differences, increase the latest version number by one (patch version), generate a new `package.json`, create a tarball, and publish the new version.
+     - If there are any differences, increase the latest version number by one (patch version), generate a new `package.json`, verify that the exact target version is not already published with different artifacts, create a tarball, and publish the new version.
    - If no version is available in the registry, an initial version will be built and published with version `0.0.1` (default but can be changed in the configuration).
 
 2. **Manual Versioning:**
@@ -153,6 +153,7 @@ Packtory supports two versioning modes:
    - `provideVersion(input)` runs after Packtory has calculated the package attribution files. The input contains `packageName`, `currentVersion`, `targetSourceFiles`, `ignoredAttributionPaths`, `registrySettings`, and `stage`.
    - The returned version is validated like a static manual version. Returning `currentVersion` keeps the package on the current registry version when no release is needed.
    - Version sources are still manual versioning from Packtory's perspective because the source chooses the exact version. Packtory's automatic mode is reserved for artifact comparison plus patch bumps.
+   - Before publishing, Packtory verifies the exact chosen version. A version that already exists with different artifacts, or exists without being tagged `latest`, fails before any publish write starts.
 
 ```javascript
 versioning: {
@@ -494,7 +495,7 @@ Files whose top-level statements are impure are left fully intact. The static si
 
 The same static analysis also drives, regardless of any `checks` configuration:
 
-1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` or `mainPackageJson` always wins over the auto-emitted value.
+1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins over the auto-emitted value.
 2. **The `noSideEffects` check rule** - opt-in CI enforcement that a package is tree-shakable.
 
 ### Dead Code Elimination Configuration
@@ -508,6 +509,8 @@ The same static analysis also drives, regardless of any `checks` configuration:
 ```
 
 `deadCodeElimination` may also live in `commonPackageSettings` to apply to every package; per-package values override the common setting. When `enabled: false`, the analyzer still runs (so the auto-emitted `sideEffects` and the `noSideEffects` rule keep working), but no declarations are removed from the package's source files.
+
+Use `packtory inspect side-effects <package>` to see the generated `sideEffects` decision and the runtime files, lines, and analyzer reasons that prevented `"sideEffects": false`.
 
 ### Source maps
 

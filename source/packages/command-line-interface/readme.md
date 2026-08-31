@@ -21,6 +21,7 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **tree:** Builds locally and prints one configured package's artifact tree without reading the registry or writing an artifact.
 - **inspect dependencies:** Builds locally and prints why one configured package emits final `dependencies` and `peerDependencies`.
+- **inspect side-effects:** Builds locally and prints why one configured package emits, lists, or omits `package.json` `sideEffects`.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
 - **config inspect:** Validates `packtory.config.js` and prints a compact package-shape summary without building packages.
@@ -36,6 +37,7 @@ packtory <command> [options]
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **tree &lt;package&gt;:** Selects which package from the configuration to inspect. The output includes package-relative paths, file kind, byte size, status, and artifact badges.
 - **inspect dependencies &lt;package&gt;:** Selects which package from the configuration to inspect. The output groups final manifest dependencies by `dependencies`, `peerDependencies`, and unresolved version state, then lists source import specifiers and emitted import specifiers for each dependency.
+- **inspect side-effects &lt;package&gt;:** Selects which package from the configuration to inspect. The output shows the generated `sideEffects` decision and every impure runtime file with line-level side effect reasons.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
@@ -79,6 +81,15 @@ packtory <command> [options]
 - An unknown `<package>` argument is reported as `package-not-found`.
 - `packtory inspect dependencies` exits with code `0` on a clean run and `1` on config errors, package failures, or an unknown package.
 
+**Side effects inspect behavior:**
+
+- `packtory inspect side-effects <package>` validates the local config, resolves and links all configured packages, and prints why the selected package's generated manifest would emit `"sideEffects": false`, emit a file list, or omit the field.
+- It reports the analyzer's generated decision even when `additionalPackageJsonAttributes.sideEffects` overrides the generated value.
+- Runtime side effects are shown by package path, repository-relative source path, line number, and analyzer reason.
+- It does not read registry metadata, publish, write artifacts, run package checks, open HTML, or use a pager.
+- An unknown `<package>` argument is reported as `package-not-found`.
+- `packtory inspect side-effects` exits with code `0` on a clean run and `1` on config errors, package failures, or an unknown package.
+
 **Release-diff behavior:**
 
 ![packtory release-diff showing per-file hunks between the published latest and the next bundle](../../../documentation/release-diff-example.gif)
@@ -89,6 +100,7 @@ packtory <command> [options]
 - Packages that have never been published are rendered with a `[first publish]` chip and every bundled file in the **Added** group.
 - Packages whose new build is byte-equal to the published version are rendered as a single dim `no changes` line.
 - A package that fails earlier in the dry-run build appears in the document `Issues` section rather than as a per-package diff entry.
+- A package whose selected target version already exists with different artifacts, or exists without being tagged `latest`, appears in `Issues` before publish can start.
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output. Failure-only runs go directly to standard output.
 - `packtory release-diff` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
 - `release-diff` is read-only: it never publishes and never writes to the registry. It is currently terminal-only; an HTML/`--open` variant and an `--against <version>` selector are not part of this release.

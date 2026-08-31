@@ -9,9 +9,11 @@ import {
     fetchLatestPackageReleaseMetadata,
     fetchPackageTarball,
     fetchLatestPackageVersion,
+    fetchPackageVersionReleaseMetadata,
     fetchStagedPackageVersions,
     type PackageReleaseMetadata,
-    type PackageVersionDetails
+    type PackageVersionDetails,
+    type PackageVersionReleaseMetadata
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
 import type { TarballIntegrity } from './tarball-integrity.ts';
@@ -50,6 +52,11 @@ export type RegistryClient = {
         packageName: string,
         config: RegistrySettings
     ) => Promise<Maybe<PackageReleaseMetadata>>;
+    fetchVersionReleaseMetadata: (
+        packageName: string,
+        version: string,
+        config: RegistrySettings
+    ) => Promise<Maybe<PackageVersionReleaseMetadata>>;
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
     publishPackage: (...publishArguments: PublishPackageArguments) => Promise<PublicationOutcome>;
@@ -145,6 +152,10 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
         async fetchLatestReleaseMetadata(packageName, registrySettings) {
             return fetchLatestPackageReleaseMetadata(npmFetch, packageName, registrySettings);
+        },
+
+        async fetchVersionReleaseMetadata(packageName, version, registrySettings) {
+            return fetchPackageVersionReleaseMetadata(npmFetch, packageName, version, registrySettings);
         }
     };
 }

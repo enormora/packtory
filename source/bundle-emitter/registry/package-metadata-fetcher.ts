@@ -37,6 +37,10 @@ export type PackageReleaseMetadata = {
     readonly gitHead: string | undefined;
 };
 
+export type PackageVersionReleaseMetadata = PackageReleaseMetadata & {
+    readonly latestVersion: string | undefined;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value instanceof Object;
 }
@@ -209,6 +213,24 @@ function readTarballIntegrity(dist: PackageVersionDist, packageName: string, ver
     };
 }
 
+function extractPackageVersionDetails(
+    packageResponse: AbbreviatedPackageResponse,
+    packageName: string,
+    version: string
+): Maybe<PackageVersionDetails> {
+    const versionData = packageResponse.versions[version];
+    if (versionData === undefined) {
+        return Maybe.nothing();
+    }
+
+    return Maybe.just({
+        version,
+        tarballUrl: versionData.dist.tarball,
+        tarballIntegrity: readTarballIntegrity(versionData.dist, packageName, version),
+        gitHead: versionData.gitHead
+    });
+}
+
 function extractLatestVersionDetails(
     packageResponse: AbbreviatedPackageResponse,
     packageName: string
@@ -218,19 +240,29 @@ function extractLatestVersionDetails(
         return Maybe.nothing();
     }
 
-    const versionData = packageResponse.versions[latestVersion];
-    if (versionData === undefined) {
+    const versionDetails = extractPackageVersionDetails(packageResponse, packageName, latestVersion);
+    if (versionDetails.isNothing) {
         throw new Error(
             `Version "${latestVersion}" for package "${packageName}" has no entry in the registry response`
         );
     }
 
-    return Maybe.just({
-        version: latestVersion,
-        tarballUrl: versionData.dist.tarball,
-        tarballIntegrity: readTarballIntegrity(versionData.dist, packageName, latestVersion),
-        gitHead: versionData.gitHead
-    });
+    return versionDetails;
+}
+
+function releaseMetadataFrom(
+    packageResponse: FullPackageResponse,
+    versionDetails: PackageVersionDetails
+): PackageReleaseMetadata {
+    const publishedAtTimestamp = packageResponse.time?.[versionDetails.version];
+
+    return {
+        version: versionDetails.version,
+        tarballUrl: versionDetails.tarballUrl,
+        tarballIntegrity: versionDetails.tarballIntegrity,
+        publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp),
+        gitHead: versionDetails.gitHead
+    };
 }
 
 export async function fetchLatestPackageVersion(
@@ -270,14 +302,33 @@ export async function fetchLatestPackageReleaseMetadata(
         return Maybe.nothing();
     }
 
-    const publishedAtTimestamp = packageResponse.value.time?.[latestVersion.value.version];
+    return Maybe.just(releaseMetadataFrom(packageResponse.value, latestVersion.value));
+}
+
+export async function fetchPackageVersionReleaseMetadata(
+    npmFetch: NpmFetch,
+    packageName: string,
+    version: string,
+    registrySettings: Readonly<RegistrySettings>
+): Promise<Maybe<PackageVersionReleaseMetadata>> {
+    const packageResponse = await fetchAndParsePackageMetadata(
+        npmFetch,
+        packageName,
+        registrySettings,
+        fullPackageMetadataRequest
+    );
+    if (packageResponse.isNothing) {
+        return Maybe.nothing();
+    }
+
+    const versionDetails = extractPackageVersionDetails(packageResponse.value, packageName, version);
+    if (versionDetails.isNothing) {
+        return Maybe.nothing();
+    }
 
     return Maybe.just({
-        version: latestVersion.value.version,
-        tarballUrl: latestVersion.value.tarballUrl,
-        tarballIntegrity: latestVersion.value.tarballIntegrity,
-        publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp),
-        gitHead: latestVersion.value.gitHead
+        ...releaseMetadataFrom(packageResponse.value, versionDetails.value),
+        latestVersion: packageResponse.value['dist-tags'].latest
     });
 }
 

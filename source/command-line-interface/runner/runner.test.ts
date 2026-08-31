@@ -20,6 +20,7 @@ type PackageOperationSpies = {
     readonly buildAndPublishAll: SinonSpy;
     readonly diffAgainstLatestPublished: SinonSpy;
     readonly packPackage: SinonSpy;
+    readonly inspectPackageSideEffects: SinonSpy;
     readonly planReleaseAgainstLatestPublished: SinonSpy;
 };
 
@@ -48,6 +49,7 @@ function createPackageOperationSpies(): PackageOperationSpies {
     return {
         buildAndPublishAll: fake.resolves(toOutcome(Result.ok([]))),
         diffAgainstLatestPublished: fake.resolves(undefined),
+        inspectPackageSideEffects: fake.resolves(undefined),
         packPackage: fake.resolves(undefined),
         planReleaseAgainstLatestPublished: fake.resolves(undefined)
     };
@@ -57,11 +59,13 @@ function assertPackageOperationsSkipped(spies: PackageOperationSpies): void {
     assert.deepStrictEqual({
         buildAndPublishAll: spies.buildAndPublishAll.callCount,
         diffAgainstLatestPublished: spies.diffAgainstLatestPublished.callCount,
+        inspectPackageSideEffects: spies.inspectPackageSideEffects.callCount,
         packPackage: spies.packPackage.callCount,
         planReleaseAgainstLatestPublished: spies.planReleaseAgainstLatestPublished.callCount
     }, {
         buildAndPublishAll: 0,
         diffAgainstLatestPublished: 0,
+        inspectPackageSideEffects: 0,
         packPackage: 0,
         planReleaseAgainstLatestPublished: 0
     });
@@ -145,6 +149,24 @@ suite('runner command routing', function () {
             assert.strictEqual(exitCode, 0);
             assert.strictEqual(loadConfig.callCount, 1);
             assertPackageOperationsSkipped(spies);
+        });
+
+        test('inspect side-effects command loads config and passes the selected package', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const inspectPackageSideEffects = fake.resolves({
+                result: Result.ok({
+                    packageName: 'pkg-a',
+                    packageJsonDecision: { type: 'side-effects-false' },
+                    impureFiles: []
+                })
+            });
+            const runner = createRunner({ loadConfig, inspectPackageSideEffects });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'inspect', 'side-effects', 'pkg-a' ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(loadConfig.callCount, 1);
+            assert.deepStrictEqual(inspectPackageSideEffects.firstCall.args, [ 'the-config', 'pkg-a' ]);
         });
 
         test('release-diff files-only mode suppresses text hunks from parsed CLI arguments', async function () {
@@ -314,6 +336,14 @@ suite('runner command routing', function () {
 
             assert.match(help, /packtory config inspect/u);
             assert.match(help, /Validates packtory\.config\.js and prints a compact package summary\./u);
+        });
+
+        test('prints nested inspect side-effects help', async function () {
+            const help = await expectSubcommandHelp('inspect', 'side-effects');
+
+            assert.match(help, /packtory inspect side-effects/u);
+            assert.match(help, /Prints why package\.json sideEffects is false, listed, or omitted\./u);
+            assert.match(help, /<package>/u);
         });
     });
 });

@@ -112,7 +112,12 @@ function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[])
         async runForEachScheduledPackage(input: ScheduledPackageInput) {
             invocations += 1;
             if (invocations === 1) {
-                return Result.ok(succeededPublish);
+                return Result.ok(succeededPublish.map(function (result) {
+                    return {
+                        buildOptions: { name: result.bundle.name },
+                        result
+                    };
+                }));
             }
             const stageResults: unknown[] = [];
             for (const packageConfig of input.config.packtoryConfig.packages) {

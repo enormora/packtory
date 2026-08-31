@@ -9,6 +9,7 @@ import {
     fetchPublishedPackage,
     getFixturePath,
     getPublishedFile,
+    publishTaggedRegistryVersion,
     publishFixturePackages
 } from './publish-fixture-support.ts';
 import {
@@ -130,6 +131,34 @@ suite('publish', function () {
                     },
                     expectedSecondPackageFirstRunVersion
                 );
+            })
+        );
+
+        test(
+            'rejects an exact target version that already exists behind a non-latest tag before publishing other packages',
+            checkWithRegistry(async function (registryDetails) {
+                const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
+                await publishTaggedRegistryVersion({
+                    name: 'second',
+                    version: '0.0.1',
+                    latestVersion: '0.0.0',
+                    distTag: 'beta',
+                    registryDetails
+                });
+
+                const result = await publishFixturePackages({ fixturePath: fixturePathValue, registryDetails });
+
+                if (!result.isErr || result.error.type !== 'partial') {
+                    assert.fail('Expected publish to fail with a partial result');
+                }
+                assert.strictEqual(result.error.succeeded.length, 0);
+                assert.match(
+                    result.error.failures[0]?.message ?? '',
+                    /Package "second" version "0\.0\.1" already exists/u
+                );
+                await assertPackageNotPublished('first', registryDetails);
+                const latestSecondPackage = await fetchPublishedPackage('second', registryDetails);
+                assert.strictEqual(latestSecondPackage.version, '0.0.0');
             })
         );
 

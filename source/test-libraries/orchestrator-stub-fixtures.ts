@@ -24,6 +24,9 @@ const stubProcessorValue = {
     async buildAndPublish() {
         return undefined;
     },
+    async publishPreparedPackage() {
+        return undefined;
+    },
     async tryBuildAndPublish() {
         return undefined;
     }

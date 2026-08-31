@@ -75,6 +75,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
                 fake
             ) as unknown as BundleEmitterDependencies['registryClient']['fetchLatestReleaseMetadata'],
             fetchLatestVersion: fake(),
+            fetchVersionReleaseMetadata: fake(),
             fetchStagedVersions: fake(),
             fetchTarball: createSpy(overrides.fetchTarball, function () {
                 return fake.resolves(emptyTarball);

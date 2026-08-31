@@ -1,20 +1,17 @@
 import path from 'node:path';
-import { Result } from 'true-myth';
-import { packageNameMap } from '../common/package-name-map.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import type { DependencyReference, ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import { classifySpecifier } from '../version-manager/specifier-classifier.ts';
-import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
-import { resolvePackages, type PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
-import {
-    packPackageFailureType,
-    resolvePartialFailure,
-    type PackageDependency,
-    type PackageDependencyGroup,
-    type PackageDependencyInspection,
-    type PackageDependencyInspectionResult,
-    type PackageDependencyManifestState,
-    type PackageDependencyOrigin
+import type { PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
+import type { PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
+import { inspectResolvedPackageFor } from './packtory-package-inspection.ts';
+import type {
+    PackageDependency,
+    PackageDependencyGroup,
+    PackageDependencyInspection,
+    PackageDependencyInspectionResult,
+    PackageDependencyManifestState,
+    PackageDependencyOrigin
 } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 
@@ -185,18 +182,8 @@ export function createInspectPackageDependenciesValidated(
     packageName: string
 ) => Promise<PackageDependencyInspectionResult> {
     return async function inspectPackageDependenciesValidated(validated, packageName) {
-        const runResult = await resolvePackages(dependencies, validated);
-        if (runResult.isErr) {
-            const succeeded = await analyzeResolvedPackages(dependencies, validated, runResult.error.succeeded);
-            return Result.err(resolvePartialFailure({ succeeded, failures: runResult.error.failures }));
-        }
-
-        const resolvedPackages = await analyzeResolvedPackages(dependencies, validated, runResult.value);
-        const resolvedPackagesByName = new Map(packageNameMap(resolvedPackages));
-        const target = resolvedPackagesByName.get(packageName);
-        if (target === undefined) {
-            return Result.err({ type: packPackageFailureType.packageNotFound, packageName });
-        }
-        return Result.ok(inspectResolvedPackage(dependencies, target));
+        return await inspectResolvedPackageFor(dependencies, validated, packageName, function (target) {
+            return inspectResolvedPackage(dependencies, target);
+        });
     };
 }

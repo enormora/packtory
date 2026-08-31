@@ -405,7 +405,16 @@ automaticPublish(bundle):
     remoteFiles ← extractPackageTarball(tarball)
     if compareFileDescriptions(candidate.files, remoteFiles) is equal:
         return # already-published
-    publish versionManager.increaseVersion(candidate)  # patch bump
+    target ← versionManager.increaseVersion(candidate)  # patch bump
+    exact ← registry.fetchVersionReleaseMetadata(bundle.name, target.version)
+    if exact exists:
+        exactFiles ← extractPackageTarball(registry.fetchTarball(exact.tarballUrl))
+        if compareFileDescriptions(target.files, exactFiles) is not equal:
+            fail # target version already exists with different artifacts
+        if exact.latestVersion is not target.version:
+            fail # target version exists but is not latest
+        return # already-published
+    publish target
 ```
 
 Key properties:

@@ -144,6 +144,7 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
                 resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,
                 tryBuildAndPublish: fake.rejects(new Error('unused publish')),
                 buildAndPublish: fake.rejects(new Error('unused publish')),
+                publishPreparedPackage: fake.rejects(new Error('unused publish')),
                 build: fake.rejects(new Error('unused build')) as never
             },
             scheduler,

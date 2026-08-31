@@ -80,6 +80,14 @@ export function withStageTimings(
                 emitTiming(progressBroadcaster, options.buildOptions.name, 'publish', start);
             }
         },
+        async publishPreparedPackage(options, result) {
+            const start = performance.now();
+            try {
+                return await processor.publishPreparedPackage(options, result);
+            } finally {
+                emitTiming(progressBroadcaster, options.buildOptions.name, 'publish', start);
+            }
+        },
         async tryBuildAndPublish(options) {
             const start = performance.now();
             try {

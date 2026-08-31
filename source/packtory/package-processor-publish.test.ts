@@ -18,11 +18,11 @@ import {
 import type { BuildAndPublishOptions } from './map-config.ts';
 import type {
     BuildAndPublishResult,
-    DetermineVersionAndPublishOptions,
     PackageProcessor
 } from './package-processor.ts';
 
 type SbomResult = readonly TransferableFile[] | undefined;
+type DetermineVersionAndPublishOptions = Parameters<PackageProcessor['tryBuildAndPublish']>[0];
 
 type SbomScenario = {
     readonly bundle: VersionedBundleWithManifest;

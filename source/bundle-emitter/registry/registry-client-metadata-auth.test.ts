@@ -4,6 +4,7 @@ import {
     buildLatestVersionFetchJson,
     registryClientFactory
 } from '../../test-libraries/registry-client-test-support.ts';
+import type { RegistryClient } from './registry-client.ts';
 
 suite('registry-client metadata auth', function () {
     test('fetchLatestVersion() uses shorthand auth for metadata by default', async function () {
@@ -92,23 +93,44 @@ suite('registry-client metadata auth', function () {
         ]);
     });
 
-    test('fetchLatestReleaseMetadata() uses the full metadata endpoint with inherited metadata auth', async function () {
-        const npmFetchJson = buildLatestVersionFetchJson();
-        const registryClient = registryClientFactory({ npmFetchJson });
+    suite('full metadata endpoint', function () {
+        for (
+            const scenario of [
+                {
+                    name: 'latest release metadata',
+                    async fetch(registryClient: RegistryClient) {
+                        await registryClient.fetchLatestReleaseMetadata('the-name', {
+                            auth: { type: 'bearer-token', token: 'the-token' }
+                        });
+                    }
+                },
+                {
+                    name: 'exact version release metadata',
+                    async fetch(registryClient: RegistryClient) {
+                        await registryClient.fetchVersionReleaseMetadata('the-name', '1', {
+                            auth: { type: 'bearer-token', token: 'the-token' }
+                        });
+                    }
+                }
+            ] as const
+        ) {
+            test(`${scenario.name} uses inherited metadata auth`, async function () {
+                const npmFetchJson = buildLatestVersionFetchJson();
+                const registryClient = registryClientFactory({ npmFetchJson });
 
-        await registryClient.fetchLatestReleaseMetadata('the-name', {
-            auth: { type: 'bearer-token', token: 'the-token' }
-        });
+                await scenario.fetch(registryClient);
 
-        assert.deepStrictEqual(npmFetchJson.firstCall.args, [
-            '/the-name',
-            {
-                alwaysAuth: true,
-                registry: undefined,
-                forceAuth: { token: 'the-token' },
-                headers: undefined
-            }
-        ]);
+                assert.deepStrictEqual(npmFetchJson.firstCall.args, [
+                    '/the-name',
+                    {
+                        alwaysAuth: true,
+                        registry: undefined,
+                        forceAuth: { token: 'the-token' },
+                        headers: undefined
+                    }
+                ]);
+            });
+        }
     });
 
     test('fetchLatestVersion() uses anonymous metadata access by default for explicit npm oidc auth', async function () {

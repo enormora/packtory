@@ -4,7 +4,7 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { compareFileDescriptions, fileDescriptionComparisonStatus } from '../file-manager/compare.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
-import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
+import { fetchPublishedArtifacts, fetchPublishedArtifactsFromMetadata } from './fetch-published-artifacts.ts';
 import { canonicalizeReleaseArtifactFiles } from './release-artifact-canonicalizer.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
@@ -82,6 +82,10 @@ type BundlePublishedCheckResult = {
     readonly alreadyPublishedAsLatest: boolean;
     readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
 };
+type BundlePublishTargetCheckResult = {
+    readonly alreadyPublished: boolean;
+    readonly publishedArtifacts: PreviousReleaseArtifacts;
+};
 
 export type BundleEmitter = {
     publish: (options: PublishOptions) => Promise<PublicationOutcome>;
@@ -90,6 +94,7 @@ export type BundleEmitter = {
         options: CurrentHeadPublishedVersionLookupOptions
     ) => Promise<CurrentHeadPublishedVersion | undefined>;
     checkBundleAlreadyPublished: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishedCheckResult>;
+    verifyBundlePublishTarget: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishTargetCheckResult>;
 };
 
 const stageRegistryUnsupportedMessage = 'npm staged publishing is only supported with the npmjs.org registry';
@@ -134,6 +139,48 @@ function isCurrentHeadPackageVersion(
     currentGitHead: string
 ): versionDetails is PackageVersionWithGitHead {
     return versionDetails.gitHead === currentGitHead;
+}
+
+function collectPackageArtifacts(
+    artifactsBuilder: ArtifactsBuilder,
+    bundle: ArtifactPublishPackage,
+    extraFiles: ExtraFiles | undefined
+): readonly FileDescription[] {
+    return canonicalizeReleaseArtifactFiles(artifactsBuilder.collectContents(bundle, 'package', extraFiles));
+}
+
+function artifactsMatch(
+    currentArtifacts: readonly FileDescription[],
+    publishedArtifacts: readonly FileDescription[]
+): boolean {
+    const comparison = compareFileDescriptions(
+        currentArtifacts,
+        canonicalizeReleaseArtifactFiles(publishedArtifacts)
+    );
+    return comparison.status === fileDescriptionComparisonStatus.equal;
+}
+
+function packageTargetDescription(bundle: ArtifactPublishPackage): string {
+    return `Package "${bundle.name}" version "${bundle.packageJson.version}"`;
+}
+
+function assertTargetArtifactsMatch(
+    bundle: ArtifactPublishPackage,
+    currentArtifacts: readonly FileDescription[],
+    publishedArtifacts: readonly FileDescription[]
+): void {
+    if (!artifactsMatch(currentArtifacts, publishedArtifacts)) {
+        throw new Error(`${packageTargetDescription(bundle)} already exists with different artifacts`);
+    }
+}
+
+function assertTargetIsTaggedLatest(
+    bundle: ArtifactPublishPackage,
+    latestVersion: string | undefined
+): void {
+    if (latestVersion !== bundle.packageJson.version) {
+        throw new Error(`${packageTargetDescription(bundle)} already exists but is not tagged latest`);
+    }
 }
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
@@ -201,15 +248,34 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
                 return { alreadyPublishedAsLatest: false, previousReleaseArtifacts: Maybe.nothing() };
             }
 
-            const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
-            const comparison = compareFileDescriptions(
-                canonicalizeReleaseArtifactFiles(artifactContents),
-                canonicalizeReleaseArtifactFiles(previous.value.files)
-            );
+            const currentArtifacts = collectPackageArtifacts(artifactsBuilder, bundle, extraFiles);
             return {
-                alreadyPublishedAsLatest: comparison.status === fileDescriptionComparisonStatus.equal,
+                alreadyPublishedAsLatest: artifactsMatch(currentArtifacts, previous.value.files),
                 previousReleaseArtifacts: previous
             };
+        },
+
+        async verifyBundlePublishTarget(options) {
+            const { bundle, registrySettings, extraFiles } = options;
+            const metadata = await registryClient.fetchVersionReleaseMetadata(
+                bundle.name,
+                bundle.packageJson.version,
+                registrySettings
+            );
+            if (metadata.isNothing) {
+                return { alreadyPublished: false, publishedArtifacts: Maybe.nothing() };
+            }
+
+            const publishedArtifacts = await fetchPublishedArtifactsFromMetadata(
+                registryClient,
+                registrySettings,
+                metadata.value
+            );
+            const currentArtifacts = collectPackageArtifacts(artifactsBuilder, bundle, extraFiles);
+            assertTargetArtifactsMatch(bundle, currentArtifacts, publishedArtifacts.files);
+            assertTargetIsTaggedLatest(bundle, metadata.value.latestVersion);
+
+            return { alreadyPublished: true, publishedArtifacts: Maybe.just(publishedArtifacts) };
         },
 
         async publish(options) {

@@ -18,6 +18,7 @@ type RegistryClientOverrides = {
 function registryClientWith(overrides: RegistryClientOverrides): RegistryClient {
     return {
         fetchLatestReleaseMetadata: overrides.fetchLatestReleaseMetadata ?? fake(),
+        fetchVersionReleaseMetadata: fake(),
         fetchLatestVersion: fake(),
         fetchStagedVersions: fake(),
         fetchTarball: overrides.fetchTarball ?? fake(),

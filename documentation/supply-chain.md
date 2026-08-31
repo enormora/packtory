@@ -189,13 +189,13 @@ origins so the mismatch is immediately diagnosable.
 ## Tarball digest verification
 
 **Threat:** an attacker or broken registry serves tarball bytes that do
-not match the digest metadata returned for the latest package version.
-Packtory uses registry tarballs for automatic version comparison,
-release planning, release analysis, and `release-diff`, so bad bytes
-could otherwise corrupt those decisions.
+not match the digest metadata returned for a package version. Packtory
+uses registry tarballs for automatic version comparison, exact target
+version preflight, release planning, release analysis, and
+`release-diff`, so bad bytes could otherwise corrupt those decisions.
 **Default:** on. Not configurable.
 
-When the latest version metadata provides `dist.integrity` or
+When registry version metadata provides `dist.integrity` or
 `dist.shasum`, packtory verifies the downloaded tarball before
 extracting it. `dist.integrity` is checked with strict SRI rules.
 `dist.shasum` is checked as SHA-1 hex. If both fields are present, both

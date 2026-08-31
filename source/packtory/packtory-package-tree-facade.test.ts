@@ -153,6 +153,7 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
                 resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,
                 tryBuildAndPublish: unusedPacktoryMethod,
                 buildAndPublish: unusedPacktoryMethod,
+                publishPreparedPackage: unusedPacktoryMethod,
                 build: unusedPacktoryMethod as never
             },
             scheduler: createScheduler({ progressBroadcastProvider: progressBroadcaster.provider }),

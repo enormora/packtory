@@ -2,6 +2,7 @@ import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { extractPackageTarball } from './extract-package-tarball.ts';
+import type { PackageReleaseMetadata } from './registry/package-metadata-fetcher.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 
 export type PublishedReleaseArtifacts = {
@@ -10,6 +11,25 @@ export type PublishedReleaseArtifacts = {
     readonly gitHead: string | undefined;
     readonly files: readonly FileDescription[];
 };
+
+export async function fetchPublishedArtifactsFromMetadata(
+    registryClient: RegistryClient,
+    registrySettings: RegistrySettings,
+    metadata: PackageReleaseMetadata
+): Promise<PublishedReleaseArtifacts> {
+    const tarball = await registryClient.fetchTarball(
+        metadata.tarballUrl,
+        metadata.tarballIntegrity,
+        registrySettings
+    );
+    const files = await extractPackageTarball(tarball);
+    return {
+        version: metadata.version,
+        files,
+        publishedAt: metadata.publishedAt,
+        gitHead: metadata.gitHead
+    };
+}
 
 export async function fetchPublishedArtifacts(
     registryClient: RegistryClient,
@@ -20,16 +40,5 @@ export async function fetchPublishedArtifacts(
     if (latestVersion.isNothing) {
         return Maybe.nothing();
     }
-    const tarball = await registryClient.fetchTarball(
-        latestVersion.value.tarballUrl,
-        latestVersion.value.tarballIntegrity,
-        registrySettings
-    );
-    const files = await extractPackageTarball(tarball);
-    return Maybe.just({
-        version: latestVersion.value.version,
-        files,
-        publishedAt: latestVersion.value.publishedAt,
-        gitHead: latestVersion.value.gitHead
-    });
+    return Maybe.just(await fetchPublishedArtifactsFromMetadata(registryClient, registrySettings, latestVersion.value));
 }
