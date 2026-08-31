@@ -154,8 +154,8 @@ packtory <command> [options]
 
 **Preview vs release-diff:**
 
-- **What question does each answer?** `preview` answers _"what would the next publish actually bundle, and what did packtory's linker/DCE change about my source on the way?"_. `release-diff` answers _"what's in this release that wasn't in the previously published one?"_.
-- **What is each comparing?** Both run the same fresh dry-run build. `preview` diffs **source on disk** against the **linker/DCE-processed artifacts**. `release-diff` diffs the **latest tarball on the registry** against the **bundle that next run would publish**.
+- **What question does each answer?** `preview` answers _"what would the next publish actually bundle, and what did packtory's linker and dead code elimination change about my source on the way?"_. `release-diff` answers _"what's in this release that wasn't in the previously published one?"_.
+- **What is each comparing?** Both run the same fresh dry-run build. `preview` diffs **source on disk** against the **artifacts processed by the linker and dead code elimination**. `release-diff` diffs the **latest tarball on the registry** against the **bundle that next run would publish**.
 - A careful release flow runs both: `preview` to validate that the bundle is what you intended to build, `release-diff` to validate that the change set against the last release is what you intended to ship.
 
 **Report outputs:**

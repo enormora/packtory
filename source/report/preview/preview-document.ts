@@ -156,7 +156,7 @@ export function artifactStatusLabel(status: ArtifactStatus): string {
 
 export function artifactBadgeLabel(badge: ArtifactBadge): string {
     if (badge === 'dead-code-elimination') {
-        return 'DCE';
+        return 'dead code elimination';
     }
     return 'rewrite';
 }

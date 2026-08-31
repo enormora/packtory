@@ -28,9 +28,11 @@ function initializerFromRealProject(content: string): Expression {
         },
         skipLoadingLibFiles: true
     });
-    const sourceFile = project.createSourceFile(path.join(process.cwd(), 'target/dce-zod-entry.ts'), content, {
-        overwrite: true
-    });
+    const sourceFile = project.createSourceFile(
+        path.join(process.cwd(), 'target/dead-code-elimination-zod-entry.ts'),
+        content,
+        { overwrite: true }
+    );
     return sourceFile.getVariableDeclarationOrThrow('schema').getInitializerOrThrow();
 }
 

@@ -5,6 +5,7 @@ import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry
 import { loadPackageJson } from '../load-package-json.ts';
 import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
 import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
+import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { runEmittedPackageApi } from './emitted-package-probe.ts';
 
 async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
@@ -140,11 +141,11 @@ suite('dead-code-elimination', function () {
         assert.strictEqual(
             helpers.fileDescription.content.includes('unused'),
             false,
-            'unused() should be removed by DCE'
+            'unused() should be removed by dead code elimination'
         );
     });
 
-    test('repairs stale imports so emitted ESM instantiates after DCE', async function () {
+    test('repairs stale imports so emitted ECMAScript modules instantiate after dead code elimination', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
         const config = await singlePackageConfig(fixturePath);
         const result = await resolveAndLinkAll(config);
@@ -156,7 +157,7 @@ suite('dead-code-elimination', function () {
         assert.strictEqual(await runEmittedPackageApi(resolvedPackage, 'pkg/index.js'), 'helper-used-result');
     });
 
-    test('prunes pure files reached only by code removed by DCE', async function () {
+    test('prunes pure files reached only by code removed by dead code elimination', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
         const config = await singlePackageConfig(fixturePath);
         const result = await resolveAndLinkAll(config);
@@ -198,7 +199,7 @@ suite('dead-code-elimination', function () {
         );
     });
 
-    test('removes metadata for external and sibling imports removed by DCE', async function () {
+    test('removes metadata for external and sibling imports removed by dead code elimination', async function () {
         const fixturePath = path.join(
             process.cwd(),
             'integration-tests/fixtures/dead-code-elimination-dead-dependencies'
@@ -222,6 +223,10 @@ suite('dead-code-elimination', function () {
         const producer = findPackage(packages, 'pkg-producer');
         const shared = findResource(producer, 'pkg-producer/shared.js');
 
+        assertValidDeadCodeEliminationOutput(
+            'declaration companion integration regression',
+            [ producer.analyzedBundle ]
+        );
         assert.ok(
             shared.fileDescription.content.includes('export const sharedConfig'),
             'sharedConfig must remain because emitted modules still import it'

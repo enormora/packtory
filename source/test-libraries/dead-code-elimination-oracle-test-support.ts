@@ -1,27 +1,27 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { EliminationInput } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { AnalyzedBundle, EliminationInput } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
+import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
 import { createTestEliminator } from './eliminator-fixtures.ts';
 import { runNodeProbe } from './run-node-probe.ts';
 
-export type DceOracleEntry = {
+export type DeadCodeEliminationOracleEntry = {
     readonly bundleName: string;
     readonly targetFilePath: string;
     readonly exportName: string;
 };
 
-export type DceOracleCase = {
+export type DeadCodeEliminationOracleCase = {
     readonly name: string;
-    readonly entry: DceOracleEntry;
+    readonly entry: DeadCodeEliminationOracleEntry;
     readonly eliminationInputs: readonly EliminationInput[];
 };
 
-type DceProbeResult = {
+type DeadCodeEliminationProbeResult = {
     readonly value: unknown;
     readonly events: readonly unknown[];
 };
@@ -49,11 +49,15 @@ type WrittenPackages = {
 
 const packageJsonContent = '{"type":"module"}\n';
 
-function entryContext(input: DceOracleCase): string {
+function entryContext(input: DeadCodeEliminationOracleCase): string {
     return `${input.name}: ${input.entry.bundleName}/${input.entry.targetFilePath}#${input.entry.exportName}`;
 }
 
-function verifyEntryBundle(input: DceOracleCase, bundles: readonly WritableBundle[], phase: string): void {
+function verifyEntryBundle(
+    input: DeadCodeEliminationOracleCase,
+    bundles: readonly WritableBundle[],
+    phase: string
+): void {
     const bundle = bundles.find(function (candidate) {
         return candidate.name === input.entry.bundleName;
     });
@@ -109,7 +113,7 @@ async function writeBundleResources(
 
 async function writePackage(caseName: string, bundles: readonly WritableBundle[]): Promise<string> {
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const packageFolder = await mkdtemp(path.join(tmpdir(), 'packtory-dce-oracle-'));
+    const packageFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-dead-code-elimination-oracle-'));
     const packageWriter = createPackageWriter(fileManager, packageFolder, caseName);
     await fileManager.writeFile(path.join(packageFolder, 'package.json'), packageJsonContent);
     await writeBundleResources(packageWriter, bundles);
@@ -118,16 +122,19 @@ async function writePackage(caseName: string, bundles: readonly WritableBundle[]
 
 function probeScript(entryUrl: string, exportName: string): string {
     return [
-        'globalThis.__packtoryDceEvents = [];',
+        'globalThis.__packtoryDeadCodeEliminationEvents = [];',
         `const module = await import(${JSON.stringify(entryUrl)});`,
         `const exported = module[${JSON.stringify(exportName)}];`,
         'const value = typeof exported === "function" ? await exported() : exported;',
-        'console.log(JSON.stringify({ value, events: globalThis.__packtoryDceEvents }));'
+        'console.log(JSON.stringify({ value, events: globalThis.__packtoryDeadCodeEliminationEvents }));'
     ]
         .join('\n');
 }
 
-async function runPackageProbe(packageFolder: string, entry: DceOracleEntry): Promise<DceProbeResult> {
+async function runPackageProbe(
+    packageFolder: string,
+    entry: DeadCodeEliminationOracleEntry
+): Promise<DeadCodeEliminationProbeResult> {
     const entryUrl = pathToFileURL(path.join(packageFolder, entry.targetFilePath)).href;
     const result = await runNodeProbe(probeScript(entryUrl, entry.exportName));
 
@@ -136,25 +143,34 @@ async function runPackageProbe(packageFolder: string, entry: DceOracleEntry): Pr
             return left.localeCompare(right);
         }),
         [ 'events', 'value' ],
-        'DCE oracle probe returned an unexpected shape'
+        'dead code elimination oracle probe returned an unexpected shape'
     );
 
-    return result as DceProbeResult;
+    return result as DeadCodeEliminationProbeResult;
 }
 
-function originalBundles(input: DceOracleCase): readonly WritableBundle[] {
+function originalBundles(input: DeadCodeEliminationOracleCase): readonly WritableBundle[] {
     return input.eliminationInputs.map(function (eliminationInput) {
         return eliminationInput.bundle;
     });
 }
 
-function wrapFailure(input: DceOracleCase, phase: string, error: unknown): Error {
+function entryBundles(
+    input: DeadCodeEliminationOracleCase,
+    bundles: readonly AnalyzedBundle[]
+): readonly AnalyzedBundle[] {
+    return bundles.filter(function (bundle) {
+        return bundle.name === input.entry.bundleName;
+    });
+}
+
+function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, error: unknown): Error {
     const message = error instanceof Error ? error.message : String(error);
     return new Error(`${entryContext(input)} failed during ${phase}: ${message}`, { cause: error });
 }
 
 async function removePackageFolder(packageFolder: string): Promise<void> {
-    await rm(packageFolder, { recursive: true, force: true });
+    await fs.promises.rm(packageFolder, { recursive: true, force: true });
 }
 
 async function withWrittenPackages<T>(
@@ -176,7 +192,7 @@ async function withWrittenPackages<T>(
     }
 }
 
-async function comparePackageBehavior(input: DceOracleCase, packages: WrittenPackages): Promise<void> {
+async function comparePackageBehavior(input: DeadCodeEliminationOracleCase, packages: WrittenPackages): Promise<void> {
     const originalResult = await runPackageProbe(packages.original, input.entry);
     const eliminatedResult = await runPackageProbe(packages.eliminated, input.entry);
     assert.deepStrictEqual(
@@ -186,13 +202,16 @@ async function comparePackageBehavior(input: DceOracleCase, packages: WrittenPac
     );
 }
 
-export async function assertDceEquivalent(input: DceOracleCase): Promise<void> {
+export async function assertDeadCodeEliminationEquivalent(
+    input: DeadCodeEliminationOracleCase
+): Promise<void> {
     try {
         const original = originalBundles(input);
         const eliminated = await createTestEliminator().eliminate(input.eliminationInputs);
 
         verifyEntryBundle(input, original, 'original');
         verifyEntryBundle(input, eliminated, 'eliminated');
+        assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
 
         await withWrittenPackages(input.name, original, eliminated, async function (packages) {
             await comparePackageBehavior(input, packages);

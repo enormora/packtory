@@ -9,7 +9,7 @@ import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts'
 
 async function writeAnalyzedPackage(resolvedPackage: ResolvedPackage): Promise<string> {
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const packageFolder = await mkdtemp(path.join(tmpdir(), 'packtory-dce-import-repair-'));
+    const packageFolder = await mkdtemp(path.join(tmpdir(), 'packtory-dead-code-elimination-import-repair-'));
     await fileManager.writeFile(path.join(packageFolder, 'package.json'), '{"type":"module"}\n');
     for (const resource of resolvedPackage.analyzedBundle.contents) {
         await fileManager.writeFile(
