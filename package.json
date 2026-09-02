@@ -31,7 +31,7 @@
         "@arethetypeswrong/core": "0.18.5",
         "@cyclonedx/cyclonedx-library": "10.2.0",
         "@jridgewell/trace-mapping": "0.3.31",
-        "@octokit/core": "7.0.7",
+        "@octokit/core": "7.0.8",
         "@octokit/plugin-paginate-rest": "15.0.0",
         "@octokit/plugin-rest-endpoint-methods": "18.0.0",
         "@pr-log/core": "0.0.4",
