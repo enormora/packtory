@@ -35,7 +35,7 @@
         "@octokit/plugin-paginate-rest": "15.0.0",
         "@octokit/plugin-rest-endpoint-methods": "18.0.0",
         "@pr-log/core": "0.0.4",
-        "@schema-hub/zod-error-formatter": "0.0.16",
+        "@schema-hub/zod-error-formatter": "0.0.18",
         "@ts-morph/common": "0.29.0",
         "@types/common-tags": "1.8.4",
         "@types/hosted-git-info": "3.0.5",
@@ -106,7 +106,7 @@
         "node": "^24.15.0 || >=26.0.0"
     },
     "overrides": {
-        "@schema-hub/zod-error-formatter": "0.0.16",
+        "@schema-hub/zod-error-formatter": "0.0.18",
         "yargs": "18.1.0"
     }
 }
