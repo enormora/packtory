@@ -1,30 +1,21 @@
-import path from 'node:path';
 import fc from 'fast-check';
-import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
-import type { DeadCodeEliminationOracleEntry } from './dead-code-elimination-oracle-test-support.ts';
-
-export type GeneratedDeadCodeEliminationProgram = {
-    readonly name: string;
-    readonly bundle: LinkedBundle;
-    readonly entry: DeadCodeEliminationOracleEntry;
-    readonly fileListing: string;
-};
-
-type GeneratedExpression = {
-    readonly source: string;
-};
-
-type RuntimeFile = {
-    readonly targetFilePath: string;
-    readonly content: string;
-    readonly dependencies: readonly string[];
-};
+import {
+    deadCodeEliminationDeclarationFor as declarationFor,
+    deadCodeEliminationDependencyPath as dependencyPath,
+    deadCodeEliminationEventNameArbitrary as eventNameArbitrary,
+    deadCodeEliminationEventPush as eventPush,
+    deadCodeEliminationExpressionArbitrary as expressionArbitrary,
+    deadCodeEliminationRuntimeFile as runtimeFile,
+    deadCodeEliminationSingleBundleProgramFrom,
+    type DeadCodeEliminationGeneratedFile,
+    type GeneratedDeadCodeEliminationProgram,
+    type GeneratedExpression
+} from './dead-code-elimination-generated-programs.ts';
 
 type ProgramInput = {
     readonly name: string;
-    readonly runtimeFiles: readonly RuntimeFile[];
-    readonly declarationFiles: readonly RuntimeFile[];
+    readonly runtimeFiles: readonly DeadCodeEliminationGeneratedFile[];
+    readonly declarationFiles: readonly DeadCodeEliminationGeneratedFile[];
 };
 
 export const deadCodeEliminationCoreCaseKinds = [
@@ -51,84 +42,8 @@ type BroadCaseInput = {
 };
 
 const packageName = 'pkg';
-const eventLog = 'globalThis.__packtoryDeadCodeEliminationEvents';
 
-function stringExpression(value: string): GeneratedExpression {
-    return { source: JSON.stringify(value) };
-}
-
-function numberExpression(value: number): GeneratedExpression {
-    return { source: String(value) };
-}
-
-function booleanExpression(value: boolean): GeneratedExpression {
-    return { source: String(value) };
-}
-
-function arrayExpression(values: readonly [GeneratedExpression, GeneratedExpression]): GeneratedExpression {
-    return { source: `[${values[0].source}, ${values[1].source}]` };
-}
-
-function objectExpression(values: readonly [GeneratedExpression, GeneratedExpression]): GeneratedExpression {
-    return { source: `({ alpha: ${values[0].source}, beta: ${values[1].source} })` };
-}
-
-const simpleExpressionArbitrary: fc.Arbitrary<GeneratedExpression> = fc.oneof(
-    fc.string({ maxLength: 12 }).map(stringExpression),
-    fc.integer({ min: -100, max: 100 }).map(numberExpression),
-    fc.boolean().map(booleanExpression)
-);
-
-const expressionArbitrary: fc.Arbitrary<GeneratedExpression> = fc.oneof(
-    simpleExpressionArbitrary,
-    fc.tuple(simpleExpressionArbitrary, simpleExpressionArbitrary).map(arrayExpression),
-    fc.tuple(simpleExpressionArbitrary, simpleExpressionArbitrary).map(objectExpression)
-);
-
-const eventNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9]{0,7}$/);
-
-function sourcePathFor(targetFilePath: string): string {
-    return `/src/${targetFilePath}`;
-}
-
-function moduleSpecifier(fromTargetFilePath: string, toTargetFilePath: string): string {
-    const relativePath = path.posix.relative(path.posix.dirname(fromTargetFilePath), toTargetFilePath);
-    return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
-}
-
-function dependencyPath(fromTargetFilePath: string, toTargetFilePath: string): string {
-    const targetPath = path.posix.join(
-        path.posix.dirname(fromTargetFilePath),
-        moduleSpecifier(fromTargetFilePath, toTargetFilePath)
-    );
-    return sourcePathFor(path.posix.normalize(targetPath));
-}
-
-function runtimeFile(
-    targetFilePath: string,
-    lines: readonly string[],
-    dependencies: readonly string[]
-): RuntimeFile {
-    return {
-        targetFilePath,
-        content: `${lines.join('\n')}\n`,
-        dependencies
-    };
-}
-
-function declarationFor(
-    targetFilePath: string,
-    lines: readonly string[],
-    dependencies: readonly string[]
-): RuntimeFile {
-    return runtimeFile(targetFilePath.replace(/\.js$/u, '.d.ts'), lines, dependencies);
-}
-
-function eventPush(eventName: string): string {
-    return `${eventLog}.push(String(${JSON.stringify(eventName)}));`;
-}
-
-function moduleA(expression: GeneratedExpression, eventName: string): RuntimeFile {
+function moduleA(expression: GeneratedExpression, eventName: string): DeadCodeEliminationGeneratedFile {
     return runtimeFile(
         'module-a.js',
         [
@@ -141,7 +56,7 @@ function moduleA(expression: GeneratedExpression, eventName: string): RuntimeFil
     );
 }
 
-function moduleADeclaration(): RuntimeFile {
+function moduleADeclaration(): DeadCodeEliminationGeneratedFile {
     return declarationFor(
         'module-a.js',
         [
@@ -154,7 +69,7 @@ function moduleADeclaration(): RuntimeFile {
     );
 }
 
-function indexDeclarationForReexport(): RuntimeFile {
+function indexDeclarationForReexport(): DeadCodeEliminationGeneratedFile {
     return declarationFor(
         'index.js',
         [
@@ -166,7 +81,7 @@ function indexDeclarationForReexport(): RuntimeFile {
     );
 }
 
-function indexDeclarationForLocalApi(): RuntimeFile {
+function indexDeclarationForLocalApi(): DeadCodeEliminationGeneratedFile {
     return declarationFor(
         'index.js',
         [
@@ -373,66 +288,22 @@ function broadCase(input: BroadCaseInput): ProgramInput {
     };
 }
 
-function fileToResource(file: RuntimeFile): LinkedBundleResource {
-    return {
-        ...bundleResource(sourcePathFor(file.targetFilePath), {
-            content: file.content,
-            directDependencies: new Set(file.dependencies),
-            targetFilePath: file.targetFilePath
-        }),
-        isSubstituted: false
-    };
-}
-
-function formatFile(file: RuntimeFile): string {
-    return [ `// file: ${packageName}/${file.targetFilePath}`, file.content.trimEnd() ].join('\n');
-}
-
-function fileListingFor(input: ProgramInput): string {
-    return [ ...input.runtimeFiles, ...input.declarationFiles ].map(formatFile).join('\n\n');
-}
-
 function programFrom(input: ProgramInput): GeneratedDeadCodeEliminationProgram {
-    const resources = [ ...input.runtimeFiles, ...input.declarationFiles ].map(fileToResource);
-    const index = input.runtimeFiles[0];
-    if (index === undefined) {
-        throw new Error('Generated program is missing index.js');
-    }
-    const indexDeclaration = input.declarationFiles[0];
-    if (indexDeclaration === undefined) {
-        throw new Error('Generated program is missing index.d.ts');
-    }
-
-    return {
+    return deadCodeEliminationSingleBundleProgramFrom({
         name: input.name,
-        bundle: linkedBundle({
+        bundle: {
             name: packageName,
-            contents: resources,
-            roots: {
-                main: {
-                    js: {
-                        content: index.content,
-                        isExecutable: false,
-                        sourceFilePath: sourcePathFor(index.targetFilePath),
-                        targetFilePath: index.targetFilePath
-                    },
-                    declarationFile: {
-                        content: indexDeclaration.content,
-                        isExecutable: false,
-                        sourceFilePath: sourcePathFor(indexDeclaration.targetFilePath),
-                        targetFilePath: indexDeclaration.targetFilePath
-                    }
-                }
-            },
-            surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-        }),
+            runtimeFiles: input.runtimeFiles,
+            declarationFiles: input.declarationFiles,
+            rootTargetFilePath: 'index.js',
+            rootDeclarationTargetFilePath: 'index.d.ts'
+        },
         entry: {
             bundleName: packageName,
             targetFilePath: 'index.js',
             exportName: 'api'
-        },
-        fileListing: fileListingFor(input)
-    };
+        }
+    });
 }
 
 export function deadCodeEliminationCoreProgramArbitraryFor(
