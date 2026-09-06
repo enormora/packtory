@@ -4,9 +4,9 @@ import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code
 import {
     deadCodeEliminationBroadProgramArbitrary,
     deadCodeEliminationCoreCaseKinds,
-    deadCodeEliminationCoreProgramArbitraryFor,
-    type GeneratedDeadCodeEliminationProgram
+    deadCodeEliminationCoreProgramArbitraryFor
 } from '../test-libraries/dead-code-elimination-program-generator.ts';
+import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead-code-elimination-generated-programs.ts';
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 const coreRunsPerCaseKind = 17;
