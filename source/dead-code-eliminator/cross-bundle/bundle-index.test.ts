@@ -17,8 +17,20 @@ suite('bundle-index', function () {
             {
                 bundle: linkedBundle({ name: 'pkg-a' }),
                 fileBindings: [
-                    { sourceFilePath: '/a/index.ts', sourceFile: undefined as never, bindings: [] },
-                    { sourceFilePath: '/a/helpers.ts', sourceFile: undefined as never, bindings: [] }
+                    {
+                        sourceFilePath: '/a/index.ts',
+                        parsedSourceFilePath: '/a/index.ts',
+                        targetFilePath: 'index.ts',
+                        sourceFile: undefined as never,
+                        bindings: []
+                    },
+                    {
+                        sourceFilePath: '/a/helpers.ts',
+                        parsedSourceFilePath: '/a/helpers.ts',
+                        targetFilePath: 'helpers.ts',
+                        sourceFile: undefined as never,
+                        bindings: []
+                    }
                 ]
             }
         ]);

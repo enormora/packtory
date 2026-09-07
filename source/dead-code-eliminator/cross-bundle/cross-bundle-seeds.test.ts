@@ -53,8 +53,18 @@ function inputFor(
         return project.getSourceFileOrThrow(file.sourceFilePath);
     });
     const fileBindings: readonly FileBindings[] = sourceFiles.map(function (sourceFile) {
+        const file = files.find(function (candidate) {
+            return candidate.sourceFilePath === sourceFile.getFilePath();
+        });
+        assertDefined(file);
+        const resource = bundle.contents.find(function (candidate) {
+            return candidate.fileDescription.sourceFilePath === file.sourceFilePath;
+        });
+        assertDefined(resource);
         return {
             sourceFilePath: sourceFile.getFilePath(),
+            parsedSourceFilePath: sourceFile.getFilePath(),
+            targetFilePath: resource.fileDescription.targetFilePath,
             sourceFile,
             bindings: extractTopLevelBindings(sourceFile)
         };

@@ -30,7 +30,7 @@ function descriptor(name: string, overrides: Partial<BindingDescriptor> = {}): B
 }
 
 function fileBindings(sourceFilePath: string, bindings: readonly BindingDescriptor[]): FileBindingSet {
-    return { sourceFilePath, bindings };
+    return { sourceFilePath, parsedSourceFilePath: sourceFilePath, targetFilePath: sourceFilePath, bindings };
 }
 
 type CompanionIndexFixtureOptions = {

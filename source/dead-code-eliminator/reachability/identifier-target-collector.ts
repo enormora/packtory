@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
@@ -7,12 +6,16 @@ import {
     type ImportSpecifier,
     type ShorthandPropertyAssignment
 } from 'ts-morph';
+import { resolveRelativeTargetModulePath } from '../target-module-path.ts';
 
 export type DeclarationNodeIndex = {
     readonly idsByNode: ReadonlyMap<TsMorphNode, readonly string[]>;
     readonly idsByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly idsByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly targetFilePathBySourceFilePath: ReadonlyMap<string, string>;
 };
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
+type IdsByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
 
 function declarationName(declaration: TsMorphNode): string {
     return declaration.getSymbolOrThrow().getName();
@@ -26,13 +29,33 @@ function declarationPathTargets(
     return declarationIndex.idsByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
 }
 
-function importedFilePath(importDeclaration: ImportDeclaration): string {
+function resolveTargetFilePath(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): string | undefined {
     const sourceFilePath = importDeclaration.getSourceFile().getFilePath();
-    return path.resolve(path.dirname(sourceFilePath), importDeclaration.getModuleSpecifierValue());
+    const targetFilePath = declarationIndex.targetFilePathBySourceFilePath.get(sourceFilePath);
+    if (targetFilePath === undefined) {
+        return undefined;
+    }
+    return resolveRelativeTargetModulePath(targetFilePath, importDeclaration.getModuleSpecifierValue());
+}
+
+function resolveSourceFilePath(importDeclaration: ImportDeclaration): string {
+    const sourceFilePath = importDeclaration.getSourceFile().getFilePath();
+    return resolveRelativeTargetModulePath(sourceFilePath, importDeclaration.getModuleSpecifierValue());
 }
 
 function isRelativeImport(importDeclaration: ImportDeclaration): boolean {
     return importDeclaration.getModuleSpecifierValue().startsWith('.');
+}
+
+function targetsByFileAndName(
+    idsByFileAndName: IdsByFileAndName,
+    filePath: string | undefined,
+    name: string
+): readonly string[] {
+    return filePath === undefined ? [] : idsByFileAndName.get(filePath)?.get(name) ?? [];
 }
 
 function relativeImportSpecifierTargets(
@@ -44,7 +67,15 @@ function relativeImportSpecifierTargets(
         return [];
     }
 
-    return declarationIndex.idsByFileAndName.get(importedFilePath(importDeclaration))?.get(declaration.getName()) ?? [];
+    const targetFilePath = resolveTargetFilePath(importDeclaration, declarationIndex);
+    return [
+        ...targetsByFileAndName(declarationIndex.idsByTargetFileAndName, targetFilePath, declaration.getName()),
+        ...targetsByFileAndName(
+            declarationIndex.idsByFileAndName,
+            resolveSourceFilePath(importDeclaration),
+            declaration.getName()
+        )
+    ];
 }
 
 function importSpecifierTargets(

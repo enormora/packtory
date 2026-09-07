@@ -99,6 +99,19 @@ suite('dead code elimination invariant assertions', function () {
         );
     });
 
+    test('rejects dangling local export declarations', function () {
+        assertInvariantFailure(
+            bundleWith([
+                resource(
+                    '/src/imported-expression-origin.ts',
+                    'dead-code-eliminator/imported-expression-origin.js',
+                    'export { arePureCallArguments };\n'
+                )
+            ]),
+            /imported-expression-origin\.js exports local arePureCallArguments, but no local binding remains/u
+        );
+    });
+
     test('accepts declaration imports resolved through declaration companions', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([

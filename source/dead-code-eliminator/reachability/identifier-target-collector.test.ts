@@ -12,7 +12,9 @@ function rootSourceFile(content: string): SourceFile {
 function emptyIndex(): DeclarationNodeIndex {
     return {
         idsByNode: new Map(),
-        idsByFileAndName: new Map()
+        idsByFileAndName: new Map(),
+        idsByTargetFileAndName: new Map(),
+        targetFilePathBySourceFilePath: new Map()
     };
 }
 
@@ -24,7 +26,9 @@ function indexedDeclaration(sourceFile: SourceFile, statementOffset: number, bin
     const declaration = statement.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
     return {
         idsByNode: new Map<TsMorphNode, readonly string[]>([ [ declaration, [ bindingId ] ] ]),
-        idsByFileAndName: new Map()
+        idsByFileAndName: new Map(),
+        idsByTargetFileAndName: new Map(),
+        targetFilePathBySourceFilePath: new Map()
     };
 }
 
@@ -68,7 +72,9 @@ suite('identifier-target-collector', function () {
             idsByNode: new Map(),
             idsByFileAndName: new Map([
                 [ sourceFile.getFilePath(), new Map([ [ 'x', [ '/external.ts::x' ] ] ]) ]
-            ])
+            ]),
+            idsByTargetFileAndName: new Map(),
+            targetFilePathBySourceFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set([ '/external.ts::x' ]));
@@ -89,10 +95,51 @@ suite('identifier-target-collector', function () {
             idsByNode: new Map(),
             idsByFileAndName: new Map([
                 [ '/src/shared.js', new Map([ [ 'config', [ '/src/shared.js::config' ] ] ]) ]
-            ])
+            ]),
+            idsByTargetFileAndName: new Map(),
+            targetFilePathBySourceFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set([ '/src/shared.js::config' ]));
+    });
+
+    test('collectIdentifierTargets maps emitted js imports to ts source identity exports by target path', function () {
+        const project = createProject({
+            withFiles: [
+                {
+                    filePath: '/source/file-manager/file-manager.ts',
+                    content: 'import { isExecutableFileMode } from "./permissions.js";\n'
+                }
+            ]
+        });
+        const sourceFile = project.getSourceFileOrThrow('/source/file-manager/file-manager.ts');
+        const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
+        const bindingIds = [ '/source/file-manager/permissions.ts::isExecutableFileMode' ];
+        const declarationIndex: DeclarationNodeIndex = {
+            idsByNode: new Map(),
+            idsByFileAndName: new Map([
+                [
+                    '/source/file-manager/permissions.ts',
+                    new Map([ [ 'isExecutableFileMode', bindingIds ] ])
+                ]
+            ]),
+            idsByTargetFileAndName: new Map([
+                [
+                    'file-manager/permissions.js',
+                    new Map([ [ 'isExecutableFileMode', bindingIds ] ])
+                ]
+            ]),
+            targetFilePathBySourceFilePath: new Map([
+                [ '/source/file-manager/file-manager.ts', 'file-manager/file-manager.js' ],
+                [ '/source/file-manager/permissions.ts', 'file-manager/permissions.js' ]
+            ])
+        };
+        const targets = collectIdentifierTargets(importSpecifier, declarationIndex);
+
+        assert.deepStrictEqual(
+            targets,
+            new Set([ '/source/file-manager/permissions.ts::isExecutableFileMode' ])
+        );
     });
 
     test('collectIdentifierTargets does not map named imports from external modules', function () {
@@ -108,7 +155,9 @@ suite('identifier-target-collector', function () {
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
         const targets = collectIdentifierTargets(importSpecifier, {
             idsByNode: new Map(),
-            idsByFileAndName: new Map([ [ '/src/shared', new Map([ [ 'config', [ '/src/shared::config' ] ] ]) ] ])
+            idsByFileAndName: new Map([ [ '/src/shared', new Map([ [ 'config', [ '/src/shared::config' ] ] ]) ] ]),
+            idsByTargetFileAndName: new Map(),
+            targetFilePathBySourceFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set());
@@ -127,7 +176,9 @@ suite('identifier-target-collector', function () {
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
         const targets = collectIdentifierTargets(importSpecifier, {
             idsByNode: new Map(),
-            idsByFileAndName: new Map()
+            idsByFileAndName: new Map(),
+            idsByTargetFileAndName: new Map(),
+            targetFilePathBySourceFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set());

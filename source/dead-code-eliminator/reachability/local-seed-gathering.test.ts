@@ -16,7 +16,13 @@ function fileBindings(
     sourceFile: SourceFile,
     bindings: readonly BindingDescriptor[]
 ): FileBindings {
-    return { sourceFilePath, sourceFile, bindings };
+    return {
+        sourceFilePath,
+        parsedSourceFilePath: sourceFile.getFilePath(),
+        targetFilePath: sourceFilePath,
+        sourceFile,
+        bindings
+    };
 }
 
 const statementStub = { id: 'stmt' };

@@ -82,6 +82,15 @@ const runtimeTargetExtensions = [
     '.wasm'
 ];
 const declarationTargetExtensions = [ '.d.ts', '.d.mts', '.d.cts' ];
+const localDeclarationMethods = [
+    'getClass',
+    'getEnum',
+    'getFunction',
+    'getInterface',
+    'getModule',
+    'getTypeAlias',
+    'getVariableDeclaration'
+] as const;
 
 function normalizeTargetPath(targetFilePath: string): string {
     return path.posix.normalize(targetFilePath);
@@ -293,7 +302,40 @@ function checkReExportNames(context: ModuleCheck, declaration: ExportDeclaration
     }
 }
 
+function hasLocalImportBinding(sourceFile: SourceFile, name: string): boolean {
+    return sourceFile.getImportDeclarations().some(function (declaration) {
+        return declaration.getDefaultImport()?.getText() === name ||
+            declaration.getNamespaceImport()?.getText() === name ||
+            declaration.getNamedImports().some(function (namedImport) {
+                return (namedImport.getAliasNode()?.getText() ?? namedImport.getName()) === name;
+            });
+    });
+}
+
+function hasLocalBinding(sourceFile: SourceFile, name: string): boolean {
+    return localDeclarationMethods.some(function (method) {
+        return sourceFile[method](name) !== undefined;
+    }) || hasLocalImportBinding(sourceFile, name);
+}
+
+function checkLocalExportNames(context: ModuleCheck, declaration: ExportDeclaration): void {
+    if (declaration.getModuleSpecifierValue() !== undefined || !isNamedExportActive(context.mode, declaration)) {
+        return;
+    }
+    for (const namedExport of declaration.getNamedExports()) {
+        const localName = namedExport.getName();
+        if (!hasLocalBinding(declaration.getSourceFile(), localName)) {
+            context.issues.add([
+                `${context.index.bundle.name}: ${context.importerTargetPath}`,
+                `exports local ${localName}, but no local binding remains`
+            ]
+                .join(' '));
+        }
+    }
+}
+
 function checkExportDeclaration(context: ModuleCheck, declaration: ExportDeclaration): void {
+    checkLocalExportNames(context, declaration);
     const target = exportTarget(context, declaration);
     if (target !== undefined) {
         checkReExportNames(context, declaration, target);

@@ -10,7 +10,13 @@ export const probeTestTimeoutMs = 10_000;
 export function fileBindingsFor(filePath: string, content: string): FileBindings {
     const project = createProject({ withFiles: [ { filePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(filePath);
-    return { sourceFilePath: filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
+    return {
+        sourceFilePath: filePath,
+        parsedSourceFilePath: sourceFile.getFilePath(),
+        targetFilePath: filePath,
+        sourceFile,
+        bindings: extractTopLevelBindings(sourceFile)
+    };
 }
 
 export function multiFileBindingsFor(
@@ -23,7 +29,13 @@ export function multiFileBindingsFor(
     });
     return files.map(function (file) {
         const sourceFile = project.getSourceFileOrThrow(file.filePath);
-        return { sourceFilePath: file.filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
+        return {
+            sourceFilePath: file.filePath,
+            parsedSourceFilePath: sourceFile.getFilePath(),
+            targetFilePath: file.filePath,
+            sourceFile,
+            bindings: extractTopLevelBindings(sourceFile)
+        };
     });
 }
 

@@ -62,6 +62,8 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
         if (entry.sourceFile !== undefined) {
             result.push({
                 sourceFilePath: entry.resource.fileDescription.sourceFilePath,
+                parsedSourceFilePath: entry.sourceFile.getFilePath(),
+                targetFilePath: entry.resource.fileDescription.targetFilePath,
                 sourceFile: entry.sourceFile,
                 bindings: entry.bindings
             });
