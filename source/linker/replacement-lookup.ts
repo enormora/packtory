@@ -143,11 +143,12 @@ function declarationSourceFilePaths(
     return exportedSourceFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
 }
 
-const pathClosureDependencies = {
-    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
+const pathClosureDependencies: BfsClosureDependencies<string> = {
+    visitedHas(visited, value): boolean {
         return visited.has(value);
-    }
-} as const;
+    },
+    neighborAdded: undefined
+};
 
 function exportStateValue(value: unknown, property: keyof ExportState): unknown {
     return Reflect.get(new Object(value), property);
@@ -157,13 +158,14 @@ function sourceFilePathForState(state: ExportState): string {
     return state.sourceFilePath;
 }
 
-const exportClosureDependencies: BfsClosureDependencies = {
+const exportClosureDependencies: BfsClosureDependencies<ExportState> = {
     visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
         return Array.from(visited).some(function (state) {
             return exportStateValue(state, 'sourceFilePath') === exportStateValue(value, 'sourceFilePath') &&
                 exportStateValue(state, 'exportName') === exportStateValue(value, 'exportName');
         });
-    }
+    },
+    neighborAdded: undefined
 };
 
 function exportedStateNames(

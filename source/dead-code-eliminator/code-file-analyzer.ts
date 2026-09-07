@@ -4,13 +4,16 @@ import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { buildModuleAnalysis } from './liveness/module-analysis.ts';
 import { bindingId } from './reachability/binding-id.ts';
+import type { DeadCodeEliminationTrace } from './trace.ts';
 import type { PositionAtom, TextTransformMap } from './transform/atom-translator.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
 
 export type AnalysisContext = {
+    readonly bundleName: string;
     readonly reachable: ReadonlySet<string>;
     readonly transformationsEnabled: boolean;
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
+    readonly trace: DeadCodeEliminationTrace;
 };
 
 type TransformRecord = {
@@ -47,10 +50,18 @@ function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet
 }
 
 function transformSourceFile(
+    loaded: LoadedCodeResource,
+    context: AnalysisContext,
     sourceFile: SourceFile,
     surviving: ReadonlySet<string>
 ): TransformedSourceFile {
-    const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
+    const result = applyRemovalPlan(sourceFile, {
+        bundleName: context.bundleName,
+        sourceFilePath: loaded.resource.fileDescription.sourceFilePath,
+        targetFilePath: loaded.resource.fileDescription.targetFilePath,
+        survivingNames: surviving,
+        trace: context.trace
+    });
     return { transformedCode: sourceFile.getFullText(), atoms: result.atoms };
 }
 
@@ -88,7 +99,7 @@ export function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisC
         return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }
     const originalCode = loaded.resource.fileDescription.content;
-    const { transformedCode, atoms } = transformSourceFile(loaded.sourceFile, reachableBindings);
+    const { transformedCode, atoms } = transformSourceFile(loaded, context, loaded.sourceFile, reachableBindings);
     if (transformedCode === originalCode) {
         return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }

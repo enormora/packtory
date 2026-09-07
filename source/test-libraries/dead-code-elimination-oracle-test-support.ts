@@ -10,7 +10,10 @@ import type {
 } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
-import { createTestEliminator } from './eliminator-fixtures.ts';
+import {
+    collectDeadCodeEliminationTrace,
+    createTestEliminator
+} from './eliminator-fixtures.ts';
 import { runNodeProbe } from './run-node-probe.ts';
 
 export type DeadCodeEliminationOracleEntry = {
@@ -189,9 +192,15 @@ function entryBundles(
     });
 }
 
-function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, error: unknown): Error {
+async function tracedEliminationOutput(input: DeadCodeEliminationOracleCase): Promise<string> {
+    return collectDeadCodeEliminationTrace(input.eliminationInputs);
+}
+
+async function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, error: unknown): Promise<Error> {
+    const trace = await tracedEliminationOutput(input);
+    const traceOutput = trace.length === 0 ? 'dead code elimination trace: no events recorded' : trace;
     const message = error instanceof Error ? error.message : String(error);
-    return new Error(`${entryContext(input.name, input.entry)} failed during ${phase}: ${message}`, {
+    return new Error(`${entryContext(input.name, input.entry)} failed during ${phase}: ${message}\n\n${traceOutput}`, {
         cause: error
     });
 }
@@ -259,9 +268,13 @@ async function eliminateDeadCodeForOracle(
 export async function eliminateDeadCodeAndAssertAllOutputValid(
     input: DeadCodeEliminationOracleCase
 ): Promise<readonly AnalyzedBundle[]> {
-    const eliminated = await eliminateDeadCodeForOracle(input);
-    assertValidDeadCodeEliminationOutput(input.name, eliminated);
-    return eliminated;
+    try {
+        const eliminated = await eliminateDeadCodeForOracle(input);
+        assertValidDeadCodeEliminationOutput(input.name, eliminated);
+        return eliminated;
+    } catch (error: unknown) {
+        throw await wrapFailure(input, 'output validation', error);
+    }
 }
 
 export async function assertDeadCodeEliminationEquivalent(
@@ -282,7 +295,7 @@ export async function assertDeadCodeEliminationEquivalent(
             rightBundles: eliminated
         });
     } catch (error: unknown) {
-        throw wrapFailure(input, 'oracle comparison', error);
+        throw await wrapFailure(input, 'oracle comparison', error);
     }
 }
 
@@ -392,9 +405,15 @@ function secondPassInputs(
 export async function assertDeadCodeEliminationIdempotent(
     input: DeadCodeEliminationOracleCase
 ): Promise<void> {
+    let tracedInput = input;
     try {
         const firstPass = await eliminateDeadCodeForOracle(input);
-        const secondPass = await createTestEliminator().eliminate(secondPassInputs(input, firstPass));
+        tracedInput = {
+            ...input,
+            name: `${input.name} second pass`,
+            eliminationInputs: secondPassInputs(input, firstPass)
+        };
+        const secondPass = await createTestEliminator().eliminate(tracedInput.eliminationInputs);
 
         verifyEntryBundle(input.name, input.entry, secondPass, 'second-pass eliminated');
         assertValidDeadCodeEliminationOutput(input.name, secondPass);
@@ -408,6 +427,6 @@ export async function assertDeadCodeEliminationIdempotent(
             rightBundles: secondPass
         });
     } catch (error: unknown) {
-        throw wrapFailure(input, 'idempotence comparison', error);
+        throw await wrapFailure(tracedInput, 'idempotence comparison', error);
     }
 }

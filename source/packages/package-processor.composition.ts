@@ -119,6 +119,7 @@ function buildBundleEmitter(
 function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
+        trace: undefined,
         createProject() {
             return new Project({
                 compilerOptions: {

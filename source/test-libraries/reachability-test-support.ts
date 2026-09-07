@@ -43,7 +43,13 @@ export function reachabilityForReExportTarget(entryPointExportDeclaration: strin
                 .join('\n')
         }
     ]);
-    return buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+    return buildReachabilityIndex({
+        bundleName: 'pkg',
+        files,
+        entryPointFilePaths: new Set([ 'entry.ts' ]),
+        deadCodeElimination: undefined,
+        trace: undefined
+    });
 }
 
 export function reachabilityForLocalValueExport(entryPointExportDeclaration: string): ReachabilityIndex {
@@ -59,7 +65,13 @@ export function reachabilityForLocalValueExport(entryPointExportDeclaration: str
                 .join('\n')
         )
     ];
-    return buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+    return buildReachabilityIndex({
+        bundleName: 'pkg',
+        files,
+        entryPointFilePaths: new Set([ 'entry.ts' ]),
+        deadCodeElimination: undefined,
+        trace: undefined
+    });
 }
 
 export function assertReExportTargetIsReachable(index: ReachabilityIndex): void {

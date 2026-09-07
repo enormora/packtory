@@ -50,7 +50,7 @@ suite('load-bundle', function () {
         };
         const bundle = packageABundle({ contents: [ indexResource(), resource ] });
 
-        const result = loadBundle(createProject, loadInput(bundle));
+        const result = loadBundle(createProject, loadInput(bundle), undefined);
 
         assert.deepStrictEqual(result.loaded[1], { resource });
         assert.strictEqual(result.fileBindings.length, 1);
@@ -66,7 +66,7 @@ suite('load-bundle', function () {
         };
         const bundle = packageABundle({ contents: [ indexResource(), duplicateResource ] });
 
-        const result = loadBundle(createProject, loadInput(bundle));
+        const result = loadBundle(createProject, loadInput(bundle), undefined);
 
         assert.strictEqual(result.fileBindings.length, 2);
         assert.strictEqual(result.fileBindings[1]?.sourceFile.getFullText(), duplicateResource.fileDescription.content);
@@ -83,7 +83,7 @@ suite('load-bundle', function () {
         });
 
         assert.throws(function () {
-            loadBundle(createProject, loadInput(bundle));
+            loadBundle(createProject, loadInput(bundle), undefined);
         }, /^Error: Bundle "package-a" is missing root "missing" referenced by its entry surface$/u);
     });
 });

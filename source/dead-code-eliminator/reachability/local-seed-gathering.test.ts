@@ -45,7 +45,14 @@ function gatherSeedsForSingleBinding(
     const binding = createBinding('foo', isExported, declaration);
     const file = fileBindings(sourceFilePath, sourceFile, [ binding ]);
 
-    return gatherLocalSeeds([ file ], entryPoints, buildDeclarationNodeIndex([ file ]), undefined);
+    return gatherLocalSeeds({
+        files: [ file ],
+        entryPointFilePaths: entryPoints,
+        declarationIndex: buildDeclarationNodeIndex([ file ]),
+        deadCodeElimination: undefined,
+        bundleName: 'pkg',
+        trace: undefined
+    });
 }
 
 suite('local-seed-gathering', function () {

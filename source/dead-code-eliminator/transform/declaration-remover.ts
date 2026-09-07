@@ -1,10 +1,7 @@
 import type { SourceFile } from 'ts-morph';
 import { buildTextTransformMap, type PositionAtom } from './atom-translator.ts';
 import { processStatement, repairImportDeclarations } from './declaration-removal.ts';
-
-export type RemovalPlan = {
-    readonly survivingNames: ReadonlySet<string>;
-};
+import type { RemovalPlan } from './declaration-removal-plan.ts';
 
 export type RemovalResult = {
     readonly mutated: boolean;
@@ -16,11 +13,11 @@ export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): Rem
     const statements = sourceFile.getStatements();
     let mutated = false;
     for (const statement of statements) {
-        if (processStatement(statement, plan.survivingNames)) {
+        if (processStatement(statement, plan)) {
             mutated = true;
         }
     }
-    if (repairImportDeclarations(sourceFile, plan.survivingNames)) {
+    if (repairImportDeclarations(sourceFile, plan)) {
         mutated = true;
     }
     const transformedCode = sourceFile.getFullText();

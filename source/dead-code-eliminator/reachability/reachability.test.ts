@@ -12,13 +12,26 @@ import {
     reachabilityForReExportTarget
 } from '../../test-libraries/reachability-test-support.ts';
 import { bindingId } from './binding-id.ts';
-import { buildReachabilityIndex } from './reachability.ts';
+import { buildReachabilityIndex, type ReachabilityInput } from './reachability.ts';
+
+function reachabilityInput(
+    files: ReachabilityInput['files'],
+    entryPointFilePaths: ReachabilityInput['entryPointFilePaths']
+): ReachabilityInput {
+    return {
+        bundleName: 'pkg',
+        files,
+        entryPointFilePaths,
+        deadCodeElimination: undefined,
+        trace: undefined
+    };
+}
 
 suite('reachability', function () {
     suite('entry-point and local binding reachability', function () {
         test('keeps every exported entry-point binding reachable', function () {
             const files = [ fileBindingsFor('entry.ts', 'export function pub() {}\nexport class Pub {}') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'pub')));
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'Pub')));
@@ -26,7 +39,7 @@ suite('reachability', function () {
 
         test('does not keep an unexported and unused helper reachable', function () {
             const files = [ fileBindingsFor('entry.ts', 'function helper() {}\nexport function pub() { return 1; }') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'helper')), false);
         });
@@ -38,7 +51,7 @@ suite('reachability', function () {
                     'function helper() { return 1; }\nexport function pub() { return helper(); }'
                 )
             ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'helper')));
         });
@@ -50,7 +63,7 @@ suite('reachability', function () {
                     'const { helper, other } = { helper() { return 1; }, other() { return 2; } };\nexport function pub() { return helper(); }'
                 )
             ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'helper')));
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'other')));
@@ -63,7 +76,7 @@ suite('reachability', function () {
                     'function createApi() { return { publish() { return 1; } }; }\nconst api = createApi();\nexport const { publish } = api;'
                 )
             ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'publish')));
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'api')));
@@ -77,7 +90,7 @@ suite('reachability', function () {
                     'const globalSchema = 1;\nconst perPackageSchema = 2;\nfunction run() { return 3; }\nexport const rule = { globalSchema, perPackageSchema, run };'
                 )
             ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'rule')));
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'globalSchema')));
@@ -87,7 +100,7 @@ suite('reachability', function () {
 
         test('ignores shorthand properties whose value symbol cannot be resolved', function () {
             const files = [ fileBindingsFor('entry.ts', 'export const rule = { missing };') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'rule')));
             assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'missing')), false);
@@ -104,7 +117,7 @@ suite('reachability', function () {
                     content: 'export function used() { return 1; }\nexport function unused() { return 2; }'
                 }
             ]);
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('helpers.ts', 'used')));
             assert.strictEqual(index.localReachable.has(bindingId('helpers.ts', 'unused')), false);
@@ -140,7 +153,7 @@ suite('reachability', function () {
                     content: 'export const usedValue = 1;'
                 }
             ]);
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.strictEqual(index.localReachable.has(bindingId('values.ts', 'usedValue')), false);
         });
@@ -160,7 +173,7 @@ suite('reachability', function () {
 
         test('keeps every binding reachable that an impure top-level statement references', function () {
             const files = [ fileBindingsFor('entry.ts', 'function setup() {}\nfunction unused() {}\nsetup();') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'setup')));
             assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'unused')), false);
@@ -174,7 +187,7 @@ suite('reachability', function () {
             ]
                 .join('\n');
             const files = [ fileBindingsFor('entry.ts', content) ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'deep')));
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'middle')));
@@ -182,7 +195,7 @@ suite('reachability', function () {
 
         test('expandWith honours external seeds passed in by callers', function () {
             const files = [ fileBindingsFor('lib.ts', 'export function used() {}\nexport function unused() {}') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set<string>()));
             const reachable = index.expandWith(new Set([ bindingId('lib.ts', 'used') ]));
 
             assert.ok(reachable.has(bindingId('lib.ts', 'used')));
@@ -193,14 +206,14 @@ suite('reachability', function () {
     suite('external seeds and traversal state', function () {
         test('returns no reachable bindings when no entry points and no external seeds are given', function () {
             const files = [ fileBindingsFor('lib.ts', 'export function isolated() {}') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set<string>()));
 
             assert.strictEqual(index.localReachable.size, 0);
         });
 
         test('expandWith tolerates external seeds that do not exist in the bundle edge map', function () {
             const files = [ fileBindingsFor('lib.ts', 'export function used() {}') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set<string>()));
             const reachable = index.expandWith(new Set([ bindingId('not-in-bundle.ts', 'mystery') ]));
 
             assert.ok(reachable.has(bindingId('not-in-bundle.ts', 'mystery')));
@@ -209,7 +222,7 @@ suite('reachability', function () {
 
         test('expandWith returns the localReachable set unchanged when given no external seeds', function () {
             const files = [ fileBindingsFor('entry.ts', 'export function pub() { return 1; }') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.strictEqual(index.expandWith(undefined), index.localReachable);
             assert.strictEqual(index.expandWith(new Set<string>()), index.localReachable);
@@ -222,7 +235,7 @@ suite('reachability', function () {
                     'export function pub() { return 1; }\nexport function other() { return 2; }'
                 )
             ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
             const reachable = index.expandWith(new Set([ bindingId('entry.ts', 'pub') ]));
 
             assert.ok(reachable.has(bindingId('entry.ts', 'pub')));
@@ -237,7 +250,7 @@ suite('reachability', function () {
                 )
             ];
             const index = buildReachabilityIndex(
-                { files, entryPointFilePaths: new Set<string>() },
+                reachabilityInput(files, new Set<string>()),
                 {
                     visitedHas(visited, value) {
                         if (typeof value === 'string' && value.includes('::')) {
@@ -253,9 +266,28 @@ suite('reachability', function () {
             }, /^Error: Reachability traversal exceeded 5 attempts$/u);
         });
 
+        test('passes newly added edges to the injected traversal dependency', function () {
+            const files = [
+                fileBindingsFor(
+                    'entry.ts',
+                    'function helper() { return 1; }\nexport function pub() { return helper(); }'
+                )
+            ];
+            const addedEdges: string[][] = [];
+            buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])), {
+                neighborAdded(fromBindingId, toBindingId) {
+                    addedEdges.push([ fromBindingId, toBindingId ]);
+                }
+            });
+
+            assert.deepStrictEqual(addedEdges, [
+                [ bindingId('entry.ts', 'pub'), bindingId('entry.ts', 'helper') ]
+            ]);
+        });
+
         test('does not record any unresolved binding ids when a function references its own parameters', function () {
             const files = [ fileBindingsFor('entry.ts', 'export function pub(x: number) { return x; }') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])));
 
             assert.strictEqual(index.localReachable.size, 1);
             assert.ok(index.localReachable.has(bindingId('entry.ts', 'pub')));
@@ -263,7 +295,7 @@ suite('reachability', function () {
 
         test('includes every file in bindingIdsByFile, even unreachable ones', function () {
             const files = [ fileBindingsFor('isolated.ts', 'export function never() {}') ];
-            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set<string>()));
 
             const isolatedIds = index.bindingIdsByFile.get('isolated.ts');
             assertDefined(isolatedIds);
@@ -289,7 +321,13 @@ const files = [{
     sourceFile,
     bindings: extractTopLevelBindings(sourceFile)
 }];
-const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+const index = buildReachabilityIndex({
+    bundleName: 'pkg',
+    files,
+    entryPointFilePaths: new Set(['entry.ts']),
+    deadCodeElimination: undefined,
+    trace: undefined
+});
 
 console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
 `,
@@ -316,7 +354,7 @@ console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
             };
 
             assert.throws(function () {
-                buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) }, { visitedHas });
+                buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])), { visitedHas });
             }, /^Error: Reachability traversal exceeded 5 attempts$/u);
         });
     });
