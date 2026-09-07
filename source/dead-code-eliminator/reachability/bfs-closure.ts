@@ -1,10 +1,11 @@
-export type BfsClosureDependencies = {
-    readonly visitedHas: <T>(visited: ReadonlySet<T>, value: T) => boolean;
+export type BfsClosureDependencies<T> = {
+    readonly visitedHas: (visited: ReadonlySet<T>, value: T) => boolean;
+    readonly neighborAdded: ((current: T, neighbor: T) => void) | undefined;
 };
 
-type BfsClosureOptions = {
+type BfsClosureOptions<T> = {
     readonly maximumNodeCount: number;
-    readonly dependencies: BfsClosureDependencies;
+    readonly dependencies: BfsClosureDependencies<T>;
 };
 
 type TraversalState<T> = {
@@ -23,11 +24,15 @@ function initialTraversalState<T>(initialVisited: ReadonlySet<T>, seedList: read
 
 function enqueueNeighbor<T>(
     state: TraversalState<T>,
+    current: T,
     neighbor: T,
-    visitedHas: BfsClosureDependencies['visitedHas']
+    dependencies: BfsClosureDependencies<T>
 ): TraversalState<T> {
-    if (visitedHas(state.visited, neighbor)) {
+    if (dependencies.visitedHas(state.visited, neighbor)) {
         return state;
+    }
+    if (dependencies.neighborAdded !== undefined) {
+        dependencies.neighborAdded(current, neighbor);
     }
     return {
         current: state.current,
@@ -39,11 +44,11 @@ function enqueueNeighbor<T>(
 function visitCurrent<T>(
     state: ActiveTraversalState<T>,
     expand: (current: T) => Iterable<T>,
-    visitedHas: BfsClosureDependencies['visitedHas']
+    dependencies: BfsClosureDependencies<T>
 ): TraversalState<T> {
     let nextState: TraversalState<T> = state;
     for (const neighbor of expand(state.current)) {
-        nextState = enqueueNeighbor(nextState, neighbor, visitedHas);
+        nextState = enqueueNeighbor(nextState, state.current, neighbor, dependencies);
     }
     const [ current, ...pending ] = nextState.pending;
     return { current, pending, visited: nextState.visited };
@@ -59,7 +64,7 @@ function traverseUntilExhausted<T>(
     state: ActiveTraversalState<T>,
     expand: (current: T) => Iterable<T>,
     maximumAttempts: number,
-    options: BfsClosureOptions
+    options: BfsClosureOptions<T>
 ): Set<T> {
     let traversalState: TraversalState<T> = state;
     let current: T = state.current;
@@ -70,7 +75,7 @@ function traverseUntilExhausted<T>(
         traversalState = visitCurrent(
             { current, pending: traversalState.pending, visited: traversalState.visited },
             expand,
-            options.dependencies.visitedHas
+            options.dependencies
         );
         if (traversalState.current === undefined) {
             return new Set(traversalState.visited);
@@ -85,7 +90,7 @@ export function bfsClosure<T>(
     seeds: Iterable<T>,
     expand: (current: T) => Iterable<T>,
     initialVisited: ReadonlySet<T>,
-    options: BfsClosureOptions
+    options: BfsClosureOptions<T>
 ): Set<T> {
     const seedList = Array.from(seeds);
     const maximumAttempts = initialVisited.size + seedList.length + options.maximumNodeCount * options.maximumNodeCount;

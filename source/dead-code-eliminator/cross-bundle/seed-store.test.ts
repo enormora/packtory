@@ -1,12 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { Project } from 'ts-morph';
-import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
-import { bindingId } from '../reachability/binding-id.ts';
-import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
-import type { FileBindings } from '../reachability/local-seed-gathering.ts';
-import type { ResolvedTarget } from './bundle-index.ts';
-import { createSeedStore, recordSeed, seedAllBindings } from './seed-store.ts';
+import { createSeedStore, recordSeed } from './seed-store.ts';
 
 suite('seed-store', function () {
     test('createSeedStore returns an empty seed map', function () {
@@ -40,63 +34,5 @@ suite('seed-store', function () {
         const withSecondBundle = recordSeed(withFirstBundle, 'pkg-b', 'seed-b');
         assert.deepStrictEqual(Array.from(withSecondBundle.get('pkg-a') ?? new Set()), [ 'seed-a' ]);
         assert.deepStrictEqual(Array.from(withSecondBundle.get('pkg-b') ?? new Set()), [ 'seed-b' ]);
-    });
-
-    function fileBindingsWithExports(exportedNames: readonly string[]): FileBindings {
-        const sourceFilePath = '/b/helpers.ts';
-        const project = new Project({ useInMemoryFileSystem: true });
-        const sourceFile = project.createSourceFile(
-            sourceFilePath,
-            exportedNames
-                .map(function (name) {
-                    return `export const ${name} = 1;`;
-                })
-                .join('\n')
-        );
-        return {
-            sourceFilePath,
-            sourceFile,
-            bindings: extractTopLevelBindings(sourceFile)
-        };
-    }
-
-    function targetWithBindings(exportedNames: readonly string[]): ResolvedTarget {
-        const fileBindings = fileBindingsWithExports(exportedNames);
-        return {
-            bundleName: 'pkg-b',
-            sourceFilePath: '/b/helpers.ts',
-            indexedBundle: {
-                bundle: linkedBundle({ name: 'pkg-b' }),
-                bindingsByFilePath: new Map([
-                    [
-                        '/b/helpers.ts',
-                        fileBindings
-                    ]
-                ])
-            }
-        };
-    }
-
-    test('seedAllBindings records one seed per binding of the resolved target file', function () {
-        const store = createSeedStore();
-        const updated = seedAllBindings(store, targetWithBindings([ 'a', 'b' ]));
-        assert.deepStrictEqual(Array.from(updated.get('pkg-b') ?? new Set()), [
-            bindingId('/b/helpers.ts', 'a'),
-            bindingId('/b/helpers.ts', 'b')
-        ]);
-    });
-
-    test('seedAllBindings does nothing when the resolved file has no bindings entry', function () {
-        const store = createSeedStore();
-        const target: ResolvedTarget = {
-            bundleName: 'pkg-b',
-            sourceFilePath: '/b/missing.ts',
-            indexedBundle: {
-                bundle: linkedBundle({ name: 'pkg-b' }),
-                bindingsByFilePath: new Map()
-            }
-        };
-        const updated = seedAllBindings(store, target);
-        assert.strictEqual(updated.size, 0);
     });
 });

@@ -2,10 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { bfsClosure, type BfsClosureDependencies } from './bfs-closure.ts';
 
-const defaultDependencies: BfsClosureDependencies = {
+const defaultDependencies: BfsClosureDependencies<string> = {
     visitedHas(visited, value) {
         return visited.has(value);
-    }
+    },
+    neighborAdded: undefined
 };
 
 function runBfs(

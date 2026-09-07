@@ -7,9 +7,17 @@ import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
 import { bindingId } from '../reachability/binding-id.ts';
 import type { FileBindings } from '../reachability/local-seed-gathering.ts';
 import { buildReachabilityIndex } from '../reachability/reachability.ts';
-import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle-seeds.ts';
+import {
+    buildCrossBundleSeeds as buildCrossBundleSeedsWithTrace,
+    type CrossBundleInput
+} from './cross-bundle-seeds.ts';
 
 type SeedMap = ReadonlyMap<string, ReadonlySet<string>>;
+const disabledTrace = undefined;
+
+function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[]): SeedMap {
+    return buildCrossBundleSeedsWithTrace(inputs, disabledTrace);
+}
 
 function assertDefined<T>(value: T | undefined): asserts value is T {
     if (value === undefined) {
@@ -52,10 +60,13 @@ function inputFor(
         };
     });
     const { localReachable } = buildReachabilityIndex({
+        bundleName: bundle.name,
         files: fileBindings,
         entryPointFilePaths: new Set(files.map(function (file) {
             return file.sourceFilePath;
-        }))
+        })),
+        deadCodeElimination: undefined,
+        trace: disabledTrace
     });
     return { bundle, sourceFiles, fileBindings, localReachable };
 }

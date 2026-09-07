@@ -50,8 +50,11 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
 }
 
 const baseContext: AnalysisContext = {
+    bundleName: 'pkg',
     reachable: new Set<string>(),
-    transformationsEnabled: false
+    transformationsEnabled: false,
+    deadCodeElimination: undefined,
+    trace: undefined
 };
 
 suite('code-file-analyzer', function () {

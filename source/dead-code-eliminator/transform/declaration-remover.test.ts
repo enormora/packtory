@@ -18,7 +18,13 @@ function transform(
 ): TransformResult {
     const project = createProject({ withFiles: [ { filePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(filePath);
-    const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
+    const result = applyRemovalPlan(sourceFile, {
+        bundleName: 'pkg',
+        sourceFilePath: filePath,
+        targetFilePath: filePath,
+        survivingNames: surviving,
+        trace: undefined
+    });
     return { text: sourceFile.getFullText(), mutated: result.mutated, atoms: result.atoms };
 }
 

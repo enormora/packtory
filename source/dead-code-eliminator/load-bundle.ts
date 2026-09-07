@@ -7,6 +7,7 @@ import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
 import type { FileBindings } from './reachability/local-seed-gathering.ts';
 import { buildReachabilityIndex, type ReachabilityIndex } from './reachability/reachability.ts';
+import type { DeadCodeEliminationTrace } from './trace.ts';
 
 export type CreateProject = () => Project;
 
@@ -104,7 +105,11 @@ function entryRootFilePathsFor(
     ]);
 }
 
-export function loadBundle(createProject: CreateProject, input: EliminationInput): LoadedBundle {
+export function loadBundle(
+    createProject: CreateProject,
+    input: EliminationInput,
+    trace: DeadCodeEliminationTrace
+): LoadedBundle {
     const runtimeProject = createProject();
     const declarationProject = createProject();
     const loaded = input.bundle.contents.map(function (resource) {
@@ -112,9 +117,11 @@ export function loadBundle(createProject: CreateProject, input: EliminationInput
     });
     const fileBindings = buildFileBindings(loaded);
     const reachability = buildReachabilityIndex({
+        bundleName: input.bundle.name,
         files: fileBindings,
         entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleSourceFilePaths),
-        deadCodeElimination: input.deadCodeElimination
+        deadCodeElimination: input.deadCodeElimination,
+        trace
     });
     return { input, loaded, fileBindings, reachability };
 }

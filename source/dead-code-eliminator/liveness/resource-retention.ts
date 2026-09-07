@@ -1,4 +1,5 @@
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../analyzed-bundle.ts';
+import type { DeadCodeEliminationTrace, PruneKind } from '../trace.ts';
 import { isDeclarationCodeTargetPath, isRuntimeCodeTargetPath } from './runtime-code.ts';
 
 function rootSourceFilePaths(bundle: Pick<AnalyzedBundle, 'roots'>): ReadonlySet<string> {
@@ -90,9 +91,10 @@ function prunedMapTargetPaths(
 }
 
 export function pruneContents(
-    bundle: Pick<AnalyzedBundle, 'roots'>,
+    bundle: Pick<AnalyzedBundle, 'name' | 'roots'>,
     contents: readonly AnalyzedBundleResource[],
-    transformationsEnabled: boolean
+    transformationsEnabled: boolean,
+    trace: DeadCodeEliminationTrace
 ): readonly AnalyzedBundleResource[] {
     if (!transformationsEnabled) {
         return contents;
@@ -103,9 +105,20 @@ export function pruneContents(
         if (resource.isExplicitlyIncluded) {
             return true;
         }
-        return (
-            retained.has(resource.fileDescription.sourceFilePath) &&
-            !prunedMapTargets.has(resource.fileDescription.targetFilePath)
-        );
+        const keep = retained.has(resource.fileDescription.sourceFilePath) &&
+            !prunedMapTargets.has(resource.fileDescription.targetFilePath);
+        if (!keep && trace !== undefined) {
+            const pruneKind: PruneKind = retained.has(resource.fileDescription.sourceFilePath)
+                ? 'paired-map-of-pruned-resource'
+                : 'unreachable-resource';
+            trace.collector.record({
+                type: 'file-pruned',
+                bundleName: bundle.name,
+                sourceFilePath: resource.fileDescription.sourceFilePath,
+                targetFilePath: resource.fileDescription.targetFilePath,
+                pruneKind
+            });
+        }
+        return keep;
     });
 }

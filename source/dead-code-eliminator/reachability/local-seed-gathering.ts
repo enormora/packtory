@@ -1,5 +1,6 @@
 import { Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationTrace, LocalSeedReason } from '../trace.ts';
 import { bindingId, type FileBindingSet } from './binding-id.ts';
 import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
 import { collectImpureStatements } from './impure-statements.ts';
@@ -8,61 +9,140 @@ export type FileBindings = FileBindingSet & {
     readonly sourceFile: Readonly<SourceFile>;
 };
 
+type LocalSeed = {
+    readonly bindingId: string;
+    readonly sourceFilePath: string;
+    readonly line: number;
+    readonly reason: LocalSeedReason;
+};
+
+type SeedCollectionContext = {
+    readonly declarationIndex: DeclarationNodeIndex;
+    readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
+    readonly trace: DeadCodeEliminationTrace;
+};
+
+export type LocalSeedGatheringInput = {
+    readonly files: readonly FileBindings[];
+    readonly entryPointFilePaths: ReadonlySet<string>;
+    readonly declarationIndex: DeclarationNodeIndex;
+    readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
+    readonly bundleName: string;
+    readonly trace: DeadCodeEliminationTrace;
+};
+
 function statementSeeds(
+    file: FileBindings,
     statements: readonly Statement[],
-    declarationIndex: DeclarationNodeIndex
-): readonly string[] {
+    declarationIndex: DeclarationNodeIndex,
+    reason: LocalSeedReason
+): readonly LocalSeed[] {
     return statements.flatMap(function (statement) {
-        return Array.from(collectIdentifierTargets(statement, declarationIndex));
+        return Array.from(collectIdentifierTargets(statement, declarationIndex), function (seed) {
+            return {
+                bindingId: seed,
+                sourceFilePath: file.sourceFilePath,
+                line: statement.getStartLineNumber(),
+                reason
+            };
+        });
     });
 }
 
 function entryPointExportDeclarationSeeds(
     file: FileBindings,
     declarationIndex: DeclarationNodeIndex
-): readonly string[] {
+): readonly LocalSeed[] {
     return file.sourceFile.getStatements().flatMap(function (statement) {
         return TsMorphNode.isExportDeclaration(statement)
-            ? Array.from(collectIdentifierTargets(statement, declarationIndex))
+            ? statementSeeds(file, [ statement ], declarationIndex, 'entry-export-declaration')
             : [];
     });
 }
 
-function exportedBindingSeeds(file: FileBindings, isEntry: boolean): readonly string[] {
+function bindingLine(binding: FileBindings['bindings'][number], trace: DeadCodeEliminationTrace): number {
+    if (trace === undefined) {
+        return 0;
+    }
+    return binding.statement.getStartLineNumber();
+}
+
+function exportedBindingSeeds(
+    file: FileBindings,
+    isEntry: boolean,
+    trace: DeadCodeEliminationTrace
+): readonly LocalSeed[] {
     if (!isEntry) {
         return [];
     }
     return file.bindings.flatMap(function (binding) {
-        return binding.isExported ? [ bindingId(file.sourceFilePath, binding.name) ] : [];
+        return binding.isExported
+            ? [
+                {
+                    bindingId: bindingId(file.sourceFilePath, binding.name),
+                    sourceFilePath: file.sourceFilePath,
+                    line: bindingLine(binding, trace),
+                    reason: 'entry-export'
+                }
+            ]
+            : [];
     });
 }
 
 function seedsForFile(
     file: FileBindings,
     isEntry: boolean,
-    declarationIndex: DeclarationNodeIndex,
-    deadCodeElimination: DeadCodeEliminationSettings | undefined
-): readonly string[] {
-    const impureStatements = collectImpureStatements(file.sourceFile, deadCodeElimination);
+    context: SeedCollectionContext
+): readonly LocalSeed[] {
+    const impureStatements = collectImpureStatements(file.sourceFile, context.deadCodeElimination);
     return [
-        ...exportedBindingSeeds(file, isEntry),
-        ...isEntry ? entryPointExportDeclarationSeeds(file, declarationIndex) : [],
-        ...statementSeeds(impureStatements, declarationIndex)
+        ...exportedBindingSeeds(file, isEntry, context.trace),
+        ...isEntry ? entryPointExportDeclarationSeeds(file, context.declarationIndex) : [],
+        ...statementSeeds(file, impureStatements, context.declarationIndex, 'impure-statement')
     ];
 }
 
-export function gatherLocalSeeds(
-    files: readonly FileBindings[],
-    entryPointFilePaths: ReadonlySet<string>,
-    declarationIndex: DeclarationNodeIndex,
-    deadCodeElimination: DeadCodeEliminationSettings | undefined
-): Set<string> {
-    const seeds = new Set<string>();
-    for (const file of files) {
-        const isEntry = entryPointFilePaths.has(file.sourceFilePath);
-        const fileSeeds = seedsForFile(file, isEntry, declarationIndex, deadCodeElimination);
+type AddSeedInput = {
+    readonly seeds: ReadonlySet<string>;
+    readonly seed: LocalSeed;
+    readonly bundleName: string;
+    readonly trace: DeadCodeEliminationTrace;
+};
+
+function addSeed(input: AddSeedInput): Set<string> {
+    const { bundleName, seed, seeds, trace } = input;
+    const alreadyAdded = seeds.has(seed.bindingId);
+    const nextSeeds = new Set(seeds);
+    nextSeeds.add(seed.bindingId);
+    if (!alreadyAdded && trace !== undefined) {
+        trace.collector.record({
+            type: 'local-seed-added',
+            bundleName,
+            bindingId: seed.bindingId,
+            sourceFilePath: seed.sourceFilePath,
+            line: seed.line,
+            reason: seed.reason
+        });
+    }
+    return nextSeeds;
+}
+
+export function gatherLocalSeeds(input: LocalSeedGatheringInput): Set<string> {
+    let seeds = new Set<string>();
+    for (const file of input.files) {
+        const isEntry = input.entryPointFilePaths.has(file.sourceFilePath);
+        const fileSeeds = seedsForFile(file, isEntry, {
+            declarationIndex: input.declarationIndex,
+            deadCodeElimination: input.deadCodeElimination,
+            trace: input.trace
+        });
         for (const seed of fileSeeds) {
-            seeds.add(seed);
+            seeds = addSeed({
+                seeds,
+                seed,
+                bundleName: input.bundleName,
+                trace: input.trace
+            });
         }
     }
     return seeds;

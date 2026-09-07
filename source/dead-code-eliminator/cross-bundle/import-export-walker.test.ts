@@ -20,8 +20,10 @@ function walkContent(
     return walkCrossBundleStatements(sourceFile, {
         indexed: emptyIndex(),
         seeds,
+        sourceBundleName: 'pkg-a',
         sourceFilePath: sourceFile.getFilePath(),
-        localReachable
+        localReachable,
+        trace: undefined
     });
 }
 

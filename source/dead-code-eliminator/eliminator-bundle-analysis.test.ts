@@ -97,7 +97,8 @@ suite('eliminator bundle analysis', function () {
                 createProject() {
                     return createProject();
                 },
-                progressBroadcaster: broadcaster.provider
+                progressBroadcaster: broadcaster.provider,
+                trace: undefined
             });
 
             await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg-a' }), linkedBundle({ name: 'pkg-b' })));
