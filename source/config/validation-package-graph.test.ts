@@ -61,7 +61,12 @@ suite('validation package graph', function () {
                     ])
                 );
 
-                assert.deepStrictEqual(result, Result.err([ 'invalid value doesn’t match expected union' ]));
+                assert.deepStrictEqual(
+                    result,
+                    Result.err([
+                        'at commonPackageSettings.additionalFiles[0]: unexpected additional property: "sourceFilePath"'
+                    ])
+                );
             });
 
             test('rejects malformed additional file alias entries without throwing', function () {
