@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import {
+    type ConfigInput,
     expectCyclicError,
     fooPackage,
     packageWithDependencies,
@@ -9,11 +10,83 @@ import {
 } from '../test-libraries/validation-test-support.ts';
 import { validateConfig } from './validation.ts';
 
+function configWithCommonAdditionalFiles(additionalFiles: readonly unknown[]): ConfigInput {
+    return withRegistry({
+        commonPackageSettings: {
+            sourcesFolder: 'foo',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' },
+            additionalFiles
+        },
+        packages: [ fooPackage() ]
+    });
+}
+
+function assertCommonAdditionalFiles(
+    config: ConfigInput,
+    expectedAdditionalFiles: readonly { readonly inputFilePath: string; readonly targetFilePath: string; }[]
+): void {
+    const result = validateConfig(config);
+
+    assert.strictEqual(result.isOk, true);
+    assert.deepStrictEqual(result.value.packtoryConfig.commonPackageSettings?.additionalFiles, expectedAdditionalFiles);
+}
+
 suite('validation package graph', function () {
     suite('duplicate packages and dependency cycles', function () {
         test('returns the issues when the given config doesn’t match the schema', function () {
             const result = validateConfig({ not: 'valid' });
             assert.deepStrictEqual(result, Result.err([ 'invalid value doesn’t match expected union' ]));
+        });
+
+        suite('additional file aliases', function () {
+            test('normalizes common additional file sourceFilePath aliases', function () {
+                assertCommonAdditionalFiles(
+                    configWithCommonAdditionalFiles([ { sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' } ]),
+                    [ { inputFilePath: 'LICENSE', targetFilePath: 'LICENSE' } ]
+                );
+            });
+
+            test('keeps common additional file inputFilePath values', function () {
+                assertCommonAdditionalFiles(
+                    configWithCommonAdditionalFiles([ { inputFilePath: 'LICENSE', targetFilePath: 'LICENSE' } ]),
+                    [ { inputFilePath: 'LICENSE', targetFilePath: 'LICENSE' } ]
+                );
+            });
+
+            test('rejects additional file entries with sourceFilePath and inputFilePath', function () {
+                const result = validateConfig(
+                    configWithCommonAdditionalFiles([
+                        { sourceFilePath: 'legacy.md', inputFilePath: 'current.md', targetFilePath: 'readme.md' }
+                    ])
+                );
+
+                assert.deepStrictEqual(result, Result.err([ 'invalid value doesn’t match expected union' ]));
+            });
+
+            test('rejects malformed additional file alias entries without throwing', function () {
+                const result = validateConfig(configWithCommonAdditionalFiles([ null ]));
+
+                assert.deepStrictEqual(result, Result.err([ 'invalid value doesn’t match expected union' ]));
+            });
+
+            test('normalizes package additional file sourceFilePath aliases', function () {
+                const result = validateConfig(
+                    withRegistry({
+                        packages: [
+                            {
+                                ...fooPackage(),
+                                additionalFiles: [ { sourceFilePath: 'readme.md', targetFilePath: 'readme.md' } ]
+                            }
+                        ]
+                    })
+                );
+
+                assert.strictEqual(result.isOk, true);
+                assert.deepStrictEqual(result.value.packageConfigs.foo?.additionalFiles, [
+                    { inputFilePath: 'readme.md', targetFilePath: 'readme.md' }
+                ]);
+            });
         });
 
         test('returns an issue when a package with the same name exists twice', function () {

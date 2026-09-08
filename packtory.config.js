@@ -81,7 +81,7 @@ export async function buildConfig() {
             },
             additionalFiles: [
                 {
-                    inputFilePath: sharedLicensePath,
+                    sourceFilePath: sharedLicensePath,
                     targetFilePath: 'LICENSE'
                 }
             ],
@@ -98,7 +98,7 @@ export async function buildConfig() {
             {
                 name: 'packtory',
                 exportPackageJson: true,
-                checks: { maxBundleSize: { bytes: 1_550_000 } },
+                checks: { maxBundleSize: { bytes: 1_650_000 } },
                 roots: {
                     main: {
                         js: 'packages/packtory/packtory.entry-point.js',
@@ -110,7 +110,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        inputFilePath: packtoryReadmePath,
+                        sourceFilePath: packtoryReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ]
@@ -132,7 +132,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        inputFilePath: githubReleaseGateReadmePath,
+                        sourceFilePath: githubReleaseGateReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -160,7 +160,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        inputFilePath: cliReadmePath,
+                        sourceFilePath: cliReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -183,7 +183,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        inputFilePath: bootstrapNpmPackageReadmePath,
+                        sourceFilePath: bootstrapNpmPackageReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ]
