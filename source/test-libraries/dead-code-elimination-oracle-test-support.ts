@@ -335,7 +335,7 @@ function resourceForRoot(
     fileDescription: RootTransferableFileDescription
 ): AnalyzedBundleResource {
     const resource = bundle.contents.find(function (candidate) {
-        return candidate.fileDescription.sourceFilePath === fileDescription.sourceFilePath;
+        return candidate.fileDescription.inputFilePath === fileDescription.inputFilePath;
     }) ?? bundle.contents.find(function (candidate) {
         return candidate.fileDescription.targetFilePath === fileDescription.targetFilePath;
     });
@@ -353,7 +353,7 @@ function refreshFileDescription(
     return {
         ...fileDescription,
         content: resource.fileDescription.content,
-        sourceFilePath: resource.fileDescription.sourceFilePath,
+        inputFilePath: resource.fileDescription.inputFilePath,
         targetFilePath: resource.fileDescription.targetFilePath
     };
 }

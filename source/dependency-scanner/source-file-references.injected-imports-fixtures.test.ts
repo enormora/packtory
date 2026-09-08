@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import type { Project } from 'ts-morph';
+import { moduleReferenceShapes } from '../test-libraries/module-reference-shapes.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedModules } from './source-file-references.ts';
 
@@ -32,12 +33,12 @@ export function createDirectInjectedLoaderProject(input: DirectInjectedLoaderPro
 
 export function expectFooReference(project: Project): void {
     const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageJsonPath);
-    assert.deepStrictEqual(result, [
+    assert.deepStrictEqual(moduleReferenceShapes(result), [
         { kind: 'local-code', filePath: project.getSourceFileOrThrow('foo.ts').getFilePath() }
     ]);
 }
 
 export function expectNoReferences(project: Project): void {
     const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageJsonPath);
-    assert.deepStrictEqual(result, []);
+    assert.deepStrictEqual(moduleReferenceShapes(result), []);
 }

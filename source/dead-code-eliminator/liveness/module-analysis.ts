@@ -13,7 +13,7 @@ type DeclarationRecord = {
 };
 
 export type ModuleAnalysis = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly kind: ModuleKind;
     readonly declarations: readonly DeclarationRecord[];
@@ -21,7 +21,7 @@ export type ModuleAnalysis = {
 };
 
 type ModuleAnalysisInput = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly sourceFile: Readonly<SourceFile> | undefined;
     readonly bindings: readonly BindingDescriptor[];
@@ -43,7 +43,7 @@ function moduleKindForTargetPath(targetFilePath: string): ModuleKind {
 
 export function buildModuleAnalysis(input: ModuleAnalysisInput): ModuleAnalysis {
     return {
-        sourceFilePath: input.sourceFilePath,
+        inputFilePath: input.inputFilePath,
         targetFilePath: input.targetFilePath,
         kind: moduleKindForTargetPath(input.targetFilePath),
         declarations: input.bindings.map(function (binding) {

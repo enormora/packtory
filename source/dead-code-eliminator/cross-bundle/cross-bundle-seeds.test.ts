@@ -13,6 +13,7 @@ import {
 } from './cross-bundle-seeds.ts';
 
 type SeedMap = ReadonlyMap<string, ReadonlySet<string>>;
+type LinkedBundleResource = LinkedBundle['contents'][number];
 const disabledTrace = undefined;
 
 function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[]): SeedMap {
@@ -25,16 +26,35 @@ function assertDefined<T>(value: T | undefined): asserts value is T {
     }
 }
 
+function linkedReferencesFrom(content: string): LinkedBundleResource['moduleReferences'] {
+    return Array.from(
+        content.matchAll(/(?:from|import)\s+"(?<packageName>pkg-[^/"]+)\/(?<targetFilePath>[^"]+)"/gu),
+        function (match) {
+            const { packageName, targetFilePath } = match.groups ?? {};
+            assertDefined(packageName);
+            assertDefined(targetFilePath);
+            return {
+                type: 'linked-code',
+                packageName,
+                sourceSpecifier: `${packageName}/${targetFilePath}`,
+                emittedSpecifier: `${packageName}/${targetFilePath}`,
+                targetFilePath
+            };
+        }
+    );
+}
+
 function bundleWith(
     name: string,
-    files: readonly { readonly sourceFilePath: string; readonly targetFilePath: string; readonly content: string; }[]
+    files: readonly { readonly inputFilePath: string; readonly targetFilePath: string; readonly content: string; }[]
 ): LinkedBundle {
     return linkedBundle({
         name,
         contents: files.map(function (file) {
-            return analyzedBundleResource(file.sourceFilePath, {
+            return analyzedBundleResource(file.inputFilePath, {
                 content: file.content,
-                targetFilePath: file.targetFilePath
+                targetFilePath: file.targetFilePath,
+                moduleReferences: linkedReferencesFrom(file.content)
             });
         })
     });
@@ -42,43 +62,44 @@ function bundleWith(
 
 function inputFor(
     bundle: LinkedBundle,
-    files: readonly { readonly sourceFilePath: string; readonly content: string; }[]
+    files: readonly { readonly inputFilePath: string; readonly content: string; }[]
 ): CrossBundleInput {
     const project = createProject({
         withFiles: files.map(function (file) {
-            return { filePath: file.sourceFilePath, content: file.content };
+            return { filePath: file.inputFilePath, content: file.content };
         })
     });
     const sourceFiles = files.map(function (file) {
-        return project.getSourceFileOrThrow(file.sourceFilePath);
+        return project.getSourceFileOrThrow(file.inputFilePath);
     });
     const fileBindings: readonly FileBindings[] = sourceFiles.map(function (sourceFile) {
         const file = files.find(function (candidate) {
-            return candidate.sourceFilePath === sourceFile.getFilePath();
+            return candidate.inputFilePath === sourceFile.getFilePath();
         });
         assertDefined(file);
         const resource = bundle.contents.find(function (candidate) {
-            return candidate.fileDescription.sourceFilePath === file.sourceFilePath;
+            return candidate.fileDescription.inputFilePath === file.inputFilePath;
         });
         assertDefined(resource);
         return {
-            sourceFilePath: sourceFile.getFilePath(),
-            parsedSourceFilePath: sourceFile.getFilePath(),
+            inputFilePath: sourceFile.getFilePath(),
+            parsedInputFilePath: sourceFile.getFilePath(),
             targetFilePath: resource.fileDescription.targetFilePath,
             sourceFile,
+            moduleReferences: resource.moduleReferences,
             bindings: extractTopLevelBindings(sourceFile)
         };
     });
     const { localReachable } = buildReachabilityIndex({
         bundleName: bundle.name,
         files: fileBindings,
-        entryPointFilePaths: new Set(files.map(function (file) {
-            return file.sourceFilePath;
+        entryPointFilePaths: new Set(bundle.contents.map(function (resource) {
+            return resource.fileDescription.targetFilePath;
         })),
         deadCodeElimination: undefined,
         trace: disabledTrace
     });
-    return { bundle, sourceFiles, fileBindings, localReachable };
+    return { bundle, fileBindings, localReachable };
 }
 
 function seedsForConsumerProducer(
@@ -86,31 +107,31 @@ function seedsForConsumerProducer(
     producerContent: string
 ): ReadonlySet<string> | undefined {
     const consumer = bundleWith('pkg-a', [
-        { sourceFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
+        { inputFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
     ]);
     const producer = bundleWith('pkg-b', [
-        { sourceFilePath: '/b/helpers.ts', targetFilePath: 'helpers.ts', content: producerContent }
+        { inputFilePath: '/b/helpers.ts', targetFilePath: 'helpers.ts', content: producerContent }
     ]);
     return buildCrossBundleSeeds([
-        inputFor(consumer, [ { sourceFilePath: '/a/index.ts', content: consumerContent } ]),
-        inputFor(producer, [ { sourceFilePath: '/b/helpers.ts', content: producerContent } ])
+        inputFor(consumer, [ { inputFilePath: '/a/index.ts', content: consumerContent } ]),
+        inputFor(producer, [ { inputFilePath: '/b/helpers.ts', content: producerContent } ])
     ])
         .get('pkg-b');
 }
 
 function seedsForLoneConsumer(consumerContent: string): SeedMap {
     const consumer = bundleWith('pkg-a', [
-        { sourceFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
+        { inputFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
     ]);
     return buildCrossBundleSeeds([
-        inputFor(consumer, [ { sourceFilePath: '/a/index.ts', content: consumerContent } ])
+        inputFor(consumer, [ { inputFilePath: '/a/index.ts', content: consumerContent } ])
     ]);
 }
 
 function assertHelpersBindingsSeeded(bSeeds: ReadonlySet<string> | undefined): void {
     assertDefined(bSeeds);
-    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'a')));
-    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'b')));
+    assert.ok(bSeeds.has(bindingId('helpers.ts', 'a')));
+    assert.ok(bSeeds.has(bindingId('helpers.ts', 'b')));
 }
 
 suite('cross-bundle-seeds', function () {
@@ -122,9 +143,9 @@ suite('cross-bundle-seeds', function () {
 
         test('returns empty seeds for a single bundle with no cross-bundle imports', function () {
             const bundle = bundleWith('pkg-a', [
-                { sourceFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: 'export const x = 1;' }
+                { inputFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: 'export const x = 1;' }
             ]);
-            const input = inputFor(bundle, [ { sourceFilePath: '/a/index.ts', content: 'export const x = 1;' } ]);
+            const input = inputFor(bundle, [ { inputFilePath: '/a/index.ts', content: 'export const x = 1;' } ]);
             const seeds = buildCrossBundleSeeds([ input ]);
             assert.strictEqual(seeds.size, 0);
         });
@@ -132,49 +153,49 @@ suite('cross-bundle-seeds', function () {
         test('records a named import as a seed in the target bundle', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
                 }
             ]);
             const producer = bundleWith('pkg-b', [
                 {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     targetFilePath: 'helpers.ts',
                     content: 'export function used() { return 1; }\nexport function unused() { return 2; }'
                 }
             ]);
             const consumerInput = inputFor(consumer, [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
                 }
             ]);
             const producerInput = inputFor(producer, [
                 {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     content: 'export function used() { return 1; }\nexport function unused() { return 2; }'
                 }
             ]);
             const seeds = buildCrossBundleSeeds([ consumerInput, producerInput ]);
             const bSeeds = seeds.get('pkg-b');
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-            assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
-            assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'default')), false);
+            assert.ok(bSeeds.has(bindingId('helpers.ts', 'used')));
+            assert.strictEqual(bSeeds.has(bindingId('helpers.ts', 'unused')), false);
+            assert.strictEqual(bSeeds.has(bindingId('helpers.ts', 'default')), false);
         });
 
         test('records a default import as a "default" binding seed', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import dep from "pkg-b/main.ts";\nexport function pub() { return dep; }'
                 }
             ]);
             const producer = bundleWith('pkg-b', [
                 {
-                    sourceFilePath: '/b/main.ts',
+                    inputFilePath: '/b/main.ts',
                     targetFilePath: 'main.ts',
                     content: 'export default 42;'
                 }
@@ -182,15 +203,15 @@ suite('cross-bundle-seeds', function () {
             const seeds = buildCrossBundleSeeds([
                 inputFor(consumer, [
                     {
-                        sourceFilePath: '/a/index.ts',
+                        inputFilePath: '/a/index.ts',
                         content: 'import dep from "pkg-b/main.ts";\nexport function pub() { return dep; }'
                     }
                 ]),
-                inputFor(producer, [ { sourceFilePath: '/b/main.ts', content: 'export default 42;' } ])
+                inputFor(producer, [ { inputFilePath: '/b/main.ts', content: 'export default 42;' } ])
             ]);
             const bSeeds = seeds.get('pkg-b');
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/main.ts', 'default')));
+            assert.ok(bSeeds.has(bindingId('main.ts', 'default')));
         });
 
         test('records a named re-export as a seed in the target bundle', function () {
@@ -199,8 +220,8 @@ suite('cross-bundle-seeds', function () {
                 'export function used() { return 1; }\nexport function unused() { return 2; }'
             );
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-            assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
+            assert.ok(bSeeds.has(bindingId('helpers.ts', 'used')));
+            assert.strictEqual(bSeeds.has(bindingId('helpers.ts', 'unused')), false);
         });
 
         test('records every binding of the target file as a seed for a star re-export', function () {
@@ -245,14 +266,14 @@ suite('cross-bundle-seeds', function () {
         test('does not record a seed when the specifier matches a bundle name but not any file in that bundle', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import { used } from "pkg-b/missing.ts";\nexport function pub() { return used(); }'
                 }
             ]);
             const producer = bundleWith('pkg-b', [
                 {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     targetFilePath: 'helpers.ts',
                     content: 'export function used() { return 1; }'
                 }
@@ -260,12 +281,12 @@ suite('cross-bundle-seeds', function () {
             const seeds = buildCrossBundleSeeds([
                 inputFor(consumer, [
                     {
-                        sourceFilePath: '/a/index.ts',
+                        inputFilePath: '/a/index.ts',
                         content: 'import { used } from "pkg-b/missing.ts";\nexport function pub() { return used(); }'
                     }
                 ]),
                 inputFor(producer, [ {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     content: 'export function used() { return 1; }'
                 } ])
             ]);
@@ -275,14 +296,14 @@ suite('cross-bundle-seeds', function () {
         test('does not record seeds for a namespace import that targets a file with no extracted bindings', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import * as data from "pkg-b/data.json";\nexport function pub() { return data; }'
                 }
             ]);
             const producer = bundleWith('pkg-b', [
                 {
-                    sourceFilePath: '/b/data.json',
+                    inputFilePath: '/b/data.json',
                     targetFilePath: 'data.json',
                     content: '{}'
                 }
@@ -290,11 +311,11 @@ suite('cross-bundle-seeds', function () {
             const seeds = buildCrossBundleSeeds([
                 inputFor(consumer, [
                     {
-                        sourceFilePath: '/a/index.ts',
+                        inputFilePath: '/a/index.ts',
                         content: 'import * as data from "pkg-b/data.json";\nexport function pub() { return data; }'
                     }
                 ]),
-                { bundle: producer, sourceFiles: [], fileBindings: [], localReachable: new Set<string>() }
+                { bundle: producer, fileBindings: [], localReachable: new Set<string>() }
             ]);
             assert.strictEqual(seeds.size, 0);
         });
@@ -302,19 +323,19 @@ suite('cross-bundle-seeds', function () {
         test('records seeds only in the bundle whose name prefixes the specifier, not in other bundles that share a target file path', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
                 },
                 {
-                    sourceFilePath: '/a/helpers.ts',
+                    inputFilePath: '/a/helpers.ts',
                     targetFilePath: 'helpers.ts',
                     content: 'export function used() { return 0; }'
                 }
             ]);
             const producer = bundleWith('pkg-b', [
                 {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     targetFilePath: 'helpers.ts',
                     content: 'export function used() { return 1; }'
                 }
@@ -322,20 +343,20 @@ suite('cross-bundle-seeds', function () {
             const seeds = buildCrossBundleSeeds([
                 inputFor(consumer, [
                     {
-                        sourceFilePath: '/a/index.ts',
+                        inputFilePath: '/a/index.ts',
                         content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
                     },
-                    { sourceFilePath: '/a/helpers.ts', content: 'export function used() { return 0; }' }
+                    { inputFilePath: '/a/helpers.ts', content: 'export function used() { return 0; }' }
                 ]),
                 inputFor(producer, [ {
-                    sourceFilePath: '/b/helpers.ts',
+                    inputFilePath: '/b/helpers.ts',
                     content: 'export function used() { return 1; }'
                 } ])
             ]);
             assert.strictEqual(seeds.has('pkg-a'), false);
             const bSeeds = seeds.get('pkg-b');
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+            assert.ok(bSeeds.has(bindingId('helpers.ts', 'used')));
         });
 
         test('does not seed a named import whose local binding is only referenced by unreachable code', function () {
@@ -370,7 +391,7 @@ suite('cross-bundle-seeds', function () {
                 'export function used() { return 1; }'
             );
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+            assert.ok(bSeeds.has(bindingId('helpers.ts', 'used')));
         });
 
         test('does not seed a renamed named import whose aliased local binding is unreachable', function () {
@@ -392,14 +413,14 @@ suite('cross-bundle-seeds', function () {
                 'export function used() { return 1; }\nexport function alsoDead() { return 2; }'
             );
             assertDefined(bSeeds);
-            assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-            assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'alsoDead')), false);
+            assert.ok(bSeeds.has(bindingId('helpers.ts', 'used')));
+            assert.strictEqual(bSeeds.has(bindingId('helpers.ts', 'alsoDead')), false);
         });
 
         test('does not record a seed for an import that does not match any bundle name', function () {
             const consumer = bundleWith('pkg-a', [
                 {
-                    sourceFilePath: '/a/index.ts',
+                    inputFilePath: '/a/index.ts',
                     targetFilePath: 'index.ts',
                     content: 'import { x } from "external-pkg";\nexport function pub() { return x; }'
                 }
@@ -407,7 +428,7 @@ suite('cross-bundle-seeds', function () {
             const seeds = buildCrossBundleSeeds([
                 inputFor(consumer, [
                     {
-                        sourceFilePath: '/a/index.ts',
+                        inputFilePath: '/a/index.ts',
                         content: 'import { x } from "external-pkg";\nexport function pub() { return x; }'
                     }
                 ])

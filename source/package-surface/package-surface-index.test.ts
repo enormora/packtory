@@ -19,16 +19,16 @@ const binsOnlyExplicitBundle: BundleLike = {
 };
 
 function assertImplicitDuplicateMappings(index: PublicModuleIndex): void {
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/index.js'), 'package-a');
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/index.d.ts'), 'package-a');
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/helper.d.ts'), 'package-a/helper.js');
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/helper-copy.js'), 'package-a/helper.js');
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/helper-second.js'), 'package-a/helper.js');
-    assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.js'), 'package-a/feature.js');
-    assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a'), '/src/index.js');
-    assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a/helper.js'), '/src/helper-copy.js');
-    assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
-    assert.strictEqual(index.sourceFilePathBySpecifier.has('package-a/index.js'), false);
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/index.js'), 'package-a');
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/index.d.ts'), 'package-a');
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/helper.d.ts'), 'package-a/helper.js');
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/helper-copy.js'), 'package-a/helper.js');
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/helper-second.js'), 'package-a/helper.js');
+    assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.js'), 'package-a/feature.js');
+    assert.strictEqual(index.inputFilePathBySpecifier.get('package-a'), '/src/index.js');
+    assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/helper.js'), '/src/helper-copy.js');
+    assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
+    assert.strictEqual(index.inputFilePathBySpecifier.has('package-a/index.js'), false);
 }
 
 suite('package-surface-index', function () {
@@ -143,19 +143,19 @@ suite('package-surface-index', function () {
                 }
             });
 
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/index.js'), 'package-a');
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/index.d.ts'), 'package-a');
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.js'), 'package-a/feature');
-            assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a'), '/src/index.js');
-            assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a/feature'), '/src/feature.js');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/index.js'), 'package-a');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/index.d.ts'), 'package-a');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.js'), 'package-a/feature');
+            assert.strictEqual(index.inputFilePathBySpecifier.get('package-a'), '/src/index.js');
+            assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/feature'), '/src/feature.js');
         });
 
         test('indexPublicModules returns empty maps for explicit surfaces without modules', function () {
             const index = indexPublicModules(binsOnlyExplicitBundle);
 
             assert.partialDeepStrictEqual(index, {
-                sourceFilePathBySpecifier: new Map(),
-                specifierBySourceFilePath: new Map()
+                inputFilePathBySpecifier: new Map(),
+                specifierByInputFilePath: new Map()
             });
         });
 
@@ -189,9 +189,9 @@ suite('package-surface-index', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' }
             });
 
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.d.ts'), 'package-a/feature.js');
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/types.d.ts'), 'package-a/types.d.ts');
-            assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.d.ts'), 'package-a/feature.js');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/types.d.ts'), 'package-a/types.d.ts');
+            assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
         });
 
         test('indexPublicModules keeps the first same-length explicit specifier', function () {
@@ -210,7 +210,7 @@ suite('package-surface-index', function () {
                 }
             });
 
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.js'), 'package-a/aa');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.js'), 'package-a/aa');
         });
 
         test('indexPublicModules keeps the first implicit specifier even when a later duplicate source path is shorter', function () {
@@ -221,7 +221,7 @@ suite('package-surface-index', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' }
             });
 
-            assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.js'), 'package-a/feature-long.js');
+            assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.js'), 'package-a/feature-long.js');
         });
 
         test('indexPublicModules rejects unsupported surface modes', function () {

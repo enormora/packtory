@@ -1,4 +1,5 @@
 import type { ExportDeclaration, ImportDeclaration, SourceFile } from 'ts-morph';
+import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import {
     findAllPathReplacements,
@@ -16,8 +17,8 @@ import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from '.
 
 type ResourceGraphNode = Parameters<Parameters<ResourceGraph['traverse']>[0]>[0];
 type ReplacementRequestRecord = {
-    readonly get: (sourceFilePath: string) => ImportPathReplacementRequest | undefined;
-    readonly set: (sourceFilePath: string, request: ImportPathReplacementRequest) => unknown;
+    readonly get: (inputFilePath: string) => ImportPathReplacementRequest | undefined;
+    readonly set: (inputFilePath: string, request: ImportPathReplacementRequest) => unknown;
     readonly values: () => IterableIterator<ImportPathReplacementRequest>;
 };
 type OutstandingConnection = { readonly from: string; readonly to: string; };
@@ -26,11 +27,11 @@ type OutstandingConnectionSink = {
 };
 
 function isSubstitutionSourcePath(
-    sourceFilePath: string,
+    inputFilePath: string,
     substitutionSources: readonly BundleSubstitutionSource[]
 ): boolean {
     return substitutionSources.some(function (bundle) {
-        return ownsSourcePath(sourceFilePath, bundle);
+        return ownsSourcePath(inputFilePath, bundle);
     });
 }
 
@@ -47,100 +48,100 @@ function recordUnreplacedConnections(
     }
 }
 
-function createReplacementRequest(sourceFilePath: string): ImportPathReplacementRequest {
+function createReplacementRequest(inputFilePath: string): ImportPathReplacementRequest {
     return {
-        sourceFilePath,
+        inputFilePath,
         requiredExportNames: new Set(),
         requiresNamespaceExport: false
     };
 }
 
-function replacementRequestForSourceFilePath(
-    requestsBySourceFilePath: ReplacementRequestRecord,
-    sourceFilePath: string
+function replacementRequestForInputFilePath(
+    requestsByInputFilePath: ReplacementRequestRecord,
+    inputFilePath: string
 ): ImportPathReplacementRequest {
-    return requestsBySourceFilePath.get(sourceFilePath) ?? createReplacementRequest(sourceFilePath);
+    return requestsByInputFilePath.get(inputFilePath) ?? createReplacementRequest(inputFilePath);
 }
 
 function addRequiredExportName(
-    requestsBySourceFilePath: ReplacementRequestRecord,
-    sourceFilePath: string,
+    requestsByInputFilePath: ReplacementRequestRecord,
+    inputFilePath: string,
     requiredExportName: string
 ): void {
-    const request = replacementRequestForSourceFilePath(requestsBySourceFilePath, sourceFilePath);
-    requestsBySourceFilePath.set(sourceFilePath, {
+    const request = replacementRequestForInputFilePath(requestsByInputFilePath, inputFilePath);
+    requestsByInputFilePath.set(inputFilePath, {
         ...request,
         requiredExportNames: new Set([ ...request.requiredExportNames, requiredExportName ])
     });
 }
 
 function requireNamespaceExport(
-    requestsBySourceFilePath: ReplacementRequestRecord,
-    sourceFilePath: string
+    requestsByInputFilePath: ReplacementRequestRecord,
+    inputFilePath: string
 ): void {
-    const request = replacementRequestForSourceFilePath(requestsBySourceFilePath, sourceFilePath);
-    requestsBySourceFilePath.set(sourceFilePath, { ...request, requiresNamespaceExport: true });
+    const request = replacementRequestForInputFilePath(requestsByInputFilePath, inputFilePath);
+    requestsByInputFilePath.set(inputFilePath, { ...request, requiresNamespaceExport: true });
 }
 
 function recordImportRequirements(
-    requestsBySourceFilePath: ReplacementRequestRecord,
+    requestsByInputFilePath: ReplacementRequestRecord,
     declaration: ImportDeclaration
 ): void {
     const importedSourceFile = declaration.getModuleSpecifierSourceFile();
     if (importedSourceFile === undefined) {
         return;
     }
-    const sourceFilePath = importedSourceFile.getFilePath();
+    const inputFilePath = importedSourceFile.getFilePath();
     if (declaration.getDefaultImport() !== undefined) {
-        addRequiredExportName(requestsBySourceFilePath, sourceFilePath, 'default');
+        addRequiredExportName(requestsByInputFilePath, inputFilePath, 'default');
     }
     if (declaration.getNamespaceImport() !== undefined) {
-        requireNamespaceExport(requestsBySourceFilePath, sourceFilePath);
+        requireNamespaceExport(requestsByInputFilePath, inputFilePath);
     }
     for (const namedImport of declaration.getNamedImports()) {
-        addRequiredExportName(requestsBySourceFilePath, sourceFilePath, namedImport.getName());
+        addRequiredExportName(requestsByInputFilePath, inputFilePath, namedImport.getName());
     }
 }
 
 function recordExportRequirements(
-    requestsBySourceFilePath: ReplacementRequestRecord,
+    requestsByInputFilePath: ReplacementRequestRecord,
     declaration: ExportDeclaration
 ): void {
     const exportedSourceFile = declaration.getModuleSpecifierSourceFile();
     if (exportedSourceFile === undefined) {
         return;
     }
-    const sourceFilePath = exportedSourceFile.getFilePath();
+    const inputFilePath = exportedSourceFile.getFilePath();
     if (declaration.isNamespaceExport()) {
-        requireNamespaceExport(requestsBySourceFilePath, sourceFilePath);
+        requireNamespaceExport(requestsByInputFilePath, inputFilePath);
     }
     for (const namedExport of declaration.getNamedExports()) {
-        addRequiredExportName(requestsBySourceFilePath, sourceFilePath, namedExport.getName());
+        addRequiredExportName(requestsByInputFilePath, inputFilePath, namedExport.getName());
     }
 }
 
 function recordStaticRequirements(
-    requestsBySourceFilePath: ReplacementRequestRecord,
+    requestsByInputFilePath: ReplacementRequestRecord,
     sourceFile: SourceFile
 ): void {
     for (const declaration of sourceFile.getImportDeclarations()) {
-        recordImportRequirements(requestsBySourceFilePath, declaration);
+        recordImportRequirements(requestsByInputFilePath, declaration);
     }
     for (const declaration of sourceFile.getExportDeclarations()) {
-        recordExportRequirements(requestsBySourceFilePath, declaration);
+        recordExportRequirements(requestsByInputFilePath, declaration);
     }
 }
 
 function collectImportRequirements(node: ResourceGraphNode): readonly ImportPathReplacementRequest[] {
-    const requestsBySourceFilePath = new Map<string, ImportPathReplacementRequest>();
-    for (const sourceFilePath of node.adjacentNodeIds) {
-        requestsBySourceFilePath.set(sourceFilePath, createReplacementRequest(sourceFilePath));
+    const requestsByInputFilePath = new Map<string, ImportPathReplacementRequest>();
+    for (const inputFilePath of node.adjacentNodeIds) {
+        requestsByInputFilePath.set(inputFilePath, createReplacementRequest(inputFilePath));
     }
-    const sourceFile = node.data.project?.getSourceFile(node.data.fileDescription.sourceFilePath);
+    const sourceFile = node.data.project?.getSourceFile(node.data.fileDescription.inputFilePath);
     if (sourceFile !== undefined) {
-        recordStaticRequirements(requestsBySourceFilePath, sourceFile);
+        recordStaticRequirements(requestsByInputFilePath, sourceFile);
     }
-    return Array.from(requestsBySourceFilePath.values());
+    return Array.from(requestsByInputFilePath.values());
 }
 
 function contentWithReplacements(
@@ -149,7 +150,7 @@ function contentWithReplacements(
 ): ImportPathReplacementResult {
     return replaceImportPathsWithTransform(
         node.data.project,
-        node.data.fileDescription.sourceFilePath,
+        node.data.fileDescription.inputFilePath,
         node.data.fileDescription.content,
         replacements.importPathReplacements
     );
@@ -165,10 +166,48 @@ function fallbackDependencyReferences(replacements: Replacements): readonly Impo
     });
 }
 
+function referenceWithReplacement(
+    reference: ArtifactModuleReference,
+    replacements: Replacements,
+    inputFilePathByTargetFilePath: ReadonlyMap<string, string>
+): ArtifactModuleReference {
+    if (
+        reference.type !== 'local-code' &&
+        reference.type !== 'local-asset' &&
+        reference.type !== 'generated-manifest'
+    ) {
+        return reference;
+    }
+    const inputFilePath = inputFilePathByTargetFilePath.get(reference.targetFilePath);
+    const replacementLookupPath = inputFilePath ?? reference.targetFilePath;
+    const replacement = replacements.importPathReplacements.get(replacementLookupPath);
+    if (replacement === undefined) {
+        return reference;
+    }
+    return {
+        type: 'linked-code',
+        sourceSpecifier: reference.sourceSpecifier,
+        emittedSpecifier: replacement.emittedSpecifier,
+        packageName: replacement.packageName,
+        targetFilePath: reference.targetFilePath
+    };
+}
+
+function moduleReferencesWithReplacements(
+    node: ResourceGraphNode,
+    replacements: Replacements,
+    inputFilePathByTargetFilePath: ReadonlyMap<string, string>
+): readonly ArtifactModuleReference[] {
+    return node.data.moduleReferences.map(function (reference) {
+        return referenceWithReplacement(reference, replacements, inputFilePathByTargetFilePath);
+    });
+}
+
 function addNodeWithReplacements(
     substitutedGraph: SubstitutedResourceGraph,
     node: ResourceGraphNode,
-    replacements: Replacements
+    replacements: Replacements,
+    inputFilePathByTargetFilePath: ReadonlyMap<string, string>
 ): void {
     const isSubstituted = replacements.importPathReplacements.size > 0;
     const replacementResult = contentWithReplacements(node, replacements);
@@ -180,9 +219,10 @@ function addNodeWithReplacements(
         : new Map([ [ node.data.fileDescription.targetFilePath, [ replacementResult.sourceMapTransform ] ] ]);
     substitutedGraph.add(node.id, {
         fileDescription: { ...node.data.fileDescription, content: replacementResult.content },
+        moduleReferences: moduleReferencesWithReplacements(node, replacements, inputFilePathByTargetFilePath),
         externalDependencies: node.data.externalDependencies,
         bundleDependencies: isSubstituted ? dependencyReferences : [],
-        substitutedSourceFilePathsByPackageName: replacements.substitutedSourceFilePathsByPackageName,
+        substitutedInputFilePathsByPackageName: replacements.substitutedInputFilePathsByPackageName,
         sourceMapTransformsByTargetPath,
         isSubstituted,
         isExplicitlyIncluded: node.data.isExplicitlyIncluded,
@@ -221,7 +261,12 @@ export function substituteDependencies(
             directDependencies,
             replacements.importPathReplacements
         );
-        addNodeWithReplacements(substitutedGraph, node, replacements);
+        addNodeWithReplacements(
+            substitutedGraph,
+            node,
+            replacements,
+            resourceGraph.inputFilePathByTargetFilePath
+        );
     }
 
     resourceGraph.traverse(substituteNode);

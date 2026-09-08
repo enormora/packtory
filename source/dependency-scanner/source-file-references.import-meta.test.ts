@@ -1,5 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import {
+    expectModuleReferenceResolutionFailure,
+    moduleReferenceShapes,
+    type ModuleReferenceShape
+} from '../test-libraries/module-reference-shapes.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedModules, resolveSourceFileForLiteral } from './source-file-references.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
@@ -11,34 +16,16 @@ type SourceFileFixture = {
     readonly content: string;
 };
 
-type ExpectedImportMetaReference = {
-    readonly kind: string;
-    readonly filePath?: string;
-    readonly packageName?: string;
-    readonly specifier?: string;
-};
-
 type ImportMetaResolveExpectation = {
     readonly mainContent: string;
     readonly extraFiles?: readonly SourceFileFixture[];
-    readonly expected: readonly ExpectedImportMetaReference[];
+    readonly expected: readonly ModuleReferenceShape[];
 };
 
 type ResolvedImportLiteral = {
     readonly project: ReturnType<typeof createProject>;
     readonly result: ReturnType<typeof resolveSourceFileForLiteral>;
 };
-
-function expectResolutionFailure(content: string, expectedMessage: string): void {
-    const project = createProject({ withFiles: [ { filePath: 'main.ts', content } ] });
-
-    try {
-        getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
-        assert.fail('Expected getReferencedModules() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, expectedMessage);
-    }
-}
 
 suite('source-file-references import.meta and package assets', function () {
     suite('package-owned assets', function () {
@@ -84,7 +71,7 @@ suite('source-file-references import.meta and package assets', function () {
         });
 
         test('throws when a local wasm import cannot be found on disk', function () {
-            expectResolutionFailure(
+            expectModuleReferenceResolutionFailure(
                 'import module from "./missing.wasm";',
                 'Failed to resolve import "./missing.wasm" in file "/main.ts"'
             );
@@ -109,7 +96,10 @@ suite('source-file-references import.meta and package assets', function () {
 
             const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-            assert.deepStrictEqual(result, [ { kind: 'local-code', filePath: '/value.js' } ]);
+            assert.deepStrictEqual(moduleReferenceShapes(result), [ {
+                kind: 'local-code',
+                filePath: '/value.js'
+            } ]);
         });
     });
 
@@ -123,7 +113,7 @@ suite('source-file-references import.meta and package assets', function () {
                 project.createSourceFile(file.filePath, file.content);
             }
             const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
-            assert.deepStrictEqual(result, expectation.expected);
+            assert.deepStrictEqual(moduleReferenceShapes(result), expectation.expected);
         }
 
         suite('resolved references', function () {
@@ -182,35 +172,35 @@ suite('source-file-references import.meta and package assets', function () {
 
         suite('invalid arguments', function () {
             test('throws when import.meta.resolve() receives a non-literal argument', function () {
-                expectResolutionFailure(
+                expectModuleReferenceResolutionFailure(
                     'const specifier = "./foo"; const url = import.meta.resolve(specifier);',
                     'Invalid import.meta.resolve() usage in file "/main.ts": only a single static string literal argument is supported'
                 );
             });
 
             test('throws when import.meta.resolve() receives a template literal argument', function () {
-                expectResolutionFailure(
+                expectModuleReferenceResolutionFailure(
                     'const url = import.meta.resolve(`./foo`);',
                     'Invalid import.meta.resolve() usage in file "/main.ts": only a single static string literal argument is supported'
                 );
             });
 
             test('throws when import.meta.resolve() receives no arguments', function () {
-                expectResolutionFailure(
+                expectModuleReferenceResolutionFailure(
                     'const url = import.meta.resolve();',
                     'Invalid import.meta.resolve() usage in file "/main.ts": only a single static string literal argument is supported'
                 );
             });
 
             test('throws when import.meta.resolve() receives multiple arguments', function () {
-                expectResolutionFailure(
+                expectModuleReferenceResolutionFailure(
                     'const url = import.meta.resolve("./foo", "./parent");',
                     'Invalid import.meta.resolve() usage in file "/main.ts": only a single static string literal argument is supported'
                 );
             });
 
             test('throws when an import.meta.resolve() specifier is not resolvable', function () {
-                expectResolutionFailure(
+                expectModuleReferenceResolutionFailure(
                     'const url = import.meta.resolve("missing-package");',
                     'Failed to resolve import "missing-package" in file "/main.ts"'
                 );

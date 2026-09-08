@@ -75,12 +75,12 @@ function createPublishedPackageWithManifest(packageName: string): VersionedBundl
             })
         ],
         mainFile: {
-            sourceFilePath: 'index.js',
+            inputFilePath: 'index.js',
             targetFilePath: 'index.js',
             content: 'export const value = 1;\n'
         },
         typesMainFile: {
-            sourceFilePath: 'index.d.ts',
+            inputFilePath: 'index.d.ts',
             targetFilePath: 'index.d.ts',
             content: 'export declare const value = 1;\n'
         },

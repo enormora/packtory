@@ -32,7 +32,7 @@ function registerManifestFieldTests(): void {
                 peerDependencies: { react: '^19.0.0' },
                 packageType: 'module',
                 typesMainFile: {
-                    sourceFilePath: '/src/index.d.ts',
+                    inputFilePath: '/src/index.d.ts',
                     targetFilePath: 'index.d.ts',
                     content: '',
                     isExecutable: false

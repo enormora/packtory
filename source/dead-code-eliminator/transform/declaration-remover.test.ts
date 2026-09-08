@@ -20,7 +20,7 @@ function transform(
     const sourceFile = project.getSourceFileOrThrow(filePath);
     const result = applyRemovalPlan(sourceFile, {
         bundleName: 'pkg',
-        sourceFilePath: filePath,
+        inputFilePath: filePath,
         targetFilePath: filePath,
         survivingNames: surviving,
         trace: undefined

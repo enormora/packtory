@@ -3,12 +3,13 @@ import { createEmptyFileAnalysis, type AnalyzedBundleResource } from '../dead-co
 export function codeResource(targetFilePath: string, content: string): AnalyzedBundleResource {
     return {
         fileDescription: {
-            sourceFilePath: `/src/${targetFilePath}`,
+            inputFilePath: `/src/${targetFilePath}`,
             targetFilePath,
             content,
             isExecutable: false
         },
         directDependencies: new Set<string>(),
+        moduleReferences: [],
         isExplicitlyIncluded: true,
         isSubstituted: false,
         analysis: createEmptyFileAnalysis()

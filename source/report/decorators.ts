@@ -53,12 +53,12 @@ export function withStageTimings(
                 emitTiming(progressBroadcaster, options.name, 'resolveAndLink', start);
             }
         },
-        async resolveAndLinkWithPromotedDeclarationCompanions(options, substitutedSourceFilePaths) {
+        async resolveAndLinkWithPromotedDeclarationCompanions(options, substitutedInputFilePaths) {
             const start = performance.now();
             try {
                 return await processor.resolveAndLinkWithPromotedDeclarationCompanions(
                     options,
-                    substitutedSourceFilePaths
+                    substitutedInputFilePaths
                 );
             } finally {
                 emitTiming(progressBroadcaster, options.name, 'resolveAndLink', start);

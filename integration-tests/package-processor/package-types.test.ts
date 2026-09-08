@@ -49,7 +49,7 @@ suite('package-types', function () {
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -62,7 +62,7 @@ suite('package-types', function () {
                             content:
                                 "import { bar } from './bar';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -74,7 +74,7 @@ suite('package-types', function () {
                         fileDescription: {
                             content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/bar.js'),
+                            inputFilePath: path.join(fixture, 'src/bar.js'),
                             targetFilePath: 'bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -88,7 +88,7 @@ suite('package-types', function () {
                 mainFile: {
                     content: "import { foo } from './foo';\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -140,7 +140,7 @@ suite('package-types', function () {
                         fileDescription: {
                             content: "import { example } from 'example-module';\nexport const foo = example;\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -152,7 +152,7 @@ suite('package-types', function () {
                 mainFile: {
                     content: "import { example } from 'example-module';\nexport const foo = example;\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

@@ -7,7 +7,7 @@ function buildResult(
     name: string,
     manifestContent: string,
     contents: readonly {
-        readonly sourceFilePath: string;
+        readonly inputFilePath: string;
         readonly targetFilePath: string;
         readonly content: string;
     }[] = []
@@ -19,7 +19,7 @@ function buildResult(
             contents: contents.map(function (entry) {
                 return {
                     fileDescription: {
-                        sourceFilePath: entry.sourceFilePath,
+                        inputFilePath: entry.inputFilePath,
                         targetFilePath: entry.targetFilePath,
                         content: entry.content,
                         isExecutable: false
@@ -44,7 +44,7 @@ suite('bundle-artifact-index', function () {
     test('buildBundleArtifactIndex includes each bundle content entry keyed by target file path', function () {
         const index = buildBundleArtifactIndex([
             buildResult('pkg-a', '{}', [ {
-                sourceFilePath: '/src/a.ts',
+                inputFilePath: '/src/a.ts',
                 targetFilePath: 'a.js',
                 content: 'content-a'
             } ])

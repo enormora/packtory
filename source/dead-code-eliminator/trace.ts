@@ -27,7 +27,7 @@ type BindingRemovedTraceEvent = {
     readonly type: 'binding-removed';
     readonly bundleName: string;
     readonly bindingId: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
 };
 
 type CrossBundleSeedTraceEvent = {
@@ -35,7 +35,7 @@ type CrossBundleSeedTraceEvent = {
     readonly bundleName: string;
     readonly bindingId: string;
     readonly sourceBundleName: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly line: number;
     readonly moduleSpecifier: string;
     readonly reason: CrossBundleSeedReason;
@@ -52,7 +52,7 @@ type EdgeTraceEvent = {
 type FilePrunedTraceEvent = {
     readonly type: 'file-pruned';
     readonly bundleName: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly pruneKind: PruneKind;
 };
@@ -78,7 +78,7 @@ type LocalSeedTraceEvent = {
     readonly type: 'local-seed-added';
     readonly bundleName: string;
     readonly bindingId: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly line: number;
     readonly reason: LocalSeedReason;
 };

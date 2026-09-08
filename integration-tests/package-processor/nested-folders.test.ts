@@ -45,7 +45,7 @@ suite('nested-folders', function () {
                         fileDescription: {
                             content: "import { foo } from './nested/foo.js';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -57,7 +57,7 @@ suite('nested-folders', function () {
                         fileDescription: {
                             content: "import { bar } from './deep/bar.js';\n\nexport const foo = 'foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/nested/foo.js'),
+                            inputFilePath: path.join(fixture, 'src/nested/foo.js'),
                             targetFilePath: 'nested/foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -69,7 +69,7 @@ suite('nested-folders', function () {
                         fileDescription: {
                             content: "import { baz } from './folder/baz.js';\n\nexport const bar = 'bar';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/nested/deep/bar.js'),
+                            inputFilePath: path.join(fixture, 'src/nested/deep/bar.js'),
                             targetFilePath: 'nested/deep/bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -81,7 +81,7 @@ suite('nested-folders', function () {
                         fileDescription: {
                             content: "export const baz = 'baz';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/nested/deep/folder/baz.js'),
+                            inputFilePath: path.join(fixture, 'src/nested/deep/folder/baz.js'),
                             targetFilePath: 'nested/deep/folder/baz.js'
                         },
                         isExplicitlyIncluded: false,
@@ -92,7 +92,7 @@ suite('nested-folders', function () {
                 mainFile: {
                     content: "import { foo } from './nested/foo.js';\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 dependencies: {},

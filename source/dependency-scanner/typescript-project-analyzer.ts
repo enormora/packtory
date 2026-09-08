@@ -15,7 +15,7 @@ export type TypescriptProjectAnalyzerDependencies = {
 };
 
 export type TypescriptProject = {
-    getReferencedModules: (containingSourceFilePath: string) => readonly Readonly<ModuleReference>[];
+    getReferencedModules: (containingInputFilePath: string) => readonly Readonly<ModuleReference>[];
     getProject: () => _Project;
 };
 
@@ -51,8 +51,8 @@ export function createTypescriptProjectAnalyzer(
             project.addSourceFilesAtPaths([ filesPattern ]);
 
             return {
-                getReferencedModules(containingSourceFilePath) {
-                    const currentSourceFile = project.getSourceFile(containingSourceFilePath);
+                getReferencedModules(containingInputFilePath) {
+                    const currentSourceFile = project.getSourceFile(containingInputFilePath);
 
                     if (currentSourceFile === undefined) {
                         return [];

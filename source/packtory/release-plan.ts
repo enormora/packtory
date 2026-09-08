@@ -85,7 +85,7 @@ function packageRelativeFiles(files: readonly FileDescription[]): readonly strin
 function sourceFilesFrom(analyzedBundle: AnalyzedBundle): readonly string[] {
     return sortedUnique(
         analyzedBundle.contents.flatMap(function (entry) {
-            return entry.isGeneratedManifest ? [] : [ entry.fileDescription.sourceFilePath ];
+            return entry.isGeneratedManifest ? [] : [ entry.fileDescription.inputFilePath ];
         })
     );
 }

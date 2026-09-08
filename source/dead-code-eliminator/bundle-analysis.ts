@@ -8,20 +8,9 @@ import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-
 import { computeSideEffectsField } from './side-effects-field.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 
-type LoadedSourceFile = NonNullable<LoadedBundle['loaded'][number]['sourceFile']>;
-
 export function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
-    const sourceFiles: LoadedSourceFile[] = [];
-
-    for (const entry of loaded.loaded) {
-        if (entry.sourceFile !== undefined) {
-            sourceFiles.push(entry.sourceFile);
-        }
-    }
-
     return {
         bundle: loaded.input.bundle,
-        sourceFiles,
         fileBindings: loaded.fileBindings,
         localReachable: loaded.reachability.localReachable
     };

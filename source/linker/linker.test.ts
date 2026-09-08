@@ -14,58 +14,57 @@ function compareText(left: string, right: string): number {
 }
 
 function testFileDescription(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     content: string
 ): ResolvedBundle['contents'][number]['fileDescription'] {
     return {
         content,
         isExecutable: false,
-        sourceFilePath,
+        inputFilePath,
         targetFilePath
     };
 }
 
-function sourceTargetFilePath(sourceFilePath: string): string {
-    return sourceFilePath.replace(/^\/src\//u, '');
+function sourceTargetFilePath(inputFilePath: string): string {
+    return inputFilePath.replace(/^\/src\//u, '');
 }
 
-function testSubstitutionResource(sourceFilePath: string): BundleSubstitutionSource['contents'][number] {
-    const targetFilePath = sourceTargetFilePath(sourceFilePath);
+function testSubstitutionResource(inputFilePath: string): BundleSubstitutionSource['contents'][number] {
+    const targetFilePath = sourceTargetFilePath(inputFilePath);
     return {
-        fileDescription: testFileDescription(sourceFilePath, targetFilePath, ''),
-        directDependencies: new Set(),
-        isSubstituted: false,
-        isExplicitlyIncluded: false
+        fileDescription: testFileDescription(inputFilePath, targetFilePath, ''),
+        directDependencies: new Set()
     };
 }
 
 function testBundleDependency(
-    sourceFilePaths: readonly [string, ...(readonly string[])]
+    inputFilePaths: readonly [string, ...(readonly string[])]
 ): BundleSubstitutionSource {
-    const rootSourceFilePath = sourceFilePaths[0];
-    const rootTargetFilePath = sourceTargetFilePath(rootSourceFilePath);
+    const rootInputFilePath = inputFilePaths[0];
+    const rootTargetFilePath = sourceTargetFilePath(rootInputFilePath);
     return {
         name: 'bundle-dependency',
         roots: {
             main: {
-                js: testFileDescription(rootSourceFilePath, rootTargetFilePath, '')
+                js: testFileDescription(rootInputFilePath, rootTargetFilePath, '')
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
-        contents: sourceFilePaths.map(testSubstitutionResource)
+        contents: inputFilePaths.map(testSubstitutionResource)
     };
 }
 
 function testResource(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     content: string,
     directDependencies: readonly string[]
 ): ResolvedBundle['contents'][number] {
     return {
-        fileDescription: testFileDescription(sourceFilePath, targetFilePath, content),
-        directDependencies: new Set(directDependencies),
+        fileDescription: testFileDescription(inputFilePath, targetFilePath, content),
+        directDependencies: new Set(directDependencies.map(sourceTargetFilePath)),
+        moduleReferences: [],
         isExplicitlyIncluded: false
     };
 }
@@ -95,11 +94,11 @@ async function linkTestBundle(
     });
 }
 
-function sourceFilePathsOf(
+function inputFilePathsOf(
     contents: LinkedBundleResult['contents']
 ): readonly string[] {
     return contents.map(function (content) {
-        return content.fileDescription.sourceFilePath;
+        return content.fileDescription.inputFilePath;
     });
 }
 
@@ -110,7 +109,7 @@ suite('linker', function () {
             js: {
                 content: '',
                 isExecutable: false,
-                sourceFilePath: '/src/index.js',
+                inputFilePath: '/src/index.js',
                 targetFilePath: 'index.js'
             }
         } as const;
@@ -124,10 +123,11 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./internal.js";',
                             isExecutable: false,
-                            sourceFilePath: '/src/index.js',
+                            inputFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         },
-                        directDependencies: new Set([ '/src/internal.js' ]),
+                        directDependencies: new Set([ 'internal.js' ]),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false,
                         project: createProject({
                             withFiles: [
@@ -140,10 +140,11 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export {};',
                             isExecutable: false,
-                            sourceFilePath: '/src/internal.js',
+                            inputFilePath: '/src/internal.js',
                             targetFilePath: 'internal.js'
                         },
                         directDependencies: new Set(),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false
                     }
                 ],
@@ -163,7 +164,7 @@ suite('linker', function () {
                     js: {
                         content: '',
                         isExecutable: false,
-                        sourceFilePath: '/src/index.js',
+                        inputFilePath: '/src/index.js',
                         targetFilePath: 'index.js'
                     }
                 }
@@ -186,13 +187,13 @@ suite('linker', function () {
             js: {
                 content: '',
                 isExecutable: false,
-                sourceFilePath: '/src/index.js',
+                inputFilePath: '/src/index.js',
                 targetFilePath: 'index.js'
             },
             declarationFile: {
                 content: '',
                 isExecutable: false,
-                sourceFilePath: '/src/index.d.ts',
+                inputFilePath: '/src/index.d.ts',
                 targetFilePath: 'index.d.ts'
             }
         } as const;
@@ -205,10 +206,18 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./dep.js";',
                             isExecutable: false,
-                            sourceFilePath: '/src/index.js',
+                            inputFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         },
-                        directDependencies: new Set([ '/src/dep.js' ]),
+                        directDependencies: new Set([ 'dep.js' ]),
+                        moduleReferences: [
+                            {
+                                type: 'local-code',
+                                sourceSpecifier: './dep.js',
+                                emittedSpecifier: './dep.js',
+                                targetFilePath: 'dep.js'
+                            }
+                        ],
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -216,10 +225,18 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export * from "./dep.d.ts";',
                             isExecutable: false,
-                            sourceFilePath: '/src/index.d.ts',
+                            inputFilePath: '/src/index.d.ts',
                             targetFilePath: 'index.d.ts'
                         },
-                        directDependencies: new Set([ '/src/dep.d.ts' ]),
+                        directDependencies: new Set([ 'dep.d.ts' ]),
+                        moduleReferences: [
+                            {
+                                type: 'local-code',
+                                sourceSpecifier: './dep.d.ts',
+                                emittedSpecifier: './dep.d.ts',
+                                targetFilePath: 'dep.d.ts'
+                            }
+                        ],
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -227,20 +244,22 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export const dep = 1;',
                             isExecutable: false,
-                            sourceFilePath: '/src/dep.js',
+                            inputFilePath: '/src/dep.js',
                             targetFilePath: 'dep.js'
                         },
                         directDependencies: new Set(),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false
                     },
                     {
                         fileDescription: {
                             content: 'export declare const dep: number;',
                             isExecutable: false,
-                            sourceFilePath: '/src/dep.d.ts',
+                            inputFilePath: '/src/dep.d.ts',
                             targetFilePath: 'dep.d.ts'
                         },
                         directDependencies: new Set(),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false
                     }
                 ],
@@ -256,7 +275,7 @@ suite('linker', function () {
         assert.strictEqual(result.contents[0]?.isSubstituted, true);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
         assert.deepStrictEqual(
-            result.substitutedSourceFilePathsByPackageName,
+            result.substitutedInputFilePathsByPackageName,
             new Map([
                 [ 'bundle-dependency', new Set([ '/src/dep.js', '/src/dep.d.ts' ]) ]
             ])
@@ -295,7 +314,7 @@ suite('linker', function () {
             bundlePeerDependencies: []
         });
 
-        assert.deepStrictEqual(sourceFilePathsOf(result.contents), [ '/src/index.js' ]);
+        assert.deepStrictEqual(inputFilePathsOf(result.contents), [ '/src/index.js' ]);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
     });
 
@@ -309,7 +328,7 @@ suite('linker', function () {
         ]);
 
         assert.deepStrictEqual(
-            sourceFilePathsOf(result.contents),
+            inputFilePathsOf(result.contents),
             [ '/src/index.js', '/src/public.js', '/src/index.d.ts', '/src/public.d.ts' ]
         );
     });
@@ -325,7 +344,7 @@ suite('linker', function () {
         ]);
 
         assert.deepStrictEqual(
-            sourceFilePathsOf(result.contents),
+            inputFilePathsOf(result.contents),
             [ '/src/index.js', '/src/types/root.d.ts' ]
         );
     });
@@ -348,10 +367,11 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./shared.js";',
                             isExecutable: true,
-                            sourceFilePath: '/src/cli.js',
+                            inputFilePath: '/src/cli.js',
                             targetFilePath: 'cli.js'
                         },
-                        directDependencies: new Set([ '/src/shared.js' ]),
+                        directDependencies: new Set([ 'shared.js' ]),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -359,10 +379,11 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./shared.js";',
                             isExecutable: false,
-                            sourceFilePath: '/src/worker.js',
+                            inputFilePath: '/src/worker.js',
                             targetFilePath: 'worker.js'
                         },
                         directDependencies: new Set([ '/src/shared.js' ]),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -370,10 +391,11 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export const shared = 1;',
                             isExecutable: false,
-                            sourceFilePath: '/src/shared.js',
+                            inputFilePath: '/src/shared.js',
                             targetFilePath: 'shared.js'
                         },
                         directDependencies: new Set(),
+                        moduleReferences: [],
                         isExplicitlyIncluded: false,
                         project
                     }
@@ -383,7 +405,7 @@ suite('linker', function () {
                         js: {
                             content: '#!/usr/bin/env node\nimport "./shared.js";',
                             isExecutable: true,
-                            sourceFilePath: '/src/cli.js',
+                            inputFilePath: '/src/cli.js',
                             targetFilePath: 'cli.js'
                         }
                     },
@@ -391,7 +413,7 @@ suite('linker', function () {
                         js: {
                             content: 'import "./shared.js";',
                             isExecutable: false,
-                            sourceFilePath: '/src/worker.js',
+                            inputFilePath: '/src/worker.js',
                             targetFilePath: 'worker.js'
                         }
                     }
@@ -414,7 +436,7 @@ suite('linker', function () {
             result
                 .contents
                 .map(function (entry) {
-                    return entry.fileDescription.sourceFilePath;
+                    return entry.fileDescription.inputFilePath;
                 })
                 .toSorted(compareText),
             [ '/src/cli.js', '/src/worker.js', '/src/shared.js' ].toSorted(compareText)

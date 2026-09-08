@@ -32,7 +32,7 @@ async function buildFixture(fixtureName: string): Promise<BuiltFixture> {
 
 suite('asset-imports', function () {
     test('bundles local json files imported with import attributes', async function () {
-        const { fixture, bundle } = await buildFixture('local-json-import');
+        const { bundle } = await buildFixture('local-json-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
@@ -44,17 +44,30 @@ suite('asset-imports', function () {
         if (entry === undefined || json === undefined) {
             assert.fail('expected bundled entry and json resources');
         }
-        assert.partialDeepStrictEqual(entry, {
-            directDependencies: new Set([ path.join(fixture, 'src/data.json') ]),
-            fileDescription: {
-                content: 'import data from "./data.json" with { type: "json" };\n\nexport default data;\n'
+        assert.deepStrictEqual(
+            {
+                directDependencies: entry.directDependencies,
+                content: entry.fileDescription.content,
+                moduleReferences: entry.moduleReferences
+            },
+            {
+                directDependencies: new Set([ 'data.json' ]),
+                content: 'import data from "./data.json" with { type: "json" };\n\nexport default data;\n',
+                moduleReferences: [
+                    {
+                        emittedSpecifier: './data.json',
+                        sourceSpecifier: './data.json',
+                        targetFilePath: 'data.json',
+                        type: 'local-asset'
+                    }
+                ]
             }
-        });
+        );
         assert.strictEqual(json.fileDescription.content, '{\n    "message": "hello"\n}\n');
     });
 
     test('bundles local wasm files', async function () {
-        const { fixture, bundle } = await buildFixture('local-wasm-import');
+        const { bundle } = await buildFixture('local-wasm-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
@@ -66,7 +79,7 @@ suite('asset-imports', function () {
         if (entry === undefined || wasm === undefined) {
             assert.fail('expected bundled entry and wasm resources');
         }
-        assert.deepStrictEqual(entry.directDependencies, new Set([ path.join(fixture, 'src/module.wasm') ]));
+        assert.deepStrictEqual(entry.directDependencies, new Set([ 'module.wasm' ]));
         assert.strictEqual(wasm.fileDescription.content, 'wasm-binary-placeholder\n');
     });
 
@@ -95,7 +108,7 @@ suite('asset-imports', function () {
     });
 
     test('uses the generated runtime manifest for root package.json imports', async function () {
-        const { fixture, bundle } = await buildFixture('generated-package-json-import');
+        const { bundle } = await buildFixture('generated-package-json-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
@@ -107,12 +120,25 @@ suite('asset-imports', function () {
         if (entry === undefined || generatedManifestResource === undefined) {
             assert.fail('expected bundled entry and generated manifest resources');
         }
-        assert.partialDeepStrictEqual(entry, {
-            directDependencies: new Set([ path.join(fixture, 'src/package.json') ]),
-            fileDescription: {
-                content: 'import manifest from "./package.json" with { type: "json" };\n\nexport default manifest;\n'
+        assert.deepStrictEqual(
+            {
+                directDependencies: entry.directDependencies,
+                content: entry.fileDescription.content,
+                moduleReferences: entry.moduleReferences
+            },
+            {
+                directDependencies: new Set([ 'package.json' ]),
+                content: 'import manifest from "./package.json" with { type: "json" };\n\nexport default manifest;\n',
+                moduleReferences: [
+                    {
+                        emittedSpecifier: './package.json',
+                        sourceSpecifier: './package.json',
+                        targetFilePath: 'package.json',
+                        type: 'generated-manifest'
+                    }
+                ]
             }
-        });
+        );
         assert.strictEqual(generatedManifestResource.isGeneratedManifest, true);
         assert.deepStrictEqual(JSON.parse(bundle.manifestFile.content), {
             exports: { '.': { import: './entry.js' } },

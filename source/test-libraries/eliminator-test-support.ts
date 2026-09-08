@@ -7,15 +7,15 @@ export function inputs(
     ...bundles: readonly LinkedBundle[]
 ): readonly EliminationInput[] {
     return bundles.map(function (bundle) {
-        return { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths: new Set<string>() };
+        return { bundle, transformationsEnabled: true, substitutionPublicModuleInputFilePaths: new Set<string>() };
     });
 }
 
 export function inputWithSubstitutionPublicModules(
     bundle: LinkedBundle,
-    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+    substitutionPublicModuleInputFilePaths: ReadonlySet<string>
 ): readonly EliminationInput[] {
-    return [ { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths } ];
+    return [ { bundle, transformationsEnabled: true, substitutionPublicModuleInputFilePaths } ];
 }
 
 export function inputWithoutTransformations(bundle: LinkedBundle): readonly EliminationInput[] {
@@ -23,32 +23,56 @@ export function inputWithoutTransformations(bundle: LinkedBundle): readonly Elim
         {
             bundle,
             transformationsEnabled: false,
-            substitutionPublicModuleSourceFilePaths: new Set<string>()
+            substitutionPublicModuleInputFilePaths: new Set<string>()
         }
     ];
 }
 
 type CodeFileSpec = {
     readonly name: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly content: string;
     readonly extraResources?: readonly LinkedBundleResource[];
 };
+
+function producerTargetFilePath(specifier: string): string {
+    return specifier === 'producer' ? 'index.js' : specifier.replace(/^producer\//u, '');
+}
+
+function withLinkedProducerReferences(bundleName: string, resource: LinkedBundleResource): LinkedBundleResource {
+    if (bundleName !== 'consumer') {
+        return resource;
+    }
+    return {
+        ...resource,
+        moduleReferences: resource.moduleReferences.map(function (reference) {
+            return reference.type === 'external-package' && reference.packageName === 'producer'
+                ? {
+                    type: 'linked-code',
+                    packageName: 'producer',
+                    sourceSpecifier: reference.sourceSpecifier,
+                    emittedSpecifier: reference.emittedSpecifier,
+                    targetFilePath: producerTargetFilePath(reference.emittedSpecifier)
+                }
+                : reference;
+        })
+    };
+}
 
 export function bundleForCodeFile(input: CodeFileSpec): LinkedBundle {
     const root = {
         js: {
             content: input.content,
             isExecutable: false,
-            sourceFilePath: input.sourceFilePath,
+            inputFilePath: input.inputFilePath,
             targetFilePath: input.targetFilePath
         }
     } as const;
-    const codeResource = {
-        ...bundleResource(input.sourceFilePath, { content: input.content, targetFilePath: input.targetFilePath }),
+    const codeResource = withLinkedProducerReferences(input.name, {
+        ...bundleResource(input.inputFilePath, { content: input.content, targetFilePath: input.targetFilePath }),
         isSubstituted: false
-    };
+    });
     return linkedBundle({
         name: input.name,
         contents: [ codeResource, ...input.extraResources ?? [] ],
@@ -69,7 +93,7 @@ export const indexTsContent = [ 'function dead() { return 1; }', 'export functio
 export function indexTsBundle(extraResources: readonly LinkedBundleResource[] = []): LinkedBundle {
     return bundleForCodeFile({
         name: 'pkg',
-        sourceFilePath: '/src/index.ts',
+        inputFilePath: '/src/index.ts',
         targetFilePath: 'index.ts',
         content: indexTsContent,
         extraResources
@@ -89,7 +113,7 @@ export function producerBundleWith(helpersContent: string): LinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/producer/index.js',
+                    inputFilePath: '/producer/index.js',
                     targetFilePath: 'index.js'
                 }
             }
@@ -101,7 +125,7 @@ export function producerBundleWith(helpersContent: string): LinkedBundle {
 export function consumerBundleWith(content: string): LinkedBundle {
     return bundleForCodeFile({
         name: 'consumer',
-        sourceFilePath: '/consumer/index.ts',
+        inputFilePath: '/consumer/index.ts',
         targetFilePath: 'index.ts',
         content
     });

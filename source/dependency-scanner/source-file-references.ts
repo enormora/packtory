@@ -22,22 +22,29 @@ export const moduleReferenceKind = {
 type ExternalReference = {
     readonly kind: typeof moduleReferenceKind.externalPackage;
     readonly packageName: string;
-    readonly specifier: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
 };
 
 type ManifestReference = {
     readonly kind: typeof moduleReferenceKind.generatedManifest;
     readonly filePath: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
 };
 
 type AssetReference = {
     readonly kind: typeof moduleReferenceKind.localAsset;
     readonly filePath: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
 };
 
 type CodeReference = {
     readonly kind: typeof moduleReferenceKind.localCode;
     readonly filePath: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
 };
 
 export type ModuleReference = AssetReference | CodeReference | ExternalReference | ManifestReference;
@@ -103,16 +110,28 @@ function isLocalAssetReference(filePath: string): boolean {
     return extension === '.json' || extension === '.wasm';
 }
 
-function classifyLocalReference(resolvedFilePath: string, packageJsonPath: string): ModuleReference {
+function referenceSpecifiers(importValue: string): Pick<ModuleReference, 'emittedSpecifier' | 'sourceSpecifier'> {
+    return {
+        sourceSpecifier: importValue,
+        emittedSpecifier: importValue
+    };
+}
+
+function classifyLocalReference(
+    resolvedFilePath: string,
+    packageJsonPath: string,
+    importValue: string
+): ModuleReference {
+    const specifiers = referenceSpecifiers(importValue);
     if (path.resolve(resolvedFilePath) === path.resolve(packageJsonPath)) {
-        return { kind: moduleReferenceKind.generatedManifest, filePath: resolvedFilePath };
+        return { kind: moduleReferenceKind.generatedManifest, filePath: resolvedFilePath, ...specifiers };
     }
 
     if (isLocalAssetReference(resolvedFilePath)) {
-        return { kind: moduleReferenceKind.localAsset, filePath: resolvedFilePath };
+        return { kind: moduleReferenceKind.localAsset, filePath: resolvedFilePath, ...specifiers };
     }
 
-    return { kind: moduleReferenceKind.localCode, filePath: resolvedFilePath };
+    return { kind: moduleReferenceKind.localCode, filePath: resolvedFilePath, ...specifiers };
 }
 
 function resolvedModuleForImport(
@@ -154,7 +173,7 @@ function resolveWasmReference(
         const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
         const candidatePath = path.resolve(path.dirname(containingSourceFile.getFilePath()), importValue);
         return moduleResolutionHost.fileExists(candidatePath)
-            ? classifyLocalReference(candidatePath, packageJsonPath)
+            ? classifyLocalReference(candidatePath, packageJsonPath, importValue)
             : undefined;
     }
 
@@ -174,7 +193,7 @@ function resolveWasmReference(
     return {
         kind: moduleReferenceKind.externalPackage,
         packageName: packageNameFromSpecifier(importValue),
-        specifier: importValue
+        ...referenceSpecifiers(importValue)
     };
 }
 
@@ -193,11 +212,11 @@ function resolveModuleReferenceForImport(
                     resolvedModule.resolvedFileName,
                     containingSourceFile
                 ),
-                specifier: importValue
+                ...referenceSpecifiers(importValue)
             };
         }
 
-        return classifyLocalReference(resolvedModule.resolvedFileName, packageJsonPath);
+        return classifyLocalReference(resolvedModule.resolvedFileName, packageJsonPath, importValue);
     }
 
     return importValue.endsWith('.wasm')

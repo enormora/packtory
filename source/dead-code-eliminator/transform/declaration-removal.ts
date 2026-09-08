@@ -19,8 +19,8 @@ function recordBindingRemoved(plan: RemovalPlan, name: string): void {
         plan.trace.collector.record({
             type: 'binding-removed',
             bundleName: plan.bundleName,
-            bindingId: bindingId(plan.sourceFilePath, name),
-            sourceFilePath: plan.sourceFilePath
+            bindingId: bindingId(plan.targetFilePath, name),
+            inputFilePath: plan.inputFilePath
         });
     }
 }

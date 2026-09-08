@@ -336,7 +336,7 @@ suite('file-manager', function () {
                 }
             });
             assert.deepStrictEqual(result, {
-                sourceFilePath: '/foo/bar.txt',
+                inputFilePath: '/foo/bar.txt',
                 targetFilePath: '/target/path.txt',
                 content: 'the-content',
                 isExecutable: false
@@ -351,7 +351,7 @@ suite('file-manager', function () {
             const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
 
             assert.deepStrictEqual(result, {
-                sourceFilePath: '/foo/bar.txt',
+                inputFilePath: '/foo/bar.txt',
                 targetFilePath: '/target/path.txt',
                 content: 'the-content',
                 isExecutable: true

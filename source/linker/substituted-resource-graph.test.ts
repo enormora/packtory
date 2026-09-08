@@ -6,18 +6,18 @@ import type { TransferableFileDescription } from '../file-manager/file-descripti
 import { createSubstitutedResourceGraph } from './substituted-resource-graph.ts';
 
 function createFileDescription(
-    sourceFilePath: string,
-    targetFilePath = sourceFilePath.slice(1)
+    inputFilePath: string,
+    targetFilePath = inputFilePath.slice(1)
 ): TransferableFileDescription {
     return {
-        sourceFilePath,
+        inputFilePath,
         targetFilePath,
         content: '',
         isExecutable: false
     };
 }
 
-function emptySubstitutedSourceFilePaths(): ReadonlyMap<string, ReadonlySet<string>> {
+function emptySubstitutedInputFilePaths(): ReadonlyMap<string, ReadonlySet<string>> {
     return new Map<string, ReadonlySet<string>>();
 }
 
@@ -50,7 +50,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/entry.js', 'entry.js'),
             externalDependencies: [ dependency('left-pad') ],
             bundleDependencies: [ dependency('bundle-dependency') ],
-            substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/dep.js' ]) ] ]),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/dep.js' ]) ] ]),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: true,
             isExplicitlyIncluded: false
@@ -59,7 +60,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/shared.js', 'shared.js'),
             externalDependencies: [ dependency('left-pad') ],
             bundleDependencies: [ dependency('bundle-dependency') ],
-            substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/other.js' ]) ] ]),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/other.js' ]) ] ]),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false
@@ -68,7 +70,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/extra.txt', 'extra.txt'),
             externalDependencies: [],
             bundleDependencies: [],
-            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: emptySubstitutedInputFilePaths(),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: true
@@ -77,7 +80,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/unreachable.txt', 'unreachable.txt'),
             externalDependencies: [],
             bundleDependencies: [],
-            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: emptySubstitutedInputFilePaths(),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false
@@ -91,7 +95,7 @@ suite('substituted-resource-graph', function () {
             result
                 .contents
                 .map(function (resource) {
-                    return resource.fileDescription.sourceFilePath;
+                    return resource.fileDescription.inputFilePath;
                 })
                 .toSorted(function (left, right) {
                     return left.localeCompare(right);
@@ -101,15 +105,15 @@ suite('substituted-resource-graph', function () {
         assert.partialDeepStrictEqual(result, {
             linkedBundleDependencies: new Map([ [ 'bundle-dependency', {
                 name: 'bundle-dependency',
-                referencedFrom: [ '/entry.js', '/shared.js' ]
+                referencedFrom: [ 'entry.js', 'shared.js' ]
             } ] ]),
-            substitutedSourceFilePathsByPackageName: new Map([ [
+            substitutedInputFilePathsByPackageName: new Map([ [
                 'bundle-dependency',
                 new Set([ '/dep.js', '/other.js' ])
             ] ]),
             externalDependencies: new Map([ [ 'left-pad', {
                 name: 'left-pad',
-                referencedFrom: [ '/entry.js', '/shared.js' ]
+                referencedFrom: [ 'entry.js', 'shared.js' ]
             } ] ])
         });
     });
@@ -120,7 +124,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/package.json', 'package.json'),
             externalDependencies: [],
             bundleDependencies: [],
-            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: emptySubstitutedInputFilePaths(),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false,
@@ -140,7 +145,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/entry.js', 'entry.js'),
             externalDependencies: [],
             bundleDependencies: [],
-            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: emptySubstitutedInputFilePaths(),
             sourceMapTransformsByTargetPath: new Map([ [ 'shared.js', [ first ] ] ]),
             isSubstituted: false,
             isExplicitlyIncluded: false
@@ -149,7 +155,8 @@ suite('substituted-resource-graph', function () {
             fileDescription: createFileDescription('/shared.js', 'shared.js'),
             externalDependencies: [],
             bundleDependencies: [],
-            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            moduleReferences: [],
+            substitutedInputFilePathsByPackageName: emptySubstitutedInputFilePaths(),
             sourceMapTransformsByTargetPath: new Map([ [ 'shared.js', [ second ] ] ]),
             isSubstituted: false,
             isExplicitlyIncluded: false

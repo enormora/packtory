@@ -31,7 +31,7 @@ suite('preview-document', function () {
                     status: 'initial-version',
                     contents: [
                         createAnalyzedResource({
-                            sourceFilePath: '/workspace/pkg-b/index.js',
+                            inputFilePath: '/workspace/pkg-b/index.js',
                             targetFilePath: 'index.js',
                             content: 'export {};\n'
                         })
@@ -127,12 +127,12 @@ suite('preview-document', function () {
             createBuildResultFixture({
                 contents: [
                     createAnalyzedResource({
-                        sourceFilePath: '/workspace/src/index.js',
+                        inputFilePath: '/workspace/src/index.js',
                         targetFilePath: 'dist/index.js',
                         content: 'export const changed = 1;\n'
                     }),
                     createAnalyzedResource({
-                        sourceFilePath: '/workspace/types/internal/index.d.ts',
+                        inputFilePath: '/workspace/types/internal/index.d.ts',
                         targetFilePath: 'types/internal/index.d.ts',
                         content: 'export declare const kept: number;\n'
                     })
@@ -142,7 +142,7 @@ suite('preview-document', function () {
                 packageName: 'pkg-b',
                 contents: [
                     createAnalyzedResource({
-                        sourceFilePath: '/workspace/pkg-b/index.js',
+                        inputFilePath: '/workspace/pkg-b/index.js',
                         targetFilePath: 'index.js',
                         content: 'ok\n'
                     })

@@ -1,10 +1,10 @@
 import { ts as typescript } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { resolvePublicModuleSourceFilePath } from './public-specifiers.ts';
+import { resolvePublicModuleInputFilePath } from './public-specifiers.ts';
 
 type UsageRecorder = {
-    readonly recordUsage: (bundleName: string, sourceFilePath: string) => void;
+    readonly recordUsage: (bundleName: string, inputFilePath: string) => void;
     readonly usages: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
@@ -25,9 +25,9 @@ function createUsageRecorder(): UsageRecorder {
 
     return {
         usages,
-        recordUsage(bundleName, sourceFilePath) {
+        recordUsage(bundleName, inputFilePath) {
             const existing = usages.get(bundleName) ?? new Set<string>();
-            existing.add(sourceFilePath);
+            existing.add(inputFilePath);
             usages.set(bundleName, existing);
         }
     };
@@ -44,9 +44,9 @@ function recordConsumerPublicModuleUsage(
             return bundle.name !== consumer.name;
         });
         for (const target of otherBundles) {
-            const sourceFilePath = resolvePublicModuleSourceFilePath(target, specifier);
-            if (sourceFilePath !== undefined) {
-                recorder.recordUsage(target.name, sourceFilePath);
+            const inputFilePath = resolvePublicModuleInputFilePath(target, specifier);
+            if (inputFilePath !== undefined) {
+                recorder.recordUsage(target.name, inputFilePath);
             }
         }
     }

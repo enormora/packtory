@@ -42,7 +42,7 @@ function declarationImportBundle(): BundleFixtureLinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/src/index.js',
+                    inputFilePath: '/src/index.js',
                     targetFilePath: 'index.js'
                 },
                 declarationFile: privateDeclarationResource.fileDescription
@@ -53,12 +53,12 @@ function declarationImportBundle(): BundleFixtureLinkedBundle {
 }
 
 function companionRegressionResource(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     content: string
 ): LinkedBundleResource {
     return {
-        ...bundleResource(sourceFilePath, { content, targetFilePath }),
+        ...bundleResource(inputFilePath, { content, targetFilePath }),
         isSubstituted: false
     };
 }
@@ -178,7 +178,7 @@ function companionRegressionProducerBundle(): BundleFixtureLinkedBundle {
                 js: {
                     content: index.fileDescription.content,
                     isExecutable: false,
-                    sourceFilePath: '/src/pkg-producer/index.js',
+                    inputFilePath: '/src/pkg-producer/index.js',
                     targetFilePath: 'pkg-producer/index.js'
                 }
             }
@@ -215,7 +215,7 @@ function companionRegressionConsumerBundle(): BundleFixtureLinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/src/pkg-consumer/index.js',
+                    inputFilePath: '/src/pkg-consumer/index.js',
                     targetFilePath: 'pkg-consumer/index.js'
                 }
             }
@@ -243,7 +243,7 @@ suite('eliminator reachability seeds', function () {
             };
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: liveOnlyContent,
                 extraResources: [ mapResource ]
@@ -262,7 +262,7 @@ suite('eliminator reachability seeds', function () {
             const declarationFile = {
                 content: declarationContent,
                 isExecutable: false,
-                sourceFilePath: '/src/index.d.ts',
+                inputFilePath: '/src/index.d.ts',
                 targetFilePath: 'index.d.ts'
             };
             const resource = { ...bundleResource('/src/index.d.ts', declarationFile), isSubstituted: false };
@@ -276,7 +276,7 @@ suite('eliminator reachability seeds', function () {
                                 js: {
                                     content: '',
                                     isExecutable: false,
-                                    sourceFilePath: '/src/index.js',
+                                    inputFilePath: '/src/index.js',
                                     targetFilePath: 'index.js'
                                 },
                                 declarationFile
@@ -314,7 +314,7 @@ suite('eliminator reachability seeds', function () {
                                 js: {
                                     content: '',
                                     isExecutable: false,
-                                    sourceFilePath: '/src/index.js',
+                                    inputFilePath: '/src/index.js',
                                     targetFilePath: 'index.js'
                                 }
                             },
@@ -322,7 +322,7 @@ suite('eliminator reachability seeds', function () {
                                 js: {
                                     content: '',
                                     isExecutable: false,
-                                    sourceFilePath: '/src/worker.js',
+                                    inputFilePath: '/src/worker.js',
                                     targetFilePath: 'worker.js'
                                 }
                             }
@@ -338,7 +338,7 @@ suite('eliminator reachability seeds', function () {
                 )
             );
             const emittedWorker = analyzed?.contents.find(function (resource) {
-                return resource.fileDescription.sourceFilePath === '/src/worker.js';
+                return resource.fileDescription.inputFilePath === '/src/worker.js';
             });
             assertDefined(emittedWorker);
             assert.deepStrictEqual(
@@ -394,7 +394,7 @@ suite('eliminator reachability seeds', function () {
                         js: {
                             content: entryResource.fileDescription.content,
                             isExecutable: false,
-                            sourceFilePath: '/src/index.js',
+                            inputFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         }
                     }
@@ -403,7 +403,7 @@ suite('eliminator reachability seeds', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const runtimeHelper = analyzed?.contents.find(function (resource) {
-                return resource.fileDescription.sourceFilePath === '/src/helpers.js';
+                return resource.fileDescription.inputFilePath === '/src/helpers.js';
             });
             assertDefined(runtimeHelper);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
@@ -430,7 +430,7 @@ suite('eliminator reachability seeds', function () {
             const eliminator = createTestEliminator();
             const [ analyzed ] = await eliminator.eliminate(inputs(declarationImportBundle()));
             const emittedTypes = analyzed?.contents.find(function (resource) {
-                return resource.fileDescription.sourceFilePath === '/src/types.d.ts';
+                return resource.fileDescription.inputFilePath === '/src/types.d.ts';
             });
             assertDefined(emittedTypes);
             assert.strictEqual(emittedTypes.fileDescription.content.includes('Imported'), true);
@@ -464,7 +464,7 @@ suite('eliminator reachability seeds', function () {
                 .join('\n');
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: sideEffectContent
             });

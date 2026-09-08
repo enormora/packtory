@@ -7,6 +7,7 @@ import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { implicitPackageSurface, type PackageSurface } from '../package-surface/surface.ts';
 import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
 import type { VersionedBundle, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { inferredModuleReferences } from './module-reference-fixtures.ts';
 
 export type BundleFixtureLinkedBundle = LinkedBundle;
 export type BundleFixtureVersionedBundleWithManifest = VersionedBundleWithManifest;
@@ -15,7 +16,7 @@ const transferableFileDescriptionFactory = createFactory<TransferableFileDescrip
     return {
         content: '',
         isExecutable: false,
-        sourceFilePath: '',
+        inputFilePath: '',
         targetFilePath: ''
     };
 });
@@ -27,6 +28,10 @@ const fileDescriptionFactory = createFactory<FileDescription>(function () {
         filePath: ''
     };
 });
+
+function fixtureTargetFilePath(filePath: string): string {
+    return filePath.startsWith('/src/') ? filePath.slice('/src/'.length) : filePath.replace(/^\//u, '');
+}
 
 type BundlePackageJsonFixture = {
     readonly name: string;
@@ -44,11 +49,11 @@ const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(functio
 function createDefaultRoot(): RootFileDescription {
     return {
         js: transferableFileDescriptionFactory.build({
-            sourceFilePath: '/src/index.js',
+            inputFilePath: '/src/index.js',
             targetFilePath: 'index.js'
         }),
         declarationFile: transferableFileDescriptionFactory.build({
-            sourceFilePath: '/src/index.d.ts',
+            inputFilePath: '/src/index.d.ts',
             targetFilePath: 'index.d.ts'
         })
     };
@@ -66,27 +71,55 @@ export function externalDependency(
     name: string,
     referencedFrom: readonly [string, ...(readonly string[])] = [ '/src/index.js' ]
 ): ExternalDependency {
-    return { name, referencedFrom };
+    const firstPath = fixtureTargetFilePath(referencedFrom[0]);
+    const restPaths = referencedFrom.slice(1).map(fixtureTargetFilePath);
+    return { name, referencedFrom: [ firstPath, ...restPaths ] };
 }
 
 type BundleResourceOverrides = {
     readonly content?: string;
     readonly targetFilePath?: string;
     readonly directDependencies?: ReadonlySet<string>;
+    readonly moduleReferences?: BundleResource['moduleReferences'];
     readonly isExplicitlyIncluded?: boolean;
 };
 
+function bundleResourceContent(overrides: BundleResourceOverrides): string {
+    return overrides.content ?? '';
+}
+
+function bundleResourceTargetFilePath(inputFilePath: string, overrides: BundleResourceOverrides): string {
+    return overrides.targetFilePath ?? fixtureTargetFilePath(inputFilePath);
+}
+
+function bundleResourceDirectDependencies(overrides: BundleResourceOverrides): ReadonlySet<string> {
+    return new Set(Array.from(overrides.directDependencies ?? []).map(fixtureTargetFilePath));
+}
+
+function bundleResourceModuleReferences(
+    inputFilePath: string,
+    targetFilePath: string,
+    content: string,
+    overrides: BundleResourceOverrides
+): BundleResource['moduleReferences'] {
+    return overrides.moduleReferences ?? inferredModuleReferences(inputFilePath, targetFilePath, content);
+}
+
 export function bundleResource(
-    sourceFilePath: string,
+    inputFilePath: string,
     overrides: BundleResourceOverrides = {}
 ): BundleResource {
+    const content = bundleResourceContent(overrides);
+    const targetFilePath = bundleResourceTargetFilePath(inputFilePath, overrides);
+    const moduleReferences = bundleResourceModuleReferences(inputFilePath, targetFilePath, content, overrides);
     return {
         fileDescription: transferableFileDescriptionFactory.build({
-            content: overrides.content ?? '',
-            sourceFilePath,
-            targetFilePath: overrides.targetFilePath ?? sourceFilePath.replace(/^\//u, '')
+            content,
+            inputFilePath,
+            targetFilePath
         }),
-        directDependencies: overrides.directDependencies ?? new Set<string>(),
+        directDependencies: bundleResourceDirectDependencies(overrides),
+        moduleReferences,
         isExplicitlyIncluded: overrides.isExplicitlyIncluded ?? false
     };
 }
@@ -99,7 +132,7 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
         roots: createDefaultRoots(),
         surface: createDefaultSurface(),
         linkedBundleDependencies: new Map(),
-        substitutedSourceFilePathsByPackageName: new Map(),
+        substitutedInputFilePathsByPackageName: new Map(),
         sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map(),
         ...overrides
@@ -110,6 +143,7 @@ type AnalyzedBundleResourceOverrides = {
     readonly content?: string;
     readonly targetFilePath?: string;
     readonly directDependencies?: ReadonlySet<string>;
+    readonly moduleReferences?: BundleResource['moduleReferences'];
     readonly isExplicitlyIncluded?: boolean;
     readonly isSubstituted?: boolean;
     readonly analysis?: Partial<FileAnalysis>;
@@ -120,15 +154,16 @@ function toBundleResourceOverrides(overrides: AnalyzedBundleResourceOverrides): 
         ...overrides.content === undefined ? {} : { content: overrides.content },
         ...overrides.targetFilePath === undefined ? {} : { targetFilePath: overrides.targetFilePath },
         ...overrides.directDependencies === undefined ? {} : { directDependencies: overrides.directDependencies },
+        ...overrides.moduleReferences === undefined ? {} : { moduleReferences: overrides.moduleReferences },
         ...overrides.isExplicitlyIncluded === undefined ? {} : { isExplicitlyIncluded: overrides.isExplicitlyIncluded }
     };
 }
 
 export function analyzedBundleResource(
-    sourceFilePath: string,
+    inputFilePath: string,
     overrides: AnalyzedBundleResourceOverrides = {}
 ): AnalyzedBundleResource {
-    const base = bundleResource(sourceFilePath, toBundleResourceOverrides(overrides));
+    const base = bundleResource(inputFilePath, toBundleResourceOverrides(overrides));
     return {
         ...base,
         isSubstituted: overrides.isSubstituted ?? false,
@@ -188,11 +223,11 @@ export function standardVersionedBundle(overrides: VersionedBundleOverrides = {}
         name: 'package-a',
         version: '1.2.3',
         mainFile: {
-            sourceFilePath: '/src/index.js',
+            inputFilePath: '/src/index.js',
             targetFilePath: 'index.js'
         },
         typesMainFile: {
-            sourceFilePath: '/src/index.d.ts',
+            inputFilePath: '/src/index.d.ts',
             targetFilePath: 'index.d.ts'
         },
         ...overrides

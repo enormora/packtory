@@ -67,14 +67,14 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             roots: {
                 main: {
                     js: {
-                        sourceFilePath: `/src/${bundle.mainTargetFilePath}`,
+                        inputFilePath: `/src/${bundle.mainTargetFilePath}`,
                         targetFilePath: bundle.mainTargetFilePath,
                         content: '',
                         isExecutable: false
                     },
                     ...bundle.typesTargetFilePath === undefined ? {} : {
                         declarationFile: {
-                            sourceFilePath: `/src/${bundle.typesTargetFilePath}`,
+                            inputFilePath: `/src/${bundle.typesTargetFilePath}`,
                             targetFilePath: bundle.typesTargetFilePath,
                             content: '',
                             isExecutable: false
@@ -90,7 +90,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
                 }
             },
             mainFile: {
-                sourceFilePath: `/src/${bundle.mainTargetFilePath}`,
+                inputFilePath: `/src/${bundle.mainTargetFilePath}`,
                 targetFilePath: bundle.mainTargetFilePath,
                 content: '',
                 isExecutable: false
@@ -98,7 +98,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             typesMainFile: bundle.typesTargetFilePath === undefined
                 ? undefined
                 : {
-                    sourceFilePath: `/src/${bundle.typesTargetFilePath}`,
+                    inputFilePath: `/src/${bundle.typesTargetFilePath}`,
                     targetFilePath: bundle.typesTargetFilePath,
                     content: '',
                     isExecutable: false

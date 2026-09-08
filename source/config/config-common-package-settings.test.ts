@@ -72,7 +72,7 @@ suite('config common package settings', function () {
                 commonPackageSettings: {
                     sourcesFolder: 'source',
                     mainPackageJson,
-                    additionalFiles: [ { sourceFilePath: 'foo', targetFilePath: 'foo' } ],
+                    additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
                     includeSourceMapFiles: true,
                     additionalPackageJsonAttributes: { license: 'foo' }
                 },
@@ -80,7 +80,7 @@ suite('config common package settings', function () {
                     versioning: { automatic: true },
                     bundleDependencies: [ 'foo' ],
                     bundlePeerDependencies: [ 'foo' ],
-                    additionalFiles: [ { sourceFilePath: 'foo', targetFilePath: 'foo' } ],
+                    additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
                     includeSourceMapFiles: true,
                     additionalPackageJsonAttributes: { license: 'foo' }
                 }) ]

@@ -30,7 +30,7 @@ export function normalizeAdditionalFile(
     sourceFolder: string
 ): AdditionalFileDescription {
     return {
-        sourceFilePath: ensureAbsolutePath(additionalFile.sourceFilePath, sourceFolder),
+        inputFilePath: ensureAbsolutePath(additionalFile.inputFilePath, sourceFolder),
         targetFilePath: additionalFile.targetFilePath
     };
 }

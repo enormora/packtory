@@ -26,20 +26,20 @@ function formatStatement(statement: SideEffectStatement): string {
 }
 
 function isAllowedFor(
-    sourceFilePath: string,
+    inputFilePath: string,
     bundleName: string,
     globalAllowList: ReadonlySet<string>,
     perPackageSettings: NoSideEffectsRunInput['perPackageSettings']
 ): boolean {
-    if (globalAllowList.has(sourceFilePath)) {
+    if (globalAllowList.has(inputFilePath)) {
         return true;
     }
     const packageAllowList = perPackageSettings.get(bundleName)?.noSideEffects?.allowList;
-    return packageAllowList?.includes(sourceFilePath) ?? false;
+    return packageAllowList?.includes(inputFilePath) ?? false;
 }
 
 function reportResource(bundleName: string, resource: AnalyzedBundleResource): string {
-    const sourcePath = resource.fileDescription.sourceFilePath;
+    const sourcePath = resource.fileDescription.inputFilePath;
     const lines = resource.analysis.sideEffectStatements.map(function (statement) {
         return `  - ${formatStatement(statement)}`;
     });
@@ -57,7 +57,7 @@ function findSideEffectsInBundle(
         if (resource.analysis.sideEffectStatements.length === 0) {
             return [];
         }
-        if (isAllowedFor(resource.fileDescription.sourceFilePath, bundle.name, globalAllowList, perPackageSettings)) {
+        if (isAllowedFor(resource.fileDescription.inputFilePath, bundle.name, globalAllowList, perPackageSettings)) {
             return [];
         }
         return [ reportResource(bundle.name, resource) ];

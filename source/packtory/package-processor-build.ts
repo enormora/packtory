@@ -60,7 +60,7 @@ async function analyzeOne(
         {
             bundle: linkedBundle,
             transformationsEnabled,
-            substitutionPublicModuleSourceFilePaths: new Set<string>(),
+            substitutionPublicModuleInputFilePaths: new Set<string>(),
             deadCodeElimination
         }
     ]);
@@ -76,7 +76,7 @@ export type ResolveAndBuildOperations = {
     readonly resolveAndLink: (options: ResolveAndLinkOptions) => Promise<LinkedBundle>;
     readonly resolveAndLinkWithPromotedDeclarationCompanions: (
         options: ResolveAndLinkOptions,
-        substitutedSourceFilePaths: ReadonlySet<string>
+        substitutedInputFilePaths: ReadonlySet<string>
     ) => Promise<LinkedBundle>;
 };
 
@@ -123,12 +123,12 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
 
     async function resolveAndLinkWithPromotedDeclarationCompanions(
         options: ResolveAndLinkOptions,
-        substitutedSourceFilePaths: ReadonlySet<string>
+        substitutedInputFilePaths: ReadonlySet<string>
     ): Promise<LinkedBundle> {
         return await resolveAndLinkResolvedBundle(options, async function () {
             return await dependencies.resourceResolver.resolveWithPromotedDeclarationCompanions(
                 options,
-                substitutedSourceFilePaths
+                substitutedInputFilePaths
             );
         });
     }

@@ -5,15 +5,15 @@ import type { AnalyzedBundle } from './analyzed-bundle.ts';
 function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): readonly FileDecision[] {
     const analyzedBySourcePath = new Map(
         analyzed.contents.map(function (entry) {
-            return [ entry.fileDescription.sourceFilePath, entry ] as const;
+            return [ entry.fileDescription.inputFilePath, entry ] as const;
         })
     );
     return original.contents.map(function (entry): FileDecision {
-        const emitted = analyzedBySourcePath.get(entry.fileDescription.sourceFilePath);
+        const emitted = analyzedBySourcePath.get(entry.fileDescription.inputFilePath);
         const sourceBytes = Buffer.byteLength(entry.fileDescription.content);
         if (emitted === undefined) {
             return {
-                path: entry.fileDescription.sourceFilePath,
+                path: entry.fileDescription.inputFilePath,
                 decision: 'eliminated',
                 reason: 'not-emitted-after-analysis',
                 sourceBytes
@@ -22,7 +22,7 @@ function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): r
         const outputBytes = Buffer.byteLength(emitted.fileDescription.content);
         if (entry.fileDescription.content !== emitted.fileDescription.content) {
             return {
-                path: entry.fileDescription.sourceFilePath,
+                path: entry.fileDescription.inputFilePath,
                 decision: 'transformed',
                 reason: 'rewritten-after-analysis',
                 sourceBytes,
@@ -30,7 +30,7 @@ function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): r
             };
         }
         return {
-            path: entry.fileDescription.sourceFilePath,
+            path: entry.fileDescription.inputFilePath,
             decision: 'kept',
             reason: 'reachable',
             sourceBytes

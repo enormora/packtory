@@ -20,7 +20,7 @@ function validationIssues(schema: Readonly<$ZodType>, data: unknown): readonly s
 suite('schema-validation', function () {
     test('keeps missing property messages stable', function () {
         assert.deepStrictEqual(validationIssues(additionalFileDescriptionSchema, { targetFilePath: 'file.txt' }), [
-            'at sourceFilePath: missing property'
+            'at inputFilePath: missing property'
         ]);
     });
 
@@ -41,7 +41,7 @@ suite('schema-validation', function () {
     test('keeps refinement messages stable', function () {
         assert.deepStrictEqual(
             validationIssues(additionalFileDescriptionSchema, {
-                sourceFilePath: 'source.txt',
+                inputFilePath: 'source.txt',
                 targetFilePath: '..'
             }),
             [ 'at targetFilePath: invalid input' ]

@@ -7,7 +7,7 @@ import type { EliminationInput } from './analyzed-bundle.ts';
 import { loadBundle } from './load-bundle.ts';
 
 const indexFile = {
-    sourceFilePath: '/src/index.js',
+    inputFilePath: '/src/index.js',
     targetFilePath: 'index.js',
     content: 'export const value = 1;\n',
     isExecutable: false
@@ -34,9 +34,9 @@ function packageABundle(overrides: Partial<Parameters<typeof linkedBundle>[0]> =
 
 function loadInput(
     bundle: LinkedBundle,
-    substitutionPublicModuleSourceFilePaths: ReadonlySet<string> = new Set<string>()
+    substitutionPublicModuleInputFilePaths: ReadonlySet<string> = new Set<string>()
 ): EliminationInput {
-    return { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths };
+    return { bundle, transformationsEnabled: true, substitutionPublicModuleInputFilePaths };
 }
 
 suite('load-bundle', function () {
@@ -85,5 +85,28 @@ suite('load-bundle', function () {
         assert.throws(function () {
             loadBundle(createProject, loadInput(bundle), undefined);
         }, /^Error: Bundle "package-a" is missing root "missing" referenced by its entry surface$/u);
+    });
+
+    test('loadBundle() seeds substitution public modules by target path', function () {
+        const publicResource = {
+            ...bundleResource('/src/public.js', {
+                content: 'export const api = 1;\n',
+                targetFilePath: 'public.js'
+            }),
+            isSubstituted: false
+        };
+        const bundle = packageABundle({ contents: [ indexResource(), publicResource ] });
+
+        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/src/public.js' ])), undefined);
+
+        assert.strictEqual(result.reachability.localReachable.has('public.js::api'), true);
+    });
+
+    test('loadBundle() ignores missing substitution public modules', function () {
+        const bundle = packageABundle();
+
+        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/src/missing.js' ])), undefined);
+
+        assert.deepStrictEqual(result.reachability.localReachable, new Set([ 'index.js::value' ]));
     });
 });

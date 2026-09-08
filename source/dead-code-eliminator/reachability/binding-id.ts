@@ -1,12 +1,14 @@
 import type { Node as TsMorphNode } from 'ts-morph';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
+import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 import type { DeclarationNodeIndex } from './identifier-target-collector.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 
 export type FileBindingSet = {
-    readonly sourceFilePath: string;
-    readonly parsedSourceFilePath: string;
+    readonly inputFilePath: string;
+    readonly parsedInputFilePath: string;
     readonly targetFilePath: string;
+    readonly moduleReferences: readonly ArtifactModuleReference[];
     readonly bindings: readonly BindingDescriptor[];
 };
 
@@ -17,11 +19,11 @@ type FileDeclarationIds = {
     readonly idsByName: DeclarationIdsByName;
     readonly idsByNode: readonly DeclarationNodeEntry[];
 };
-type SourceFilePath = {
+type InputFilePath = {
     readonly getFilePath: () => string;
 };
-type SourceFilePathNode = {
-    readonly getSourceFile: () => SourceFilePath;
+type InputFilePathNode = {
+    readonly getSourceFile: () => InputFilePath;
 };
 
 export function bindingId(filePath: string, name: string): string {
@@ -32,10 +34,10 @@ function bindingIdsByFile(files: readonly FileBindingSet[]): Map<string, Binding
     const result = new Map<string, BindingIdsByName>();
     for (const file of files) {
         result.set(
-            file.sourceFilePath,
+            file.targetFilePath,
             new Map(
                 file.bindings.map(function (binding) {
-                    return [ binding.name, bindingId(file.sourceFilePath, binding.name) ];
+                    return [ binding.name, bindingId(file.targetFilePath, binding.name) ];
                 })
             )
         );
@@ -48,8 +50,8 @@ function companionBindingId(
     file: FileBindingSet,
     idsByFile: ReadonlyMap<string, BindingIdsByName>
 ): string | undefined {
-    for (const [ sourceFilePath, bindingIds ] of idsByFile) {
-        if (declarationCompanionCandidates(sourceFilePath).includes(file.sourceFilePath)) {
+    for (const [ targetFilePath, bindingIds ] of idsByFile) {
+        if (declarationCompanionCandidates(targetFilePath).includes(file.targetFilePath)) {
             return bindingIds.get(binding.name);
         }
     }
@@ -63,13 +65,13 @@ function declarationBindingIds(
 ): readonly string[] {
     const companionId = companionBindingId(binding, file, idsByFile);
     return [
-        bindingId(file.sourceFilePath, binding.name),
+        bindingId(file.targetFilePath, binding.name),
         ...companionId === undefined ? [] : [ companionId ]
     ];
 }
 
-function sourceFilePathFromDeclaration(declarationNode: TsMorphNode): string | undefined {
-    const node = declarationNode as Partial<SourceFilePathNode>;
+function inputFilePathFromDeclaration(declarationNode: TsMorphNode): string | undefined {
+    const node = declarationNode as Partial<InputFilePathNode>;
     return node.getSourceFile?.().getFilePath();
 }
 
@@ -87,45 +89,54 @@ function bindingIdsForFile(
     return { idsByName, idsByNode };
 }
 
-function parsedDeclarationSourceFilePaths(file: FileBindingSet): readonly string[] {
+function parsedDeclarationInputFilePaths(file: FileBindingSet): readonly string[] {
     return file.bindings.flatMap(function (binding) {
-        const declarationSourceFilePath = sourceFilePathFromDeclaration(binding.declarationNode);
-        return declarationSourceFilePath === undefined ? [] : [ declarationSourceFilePath ];
+        const declarationInputFilePath = inputFilePathFromDeclaration(binding.declarationNode);
+        return declarationInputFilePath === undefined ? [] : [ declarationInputFilePath ];
     });
 }
 
-function sourcePathsForTarget(file: FileBindingSet): readonly string[] {
+function parsedPathsForTarget(file: FileBindingSet): readonly string[] {
     return [
-        file.sourceFilePath,
-        file.parsedSourceFilePath,
-        ...parsedDeclarationSourceFilePaths(file)
+        file.parsedInputFilePath,
+        ...parsedDeclarationInputFilePaths(file)
     ];
 }
 
 export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): DeclarationNodeIndex {
-    const idsByNode = new Map<TsMorphNode, readonly string[]>();
-    const idsByFileAndName = new Map<string, DeclarationIdsByName>();
-    const idsByTargetFileAndName = new Map<string, DeclarationIdsByName>();
-    const targetFilePathBySourceFilePath = new Map<string, string>();
+    const index = {
+        idsByNode: new Map<TsMorphNode, readonly string[]>(),
+        idsByFileAndName: new Map<string, DeclarationIdsByName>(),
+        idsByTargetFileAndName: new Map<string, DeclarationIdsByName>(),
+        moduleReferencesByTargetFilePath: new Map<string, readonly ArtifactModuleReference[]>(),
+        targetFilePathByInputFilePath: new Map<string, string>()
+    };
     const idsByFile = bindingIdsByFile(files);
+
+    function addFilePathEntries(file: FileBindingSet, idsByName: DeclarationIdsByName): void {
+        index.idsByFileAndName.set(file.inputFilePath, idsByName);
+        index.idsByFileAndName.set(file.parsedInputFilePath, idsByName);
+        index.idsByFileAndName.set(file.targetFilePath, idsByName);
+        index.idsByTargetFileAndName.set(file.targetFilePath, idsByName);
+        index.moduleReferencesByTargetFilePath.set(file.targetFilePath, file.moduleReferences);
+        for (const parsedPath of parsedPathsForTarget(file)) {
+            index.idsByFileAndName.set(parsedPath, idsByName);
+            index.targetFilePathByInputFilePath.set(parsedPath, file.targetFilePath);
+        }
+    }
+
     function addFileDeclarationIds(file: FileBindingSet): void {
         const { idsByName, idsByNode: nodeIds } = bindingIdsForFile(file, idsByFile);
         for (const [ node, bindingIds ] of nodeIds) {
-            idsByNode.set(node, bindingIds);
+            index.idsByNode.set(node, bindingIds);
         }
-        idsByFileAndName.set(file.sourceFilePath, idsByName);
-        idsByFileAndName.set(file.parsedSourceFilePath, idsByName);
-        idsByTargetFileAndName.set(file.targetFilePath, idsByName);
-        for (const sourceFilePath of sourcePathsForTarget(file)) {
-            idsByFileAndName.set(sourceFilePath, idsByName);
-            targetFilePathBySourceFilePath.set(sourceFilePath, file.targetFilePath);
-        }
+        addFilePathEntries(file, idsByName);
     }
 
     for (const file of files) {
         addFileDeclarationIds(file);
     }
-    return { idsByNode, idsByFileAndName, idsByTargetFileAndName, targetFilePathBySourceFilePath };
+    return index;
 }
 
 export function buildBindingsByFile(files: readonly FileBindingSet[]): Map<string, Set<string>> {
@@ -133,9 +144,9 @@ export function buildBindingsByFile(files: readonly FileBindingSet[]): Map<strin
     for (const file of files) {
         const ids = new Set<string>();
         for (const binding of file.bindings) {
-            ids.add(bindingId(file.sourceFilePath, binding.name));
+            ids.add(bindingId(file.targetFilePath, binding.name));
         }
-        map.set(file.sourceFilePath, ids);
+        map.set(file.targetFilePath, ids);
     }
     return map;
 }
@@ -144,7 +155,7 @@ export function buildNodeById(files: readonly FileBindingSet[]): Map<string, TsM
     const map = new Map<string, TsMorphNode>();
     for (const file of files) {
         for (const binding of file.bindings) {
-            map.set(bindingId(file.sourceFilePath, binding.name), binding.referenceNode);
+            map.set(bindingId(file.targetFilePath, binding.name), binding.referenceNode);
         }
     }
     return map;

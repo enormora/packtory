@@ -17,13 +17,13 @@ import { bindingId } from './reachability/binding-id.ts';
 type DeadCodeEliminationTraceEvent = CollectedDeadCodeEliminationTrace['events'][number];
 
 function resource(
-    sourceFilePath: string,
+    inputFilePath: string,
     content: string,
     targetFilePath: string,
     directDependencies: ReadonlySet<string>
 ): LinkedBundleResource {
     return {
-        ...bundleResource(sourceFilePath, { content, directDependencies, targetFilePath }),
+        ...bundleResource(inputFilePath, { content, directDependencies, targetFilePath }),
         isSubstituted: false
     };
 }
@@ -43,7 +43,7 @@ function traceTestBundle(): LinkedBundle {
                 ]
                     .join('\n'),
                 'index.js',
-                new Set([ '/src/dep.js' ])
+                new Set([ 'dep.js' ])
             ),
             resource(
                 '/src/dep.js',
@@ -59,7 +59,7 @@ function traceTestBundle(): LinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/src/index.js',
+                    inputFilePath: '/src/index.js',
                     targetFilePath: 'index.js'
                 }
             }
@@ -91,7 +91,7 @@ async function tracedEventsFor(...bundles: readonly LinkedBundle[]): Promise<rea
 function importRepairBundle(content: string, targetFilePath: string): LinkedBundle {
     return bundleForCodeFile({
         name: 'pkg',
-        sourceFilePath: `/src/${targetFilePath}`,
+        inputFilePath: `/src/${targetFilePath}`,
         targetFilePath,
         content
     });
@@ -104,13 +104,13 @@ function tracedConsumerProducerBundles(
     return [
         bundleForCodeFile({
             name: 'consumer',
-            sourceFilePath: '/consumer/index.js',
+            inputFilePath: '/consumer/index.js',
             targetFilePath: 'index.js',
             content: consumerContent
         }),
         bundleForCodeFile({
             name: 'producer',
-            sourceFilePath: '/producer/index.js',
+            inputFilePath: '/producer/index.js',
             targetFilePath: 'index.js',
             content: producerContent
         })
@@ -135,7 +135,7 @@ suite('dead code elimination trace', function () {
             hasEvent(trace.events, function (event) {
                 return event.type === 'local-seed-added' &&
                     event.bundleName === 'pkg' &&
-                    event.bindingId === bindingId('/src/index.js', 'api') &&
+                    event.bindingId === bindingId('index.js', 'api') &&
                     event.reason === 'entry-export' &&
                     event.line === 4;
             }),
@@ -145,8 +145,8 @@ suite('dead code elimination trace', function () {
             hasEvent(trace.events, function (event) {
                 return event.type === 'edge-added' &&
                     event.bundleName === 'pkg' &&
-                    event.fromBindingId === bindingId('/src/index.js', 'api') &&
-                    event.toBindingId === bindingId('/src/index.js', 'local');
+                    event.fromBindingId === bindingId('index.js', 'api') &&
+                    event.toBindingId === bindingId('index.js', 'local');
             }),
             true
         );
@@ -155,7 +155,7 @@ suite('dead code elimination trace', function () {
             hasEvent(trace.events, function (event) {
                 return event.type === 'binding-removed' &&
                     event.bundleName === 'pkg' &&
-                    event.bindingId === bindingId('/src/index.js', 'removed');
+                    event.bindingId === bindingId('index.js', 'removed');
             }),
             true
         );
@@ -197,7 +197,7 @@ suite('dead code elimination trace', function () {
                     '/src/index.js',
                     'export { used } from "./dep.js";\nconst side = 1;\nconsole.log(side);\n',
                     'index.js',
-                    new Set([ '/src/dep.js' ])
+                    new Set([ 'dep.js' ])
                 ),
                 resource('/src/dep.js', 'export const used = 1;\n', 'dep.js', new Set<string>())
             ],
@@ -206,7 +206,7 @@ suite('dead code elimination trace', function () {
                     js: {
                         content: '',
                         isExecutable: false,
-                        sourceFilePath: '/src/index.js',
+                        inputFilePath: '/src/index.js',
                         targetFilePath: 'index.js'
                     }
                 }
@@ -219,7 +219,7 @@ suite('dead code elimination trace', function () {
             hasEvent(events, function (event) {
                 return event.type === 'local-seed-added' &&
                     event.reason === 'entry-export-declaration' &&
-                    event.bindingId === bindingId('/src/dep.js', 'used');
+                    event.bindingId === bindingId('dep.js', 'used');
             }),
             true
         );
@@ -227,7 +227,7 @@ suite('dead code elimination trace', function () {
             hasEvent(events, function (event) {
                 return event.type === 'local-seed-added' &&
                     event.reason === 'impure-statement' &&
-                    event.bindingId === bindingId('/src/index.js', 'side');
+                    event.bindingId === bindingId('index.js', 'side');
             }),
             true
         );
@@ -300,7 +300,7 @@ suite('dead code elimination trace', function () {
             hasEvent(namedImportEvents, function (event) {
                 return event.type === 'cross-bundle-seed-added' &&
                     event.bundleName === 'producer' &&
-                    event.bindingId === bindingId('/producer/index.js', 'shared') &&
+                    event.bindingId === bindingId('index.js', 'shared') &&
                     event.sourceBundleName === 'consumer' &&
                     event.moduleSpecifier === 'producer' &&
                     event.reason === 'named-import';
@@ -350,7 +350,7 @@ suite('dead code elimination trace', function () {
         assert.strictEqual(
             eventCount(events, function (event) {
                 return event.type === 'cross-bundle-seed-added' &&
-                    event.bindingId === bindingId('/producer/index.js', 'shared');
+                    event.bindingId === bindingId('index.js', 'shared');
             }),
             1
         );

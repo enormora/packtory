@@ -67,12 +67,12 @@ type CheckDirectoryCall = {
 };
 
 type TransferableFileDescriptionCall = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
 };
 
 type TransferableFileDescriptionResponder = (
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string
 ) => SimulatedResponse<TransferableFileDescription>;
 
@@ -312,12 +312,12 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             return resolveValueResponse(response);
         },
 
-        async getTransferableFileDescriptionFromPath(sourceFilePath, targetFilePath) {
+        async getTransferableFileDescriptionFromPath(inputFilePath, targetFilePath) {
             const fallbackResponse: SimulatedResponse<TransferableFileDescription> = {
-                value: { sourceFilePath, targetFilePath, content: '', isExecutable: false }
+                value: { inputFilePath, targetFilePath, content: '', isExecutable: false }
             };
             const responderResponse = resolvedOptions.transferableFileDescriptionResponder?.(
-                sourceFilePath,
+                inputFilePath,
                 targetFilePath
             );
             const response = responderResponse ??
@@ -325,7 +325,7 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
                     calls.transferableFileDescription.length
                 ] ??
                 fallbackResponse;
-            calls.transferableFileDescription.push({ sourceFilePath, targetFilePath });
+            calls.transferableFileDescription.push({ inputFilePath, targetFilePath });
             return resolveValueResponse(response);
         },
 

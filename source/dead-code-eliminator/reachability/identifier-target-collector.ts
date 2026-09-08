@@ -6,13 +6,14 @@ import {
     type ImportSpecifier,
     type ShorthandPropertyAssignment
 } from 'ts-morph';
-import { resolveRelativeTargetModulePath } from '../target-module-path.ts';
+import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 
 export type DeclarationNodeIndex = {
     readonly idsByNode: ReadonlyMap<TsMorphNode, readonly string[]>;
     readonly idsByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
     readonly idsByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
-    readonly targetFilePathBySourceFilePath: ReadonlyMap<string, string>;
+    readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
+    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
 };
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
 type IdsByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
@@ -29,25 +30,51 @@ function declarationPathTargets(
     return declarationIndex.idsByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
 }
 
-function resolveTargetFilePath(
+function importerTargetFilePath(
     importDeclaration: ImportDeclaration,
     declarationIndex: DeclarationNodeIndex
 ): string | undefined {
-    const sourceFilePath = importDeclaration.getSourceFile().getFilePath();
-    const targetFilePath = declarationIndex.targetFilePathBySourceFilePath.get(sourceFilePath);
-    if (targetFilePath === undefined) {
-        return undefined;
-    }
-    return resolveRelativeTargetModulePath(targetFilePath, importDeclaration.getModuleSpecifierValue());
-}
-
-function resolveSourceFilePath(importDeclaration: ImportDeclaration): string {
-    const sourceFilePath = importDeclaration.getSourceFile().getFilePath();
-    return resolveRelativeTargetModulePath(sourceFilePath, importDeclaration.getModuleSpecifierValue());
+    const inputFilePath = importDeclaration.getSourceFile().getFilePath();
+    return declarationIndex.targetFilePathByInputFilePath.get(inputFilePath);
 }
 
 function isRelativeImport(importDeclaration: ImportDeclaration): boolean {
     return importDeclaration.getModuleSpecifierValue().startsWith('.');
+}
+
+function resolvedImportReference(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): ArtifactModuleReference | undefined {
+    const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
+    if (importerPath === undefined) {
+        return undefined;
+    }
+    const specifier = importDeclaration.getModuleSpecifierValue();
+    return declarationIndex.moduleReferencesByTargetFilePath.get(importerPath)?.find(function (reference) {
+        return reference.emittedSpecifier === specifier;
+    });
+}
+
+function missingReferenceError(importDeclaration: ImportDeclaration, importerPath: string): Error {
+    return new Error(
+        `Missing resolved module reference for "${importDeclaration.getModuleSpecifierValue()}" in "${importerPath}"`
+    );
+}
+
+function relativeImportTargetPath(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): string | undefined {
+    const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
+    const reference = resolvedImportReference(importDeclaration, declarationIndex);
+    if (reference === undefined) {
+        if (importerPath !== undefined) {
+            throw missingReferenceError(importDeclaration, importerPath);
+        }
+        return undefined;
+    }
+    return reference.type === 'local-code' ? reference.targetFilePath : undefined;
 }
 
 function targetsByFileAndName(
@@ -67,15 +94,11 @@ function relativeImportSpecifierTargets(
         return [];
     }
 
-    const targetFilePath = resolveTargetFilePath(importDeclaration, declarationIndex);
-    return [
-        ...targetsByFileAndName(declarationIndex.idsByTargetFileAndName, targetFilePath, declaration.getName()),
-        ...targetsByFileAndName(
-            declarationIndex.idsByFileAndName,
-            resolveSourceFilePath(importDeclaration),
-            declaration.getName()
-        )
-    ];
+    return targetsByFileAndName(
+        declarationIndex.idsByTargetFileAndName,
+        relativeImportTargetPath(importDeclaration, declarationIndex),
+        declaration.getName()
+    );
 }
 
 function importSpecifierTargets(

@@ -103,10 +103,11 @@ function makeContent(targetFilePath: string, content: string, isSubstituted = fa
         isSubstituted,
         isExplicitlyIncluded: false,
         directDependencies: new Set(),
+        moduleReferences: [],
         fileDescription: {
             content,
             isExecutable: false,
-            sourceFilePath: '/foo/bar.txt',
+            inputFilePath: '/foo/bar.txt',
             targetFilePath
         },
         analysis: {

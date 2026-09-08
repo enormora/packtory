@@ -484,7 +484,7 @@ suite('publish', function () {
                     createPackageConfig(fixturePathValue, 'first', 'entry1', {
                         additionalFiles: [
                             {
-                                sourceFilePath: `${fixturePathValue}/docs/first.txt`,
+                                inputFilePath: `${fixturePathValue}/docs/first.txt`,
                                 targetFilePath: 'docs/first.txt'
                             }
                         ],
@@ -503,7 +503,7 @@ suite('publish', function () {
                             includeSourceMapFiles: true,
                             additionalFiles: [
                                 {
-                                    sourceFilePath: `${fixturePathValue}/docs/common.txt`,
+                                    inputFilePath: `${fixturePathValue}/docs/common.txt`,
                                     targetFilePath: 'docs/common.txt'
                                 }
                             ],

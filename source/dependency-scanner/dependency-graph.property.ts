@@ -60,6 +60,7 @@ const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
                                 ? [ dependencyName ]
                                 : [];
                         }),
+                        moduleReferences: [],
                         project: {
                             getProject() {
                                 return projectObject;
@@ -85,7 +86,8 @@ const localFilesArbitrary: fc.Arbitrary<readonly LocalFile[]> = fc
         return filePaths.map(function (filePath) {
             const localFile: LocalFile = {
                 filePath,
-                directDependencies: new Set<string>()
+                directDependencies: new Set<string>(),
+                moduleReferences: []
             };
             return localFile;
         });

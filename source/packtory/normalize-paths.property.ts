@@ -71,11 +71,11 @@ suite('normalize-paths', function () {
                 relativePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,
-                function (sourceFolder, sourceFilePath, targetFilePath) {
-                    const normalized = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
+                function (sourceFolder, inputFilePath, targetFilePath) {
+                    const normalized = normalizeAdditionalFile({ inputFilePath, targetFilePath }, sourceFolder);
 
                     assert.deepStrictEqual(normalized, {
-                        sourceFilePath: path.join(sourceFolder, sourceFilePath),
+                        inputFilePath: path.join(sourceFolder, inputFilePath),
                         targetFilePath
                     });
                 }
@@ -87,11 +87,11 @@ suite('normalize-paths', function () {
                 relativePathArbitrary,
                 absolutePathArbitrary,
                 relativePathArbitrary,
-                function (sourceFolder, sourceFilePath, targetFilePath) {
-                    const normalized = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
+                function (sourceFolder, inputFilePath, targetFilePath) {
+                    const normalized = normalizeAdditionalFile({ inputFilePath, targetFilePath }, sourceFolder);
 
                     assert.deepStrictEqual(normalized, {
-                        sourceFilePath,
+                        inputFilePath,
                         targetFilePath
                     });
                 }
@@ -122,8 +122,8 @@ suite('normalize-paths', function () {
                 absolutePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,
-                function (sourceFolder, sourceFilePath, targetFilePath) {
-                    const normalizedOnce = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
+                function (sourceFolder, inputFilePath, targetFilePath) {
+                    const normalizedOnce = normalizeAdditionalFile({ inputFilePath, targetFilePath }, sourceFolder);
                     const normalizedTwice = normalizeAdditionalFile(normalizedOnce, sourceFolder);
 
                     assert.deepStrictEqual(normalizedTwice, normalizedOnce);

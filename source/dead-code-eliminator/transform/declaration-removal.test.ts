@@ -8,7 +8,7 @@ import type { RemovalPlan } from './declaration-removal-plan.ts';
 function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
     return {
         bundleName: 'pkg',
-        sourceFilePath: 'index.ts',
+        inputFilePath: 'index.ts',
         targetFilePath: 'index.ts',
         survivingNames,
         trace: undefined

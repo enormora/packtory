@@ -26,13 +26,13 @@ export type PackageSurfaceSummary = {
 };
 
 export type PublicModuleIndex = {
-    readonly sourceFilePathBySpecifier: ReadonlyMap<string, string>;
-    readonly specifierBySourceFilePath: ReadonlyMap<string, string>;
+    readonly inputFilePathBySpecifier: ReadonlyMap<string, string>;
+    readonly specifierByInputFilePath: ReadonlyMap<string, string>;
 };
 
 type IndexedSpecifierWrite = {
-    readonly publicSourceFilePath: string | undefined;
-    readonly sourceFilePaths: readonly string[];
+    readonly publicInputFilePath: string | undefined;
+    readonly inputFilePaths: readonly string[];
     readonly specifier: string;
 };
 type PublicModuleIndexBuilder = {
@@ -42,55 +42,55 @@ type PublicModuleIndexBuilder = {
 };
 
 function createPublicModuleIndexBuilder(): PublicModuleIndexBuilder {
-    const sourceFilePathBySpecifier = new Map<string, string>();
-    const specifierBySourceFilePath = new Map<string, string>();
+    const inputFilePathBySpecifier = new Map<string, string>();
+    const specifierByInputFilePath = new Map<string, string>();
 
-    function recordSourceFileSpecifier(sourceFilePath: string, candidateSpecifier: string): void {
-        const currentSpecifier = specifierBySourceFilePath.get(sourceFilePath);
+    function recordSourceFileSpecifier(inputFilePath: string, candidateSpecifier: string): void {
+        const currentSpecifier = specifierByInputFilePath.get(inputFilePath);
         if (currentSpecifier === undefined) {
-            specifierBySourceFilePath.set(sourceFilePath, candidateSpecifier);
+            specifierByInputFilePath.set(inputFilePath, candidateSpecifier);
         }
     }
 
-    function recordShortestSourceFileSpecifier(sourceFilePath: string, candidateSpecifier: string): void {
-        const currentSpecifier = specifierBySourceFilePath.get(sourceFilePath);
+    function recordShortestSourceFileSpecifier(inputFilePath: string, candidateSpecifier: string): void {
+        const currentSpecifier = specifierByInputFilePath.get(inputFilePath);
         if (currentSpecifier === undefined || candidateSpecifier.length < currentSpecifier.length) {
-            specifierBySourceFilePath.set(sourceFilePath, candidateSpecifier);
+            specifierByInputFilePath.set(inputFilePath, candidateSpecifier);
         }
     }
 
-    function recordPublicSourceFilePath(write: IndexedSpecifierWrite): void {
-        const hasPublicSpecifier = sourceFilePathBySpecifier.has(write.specifier);
-        if (!hasPublicSpecifier && write.publicSourceFilePath !== undefined) {
-            sourceFilePathBySpecifier.set(write.specifier, write.publicSourceFilePath);
+    function recordPublicInputFilePath(write: IndexedSpecifierWrite): void {
+        const hasPublicSpecifier = inputFilePathBySpecifier.has(write.specifier);
+        if (!hasPublicSpecifier && write.publicInputFilePath !== undefined) {
+            inputFilePathBySpecifier.set(write.specifier, write.publicInputFilePath);
         }
     }
 
     return {
         build() {
-            return { sourceFilePathBySpecifier, specifierBySourceFilePath };
+            return { inputFilePathBySpecifier, specifierByInputFilePath };
         },
         recordFirstIndexedPublicSpecifier(write) {
-            for (const sourceFilePath of write.sourceFilePaths) {
-                recordSourceFileSpecifier(sourceFilePath, write.specifier);
+            for (const inputFilePath of write.inputFilePaths) {
+                recordSourceFileSpecifier(inputFilePath, write.specifier);
             }
-            recordPublicSourceFilePath(write);
+            recordPublicInputFilePath(write);
         },
         recordShortestIndexedPublicSpecifier(write) {
-            for (const sourceFilePath of write.sourceFilePaths) {
-                recordShortestSourceFileSpecifier(sourceFilePath, write.specifier);
+            for (const inputFilePath of write.inputFilePaths) {
+                recordShortestSourceFileSpecifier(inputFilePath, write.specifier);
             }
-            recordPublicSourceFilePath(write);
+            recordPublicInputFilePath(write);
         }
     };
 }
 
-export function rootSourceFilePaths(root: RootFileDescription): readonly string[] {
+export function rootInputFilePaths(root: RootFileDescription): readonly string[] {
     if (root.declarationFile === undefined) {
-        return [ root.js.sourceFilePath ];
+        return [ root.js.inputFilePath ];
     }
 
-    return [ root.js.sourceFilePath, root.declarationFile.sourceFilePath ];
+    return [ root.js.inputFilePath, root.declarationFile.inputFilePath ];
 }
 
 function isExplicitSummaryBundle(bundle: SummaryBundle): bundle is ExplicitSummaryBundle {
@@ -155,8 +155,8 @@ function indexExplicitPublicModules(bundle: ExplicitModuleBundle): PublicModuleI
     for (const entry of modules) {
         const root = getRoot(bundle, entry.root);
         publicModuleIndex.recordShortestIndexedPublicSpecifier({
-            publicSourceFilePath: root.js.sourceFilePath,
-            sourceFilePaths: rootSourceFilePaths(root),
+            publicInputFilePath: root.js.inputFilePath,
+            inputFilePaths: rootInputFilePaths(root),
             specifier: toPackageSpecifier(bundle.name, entry.export)
         });
     }
@@ -178,15 +178,15 @@ function declarationCompanionSpecifier(bundle: ImplicitModuleBundle, targetFileP
 function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleIndex: PublicModuleIndexBuilder): void {
     const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
     publicModuleIndex.recordFirstIndexedPublicSpecifier({
-        publicSourceFilePath: defaultRoot.js.sourceFilePath,
-        sourceFilePaths: rootSourceFilePaths(defaultRoot),
+        publicInputFilePath: defaultRoot.js.inputFilePath,
+        inputFilePaths: rootInputFilePaths(defaultRoot),
         specifier: bundle.name
     });
     for (const root of Object.values(bundle.roots)) {
         if (root.declarationFile !== undefined) {
             publicModuleIndex.recordFirstIndexedPublicSpecifier({
-                publicSourceFilePath: undefined,
-                sourceFilePaths: [ root.declarationFile.sourceFilePath ],
+                publicInputFilePath: undefined,
+                inputFilePaths: [ root.declarationFile.inputFilePath ],
                 specifier: toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
             });
         }
@@ -201,14 +201,14 @@ function recordImplicitContentModule(
     const companionSpecifier = declarationCompanionSpecifier(bundle, entry.fileDescription.targetFilePath);
     if (companionSpecifier === undefined) {
         publicModuleIndex.recordFirstIndexedPublicSpecifier({
-            publicSourceFilePath: entry.fileDescription.sourceFilePath,
-            sourceFilePaths: [ entry.fileDescription.sourceFilePath ],
+            publicInputFilePath: entry.fileDescription.inputFilePath,
+            inputFilePaths: [ entry.fileDescription.inputFilePath ],
             specifier: toPackageSpecifier(bundle.name, `./${entry.fileDescription.targetFilePath}`)
         });
     } else {
         publicModuleIndex.recordFirstIndexedPublicSpecifier({
-            publicSourceFilePath: undefined,
-            sourceFilePaths: [ entry.fileDescription.sourceFilePath ],
+            publicInputFilePath: undefined,
+            inputFilePaths: [ entry.fileDescription.inputFilePath ],
             specifier: companionSpecifier
         });
     }

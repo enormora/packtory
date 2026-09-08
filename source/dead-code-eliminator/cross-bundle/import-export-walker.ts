@@ -1,19 +1,23 @@
 import { Node as TsMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
+import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 import { bindingId } from '../reachability/binding-id.ts';
 import type { CrossBundleSeedReason, DeadCodeEliminationTrace } from '../trace.ts';
-import { resolveCrossBundleTarget, type IndexedBundle, type ResolvedTarget } from './bundle-index.ts';
+import type { IndexedBundle, ResolvedTarget } from './bundle-index.ts';
 import { recordSeed, type SeedMap } from './seed-store.ts';
 
-type WalkContext = {
+export type WalkContext = {
     readonly indexed: ReadonlyMap<string, IndexedBundle>;
     readonly seeds: SeedMap;
     readonly sourceBundleName: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
+    readonly sourceTargetFilePath: string;
+    readonly moduleReferences: readonly ArtifactModuleReference[];
     readonly localReachable: ReadonlySet<string>;
     readonly trace: DeadCodeEliminationTrace;
 };
 
 type SeedStatement = ExportDeclaration | ImportDeclaration;
+type LinkedCodeReference = Extract<ArtifactModuleReference, { readonly type: 'linked-code'; }>;
 
 type CrossBundleSeedInput = {
     readonly context: WalkContext;
@@ -37,11 +41,15 @@ function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNa
 }
 
 function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
-    return context.localReachable.has(bindingId(context.sourceFilePath, localName));
+    return context.localReachable.has(bindingId(context.sourceTargetFilePath, localName));
 }
 
 function seedExists(seeds: SeedMap, bundleName: string, seed: string): boolean {
     return seeds.get(bundleName)?.has(seed) === true;
+}
+
+function isLinkedCodeReference(reference: ArtifactModuleReference): reference is LinkedCodeReference {
+    return reference.type === 'linked-code';
 }
 
 function recordCrossBundleSeed(input: CrossBundleSeedInput): SeedMap {
@@ -52,9 +60,9 @@ function recordCrossBundleSeed(input: CrossBundleSeedInput): SeedMap {
             bundleName: target.bundleName,
             bindingId: seed,
             sourceBundleName: context.sourceBundleName,
-            sourceFilePath: context.sourceFilePath,
+            inputFilePath: context.inputFilePath,
             line: statement.getStartLineNumber(),
-            moduleSpecifier: statement.getModuleSpecifierValue() ?? context.sourceFilePath,
+            moduleSpecifier: statement.getModuleSpecifierValue() ?? context.inputFilePath,
             reason
         });
     }
@@ -66,7 +74,7 @@ function seedTargetBinding(input: TargetBindingSeedInput): SeedMap {
     return recordCrossBundleSeed({
         context,
         target,
-        seed: bindingId(target.sourceFilePath, name),
+        seed: bindingId(target.targetFilePath, name),
         statement,
         reason
     });
@@ -78,7 +86,7 @@ function seedAllTargetBindings(
     statement: SeedStatement,
     reason: CrossBundleSeedReason
 ): SeedMap {
-    const fileBindings = target.indexedBundle.bindingsByFilePath.get(target.sourceFilePath);
+    const fileBindings = target.indexedBundle.bindingsByFilePath.get(target.targetFilePath);
     if (fileBindings === undefined) {
         return context.seeds;
     }
@@ -137,8 +145,33 @@ function recordNamedImportSeeds(
     return seeds;
 }
 
+function linkedReferenceFor(statement: SeedStatement, context: WalkContext): LinkedCodeReference | undefined {
+    const specifier = statement.getModuleSpecifierValue();
+    if (specifier === undefined) {
+        return undefined;
+    }
+    return context.moduleReferences.filter(isLinkedCodeReference).find(function (reference) {
+        return reference.emittedSpecifier === specifier;
+    });
+}
+
+function crossBundleTarget(statement: SeedStatement, context: WalkContext): ResolvedTarget | undefined {
+    const reference = linkedReferenceFor(statement, context);
+    if (reference === undefined) {
+        return undefined;
+    }
+    const indexedBundle = context.indexed.get(reference.packageName);
+    if (indexedBundle === undefined) {
+        return undefined;
+    }
+    if (!indexedBundle.bindingsByFilePath.has(reference.targetFilePath)) {
+        return undefined;
+    }
+    return { bundleName: reference.packageName, targetFilePath: reference.targetFilePath, indexedBundle };
+}
+
 function processImportDeclaration(importDeclaration: ImportDeclaration, context: WalkContext): SeedMap {
-    const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), context.indexed);
+    const target = crossBundleTarget(importDeclaration, context);
     if (target === undefined) {
         return context.seeds;
     }
@@ -172,8 +205,7 @@ function recordNamedReExportSeeds(
 }
 
 function processExportDeclaration(exportDeclaration: ExportDeclaration, context: WalkContext): SeedMap {
-    const specifier = exportDeclaration.getModuleSpecifierValue() ?? context.sourceFilePath;
-    const target = resolveCrossBundleTarget(specifier, context.indexed);
+    const target = crossBundleTarget(exportDeclaration, context);
     if (target === undefined) {
         return context.seeds;
     }

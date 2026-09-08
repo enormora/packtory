@@ -81,7 +81,7 @@ export async function buildConfig() {
             },
             additionalFiles: [
                 {
-                    sourceFilePath: sharedLicensePath,
+                    inputFilePath: sharedLicensePath,
                     targetFilePath: 'LICENSE'
                 }
             ],
@@ -110,7 +110,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: packtoryReadmePath,
+                        inputFilePath: packtoryReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ]
@@ -132,7 +132,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: githubReleaseGateReadmePath,
+                        inputFilePath: githubReleaseGateReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -160,7 +160,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: cliReadmePath,
+                        inputFilePath: cliReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -183,7 +183,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: bootstrapNpmPackageReadmePath,
+                        inputFilePath: bootstrapNpmPackageReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ]

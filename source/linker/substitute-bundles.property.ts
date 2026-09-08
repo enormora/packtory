@@ -26,7 +26,7 @@ function compareText(left: string, right: string): number {
 }
 
 function createBundleDependency(index: number): VersionedBundleWithManifest {
-    const sourceFilePath = `/dep-${index}.js`;
+    const inputFilePath = `/dep-${index}.js`;
 
     return {
         roots: {
@@ -34,7 +34,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath,
+                    inputFilePath,
                     targetFilePath: `dep-${index}.js`
                 }
             }
@@ -45,10 +45,11 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
                 fileDescription: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath,
+                    inputFilePath,
                     targetFilePath: `dep-${index}.js`
                 },
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isSubstituted: false,
                 isExplicitlyIncluded: false,
                 analysis: {
@@ -68,7 +69,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
         mainFile: {
             content: '',
             isExecutable: false,
-            sourceFilePath,
+            inputFilePath,
             targetFilePath: `dep-${index}.js`
         },
         typesMainFile: undefined,
@@ -118,7 +119,7 @@ function createSubstitutionGraph(importPaths: readonly string[]): ResourceGraph 
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/entry.js',
+                    inputFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 }
             }
@@ -128,10 +129,13 @@ function createSubstitutionGraph(importPaths: readonly string[]): ResourceGraph 
                 fileDescription: {
                     content: entryContent,
                     isExecutable: false,
-                    sourceFilePath: '/entry.js',
+                    inputFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                directDependencies: new Set(importPaths),
+                directDependencies: new Set(importPaths.map(function (filePath) {
+                    return filePath.slice(1);
+                })),
+                moduleReferences: [],
                 project,
                 isExplicitlyIncluded: false
             },
@@ -140,10 +144,11 @@ function createSubstitutionGraph(importPaths: readonly string[]): ResourceGraph 
                     fileDescription: {
                         content: `export const value = "${filePath}";`,
                         isExecutable: false,
-                        sourceFilePath: filePath,
+                        inputFilePath: filePath,
                         targetFilePath: filePath.slice(1)
                     },
                     directDependencies: new Set<string>(),
+                    moduleReferences: [],
                     project,
                     isExplicitlyIncluded: false
                 };
@@ -163,7 +168,7 @@ function assertOutputFilesRemainRelated(outputFiles: readonly string[], importPa
 
 function assertEntryImportSubstitution(assertion: SubstitutionAssertion): void {
     const entryFile = assertion.result.contents.find(function (entry) {
-        return entry.fileDescription.sourceFilePath === '/entry.js';
+        return entry.fileDescription.inputFilePath === '/entry.js';
     });
     if (entryFile === undefined) {
         assert.fail('Expected entry file to exist');
@@ -174,7 +179,7 @@ function assertEntryImportSubstitution(assertion: SubstitutionAssertion): void {
             .result
             .contents
             .map(function (entry) {
-                return entry.fileDescription.sourceFilePath;
+                return entry.fileDescription.inputFilePath;
             })
             .toSorted(compareText)
     );
@@ -196,7 +201,7 @@ function assertSubstitutionResult(assertion: SubstitutionAssertion): void {
         .result
         .contents
         .map(function (entry) {
-            return entry.fileDescription.sourceFilePath;
+            return entry.fileDescription.inputFilePath;
         })
         .toSorted(compareText);
     assertOutputFilesRemainRelated(outputFiles, assertion.importPaths);

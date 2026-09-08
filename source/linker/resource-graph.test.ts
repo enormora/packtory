@@ -3,11 +3,11 @@ import { suite, test } from 'mocha';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
 
-function createFileDescription(sourceFilePath: string, content: string): TransferableFileDescription {
-    const targetFilePath = sourceFilePath.slice(1);
+function createFileDescription(inputFilePath: string, content: string): TransferableFileDescription {
+    const targetFilePath = inputFilePath.slice(1);
 
     return {
-        sourceFilePath,
+        inputFilePath,
         targetFilePath,
         content,
         isExecutable: false
@@ -26,19 +26,21 @@ suite('resource-graph', function () {
             contents: [
                 {
                     fileDescription: entryDescription,
-                    directDependencies: new Set([ '/other.js' ]),
+                    directDependencies: new Set([ 'other.js' ]),
+                    moduleReferences: [],
                     isExplicitlyIncluded: false
                 },
                 {
                     fileDescription: createFileDescription('/other.js', ''),
                     directDependencies: new Set(),
+                    moduleReferences: [],
                     isExplicitlyIncluded: false
                 }
             ],
             roots: { main: root },
             surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
             externalDependencies: new Map([
-                [ 'left-pad', { name: 'left-pad', referencedFrom: [ '/entry.js' ] as const } ],
+                [ 'left-pad', { name: 'left-pad', referencedFrom: [ 'entry.js' ] as const } ],
                 [
                     'referenced',
                     {
@@ -46,12 +48,12 @@ suite('resource-graph', function () {
                         referencedFrom: [ '/entry.js', '/other.js' ],
                         references: [
                             {
-                                sourceFilePath: '/entry.js',
+                                targetFilePath: 'entry.js',
                                 sourceSpecifier: 'referenced/source',
                                 emittedSpecifier: 'referenced'
                             },
                             {
-                                sourceFilePath: '/other.js',
+                                targetFilePath: 'other.js',
                                 sourceSpecifier: 'referenced/other',
                                 emittedSpecifier: 'referenced'
                             }
@@ -62,17 +64,17 @@ suite('resource-graph', function () {
                     'stale-reference',
                     {
                         name: 'stale-reference',
-                        referencedFrom: [ '/entry.js' ],
+                        referencedFrom: [ 'entry.js' ],
                         references: [
                             {
-                                sourceFilePath: '/not-entry.js',
+                                targetFilePath: 'not-entry.js',
                                 sourceSpecifier: 'stale-reference/not-entry',
                                 emittedSpecifier: 'stale-reference'
                             }
                         ]
                     }
                 ],
-                [ 'unused', { name: 'unused', referencedFrom: [ '/not-used.js' ] as const } ]
+                [ 'unused', { name: 'unused', referencedFrom: [ 'not-used.js' ] as const } ]
             ])
         });
         const visited: {
@@ -89,12 +91,7 @@ suite('resource-graph', function () {
                 id: '/entry.js',
                 externalDependencies: [
                     { name: 'left-pad', sourceSpecifier: 'left-pad', emittedSpecifier: 'left-pad' },
-                    { name: 'referenced', sourceSpecifier: 'referenced/source', emittedSpecifier: 'referenced' },
-                    {
-                        name: 'stale-reference',
-                        sourceSpecifier: 'stale-reference',
-                        emittedSpecifier: 'stale-reference'
-                    }
+                    { name: 'referenced', sourceSpecifier: 'referenced/source', emittedSpecifier: 'referenced' }
                 ]
             },
             {
@@ -115,12 +112,14 @@ suite('resource-graph', function () {
             contents: [
                 {
                     fileDescription: entryDescription,
-                    directDependencies: new Set([ '/package.json' ]),
+                    directDependencies: new Set([ 'package.json' ]),
+                    moduleReferences: [],
                     isExplicitlyIncluded: false
                 },
                 {
                     fileDescription: createFileDescription('/package.json', '{}'),
                     directDependencies: new Set(),
+                    moduleReferences: [],
                     isExplicitlyIncluded: false,
                     isGeneratedManifest: true
                 }
@@ -142,12 +141,13 @@ suite('resource-graph', function () {
                 fileDescription: {
                     content: '{}',
                     isExecutable: false,
-                    sourceFilePath: '/package.json',
+                    inputFilePath: '/package.json',
                     targetFilePath: 'package.json'
                 },
                 externalDependencies: [],
                 isExplicitlyIncluded: false,
                 isGeneratedManifest: true,
+                moduleReferences: [],
                 project: undefined
             }
         ]);

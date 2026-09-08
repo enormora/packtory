@@ -4,12 +4,12 @@ import type { PackageSurface } from './surface.ts';
 
 export type RootFileDescription = {
     readonly js: {
-        readonly sourceFilePath: string;
+        readonly inputFilePath: string;
         readonly targetFilePath: string;
         readonly isExecutable: boolean;
         readonly content: string;
     };
-    readonly declarationFile?: { readonly sourceFilePath: string; readonly targetFilePath: string; } | undefined;
+    readonly declarationFile?: { readonly inputFilePath: string; readonly targetFilePath: string; } | undefined;
 };
 
 export type BundleLike = {
@@ -18,7 +18,7 @@ export type BundleLike = {
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
     readonly contents: readonly {
-        readonly fileDescription: { readonly sourceFilePath: string; readonly targetFilePath: string; };
+        readonly fileDescription: { readonly inputFilePath: string; readonly targetFilePath: string; };
     }[];
 };
 

@@ -24,7 +24,7 @@ suite('eliminator dependency references', function () {
         const [ analyzed ] = await eliminator.eliminate(inputs(input));
 
         assert.deepStrictEqual(analyzed?.externalDependencies.get('dep')?.references, [
-            { sourceFilePath: '/src/index.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
+            { targetFilePath: 'index.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
         ]);
     });
 
@@ -37,10 +37,10 @@ suite('eliminator dependency references', function () {
                 'dep',
                 {
                     name: 'dep',
-                    referencedFrom: [ '/src/index.js' ],
+                    referencedFrom: [ 'index.js' ],
                     references: [
                         {
-                            sourceFilePath: '/src/index.js',
+                            targetFilePath: 'index.js',
                             sourceSpecifier: 'dep/dead',
                             emittedSpecifier: 'dep/dead'
                         }
@@ -67,12 +67,12 @@ suite('eliminator dependency references', function () {
                 'dep',
                 {
                     name: 'dep',
-                    referencedFrom: [ '/src/index.js' ],
+                    referencedFrom: [ 'index.js' ],
                     references: [
-                        { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
-                        { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-b', emittedSpecifier: 'dep/live' },
-                        { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
-                        { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/alias' }
+                        { targetFilePath: 'index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
+                        { targetFilePath: 'index.js', sourceSpecifier: 'live-b', emittedSpecifier: 'dep/live' },
+                        { targetFilePath: 'index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
+                        { targetFilePath: 'index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/alias' }
                     ]
                 }
             ] ])
@@ -81,9 +81,9 @@ suite('eliminator dependency references', function () {
         const [ analyzed ] = await eliminator.eliminate(inputs(input));
 
         assert.deepStrictEqual(analyzed?.externalDependencies.get('dep')?.references, [
-            { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
-            { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-b', emittedSpecifier: 'dep/live' },
-            { sourceFilePath: '/src/index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/alias' }
+            { targetFilePath: 'index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/live' },
+            { targetFilePath: 'index.js', sourceSpecifier: 'live-b', emittedSpecifier: 'dep/live' },
+            { targetFilePath: 'index.js', sourceSpecifier: 'live-a', emittedSpecifier: 'dep/alias' }
         ]);
     });
 });

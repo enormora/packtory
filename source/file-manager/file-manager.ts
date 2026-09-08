@@ -37,7 +37,7 @@ export type FileManager = {
     listDirectoryEntries: (directoryPath: string) => Promise<readonly DirectoryEntry[]>;
     getRealPath: (filePath: string) => Promise<string>;
     getTransferableFileDescriptionFromPath: (
-        sourceFilePath: string,
+        inputFilePath: string,
         targetFilePath: string
     ) => Promise<TransferableFileDescription>;
 };
@@ -123,13 +123,13 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
         readFileBytes,
 
-        async getTransferableFileDescriptionFromPath(sourceFilePath, targetFilePath) {
-            const mode = await getFileMode(sourceFilePath);
+        async getTransferableFileDescriptionFromPath(inputFilePath, targetFilePath) {
+            const mode = await getFileMode(inputFilePath);
 
             return {
-                sourceFilePath,
+                inputFilePath,
                 targetFilePath,
-                content: await readFile(sourceFilePath),
+                content: await readFile(inputFilePath),
                 isExecutable: isExecutableFileMode(mode)
             };
         },

@@ -22,9 +22,9 @@ type RunMapConfigOptions = {
 const placeholderPackage = fooPackageConfigFactory.build({ name: '', sourcesFolder: '' });
 
 function fooPackageWithAdditionalFiles(
-    additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string; }[]
+    additionalFiles: readonly { readonly inputFilePath: string; readonly targetFilePath: string; }[]
 ): FooPackageConfigShape & {
-    readonly additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string; }[];
+    readonly additionalFiles: readonly { readonly inputFilePath: string; readonly targetFilePath: string; }[];
 } {
     return { ...fooPackageConfigFactory.build(), additionalFiles };
 }
@@ -289,19 +289,19 @@ function registerRootAndSurfaceTests(): void {
     });
 
     test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', function () {
-        const packageConfig = fooPackageWithAdditionalFiles([ { sourceFilePath: '/foo', targetFilePath: 'bar' } ]);
+        const packageConfig = fooPackageWithAdditionalFiles([ { inputFilePath: '/foo', targetFilePath: 'bar' } ]);
 
         const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: '/foo', targetFilePath: 'bar' } ]);
+        assert.deepStrictEqual(result.additionalFiles, [ { inputFilePath: '/foo', targetFilePath: 'bar' } ]);
     });
 
     test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when it is a relative path', function () {
-        const packageConfig = fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]);
+        const packageConfig = fooPackageWithAdditionalFiles([ { inputFilePath: 'foo', targetFilePath: 'bar' } ]);
 
         const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
+        assert.deepStrictEqual(result.additionalFiles, [ { inputFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
     });
 }
 
@@ -357,50 +357,50 @@ function registerDependencyAndFileOptionTests(): void {
 
     test('merges the additional files if they are set both in common settings and per package settings', function () {
         const result = runMapConfig(
-            fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]),
+            fooPackageWithAdditionalFiles([ { inputFilePath: 'foo', targetFilePath: 'bar' } ]),
             {
-                commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'qux' } ] },
+                commonPackageSettings: { additionalFiles: [ { inputFilePath: 'baz', targetFilePath: 'qux' } ] },
                 extraPackages: []
             }
         );
 
         assert.deepStrictEqual(result.additionalFiles, [
-            { sourceFilePath: 'the-source/baz', targetFilePath: 'qux' },
-            { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }
+            { inputFilePath: 'the-source/baz', targetFilePath: 'qux' },
+            { inputFilePath: 'the-source/foo', targetFilePath: 'bar' }
         ]);
     });
 
     test('overwrites the additional files from common settings when a per package setting defines a file with the same target', function () {
         const result = runMapConfig(
-            fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]),
+            fooPackageWithAdditionalFiles([ { inputFilePath: 'foo', targetFilePath: 'bar' } ]),
             {
-                commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'bar' } ] },
+                commonPackageSettings: { additionalFiles: [ { inputFilePath: 'baz', targetFilePath: 'bar' } ] },
                 extraPackages: []
             }
         );
 
-        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
+        assert.deepStrictEqual(result.additionalFiles, [ { inputFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
     });
 
     test('uses only the additionalFiles from common settings when the per package settings don’t have additional files specified', function () {
         const result = runMapConfig(fooPackageConfigFactory.build(), {
-            commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'bar' } ] },
+            commonPackageSettings: { additionalFiles: [ { inputFilePath: 'baz', targetFilePath: 'bar' } ] },
             extraPackages: []
         });
 
-        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
+        assert.deepStrictEqual(result.additionalFiles, [ { inputFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
     });
 
     test('removes additional files which are duplicated by picking the last one', function () {
         const result = runMapConfig(
             fooPackageWithAdditionalFiles([
-                { sourceFilePath: 'foo', targetFilePath: 'bar' },
-                { sourceFilePath: 'baz', targetFilePath: 'bar' }
+                { inputFilePath: 'foo', targetFilePath: 'bar' },
+                { inputFilePath: 'baz', targetFilePath: 'bar' }
             ]),
             { extraPackages: [] }
         );
 
-        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
+        assert.deepStrictEqual(result.additionalFiles, [ { inputFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
     });
 }
 

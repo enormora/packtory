@@ -19,7 +19,7 @@ export function publishedPackage(
                 return {
                     directDependencies: new Set<string>(),
                     fileDescription: {
-                        sourceFilePath: filePath,
+                        inputFilePath: filePath,
                         targetFilePath: filePath,
                         content,
                         isExecutable: false

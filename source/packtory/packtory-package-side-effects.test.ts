@@ -23,7 +23,7 @@ function linkedBundleFor(packageName: string): LinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: `/repo/${packageName}/index.js`,
+                    inputFilePath: `/repo/${packageName}/index.js`,
                     targetFilePath: 'index.js'
                 }
             }
@@ -115,8 +115,8 @@ async function inspectSideEffects(
     return await inspectPackageSideEffects(config, packageName);
 }
 
-function impureRuntimeFileAt(sourceFilePath: string, targetFilePath: string): AnalyzedBundle['contents'][number] {
-    return analyzedBundleResource(sourceFilePath, {
+function impureRuntimeFileAt(inputFilePath: string, targetFilePath: string): AnalyzedBundle['contents'][number] {
+    return analyzedBundleResource(inputFilePath, {
         targetFilePath,
         analysis: {
             sideEffectStatements: [

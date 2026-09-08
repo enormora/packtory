@@ -94,14 +94,14 @@ function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): Impor
 
 export function replaceImportPathsWithTransform(
     project: Project | undefined,
-    sourceFilePath: string,
+    inputFilePath: string,
     sourceContent: string,
     replacements: Replacements
 ): ImportPathReplacementResult {
     if (project === undefined) {
         return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }
-    const sourceFile = project.getSourceFile(sourceFilePath);
+    const sourceFile = project.getSourceFile(inputFilePath);
     if (sourceFile === undefined) {
         return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }

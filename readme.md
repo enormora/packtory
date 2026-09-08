@@ -299,7 +299,7 @@ The configuration for `packtory` is an object with the following properties:
 
    - **`additionalFiles`** (Optional, Array of File Descriptions):
      - An array to add additional files to the package that are not automatically resolved.
-     - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
+     - Example: `{ inputFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
      - If defined in both per-package and common settings, they are merged.
      - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from a root so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
      - `package.json` is reserved for packtory's generated manifest and cannot be used as an `additionalFiles.targetFilePath`.

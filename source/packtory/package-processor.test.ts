@@ -18,7 +18,7 @@ import type { DetermineVersionAndPublishOptions } from './package-processor-publ
 
 type TransformationInput = {
     readonly transformationsEnabled: boolean;
-    readonly substitutionPublicModuleSourceFilePaths: ReadonlySet<string>;
+    readonly substitutionPublicModuleInputFilePaths: ReadonlySet<string>;
 };
 
 type DeadCodeEliminationInput<TDeadCodeElimination> = TransformationInput & {
@@ -134,7 +134,7 @@ suite('package-processor', function () {
         }
         assert.partialDeepStrictEqual(firstInput, {
             transformationsEnabled: false,
-            substitutionPublicModuleSourceFilePaths: new Set<string>(),
+            substitutionPublicModuleInputFilePaths: new Set<string>(),
             deadCodeElimination
         });
     });
@@ -156,7 +156,7 @@ suite('package-processor', function () {
         }
         assert.partialDeepStrictEqual(firstInput, {
             transformationsEnabled: true,
-            substitutionPublicModuleSourceFilePaths: new Set<string>()
+            substitutionPublicModuleInputFilePaths: new Set<string>()
         });
     });
 

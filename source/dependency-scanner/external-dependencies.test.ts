@@ -42,7 +42,7 @@ suite('external-dependencies', function () {
     });
 
     test('mergeExternalDependencies deduplicates duplicate dependency references', function () {
-        const reference = { sourceFilePath: '/a.ts', sourceSpecifier: 'lodash', emittedSpecifier: 'lodash' };
+        const reference = { targetFilePath: '/a.ts', sourceSpecifier: 'lodash', emittedSpecifier: 'lodash' };
         const merged = mergeExternalDependencies(
             asMap({ name: 'lodash', referencedFrom: [ '/a.ts' ], references: [ reference ] }),
             asMap({ name: 'lodash', referencedFrom: [ '/a.ts' ], references: [ reference ] })

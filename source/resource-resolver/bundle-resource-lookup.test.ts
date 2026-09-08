@@ -30,7 +30,7 @@ suite('bundle-resource-lookup', function () {
 
         const result = buildResolvedRoots(normalized, [ jsResource, dtsResource ]);
 
-        assert.strictEqual(result.main?.declarationFile?.sourceFilePath, '/src/index.d.ts');
+        assert.strictEqual(result.main?.declarationFile?.inputFilePath, '/src/index.d.ts');
     });
 
     test('buildResolvedRoots leaves declarationFile undefined when none is declared', function () {

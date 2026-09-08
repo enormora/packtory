@@ -6,9 +6,9 @@ import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
 
-function resource(sourceFilePath: string, targetFilePath: string, content: string): LinkedBundleResource {
+function resource(inputFilePath: string, targetFilePath: string, content: string): LinkedBundleResource {
     return {
-        ...bundleResource(sourceFilePath, { content, targetFilePath }),
+        ...bundleResource(inputFilePath, { content, targetFilePath }),
         isSubstituted: false
     };
 }
@@ -57,7 +57,7 @@ function fileManagerBundle(): LinkedBundle {
                 js: {
                     content: fileManager.fileDescription.content,
                     isExecutable: false,
-                    sourceFilePath: '/source/file-manager/file-manager.ts',
+                    inputFilePath: '/source/file-manager/file-manager.ts',
                     targetFilePath: 'file-manager/file-manager.js'
                 }
             }
@@ -75,10 +75,50 @@ suite('published artifact dead code elimination regressions', function () {
         });
 
         assertDefined(emittedPermissions);
-        assert.strictEqual(emittedPermissions.fileDescription.sourceFilePath, '/source/file-manager/permissions.ts');
+        assert.strictEqual(emittedPermissions.fileDescription.inputFilePath, '/source/file-manager/permissions.ts');
         assert.strictEqual(emittedPermissions.fileDescription.content.includes('isExecutableFileMode'), true);
         assert.strictEqual(emittedPermissions.fileDescription.content.includes('unusedPermissionMode'), false);
         assert.deepStrictEqual(emittedPermissions.analysis.survivingBindings, new Set([ 'isExecutableFileMode' ]));
+    });
+
+    test('eliminate resolves emitted imports from source-map authored input paths by target path', async function () {
+        const eliminator = createTestEliminator();
+        const entry = resource(
+            '/workspace/src/file-manager.ts',
+            'dist/file-manager.js',
+            'import { allowed } from "./permissions.js";\nexport const api = allowed;\n'
+        );
+        const bundle = linkedBundle({
+            name: 'pkg',
+            contents: [
+                entry,
+                resource(
+                    '/workspace/src/permissions.ts',
+                    'dist/permissions.js',
+                    'export const allowed = true;\nexport const unused = false;\n'
+                )
+            ],
+            roots: {
+                main: {
+                    js: {
+                        content: entry.fileDescription.content,
+                        isExecutable: false,
+                        inputFilePath: '/workspace/src/file-manager.ts',
+                        targetFilePath: 'dist/file-manager.js'
+                    }
+                }
+            },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+        });
+
+        const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
+        const emittedPermissions = analyzed?.contents.find(function (candidate) {
+            return candidate.fileDescription.targetFilePath === 'dist/permissions.js';
+        });
+
+        assertDefined(emittedPermissions);
+        assert.strictEqual(emittedPermissions.fileDescription.content.includes('allowed'), true);
+        assert.strictEqual(emittedPermissions.fileDescription.content.includes('unused'), false);
     });
 
     test('eliminate keeps a local function named by a surviving local export declaration', async function () {
@@ -94,7 +134,7 @@ suite('published artifact dead code elimination regressions', function () {
             .join('\n');
         const bundle = bundleForCodeFile({
             name: 'pkg',
-            sourceFilePath: '/src/imported-expression-origin.ts',
+            inputFilePath: '/src/imported-expression-origin.ts',
             targetFilePath: 'dead-code-eliminator/imported-expression-origin.js',
             content
         });

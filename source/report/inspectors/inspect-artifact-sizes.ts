@@ -16,13 +16,13 @@ function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
 }
 
 type ArtifactDescriptor = FileDescription & {
-    readonly sourceFilePath?: string | undefined;
+    readonly inputFilePath?: string | undefined;
     readonly isSubstituted?: boolean | undefined;
 };
 
 export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): readonly ArtifactEntry[] {
     return contents.map(function (entry) {
-        const sourcePath = Object.hasOwn(entry, 'sourceFilePath') ? entry.sourceFilePath : undefined;
+        const sourcePath = Object.hasOwn(entry, 'inputFilePath') ? entry.inputFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
         let status: ArtifactEntry['status'] = 'unchanged';
         if (sourcePath === undefined) {

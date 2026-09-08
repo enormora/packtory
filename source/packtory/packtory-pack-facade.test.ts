@@ -81,7 +81,7 @@ function createLinkedBundle(name: string): BundleFixtureLinkedBundle {
         roots: {
             main: {
                 js: {
-                    sourceFilePath: `/${name}/index.js`,
+                    inputFilePath: `/${name}/index.js`,
                     targetFilePath: 'index.js',
                     content: '',
                     isExecutable: false

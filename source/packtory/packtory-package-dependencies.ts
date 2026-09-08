@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import type { DependencyReference, ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import { classifySpecifier } from '../version-manager/specifier-classifier.ts';
@@ -30,14 +29,10 @@ type DependencyInput = {
     readonly origin: PackageDependencyOrigin;
 };
 
-function sourcePath(repositoryFolder: string, sourceFilePath: string): string {
-    return path.relative(repositoryFolder, sourceFilePath).split(path.sep).join(path.posix.sep);
-}
-
 function legacyReferences(dependency: ExternalDependency): readonly DependencyReference[] {
-    return dependency.referencedFrom.map(function (sourceFilePath) {
+    return dependency.referencedFrom.map(function (targetFilePath) {
         return {
-            sourceFilePath,
+            targetFilePath,
             sourceSpecifier: dependency.name,
             emittedSpecifier: dependency.name
         };
@@ -117,7 +112,6 @@ function bundleDependencyInput(
 
 function toPackageDependency(
     input: DependencyInput,
-    repositoryFolder: string,
     allowMutableSpecifiers: readonly string[]
 ): PackageDependency {
     return {
@@ -127,7 +121,7 @@ function toPackageDependency(
         references: dependencyReferences(input.dependency)
             .map(function (reference) {
                 return {
-                    sourcePath: sourcePath(repositoryFolder, reference.sourceFilePath),
+                    sourcePath: reference.targetFilePath,
                     sourceSpecifier: reference.sourceSpecifier,
                     emittedSpecifier: reference.emittedSpecifier
                 };
@@ -144,10 +138,7 @@ function toPackageDependency(
     };
 }
 
-function inspectResolvedPackage(
-    dependencies: PackageDependencyInspectionDependencies,
-    target: ResolvedPackage
-): PackageDependencyInspection {
+function inspectResolvedPackage(target: ResolvedPackage): PackageDependencyInspection {
     const bundlePeerDependencyNames = new Set(target.resolveOptions.bundlePeerDependencies.map(function (dependency) {
         return dependency.name;
     }));
@@ -164,7 +155,6 @@ function inspectResolvedPackage(
             .map(function (input) {
                 return toPackageDependency(
                     input,
-                    dependencies.repositoryFolder,
                     target.resolveOptions.allowMutableSpecifiers
                 );
             })
@@ -182,8 +172,6 @@ export function createInspectPackageDependenciesValidated(
     packageName: string
 ) => Promise<PackageDependencyInspectionResult> {
     return async function inspectPackageDependenciesValidated(validated, packageName) {
-        return await inspectResolvedPackageFor(dependencies, validated, packageName, function (target) {
-            return inspectResolvedPackage(dependencies, target);
-        });
+        return await inspectResolvedPackageFor(dependencies, validated, packageName, inspectResolvedPackage);
     };
 }

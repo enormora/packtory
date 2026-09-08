@@ -11,7 +11,7 @@ type BuildPackageInput = {
     readonly version: string;
     readonly fixture: string;
     readonly sourcesFolder: string;
-    readonly rootSourceFilePath: string;
+    readonly rootInputFilePath: string;
     readonly bundleDependencies: readonly BuiltPackage[];
 };
 
@@ -20,7 +20,7 @@ async function buildPackage(input: BuildPackageInput): Promise<BuiltPackage> {
         name: input.name,
         version: input.version,
         sourcesFolder: input.sourcesFolder,
-        roots: { main: { js: input.rootSourceFilePath } },
+        roots: { main: { js: input.rootInputFilePath } },
         mainPackageJson: await loadPackageJson(input.fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
@@ -57,7 +57,7 @@ suite('dynamic-import-substitution', function () {
             version: '1.2.3',
             fixture,
             sourcesFolder: path.join(fixture, 'src/producer'),
-            rootSourceFilePath: path.join(fixture, 'src/producer/index.js'),
+            rootInputFilePath: path.join(fixture, 'src/producer/index.js'),
             bundleDependencies: []
         });
         const consumer = await buildPackage({
@@ -65,7 +65,7 @@ suite('dynamic-import-substitution', function () {
             version: '2.3.4',
             fixture,
             sourcesFolder: path.join(fixture, 'src'),
-            rootSourceFilePath: path.join(fixture, 'src/consumer/index.js'),
+            rootInputFilePath: path.join(fixture, 'src/consumer/index.js'),
             bundleDependencies: [ producer ]
         });
 
@@ -95,7 +95,7 @@ suite('dynamic-import-substitution', function () {
             version: '1.2.3',
             fixture,
             sourcesFolder: path.join(fixture, 'src/producer'),
-            rootSourceFilePath: path.join(fixture, 'src/producer/index.js'),
+            rootInputFilePath: path.join(fixture, 'src/producer/index.js'),
             bundleDependencies: []
         });
         const consumer = await buildPackage({
@@ -103,7 +103,7 @@ suite('dynamic-import-substitution', function () {
             version: '2.3.4',
             fixture,
             sourcesFolder: path.join(fixture, 'src'),
-            rootSourceFilePath: path.join(fixture, 'src/consumer/injected.js'),
+            rootInputFilePath: path.join(fixture, 'src/consumer/injected.js'),
             bundleDependencies: [ producer ]
         });
 

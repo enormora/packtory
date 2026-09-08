@@ -32,14 +32,14 @@ suite('preview-document diffs', function () {
     });
 
     test('buildPreviewDocument reads workspace files through the injected file manager', async function () {
-        const sourceFilePath = '/workspace/index.js';
+        const inputFilePath = '/workspace/index.js';
 
         const document = await buildPreviewDocument({
             report: reportForPkgA([
                 createArtifactEntryFixture({
                     path: 'index.js',
                     sizeBytes: 10,
-                    sourcePath: sourceFilePath,
+                    sourcePath: inputFilePath,
                     badges: []
                 })
             ]),
@@ -47,7 +47,7 @@ suite('preview-document diffs', function () {
                 createBuildResultFixture({
                     contents: [
                         createAnalyzedResource({
-                            sourceFilePath,
+                            inputFilePath,
                             targetFilePath: 'index.js',
                             content: 'export const changed = 1;\n'
                         })
@@ -56,7 +56,7 @@ suite('preview-document diffs', function () {
             ]),
             dryRun: true,
             fileManager: workspaceFileManager(async function (requestedPath) {
-                assert.strictEqual(requestedPath, sourceFilePath);
+                assert.strictEqual(requestedPath, inputFilePath);
                 return 'export const original = 1;\n';
             })
         });

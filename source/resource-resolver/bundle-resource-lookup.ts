@@ -7,7 +7,7 @@ function requireFileDescriptionBySourcePath(
     resources: readonly BundleResource[]
 ): TransferableFileDescription {
     const matchingResource = resources.find(function (resource) {
-        return resource.fileDescription.sourceFilePath === filePath;
+        return resource.fileDescription.inputFilePath === filePath;
     });
     if (matchingResource === undefined) {
         throw new Error(`Failed to resolve resource for root ${filePath}`);
@@ -21,7 +21,7 @@ function resolveDeclarationFileResource(
 ): TransferableFileDescription | undefined {
     return contents
         .find(function (resource) {
-            return resource.fileDescription.sourceFilePath === declarationFilePath;
+            return resource.fileDescription.inputFilePath === declarationFilePath;
         })
         ?.fileDescription;
 }

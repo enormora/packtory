@@ -1,4 +1,3 @@
-import type { SourceFile } from 'ts-morph';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import type { FileBindings } from '../reachability/local-seed-gathering.ts';
 import type { DeadCodeEliminationTrace } from '../trace.ts';
@@ -8,7 +7,6 @@ import { createSeedStore, type SeedMap } from './seed-store.ts';
 
 export type CrossBundleInput = {
     readonly bundle: LinkedBundle;
-    readonly sourceFiles: readonly Readonly<SourceFile>[];
     readonly fileBindings: readonly FileBindings[];
     readonly localReachable: ReadonlySet<string>;
 };
@@ -17,12 +15,14 @@ export function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[], trace
     const indexed = indexBundles(inputs);
     let seeds = createSeedStore();
     for (const input of inputs) {
-        for (const sourceFile of input.sourceFiles) {
-            seeds = walkCrossBundleStatements(sourceFile, {
+        for (const file of input.fileBindings) {
+            seeds = walkCrossBundleStatements(file.sourceFile, {
                 indexed,
                 seeds,
                 sourceBundleName: input.bundle.name,
-                sourceFilePath: sourceFile.getFilePath(),
+                inputFilePath: file.inputFilePath,
+                sourceTargetFilePath: file.targetFilePath,
+                moduleReferences: file.moduleReferences,
                 localReachable: input.localReachable,
                 trace
             });

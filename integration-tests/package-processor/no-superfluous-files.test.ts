@@ -44,7 +44,7 @@ suite('no-superfluous-files', function () {
                         directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             isExecutable: false,
                             targetFilePath: 'entry.js'
                         },
@@ -57,7 +57,7 @@ suite('no-superfluous-files', function () {
                         fileDescription: {
                             content: "export const foo = 'foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -69,7 +69,7 @@ suite('no-superfluous-files', function () {
                 mainFile: {
                     content: "import { foo } from './foo';\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

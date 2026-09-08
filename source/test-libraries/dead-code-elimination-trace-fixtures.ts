@@ -24,13 +24,13 @@ export function createDeadCodeEliminationTraceCollector(): CollectedDeadCodeElim
 function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
     return match<DeadCodeEliminationTraceEvent, string>(event)
         .with({ type: 'binding-removed' }, function (entry) {
-            return `${entry.bundleName} removed binding ${entry.bindingId} from ${entry.sourceFilePath}`;
+            return `${entry.bundleName} removed binding ${entry.bindingId} from ${entry.inputFilePath}`;
         })
         .with({ type: 'cross-bundle-seed-added' }, function (entry) {
             return [
                 `${entry.bundleName} cross-bundle seed ${entry.bindingId}`,
                 entry.reason,
-                `from ${entry.sourceBundleName} ${entry.sourceFilePath}:${entry.line}`,
+                `from ${entry.sourceBundleName} ${entry.inputFilePath}:${entry.line}`,
                 `via ${entry.moduleSpecifier}`
             ]
                 .join(' ');
@@ -39,7 +39,7 @@ function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
             return `${entry.bundleName} edge ${entry.fromBindingId} -> ${entry.toBindingId} ${entry.reason}`;
         })
         .with({ type: 'file-pruned' }, function (entry) {
-            return `${entry.bundleName} pruned ${entry.targetFilePath} ${entry.pruneKind} from ${entry.sourceFilePath}`;
+            return `${entry.bundleName} pruned ${entry.targetFilePath} ${entry.pruneKind} from ${entry.inputFilePath}`;
         })
         .with({ repairKind: 'binding-dropped', type: 'import-repaired' }, function (entry) {
             return [
@@ -62,7 +62,7 @@ function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
             return [
                 `${entry.bundleName} local seed ${entry.bindingId}`,
                 entry.reason,
-                `${entry.sourceFilePath}:${entry.line}`
+                `${entry.inputFilePath}:${entry.line}`
             ]
                 .join(' ');
         })

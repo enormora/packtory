@@ -125,7 +125,7 @@ function assertDeadDependencyMetadataRemoved(consumer: ResolvedPackage): void {
     assert.strictEqual(entry.fileDescription.content.includes('pkg-producer'), false);
     assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.externalDependencies), []);
     assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.linkedBundleDependencies), []);
-    assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.substitutedSourceFilePathsByPackageName), []);
+    assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.substitutedInputFilePathsByPackageName), []);
 }
 
 suite('dead-code-elimination', function () {

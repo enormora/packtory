@@ -18,11 +18,11 @@ type BinField = Readonly<Record<string, string | undefined>> | string | undefine
 const enabledSettings: RuleSettings = { noUnexposedExecutables: { enabled: true } };
 
 function packagedFile(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     isExecutable: boolean
 ): AnalyzedBundleResource {
-    const base = analyzedBundleResource(sourceFilePath, { targetFilePath });
+    const base = analyzedBundleResource(inputFilePath, { targetFilePath });
     return {
         ...base,
         fileDescription: {

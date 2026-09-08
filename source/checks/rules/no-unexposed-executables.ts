@@ -18,8 +18,8 @@ type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
 type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function reportExecutable(bundleName: string, resource: AnalyzedBundleResource): string {
-    const { sourceFilePath, targetFilePath } = resource.fileDescription;
-    return `Package "${bundleName}" ships executable file "${targetFilePath}" from "${sourceFilePath}" ` +
+    const { inputFilePath, targetFilePath } = resource.fileDescription;
+    return `Package "${bundleName}" ships executable file "${targetFilePath}" from "${inputFilePath}" ` +
         'that is not exposed through bin';
 }
 

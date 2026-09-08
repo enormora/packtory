@@ -55,12 +55,12 @@ function collectPromotedSourcePathsByPackageName(
     const promotedSourcePathsByPackageName = new Map<string, Set<string>>();
     for (const linkedPackage of linkedPackages) {
         for (
-            const [ packageName, sourceFilePaths ] of linkedPackage.linkedBundle.substitutedSourceFilePathsByPackageName
+            const [ packageName, inputFilePaths ] of linkedPackage.linkedBundle.substitutedInputFilePathsByPackageName
         ) {
             const existing = promotedSourcePathsByPackageName.get(packageName) ?? new Set<string>();
-            for (const sourceFilePath of sourceFilePaths) {
-                if (declarationCompanionCandidates(sourceFilePath).length > 0) {
-                    existing.add(sourceFilePath);
+            for (const inputFilePath of inputFilePaths) {
+                if (declarationCompanionCandidates(inputFilePath).length > 0) {
+                    existing.add(inputFilePath);
                 }
             }
             promotedSourcePathsByPackageName.set(packageName, existing);
@@ -70,8 +70,8 @@ function collectPromotedSourcePathsByPackageName(
 }
 
 function hasPromotionCandidates(promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>): boolean {
-    return Array.from(promotedSourcePathsByPackageName.values()).some(function (sourceFilePaths) {
-        return sourceFilePaths.size > 0;
+    return Array.from(promotedSourcePathsByPackageName.values()).some(function (inputFilePaths) {
+        return inputFilePaths.size > 0;
     });
 }
 

@@ -1,10 +1,10 @@
 import { indexPublicModules } from './package-surface-index.ts';
 import type { BundleLike } from './package-shape.ts';
 
-export function getPublicModuleSpecifierForSourcePath(bundle: BundleLike, sourceFilePath: string): string | undefined {
-    return indexPublicModules(bundle).specifierBySourceFilePath.get(sourceFilePath);
+export function getPublicModuleSpecifierForSourcePath(bundle: BundleLike, inputFilePath: string): string | undefined {
+    return indexPublicModules(bundle).specifierByInputFilePath.get(inputFilePath);
 }
 
-export function resolvePublicModuleSourceFilePath(bundle: BundleLike, specifier: string): string | undefined {
-    return indexPublicModules(bundle).sourceFilePathBySpecifier.get(specifier);
+export function resolvePublicModuleInputFilePath(bundle: BundleLike, specifier: string): string | undefined {
+    return indexPublicModules(bundle).inputFilePathBySpecifier.get(specifier);
 }

@@ -99,11 +99,11 @@ const releasePlanFileReader = {
     }
 };
 
-function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): BundleFixtureLinkedBundle {
+function createLinkedBundle(name: string, inputFilePath = `/${name}/index.js`): BundleFixtureLinkedBundle {
     return linkedBundle({
         name,
-        contents: [ { ...bundleResource(sourceFilePath, { targetFilePath: 'index.js' }), isSubstituted: false } ],
-        roots: { main: { js: { sourceFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } } }
+        contents: [ { ...bundleResource(inputFilePath, { targetFilePath: 'index.js' }), isSubstituted: false } ],
+        roots: { main: { js: { inputFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } } }
     });
 }
 
@@ -111,7 +111,7 @@ function createVersionedBundle(name: string, version = '1.0.0'): BundleFixtureVe
     return versionedBundleWithManifest({
         name,
         version,
-        mainFile: { sourceFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
+        mainFile: { inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
         packageJson: { name, version },
         manifestFile: { filePath: 'package.json', content: '{}' }
     });

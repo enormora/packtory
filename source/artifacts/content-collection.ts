@@ -10,7 +10,7 @@ type ArtifactReportFileDescription = {
     readonly filePath: string;
     readonly content: string;
     readonly isExecutable: boolean;
-    readonly sourceFilePath?: string;
+    readonly inputFilePath?: string;
     readonly isSubstituted?: boolean;
 };
 
@@ -67,7 +67,7 @@ export function describeArtifactsForReport(
                     filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
                     content: entry.fileDescription.content,
                     isExecutable: entry.fileDescription.isExecutable,
-                    sourceFilePath: entry.fileDescription.sourceFilePath,
+                    inputFilePath: entry.fileDescription.inputFilePath,
                     isSubstituted: entry.isSubstituted
                 }
             ];

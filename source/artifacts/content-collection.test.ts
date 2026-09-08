@@ -23,7 +23,7 @@ function contentEntry(
         fileDescription: {
             content,
             isExecutable: options.isExecutable ?? false,
-            sourceFilePath: `/src/${targetFilePath}`,
+            inputFilePath: `/src/${targetFilePath}`,
             targetFilePath
         }
     };
@@ -172,7 +172,7 @@ suite('content-collection', function () {
     });
 
     suite('reporting', function () {
-        test('describeArtifactsForReport carries sourceFilePath and isSubstituted for bundle entries', function () {
+        test('describeArtifactsForReport carries inputFilePath and isSubstituted for bundle entries', function () {
             assert.deepStrictEqual(
                 describeArtifactsForReport(
                     bundle({ contents: [ contentEntry('a.txt', 'a', { isSubstituted: true }) ] }),
@@ -185,7 +185,7 @@ suite('content-collection', function () {
                         filePath: 'a.txt',
                         content: 'a',
                         isExecutable: false,
-                        sourceFilePath: '/src/a.txt',
+                        inputFilePath: '/src/a.txt',
                         isSubstituted: true
                     }
                 ]
@@ -209,7 +209,7 @@ suite('content-collection', function () {
                         filePath: 'package/a.txt',
                         content: 'a',
                         isExecutable: false,
-                        sourceFilePath: '/src/a.txt',
+                        inputFilePath: '/src/a.txt',
                         isSubstituted: false
                     },
                     { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }

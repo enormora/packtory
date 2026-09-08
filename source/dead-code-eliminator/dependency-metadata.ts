@@ -1,5 +1,5 @@
-import path from 'node:path';
 import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
+import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
 import type { LoadedBundle } from './load-bundle.ts';
 import { isCodeTargetPath } from './liveness/runtime-code.ts';
@@ -13,7 +13,7 @@ type Dependency = {
 type Dependencies = ReadonlyMap<string, Dependency>;
 
 type DependencyReference = {
-    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
     readonly sourceSpecifier: string;
     readonly emittedSpecifier: string;
 };
@@ -21,17 +21,25 @@ type DependencyReference = {
 type MetadataBundle = {
     readonly externalDependencies: Dependencies;
     readonly linkedBundleDependencies: Dependencies;
-    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 type LoadedSourceFile = NonNullable<LoadedBundle['loaded'][number]['sourceFile']>;
+type LocalDependencyReference = Extract<
+    ArtifactModuleReference,
+    { readonly type: 'generated-manifest' | 'local-asset' | 'local-code'; }
+>;
+type PackageDependencyReference = Extract<
+    ArtifactModuleReference,
+    { readonly type: 'external-package' | 'linked-code'; }
+>;
 
 export type SourceFileByPath = ReadonlyMap<string, Readonly<LoadedSourceFile>>;
 
 type ReferencedPackages = {
     readonly externalDependencies: Dependencies;
     readonly linkedBundleDependencies: Dependencies;
-    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 type ExternalDependencyRecorder = {
@@ -39,96 +47,43 @@ type ExternalDependencyRecorder = {
     readonly set: (key: string, value: Dependency) => unknown;
 };
 
-const scopedPackageSegmentCount = 2;
-
-function packageNameFromSpecifier(specifier: string): string {
-    if (!specifier.startsWith('@')) {
-        return specifier.split('/', 1)[0] ?? specifier;
-    }
-    const [ scope, name ] = specifier.split('/', scopedPackageSegmentCount);
-    if (name === undefined) {
-        throw new Error(`Invalid package specifier "${specifier}"`);
-    }
-    return `${scope}/${name}`;
+function hasPackageName(reference: ArtifactModuleReference): reference is PackageDependencyReference {
+    return Object.hasOwn(reference, 'packageName');
 }
 
-function isRelativeOrAbsoluteSpecifier(specifier: string): boolean {
-    return specifier.startsWith('.') || path.isAbsolute(specifier);
+function isLocalDependencyReference(reference: ArtifactModuleReference): reference is LocalDependencyReference {
+    return Object.hasOwn(reference, 'targetFilePath') && !hasPackageName(reference);
 }
 
-function isPackageSpecifier(specifier: string): boolean {
-    return !isRelativeOrAbsoluteSpecifier(specifier) && !specifier.startsWith('#');
-}
+const isPackageDependencyReference = hasPackageName;
 
-function collectImportSpecifiers(sourceFile: Readonly<LoadedSourceFile>): readonly string[] {
-    return getModuleReferenceLiterals(sourceFile)
-        .map(function (literal) {
-            return literal.getLiteralValue();
-        });
-}
-
-function addPackageSpecifier(
-    specifiersByName: ReadonlyMap<string, ReadonlySet<string>>,
-    specifier: string
-): ReadonlyMap<string, ReadonlySet<string>> {
-    const name = packageNameFromSpecifier(specifier);
-    const specifiers = new Set(specifiersByName.get(name));
-    specifiers.add(specifier);
-    const next = new Map(specifiersByName);
-    next.set(name, specifiers);
-    return next;
-}
-
-function packageSpecifiersFor(
-    resource: AnalyzedBundleResource,
-    sourceFilesByPath: SourceFileByPath
-): ReadonlyMap<string, ReadonlySet<string>> {
-    let specifiersByName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
-    const sourceFile = sourceFilesByPath.get(resource.fileDescription.sourceFilePath);
-    if (sourceFile === undefined) {
-        return specifiersByName;
-    }
-    for (const specifier of collectImportSpecifiers(sourceFile)) {
-        if (isPackageSpecifier(specifier)) {
-            specifiersByName = addPackageSpecifier(specifiersByName, specifier);
-        }
-    }
-    return specifiersByName;
-}
-
-function localCandidates(sourceFilePath: string, specifier: string): readonly string[] {
-    const resolved = path.resolve(path.dirname(sourceFilePath), specifier);
-    const candidates = [ resolved ];
-    if (sourceFilePath.endsWith('.d.ts')) {
-        candidates.push(resolved.replace(/\.js$/u, '.d.ts'));
-    }
-    candidates.push(
-        `${resolved}.js`,
-        `${resolved}.jsx`,
-        `${resolved}.ts`,
-        `${resolved}.tsx`,
-        `${resolved}.json`
-    );
-    return candidates;
-}
-
-function survivingLocalPaths(
+function survivingSpecifiersFor(
     resource: AnalyzedBundleResource,
     sourceFilesByPath: SourceFileByPath
 ): ReadonlySet<string> {
-    const paths = new Set<string>();
-    for (const [ sourceFilePath, sourceFile ] of sourceFilesByPath) {
-        if (sourceFilePath === resource.fileDescription.sourceFilePath) {
-            for (const specifier of collectImportSpecifiers(sourceFile)) {
-                if (isRelativeOrAbsoluteSpecifier(specifier)) {
-                    for (const candidate of localCandidates(resource.fileDescription.sourceFilePath, specifier)) {
-                        paths.add(candidate);
-                    }
-                }
-            }
-        }
+    const sourceFile = sourceFilesByPath.get(resource.fileDescription.targetFilePath);
+    if (sourceFile === undefined) {
+        return new Set<string>();
     }
-    return paths;
+    return new Set(
+        getModuleReferenceLiterals(sourceFile).map(function (literal) {
+            return literal.getLiteralValue();
+        })
+    );
+}
+
+function survivingLocalTargets(
+    resource: AnalyzedBundleResource,
+    sourceFilesByPath: SourceFileByPath
+): ReadonlySet<string> {
+    const specifiers = survivingSpecifiersFor(resource, sourceFilesByPath);
+    return new Set(
+        resource.moduleReferences.flatMap(function (reference) {
+            return isLocalDependencyReference(reference) && specifiers.has(reference.emittedSpecifier)
+                ? [ reference.targetFilePath ]
+                : [];
+        })
+    );
 }
 
 function recomputeDirectDependencies(
@@ -139,7 +94,7 @@ function recomputeDirectDependencies(
         return resource;
     }
 
-    const survivingPaths = survivingLocalPaths(resource, sourceFilesByPath);
+    const survivingPaths = survivingLocalTargets(resource, sourceFilesByPath);
     return {
         ...resource,
         directDependencies: new Set(
@@ -155,13 +110,25 @@ function referencedPackagesByPath(
     sourceFilesByPath: SourceFileByPath
 ): ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>> {
     return new Map(contents.map(function (resource) {
-        return [ resource.fileDescription.sourceFilePath, packageSpecifiersFor(resource, sourceFilesByPath) ];
+        const specifiers = survivingSpecifiersFor(resource, sourceFilesByPath);
+        const packagesByName = new Map<string, ReadonlySet<string>>();
+        const survivingReferences = resource
+            .moduleReferences
+            .filter(isPackageDependencyReference)
+            .filter(function (reference) {
+                return specifiers.has(reference.emittedSpecifier);
+            });
+        for (const reference of survivingReferences) {
+            const existing = packagesByName.get(reference.packageName) ?? [];
+            packagesByName.set(reference.packageName, new Set([ ...existing, reference.emittedSpecifier ]));
+        }
+        return [ resource.fileDescription.targetFilePath, packagesByName ];
     }));
 }
 
-function legacyDependencyReference(dependency: Dependency, sourceFilePath: string): DependencyReference {
+function legacyDependencyReference(dependency: Dependency, targetFilePath: string): DependencyReference {
     return {
-        sourceFilePath,
+        targetFilePath,
         sourceSpecifier: dependency.name,
         emittedSpecifier: dependency.name
     };
@@ -170,9 +137,9 @@ function legacyDependencyReference(dependency: Dependency, sourceFilePath: strin
 function legacyDependencyReferences(
     dependency: Dependency
 ): readonly [DependencyReference, ...(readonly DependencyReference[])] {
-    const [ sourceFilePath, ...rest ] = dependency.referencedFrom;
+    const [ targetFilePath, ...rest ] = dependency.referencedFrom;
     return [
-        legacyDependencyReference(dependency, sourceFilePath),
+        legacyDependencyReference(dependency, targetFilePath),
         ...rest.map(function (filePath) {
             return legacyDependencyReference(dependency, filePath);
         })
@@ -186,7 +153,7 @@ function dependencyReferences(
 }
 
 function isSameDependencyReference(left: DependencyReference, right: DependencyReference): boolean {
-    return left.sourceFilePath === right.sourceFilePath &&
+    return left.targetFilePath === right.targetFilePath &&
         left.sourceSpecifier === right.sourceSpecifier &&
         left.emittedSpecifier === right.emittedSpecifier;
 }
@@ -207,11 +174,11 @@ function uniqueDependencyReferences(
     return unique;
 }
 
-function mergeDependencySourcePaths(
+function mergeDependencyTargetPaths(
     dependency: Dependency,
     reference: DependencyReference
 ): readonly [string, ...(readonly string[])] {
-    const sourcePaths = new Set([ ...dependency.referencedFrom, reference.sourceFilePath ]);
+    const sourcePaths = new Set([ ...dependency.referencedFrom, reference.targetFilePath ]);
     sourcePaths.delete(dependency.referencedFrom[0]);
     return [ dependency.referencedFrom[0], ...sourcePaths ];
 }
@@ -233,14 +200,14 @@ function addReference(
     if (dependency === undefined) {
         dependencies.set(dependencyName, {
             name: dependencyName,
-            referencedFrom: [ reference.sourceFilePath ],
+            referencedFrom: [ reference.targetFilePath ],
             references: [ reference ]
         });
         return;
     }
     dependencies.set(dependencyName, {
         name: dependencyName,
-        referencedFrom: mergeDependencySourcePaths(dependency, reference),
+        referencedFrom: mergeDependencyTargetPaths(dependency, reference),
         references: mergeDependencyReferences(dependency, reference)
     });
 }
@@ -251,10 +218,10 @@ function shouldPreserveDependencyReference(
     packagesByPath: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>,
     preservedReferencePaths: ReadonlySet<string>
 ): boolean {
-    if (preservedReferencePaths.has(reference.sourceFilePath)) {
+    if (preservedReferencePaths.has(reference.targetFilePath)) {
         return true;
     }
-    const emittedSpecifiers = packagesByPath.get(reference.sourceFilePath)?.get(dependency.name);
+    const emittedSpecifiers = packagesByPath.get(reference.targetFilePath)?.get(dependency.name);
     if (emittedSpecifiers === undefined) {
         return false;
     }
@@ -278,22 +245,22 @@ function recomputeDependencies(
     return recomputed;
 }
 
-function declarationSourcePaths(contents: readonly AnalyzedBundleResource[]): ReadonlySet<string> {
+function declarationTargetPaths(contents: readonly AnalyzedBundleResource[]): ReadonlySet<string> {
     const paths = new Set<string>();
     for (const resource of contents) {
         if (resource.fileDescription.targetFilePath.endsWith('.d.ts')) {
-            paths.add(resource.fileDescription.sourceFilePath);
+            paths.add(resource.fileDescription.targetFilePath);
         }
     }
     return paths;
 }
 
 function filterSubstitutedSourcePaths(
-    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+    substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
     linkedBundleDependencies: Dependencies
 ): ReadonlyMap<string, ReadonlySet<string>> {
     return new Map(
-        Array.from(substitutedSourceFilePathsByPackageName).filter(function ([ packageName ]) {
+        Array.from(substitutedInputFilePathsByPackageName).filter(function ([ packageName ]) {
             return linkedBundleDependencies.has(packageName);
         })
     );
@@ -301,7 +268,7 @@ function filterSubstitutedSourcePaths(
 
 export function indexSourceFiles(loaded: LoadedBundle): SourceFileByPath {
     return new Map(loaded.fileBindings.map(function (binding) {
-        return [ binding.sourceFilePath, binding.sourceFile ];
+        return [ binding.targetFilePath, binding.sourceFile ];
     }));
 }
 
@@ -314,7 +281,7 @@ export function recomputeDependencyMetadata(
         return recomputeDirectDependencies(resource, sourceFileIndex);
     });
     const packagesByPath = referencedPackagesByPath(recomputedContents, sourceFileIndex);
-    const preservedReferencePaths = declarationSourcePaths(recomputedContents);
+    const preservedReferencePaths = declarationTargetPaths(recomputedContents);
     const linkedBundleDependencies = recomputeDependencies(
         bundle.linkedBundleDependencies,
         packagesByPath,
@@ -328,8 +295,8 @@ export function recomputeDependencyMetadata(
             preservedReferencePaths
         ),
         linkedBundleDependencies,
-        substitutedSourceFilePathsByPackageName: filterSubstitutedSourcePaths(
-            bundle.substitutedSourceFilePathsByPackageName,
+        substitutedInputFilePathsByPackageName: filterSubstitutedSourcePaths(
+            bundle.substitutedInputFilePathsByPackageName,
             linkedBundleDependencies
         )
     };

@@ -39,7 +39,7 @@ suite('manager', function () {
                 versionedBundle({
                     name: 'bundle-dependency',
                     version: '4.5.6',
-                    mainFile: { sourceFilePath: '/src/dependency.js', targetFilePath: 'dependency.js' }
+                    mainFile: { inputFilePath: '/src/dependency.js', targetFilePath: 'dependency.js' }
                 })
             ],
             bundlePeerDependencies: [],
@@ -170,7 +170,7 @@ suite('manager', function () {
                 roots: {
                     main: {
                         js: {
-                            sourceFilePath: '/src/index.js',
+                            inputFilePath: '/src/index.js',
                             targetFilePath: 'index.js',
                             content: '',
                             isExecutable: false
@@ -187,7 +187,7 @@ suite('manager', function () {
                     }
                 },
                 mainFile: {
-                    sourceFilePath: '/src/index.js',
+                    inputFilePath: '/src/index.js',
                     targetFilePath: 'index.js',
                     content: '',
                     isExecutable: false

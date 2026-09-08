@@ -49,7 +49,7 @@ suite('exports-only-js-dependency', function () {
                         fileDescription: {
                             content: "import { example } from 'exports-only-module';\n\nexport const foo = example;\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -63,7 +63,7 @@ suite('exports-only-js-dependency', function () {
                 mainFile: {
                     content: "import { example } from 'exports-only-module';\n\nexport const foo = example;\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

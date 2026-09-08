@@ -7,7 +7,7 @@ import type { BuildAndPublishOptions, ResolveAndLinkOptions } from '../packtory/
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 
 export type TransferableFile = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly content: string;
     readonly isExecutable: boolean;
@@ -23,7 +23,7 @@ type EliminationInput = {
 
 export function createTransferableFile(filePath: string, targetFilePath = filePath.slice(1)): TransferableFile {
     return {
-        sourceFilePath: filePath,
+        inputFilePath: filePath,
         targetFilePath,
         content: '',
         isExecutable: false
@@ -37,7 +37,7 @@ export function createLinkedBundle(name = 'package-a'): LinkedBundle {
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
-        substitutedSourceFilePathsByPackageName: new Map(),
+        substitutedInputFilePathsByPackageName: new Map(),
         sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map()
     };
@@ -240,7 +240,7 @@ export function createResolveOptions(): ResolveAndLinkOptions {
         sourcesFolder: '/src',
         roots: { main: { js: '/src/index.js' } } as const,
         includeSourceMapFiles: true,
-        additionalFiles: [ { sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
+        additionalFiles: [ { inputFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
         mainPackageJson: { type: 'module' as const, dependencies: { dependency: '^1.0.0' } },
         additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },

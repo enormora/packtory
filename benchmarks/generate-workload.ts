@@ -215,7 +215,7 @@ function createPackageConfigs(rootDirectory: string, clusterCount: number): read
                 name: `first-${clusterIndex}`,
                 sourcesFolder,
                 roots: { main: { js: 'entry1.js', declarationFile: 'entry1.d.ts' } },
-                additionalFiles: [ { sourceFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' } ]
+                additionalFiles: [ { inputFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' } ]
             },
             {
                 name: `second-${clusterIndex}`,
@@ -241,7 +241,7 @@ function createConfigWithoutRegistry(rootDirectory: string, clusterCount: number
         commonPackageSettings: {
             mainPackageJson: sharedMainPackageJson,
             includeSourceMapFiles: true,
-            additionalFiles: [ { sourceFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' } ],
+            additionalFiles: [ { inputFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' } ],
             publishSettings: { access: 'public' }
         },
         packages: createPackageConfigs(rootDirectory, clusterCount)
@@ -265,7 +265,7 @@ function createCliPackageConfigs(rootDirectory: string, packageCount: number): r
             name: `parallel-package-${packageIndex}`,
             sourcesFolder: path.join(packageDirectory, 'src'),
             roots: { main: { js: 'index.js', declarationFile: 'index.d.ts' } },
-            additionalFiles: [ { sourceFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' } ]
+            additionalFiles: [ { inputFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' } ]
         });
     }
 

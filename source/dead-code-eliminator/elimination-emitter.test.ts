@@ -19,10 +19,11 @@ type SimplifiedEliminationPayload = {
     }[];
 };
 
-function resource(sourceFilePath: string, content: string): AnalyzedBundleResource {
+function resource(inputFilePath: string, content: string): AnalyzedBundleResource {
     return {
-        fileDescription: { content, isExecutable: false, sourceFilePath, targetFilePath: sourceFilePath.slice(1) },
+        fileDescription: { content, isExecutable: false, inputFilePath, targetFilePath: inputFilePath.slice(1) },
         directDependencies: new Set<string>(),
+        moduleReferences: [],
         isSubstituted: false,
         isExplicitlyIncluded: false,
         analysis: {
@@ -50,6 +51,7 @@ function originalBundle(name: string, resources: readonly AnalyzedBundleResource
             return {
                 fileDescription: bundleResource.fileDescription,
                 directDependencies: bundleResource.directDependencies,
+                moduleReferences: [],
                 isExplicitlyIncluded: bundleResource.isExplicitlyIncluded,
                 isSubstituted: bundleResource.isSubstituted
             };

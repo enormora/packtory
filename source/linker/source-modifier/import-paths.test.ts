@@ -13,11 +13,11 @@ function replacement(emittedSpecifier: string, packageName = emittedSpecifier): 
 
 function replaceImportPaths(
     project: Project | undefined,
-    sourceFilePath: string,
+    inputFilePath: string,
     sourceContent: string,
     replacements: Replacements
 ): string {
-    return replaceImportPathsWithTransform(project, sourceFilePath, sourceContent, replacements).content;
+    return replaceImportPathsWithTransform(project, inputFilePath, sourceContent, replacements).content;
 }
 
 suite('import-paths', function () {

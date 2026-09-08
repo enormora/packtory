@@ -18,18 +18,18 @@ export type BundleLinker = {
 function flattenRoots(roots: ResolvedBundle['roots']): string[] {
     return Object.values(roots).flatMap(function (root) {
         if (rootHasDeclarationFile(root)) {
-            return [ root.js.sourceFilePath, root.declarationFile.sourceFilePath ];
+            return [ root.js.inputFilePath, root.declarationFile.inputFilePath ];
         }
-        return [ root.js.sourceFilePath ];
+        return [ root.js.inputFilePath ];
     });
 }
 
 function isSubstitutedBundleSourcePath(
-    sourceFilePath: string,
+    inputFilePath: string,
     bundleDependencies: readonly BundleSubstitutionSource[]
 ): boolean {
     return bundleDependencies.some(function (bundleDependency) {
-        return ownsSourcePath(sourceFilePath, bundleDependency);
+        return ownsSourcePath(inputFilePath, bundleDependency);
     });
 }
 
@@ -37,15 +37,15 @@ function declarationCompanionRoots(
     contents: ResolvedBundle['contents'],
     bundleDependencies: readonly BundleSubstitutionSource[]
 ): readonly string[] {
-    const sourceFilePaths = new Set(contents.map(function (content) {
-        return content.fileDescription.sourceFilePath;
+    const inputFilePaths = new Set(contents.map(function (content) {
+        return content.fileDescription.inputFilePath;
     }));
     return contents.flatMap(function (content) {
-        if (isSubstitutedBundleSourcePath(content.fileDescription.sourceFilePath, bundleDependencies)) {
+        if (isSubstitutedBundleSourcePath(content.fileDescription.inputFilePath, bundleDependencies)) {
             return [];
         }
-        return declarationCompanionCandidates(content.fileDescription.sourceFilePath).filter(function (candidate) {
-            return sourceFilePaths.has(candidate) && !isSubstitutedBundleSourcePath(candidate, bundleDependencies);
+        return declarationCompanionCandidates(content.fileDescription.inputFilePath).filter(function (candidate) {
+            return inputFilePaths.has(candidate) && !isSubstitutedBundleSourcePath(candidate, bundleDependencies);
         });
     });
 }
