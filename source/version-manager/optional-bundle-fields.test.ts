@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { buildOptionalVersionedBundleFields } from './optional-bundle-fields.ts';
 
 const fileDescription = {
-    sourceFilePath: '/src/index.d.ts',
+    inputFilePath: '/src/index.d.ts',
     targetFilePath: 'index.d.ts',
     content: '',
     isExecutable: false

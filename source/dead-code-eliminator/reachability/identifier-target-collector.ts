@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
@@ -7,12 +6,17 @@ import {
     type ImportSpecifier,
     type ShorthandPropertyAssignment
 } from 'ts-morph';
+import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 
 export type DeclarationNodeIndex = {
     readonly idsByNode: ReadonlyMap<TsMorphNode, readonly string[]>;
     readonly idsByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly idsByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
+    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
 };
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
+type IdsByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
 
 function declarationName(declaration: TsMorphNode): string {
     return declaration.getSymbolOrThrow().getName();
@@ -26,13 +30,59 @@ function declarationPathTargets(
     return declarationIndex.idsByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
 }
 
-function importedFilePath(importDeclaration: ImportDeclaration): string {
-    const sourceFilePath = importDeclaration.getSourceFile().getFilePath();
-    return path.resolve(path.dirname(sourceFilePath), importDeclaration.getModuleSpecifierValue());
+function importerTargetFilePath(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): string | undefined {
+    const inputFilePath = importDeclaration.getSourceFile().getFilePath();
+    return declarationIndex.targetFilePathByInputFilePath.get(inputFilePath);
 }
 
 function isRelativeImport(importDeclaration: ImportDeclaration): boolean {
     return importDeclaration.getModuleSpecifierValue().startsWith('.');
+}
+
+function resolvedImportReference(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): ArtifactModuleReference | undefined {
+    const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
+    if (importerPath === undefined) {
+        return undefined;
+    }
+    const specifier = importDeclaration.getModuleSpecifierValue();
+    return declarationIndex.moduleReferencesByTargetFilePath.get(importerPath)?.find(function (reference) {
+        return reference.emittedSpecifier === specifier;
+    });
+}
+
+function missingReferenceError(importDeclaration: ImportDeclaration, importerPath: string): Error {
+    return new Error(
+        `Missing resolved module reference for "${importDeclaration.getModuleSpecifierValue()}" in "${importerPath}"`
+    );
+}
+
+function relativeImportTargetPath(
+    importDeclaration: ImportDeclaration,
+    declarationIndex: DeclarationNodeIndex
+): string | undefined {
+    const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
+    const reference = resolvedImportReference(importDeclaration, declarationIndex);
+    if (reference === undefined) {
+        if (importerPath !== undefined) {
+            throw missingReferenceError(importDeclaration, importerPath);
+        }
+        return undefined;
+    }
+    return reference.type === 'local-code' ? reference.targetFilePath : undefined;
+}
+
+function targetsByFileAndName(
+    idsByFileAndName: IdsByFileAndName,
+    filePath: string | undefined,
+    name: string
+): readonly string[] {
+    return filePath === undefined ? [] : idsByFileAndName.get(filePath)?.get(name) ?? [];
 }
 
 function relativeImportSpecifierTargets(
@@ -44,7 +94,11 @@ function relativeImportSpecifierTargets(
         return [];
     }
 
-    return declarationIndex.idsByFileAndName.get(importedFilePath(importDeclaration))?.get(declaration.getName()) ?? [];
+    return targetsByFileAndName(
+        declarationIndex.idsByTargetFileAndName,
+        relativeImportTargetPath(importDeclaration, declarationIndex),
+        declaration.getName()
+    );
 }
 
 function importSpecifierTargets(

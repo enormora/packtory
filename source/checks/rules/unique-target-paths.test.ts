@@ -7,8 +7,8 @@ import { uniqueTargetPathsRule } from './unique-target-paths.ts';
 function bundleWithMappings(name: string, mappings: readonly (readonly [string, string])[]): AnalyzedBundle {
     return analyzedBundle({
         name,
-        contents: mappings.map(function ([ sourceFilePath, targetFilePath ]) {
-            return analyzedBundleResource(sourceFilePath, { targetFilePath });
+        contents: mappings.map(function ([ inputFilePath, targetFilePath ]) {
+            return analyzedBundleResource(inputFilePath, { targetFilePath });
         })
     });
 }

@@ -8,7 +8,7 @@ export type FileDescription = BaseDescription & {
 };
 
 export type TransferableFileDescription = BaseDescription & {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
 };
 

@@ -10,7 +10,7 @@ suite('public-module-usage', function () {
             roots: {
                 main: {
                     js: {
-                        sourceFilePath: '/pkg/index.js',
+                        inputFilePath: '/pkg/index.js',
                         targetFilePath: 'index.js',
                         content: '',
                         isExecutable: false
@@ -18,7 +18,7 @@ suite('public-module-usage', function () {
                 },
                 feature: {
                     js: {
-                        sourceFilePath: '/pkg/feature.js',
+                        inputFilePath: '/pkg/feature.js',
                         targetFilePath: 'feature.js',
                         content: '',
                         isExecutable: false
@@ -26,7 +26,7 @@ suite('public-module-usage', function () {
                 },
                 ignored: {
                     js: {
-                        sourceFilePath: '/pkg/ignored.js',
+                        inputFilePath: '/pkg/ignored.js',
                         targetFilePath: 'ignored.js',
                         content: '',
                         isExecutable: false
@@ -45,7 +45,7 @@ suite('public-module-usage', function () {
             roots: {
                 main: {
                     js: {
-                        sourceFilePath: '/extra/index.js',
+                        inputFilePath: '/extra/index.js',
                         targetFilePath: 'index.js',
                         content: '',
                         isExecutable: false
@@ -89,7 +89,7 @@ suite('public-module-usage', function () {
             roots: {
                 main: {
                     js: {
-                        sourceFilePath: '/pkg/index.js',
+                        inputFilePath: '/pkg/index.js',
                         targetFilePath: 'index.js',
                         content: '',
                         isExecutable: false

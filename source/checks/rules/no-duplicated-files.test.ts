@@ -10,7 +10,7 @@ import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 const sharedFilePath = 'shared.ts';
 
 type SymbolAwareProject = {
-    readonly bundle: (name: string, sourceFilePath: string, survivingBindings: ReadonlySet<string>) => AnalyzedBundle;
+    readonly bundle: (name: string, inputFilePath: string, survivingBindings: ReadonlySet<string>) => AnalyzedBundle;
 };
 type DuplicateRuleSettings = {
     readonly noDuplicatedFiles: { readonly enabled: boolean; readonly allowList?: readonly string[]; };
@@ -25,18 +25,18 @@ type ScenarioDefinition = {
     readonly execute: () => Promise<void>;
 };
 
-function bundle(name: string, sourceFilePath: string = sharedFilePath): AnalyzedBundle {
-    return checkBundle(name, [ sourceFilePath ]);
+function bundle(name: string, inputFilePath: string = sharedFilePath): AnalyzedBundle {
+    return checkBundle(name, [ inputFilePath ]);
 }
 
 function createSymbolAwareProject(): SymbolAwareProject {
     return {
-        bundle(name, sourceFilePath, survivingBindings) {
+        bundle(name, inputFilePath, survivingBindings) {
             return analyzedBundle({
                 name,
                 contents: [
-                    analyzedBundleResource(sourceFilePath, {
-                        targetFilePath: sourceFilePath,
+                    analyzedBundleResource(inputFilePath, {
+                        targetFilePath: inputFilePath,
                         analysis: { survivingBindings }
                     })
                 ]

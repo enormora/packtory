@@ -11,7 +11,7 @@ export type FileBindings = FileBindingSet & {
 
 type LocalSeed = {
     readonly bindingId: string;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly line: number;
     readonly reason: LocalSeedReason;
 };
@@ -41,7 +41,7 @@ function statementSeeds(
         return Array.from(collectIdentifierTargets(statement, declarationIndex), function (seed) {
             return {
                 bindingId: seed,
-                sourceFilePath: file.sourceFilePath,
+                inputFilePath: file.inputFilePath,
                 line: statement.getStartLineNumber(),
                 reason
             };
@@ -79,8 +79,8 @@ function exportedBindingSeeds(
         return binding.isExported
             ? [
                 {
-                    bindingId: bindingId(file.sourceFilePath, binding.name),
-                    sourceFilePath: file.sourceFilePath,
+                    bindingId: bindingId(file.targetFilePath, binding.name),
+                    inputFilePath: file.inputFilePath,
                     line: bindingLine(binding, trace),
                     reason: 'entry-export'
                 }
@@ -119,7 +119,7 @@ function addSeed(input: AddSeedInput): Set<string> {
             type: 'local-seed-added',
             bundleName,
             bindingId: seed.bindingId,
-            sourceFilePath: seed.sourceFilePath,
+            inputFilePath: seed.inputFilePath,
             line: seed.line,
             reason: seed.reason
         });
@@ -130,7 +130,7 @@ function addSeed(input: AddSeedInput): Set<string> {
 export function gatherLocalSeeds(input: LocalSeedGatheringInput): Set<string> {
     let seeds = new Set<string>();
     for (const file of input.files) {
-        const isEntry = input.entryPointFilePaths.has(file.sourceFilePath);
+        const isEntry = input.entryPointFilePaths.has(file.targetFilePath);
         const fileSeeds = seedsForFile(file, isEntry, {
             declarationIndex: input.declarationIndex,
             deadCodeElimination: input.deadCodeElimination,

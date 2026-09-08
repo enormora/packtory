@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
-import { indexBundles, resolveCrossBundleTarget } from './bundle-index.ts';
+import { indexBundles } from './bundle-index.ts';
 
 suite('bundle-index', function () {
     test('indexBundles keys bundles by their name', function () {
@@ -17,33 +17,32 @@ suite('bundle-index', function () {
             {
                 bundle: linkedBundle({ name: 'pkg-a' }),
                 fileBindings: [
-                    { sourceFilePath: '/a/index.ts', sourceFile: undefined as never, bindings: [] },
-                    { sourceFilePath: '/a/helpers.ts', sourceFile: undefined as never, bindings: [] }
+                    {
+                        inputFilePath: '/a/index.ts',
+                        parsedInputFilePath: '/a/index.ts',
+                        targetFilePath: 'index.ts',
+                        sourceFile: undefined as never,
+                        moduleReferences: [],
+                        bindings: []
+                    },
+                    {
+                        inputFilePath: '/a/helpers.ts',
+                        parsedInputFilePath: '/a/helpers.ts',
+                        targetFilePath: 'helpers.ts',
+                        sourceFile: undefined as never,
+                        moduleReferences: [],
+                        bindings: []
+                    }
                 ]
             }
         ]);
         const bundle = indexed.get('pkg-a');
-        assert.deepStrictEqual(Array.from(bundle?.bindingsByFilePath.keys() ?? []), [ '/a/index.ts', '/a/helpers.ts' ]);
+        assert.deepStrictEqual(Array.from(bundle?.bindingsByFilePath.keys() ?? []), [ 'index.ts', 'helpers.ts' ]);
     });
 
     test('indexBundles attaches the originating bundle to each indexed entry', function () {
         const bundle = linkedBundle({ name: 'pkg-a' });
         const indexed = indexBundles([ { bundle, fileBindings: [] } ]);
         assert.strictEqual(indexed.get('pkg-a')?.bundle, bundle);
-    });
-
-    test('resolveCrossBundleTarget returns undefined when the indexed bundle does not expose the specifier', function () {
-        assert.strictEqual(
-            resolveCrossBundleTarget(
-                'pkg-a/private.js',
-                indexBundles([ { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] } ])
-            ),
-            undefined
-        );
-    });
-
-    test('resolveCrossBundleTarget returns undefined when no bundles are indexed', function () {
-        const result = resolveCrossBundleTarget('pkg-b/helpers.ts', new Map());
-        assert.strictEqual(result, undefined);
     });
 });

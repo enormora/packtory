@@ -45,7 +45,7 @@ suite('cyclic-dependencies', function () {
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -58,7 +58,7 @@ suite('cyclic-dependencies', function () {
                             content:
                                 "import { bar } from './bar';\n\nexport const foo = 'foo';\nexport const foo2 = bar;\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -71,7 +71,7 @@ suite('cyclic-dependencies', function () {
                             content:
                                 "import { foo } from './foo';\n\nexport const bar = 'bar';\nexport const bar2 = foo;\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/bar.js'),
+                            inputFilePath: path.join(fixture, 'src/bar.js'),
                             targetFilePath: 'bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -83,7 +83,7 @@ suite('cyclic-dependencies', function () {
                 mainFile: {
                     content: "import { foo } from './foo';\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

@@ -6,13 +6,13 @@ export type RootContentOverrides = {
 };
 
 export function rootWithSource(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     overrides: RootContentOverrides = {}
 ): RootFileDescription {
     return {
         js: {
-            sourceFilePath,
+            inputFilePath,
             targetFilePath,
             content: overrides.content ?? '',
             isExecutable: overrides.isExecutable ?? false
@@ -39,11 +39,11 @@ export function rootWithDeclaration(
     declarationTarget: string
 ): RootFileDescription {
     return {
-        js: { sourceFilePath: jsSource, targetFilePath: jsTarget, content: '', isExecutable: false },
-        declarationFile: { sourceFilePath: declarationSource, targetFilePath: declarationTarget }
+        js: { inputFilePath: jsSource, targetFilePath: jsTarget, content: '', isExecutable: false },
+        declarationFile: { inputFilePath: declarationSource, targetFilePath: declarationTarget }
     };
 }
 
-export function content(sourceFilePath: string, targetFilePath: string): BundleLike['contents'][number] {
-    return { fileDescription: { sourceFilePath, targetFilePath } };
+export function content(inputFilePath: string, targetFilePath: string): BundleLike['contents'][number] {
+    return { fileDescription: { inputFilePath, targetFilePath } };
 }

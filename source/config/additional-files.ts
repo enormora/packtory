@@ -3,7 +3,7 @@ import { bundleRelativePathSchema, nonEmptyStringSchema } from './base-validatio
 
 export const additionalFileDescriptionSchema = z.readonly(
     z.strictObject({
-        sourceFilePath: nonEmptyStringSchema,
+        inputFilePath: nonEmptyStringSchema,
         targetFilePath: bundleRelativePathSchema
     })
 );

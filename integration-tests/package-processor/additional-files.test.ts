@@ -35,7 +35,7 @@ async function buildSharedLicensePackage(
         roots: { main: { js: path.join(fixture.sourcesFolder, rootFileName) } },
         mainPackageJson: fixture.mainPackageJson,
         includeSourceMapFiles: false,
-        additionalFiles: [ { sourceFilePath: fixture.licenseSourcePath, targetFilePath: 'LICENSE' } ],
+        additionalFiles: [ { inputFilePath: fixture.licenseSourcePath, targetFilePath: 'LICENSE' } ],
         bundleDependencies,
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
@@ -58,7 +58,7 @@ suite('additional-files', function () {
             includeSourceMapFiles: false,
             additionalFiles: [
                 {
-                    sourceFilePath: additionalFileSourcePath,
+                    inputFilePath: additionalFileSourcePath,
                     targetFilePath: 'docs/additional-info.txt'
                 }
             ],
@@ -89,7 +89,7 @@ suite('additional-files', function () {
                         fileDescription: {
                             content:
                                 "import { greeting } from './greeting.js';\n\nexport function run() {\n    return greeting();\n}\n",
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             isExecutable: false,
                             targetFilePath: 'entry.js'
                         },
@@ -101,7 +101,7 @@ suite('additional-files', function () {
                         directDependencies: new Set(),
                         fileDescription: {
                             content: "export function greeting() {\n    return 'hello from src';\n}\n",
-                            sourceFilePath: path.join(fixture, 'src/greeting.js'),
+                            inputFilePath: path.join(fixture, 'src/greeting.js'),
                             isExecutable: false,
                             targetFilePath: 'greeting.js'
                         },
@@ -113,7 +113,7 @@ suite('additional-files', function () {
                         directDependencies: new Set(),
                         fileDescription: {
                             content: 'This file should be included in the bundle.\n',
-                            sourceFilePath: additionalFileSourcePath,
+                            inputFilePath: additionalFileSourcePath,
                             isExecutable: false,
                             targetFilePath: 'docs/additional-info.txt'
                         },
@@ -127,7 +127,7 @@ suite('additional-files', function () {
                     content:
                         "import { greeting } from './greeting.js';\n\nexport function run() {\n    return greeting();\n}\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'additional-files-package',
@@ -153,7 +153,7 @@ suite('additional-files', function () {
                 includeSourceMapFiles: false,
                 additionalFiles: [
                     {
-                        sourceFilePath: path.join(fixture, 'docs/additional-info.txt'),
+                        inputFilePath: path.join(fixture, 'docs/additional-info.txt'),
                         targetFilePath: 'package.json'
                     }
                 ],
@@ -176,7 +176,7 @@ suite('additional-files', function () {
             return content.fileDescription.targetFilePath === 'LICENSE';
         });
         const substitutedSharedSource = consumerBundle.contents.find(function (content) {
-            return content.fileDescription.sourceFilePath === path.join(fixture.sourcesFolder, 'shared.js');
+            return content.fileDescription.inputFilePath === path.join(fixture.sourcesFolder, 'shared.js');
         });
 
         assert.notStrictEqual(consumerLicense, undefined);
@@ -184,7 +184,7 @@ suite('additional-files', function () {
             fileDescription: {
                 content: 'Shared license text.\n',
                 isExecutable: false,
-                sourceFilePath: fixture.licenseSourcePath,
+                inputFilePath: fixture.licenseSourcePath,
                 targetFilePath: 'LICENSE'
             },
             isExplicitlyIncluded: true

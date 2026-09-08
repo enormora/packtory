@@ -1,6 +1,13 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { moduleReferenceKind } from '../dependency-scanner/source-file-references.ts';
 import { combineAllBundleFiles } from './content.ts';
+
+function assertDefined<T>(value: T | undefined): asserts value is T {
+    if (value === undefined) {
+        assert.fail('expected value to be defined');
+    }
+}
 
 function registerLocalFileTests(): void {
     test('combines all bundle files correctly', function () {
@@ -8,13 +15,20 @@ function registerLocalFileTests(): void {
         assert.deepStrictEqual(result, []);
     });
 
-    test('keeps absolute local dependency paths and derives relative target paths from sourcesFolder', function () {
+    test('rewrites local dependency paths to target paths and derives target paths from sourcesFolder', function () {
         const result = combineAllBundleFiles(
             '/src',
             [
                 {
                     filePath: '/src/nested/index.js',
                     directDependencies: new Set([ '/src/nested/internal.js' ]),
+                    moduleReferences: [],
+                    project: 'project' as never
+                },
+                {
+                    filePath: '/src/nested/internal.js',
+                    directDependencies: new Set(),
+                    moduleReferences: [],
                     project: 'project' as never
                 }
             ],
@@ -23,15 +37,140 @@ function registerLocalFileTests(): void {
 
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/src/nested/index.js',
+                inputFilePath: '/src/nested/index.js',
                 targetFilePath: 'nested/index.js',
-                directDependencies: new Set([ '/src/nested/internal.js' ]),
+                directDependencies: new Set([ 'nested/internal.js' ]),
+                moduleReferences: [],
+                project: 'project',
+                isExplicitlyIncluded: false
+            },
+            {
+                inputFilePath: '/src/nested/internal.js',
+                targetFilePath: 'nested/internal.js',
+                directDependencies: new Set(),
+                moduleReferences: [],
                 project: 'project',
                 isExplicitlyIncluded: false
             }
         ]);
     });
+}
 
+function registerModuleReferenceTests(): void {
+    test('rewrites scanner module references to artifact target paths', function () {
+        const result = combineAllBundleFiles(
+            '/src',
+            [
+                {
+                    filePath: '/src/index.js',
+                    directDependencies: new Set([ '/src/live.js', '/src/data.json', '/package.json' ]),
+                    moduleReferences: [
+                        {
+                            kind: moduleReferenceKind.localCode,
+                            filePath: '/src/live.js',
+                            sourceSpecifier: './live',
+                            emittedSpecifier: './live.js'
+                        },
+                        {
+                            kind: moduleReferenceKind.localAsset,
+                            filePath: '/src/data.json',
+                            sourceSpecifier: './data.json',
+                            emittedSpecifier: './data.json'
+                        },
+                        {
+                            kind: moduleReferenceKind.generatedManifest,
+                            filePath: '/package.json',
+                            sourceSpecifier: './package.json',
+                            emittedSpecifier: './package.json'
+                        },
+                        {
+                            kind: moduleReferenceKind.externalPackage,
+                            packageName: 'dep',
+                            sourceSpecifier: 'dep/source',
+                            emittedSpecifier: 'dep'
+                        }
+                    ],
+                    project: 'project' as never
+                },
+                { filePath: '/src/live.js', directDependencies: new Set(), moduleReferences: [] },
+                { filePath: '/src/data.json', directDependencies: new Set(), moduleReferences: [] },
+                {
+                    filePath: '/package.json',
+                    directDependencies: new Set(),
+                    moduleReferences: [],
+                    isGeneratedManifest: true
+                }
+            ],
+            []
+        );
+
+        const [ indexResource ] = result;
+        assertDefined(indexResource);
+        assert.deepStrictEqual(
+            {
+                directDependencies: indexResource.directDependencies,
+                moduleReferences: indexResource.moduleReferences
+            },
+            {
+                directDependencies: new Set([ 'live.js', 'data.json', 'package.json' ]),
+                moduleReferences: [
+                    {
+                        type: 'local-code',
+                        targetFilePath: 'live.js',
+                        sourceSpecifier: './live',
+                        emittedSpecifier: './live.js'
+                    },
+                    {
+                        type: 'local-asset',
+                        targetFilePath: 'data.json',
+                        sourceSpecifier: './data.json',
+                        emittedSpecifier: './data.json'
+                    },
+                    {
+                        type: 'generated-manifest',
+                        targetFilePath: 'package.json',
+                        sourceSpecifier: './package.json',
+                        emittedSpecifier: './package.json'
+                    },
+                    {
+                        type: 'external-package',
+                        packageName: 'dep',
+                        sourceSpecifier: 'dep/source',
+                        emittedSpecifier: 'dep'
+                    }
+                ]
+            }
+        );
+    });
+
+    test('rejects local module references missing from bundle contents', function () {
+        assert.throws(
+            function () {
+                combineAllBundleFiles(
+                    '/src',
+                    [
+                        {
+                            filePath: '/src/index.js',
+                            directDependencies: new Set(),
+                            moduleReferences: [
+                                {
+                                    kind: moduleReferenceKind.localCode,
+                                    filePath: '/src/missing.js',
+                                    sourceSpecifier: './missing.js',
+                                    emittedSpecifier: './missing.js'
+                                }
+                            ]
+                        }
+                    ],
+                    []
+                );
+            },
+            { message: 'Resolved local reference "/src/missing.js" is missing from bundle contents' }
+        );
+    });
+}
+
+function registerLocalValidationTests(): void {
     test('rejects local dependency paths outside sourcesFolder', function () {
         assert.throws(
             function () {
@@ -41,6 +180,7 @@ function registerLocalFileTests(): void {
                         {
                             filePath: '/secret.js',
                             directDependencies: new Set(),
+                            moduleReferences: [],
                             project: 'project' as never
                         }
                     ],
@@ -62,6 +202,7 @@ function registerLocalFileTests(): void {
                         {
                             filePath: '/src',
                             directDependencies: new Set(),
+                            moduleReferences: [],
                             project: 'project' as never
                         }
                     ],
@@ -81,6 +222,7 @@ function registerLocalFileTests(): void {
                 {
                     filePath: '/package.json',
                     directDependencies: new Set(),
+                    moduleReferences: [],
                     isGeneratedManifest: true
                 }
             ],
@@ -89,9 +231,10 @@ function registerLocalFileTests(): void {
 
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/package.json',
+                inputFilePath: '/package.json',
                 targetFilePath: 'package.json',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: false,
                 isGeneratedManifest: true
             }
@@ -103,22 +246,24 @@ function registerLocalFileTests(): void {
             '/src',
             [],
             [
-                { sourceFilePath: 'assets/readme.md', targetFilePath: 'readme.md' },
-                { sourceFilePath: '/absolute/license.txt', targetFilePath: 'license.txt' }
+                { inputFilePath: 'assets/readme.md', targetFilePath: 'readme.md' },
+                { inputFilePath: '/absolute/license.txt', targetFilePath: 'license.txt' }
             ]
         );
 
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/src/assets/readme.md',
+                inputFilePath: '/src/assets/readme.md',
                 targetFilePath: 'readme.md',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: true
             },
             {
-                sourceFilePath: '/absolute/license.txt',
+                inputFilePath: '/absolute/license.txt',
                 targetFilePath: 'license.txt',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: true
             }
         ]);
@@ -129,9 +274,10 @@ function registerLocalFileTests(): void {
 
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/src/readme.md',
+                inputFilePath: '/src/readme.md',
                 targetFilePath: 'readme.md',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: true
             }
         ]);
@@ -139,7 +285,7 @@ function registerLocalFileTests(): void {
 
     test('throws when an object-form additional file uses an absolute target path', function () {
         try {
-            combineAllBundleFiles('/src', [], [ { sourceFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' } ]);
+            combineAllBundleFiles('/src', [], [ { inputFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' } ]);
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');
@@ -151,7 +297,7 @@ function registerLocalFileTests(): void {
             combineAllBundleFiles(
                 '/src',
                 [],
-                [ { sourceFilePath: 'manifest-template.json', targetFilePath: 'package.json' } ]
+                [ { inputFilePath: 'manifest-template.json', targetFilePath: 'package.json' } ]
             );
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
@@ -172,7 +318,8 @@ function registerLocalManifestValidationTests(): void {
                     [
                         {
                             filePath: '/src/package.json',
-                            directDependencies: new Set()
+                            directDependencies: new Set(),
+                            moduleReferences: []
                         }
                     ],
                     []
@@ -190,7 +337,8 @@ function registerLocalManifestValidationTests(): void {
             [
                 {
                     filePath: '/src/fixtures/package.json',
-                    directDependencies: new Set()
+                    directDependencies: new Set(),
+                    moduleReferences: []
                 }
             ],
             []
@@ -198,9 +346,10 @@ function registerLocalManifestValidationTests(): void {
 
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/src/fixtures/package.json',
+                inputFilePath: '/src/fixtures/package.json',
                 targetFilePath: 'fixtures/package.json',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: false
             }
         ]);
@@ -231,7 +380,7 @@ function registerAdditionalFileValidationTests(): void {
             combineAllBundleFiles(
                 '/src',
                 [],
-                [ { sourceFilePath: 'assets/template.txt', targetFilePath: 'lib/template.ts' } ]
+                [ { inputFilePath: 'assets/template.txt', targetFilePath: 'lib/template.ts' } ]
             );
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
@@ -243,13 +392,14 @@ function registerAdditionalFileValidationTests(): void {
         const result = combineAllBundleFiles(
             '/src',
             [],
-            [ { sourceFilePath: 'fixtures/template.ts', targetFilePath: 'fixtures/template.ts.txt' } ]
+            [ { inputFilePath: 'fixtures/template.ts', targetFilePath: 'fixtures/template.ts.txt' } ]
         );
         assert.deepStrictEqual(result, [
             {
-                sourceFilePath: '/src/fixtures/template.ts',
+                inputFilePath: '/src/fixtures/template.ts',
                 targetFilePath: 'fixtures/template.ts.txt',
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: true
             }
         ]);
@@ -258,6 +408,8 @@ function registerAdditionalFileValidationTests(): void {
 
 suite('content', function () {
     registerLocalFileTests();
+    registerModuleReferenceTests();
+    registerLocalValidationTests();
     registerLocalManifestValidationTests();
     registerAdditionalFileValidationTests();
 });

@@ -12,11 +12,18 @@ function sourceFileFor(content: string): SourceFile {
 }
 
 function fileBindings(
-    sourceFilePath: string,
+    inputFilePath: string,
     sourceFile: SourceFile,
     bindings: readonly BindingDescriptor[]
 ): FileBindings {
-    return { sourceFilePath, sourceFile, bindings };
+    return {
+        inputFilePath,
+        parsedInputFilePath: sourceFile.getFilePath(),
+        targetFilePath: inputFilePath,
+        sourceFile,
+        moduleReferences: [],
+        bindings
+    };
 }
 
 const statementStub = { id: 'stmt' };
@@ -36,14 +43,14 @@ function createBinding(name: string, isExported: boolean, declarationNode: TsMor
 
 function gatherSeedsForSingleBinding(
     content: string,
-    sourceFilePath: string,
+    inputFilePath: string,
     entryPoints: ReadonlySet<string>,
     isExported: boolean
 ): Set<string> {
     const sourceFile = sourceFileFor(content);
     const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
     const binding = createBinding('foo', isExported, declaration);
-    const file = fileBindings(sourceFilePath, sourceFile, [ binding ]);
+    const file = fileBindings(inputFilePath, sourceFile, [ binding ]);
 
     return gatherLocalSeeds({
         files: [ file ],

@@ -12,34 +12,39 @@ type DeadCodeEliminatorInput = {
     readonly bundle: LinkedBundle;
 };
 
+function targetPath(filePath: string): string {
+    return filePath.replace(/^\/repo\//u, '');
+}
+
 function dependency(
     name: string,
-    sourceFilePath: string,
+    filePath: string,
     sourceSpecifier = name,
     emittedSpecifier = sourceSpecifier
 ): ExternalDependency {
+    const targetFilePath = targetPath(filePath);
     return {
         name,
-        referencedFrom: [ sourceFilePath ],
-        references: [ { sourceFilePath, sourceSpecifier, emittedSpecifier } ]
+        referencedFrom: [ targetFilePath ],
+        references: [ { targetFilePath, sourceSpecifier, emittedSpecifier } ]
     };
 }
 
-function legacyDependency(name: string, sourceFilePath: string): ExternalDependency {
-    return { name, referencedFrom: [ sourceFilePath ] };
+function legacyDependency(name: string, filePath: string): ExternalDependency {
+    return { name, referencedFrom: [ targetPath(filePath) ] };
 }
 
 function orderedDependency(): ExternalDependency {
     return {
         name: 'ordered',
-        referencedFrom: [ '/repo/pkg-a/z.js', '/repo/pkg-a/a.js' ],
+        referencedFrom: [ 'pkg-a/z.js', 'pkg-a/a.js' ],
         references: [
-            { sourceFilePath: '/repo/pkg-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' },
-            { sourceFilePath: '/repo/pkg-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
-            { sourceFilePath: '/repo/pkg-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
-            { sourceFilePath: '/repo/pkg-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
-            { sourceFilePath: '/repo/pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
-            { sourceFilePath: '/repo/pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' }
+            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
+            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
+            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' }
         ]
     };
 }
@@ -53,7 +58,7 @@ function linkedBundle(name: string): LinkedBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: `/repo/${name}/index.js`,
+                    inputFilePath: `/repo/${name}/index.js`,
                     targetFilePath: 'index.js'
                 }
             }
@@ -66,7 +71,7 @@ function linkedBundle(name: string): LinkedBundle {
                 [ 'shared', dependency('shared', '/repo/pkg-a/index.js', './shared.js', 'shared') ]
             ])
             : new Map(),
-        substitutedSourceFilePathsByPackageName: new Map(),
+        substitutedInputFilePathsByPackageName: new Map(),
         sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: name === 'pkg-a'
             ? new Map([
@@ -74,10 +79,10 @@ function linkedBundle(name: string): LinkedBundle {
                 [ 'ordered', orderedDependency() ],
                 [ 'path-tiebreak', {
                     name: 'path-tiebreak',
-                    referencedFrom: [ '/repo/pkg-a/z.js', '/repo/pkg-a/a.js' ],
+                    referencedFrom: [ 'pkg-a/z.js', 'pkg-a/a.js' ],
                     references: [
-                        { sourceFilePath: '/repo/pkg-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' },
-                        { sourceFilePath: '/repo/pkg-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' }
+                        { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' },
+                        { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' }
                     ]
                 } ],
                 [ 'peer-lib', dependency('peer-lib', '/repo/pkg-a/index.js') ],

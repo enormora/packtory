@@ -5,13 +5,13 @@ import type { RootFileDescription } from '../resource-resolver/resolved-bundle.t
 import { resolveRepresentativeRoot } from './representative-root.ts';
 
 const indexRoot: RootFileDescription = {
-    js: { sourceFilePath: '/src/index.js', targetFilePath: 'index.js', content: '', isExecutable: false }
+    js: { inputFilePath: '/src/index.js', targetFilePath: 'index.js', content: '', isExecutable: false }
 };
 
 const featureRoot: RootFileDescription = {
-    js: { sourceFilePath: '/src/feature.js', targetFilePath: 'feature.js', content: '', isExecutable: false },
+    js: { inputFilePath: '/src/feature.js', targetFilePath: 'feature.js', content: '', isExecutable: false },
     declarationFile: {
-        sourceFilePath: '/src/feature.d.ts',
+        inputFilePath: '/src/feature.d.ts',
         targetFilePath: 'feature.d.ts',
         content: '',
         isExecutable: false
@@ -20,7 +20,7 @@ const featureRoot: RootFileDescription = {
 
 const cliRoot: RootFileDescription = {
     js: {
-        sourceFilePath: '/src/cli.js',
+        inputFilePath: '/src/cli.js',
         targetFilePath: 'cli.js',
         content: '#!/usr/bin/env node',
         isExecutable: true

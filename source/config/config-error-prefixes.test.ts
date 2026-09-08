@@ -32,7 +32,7 @@ suite('config error prefixes', function () {
                             mainPackageJson: { type: 'module' },
                             name: 'foo',
                             roots: { main: { js: 'index.js' } },
-                            additionalFiles: [ { sourceFilePath: 'asset.txt' } ]
+                            additionalFiles: [ { inputFilePath: 'asset.txt' } ]
                         }
                     ]
                 },

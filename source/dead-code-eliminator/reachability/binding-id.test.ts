@@ -29,8 +29,14 @@ function descriptor(name: string, overrides: Partial<BindingDescriptor> = {}): B
     };
 }
 
-function fileBindings(sourceFilePath: string, bindings: readonly BindingDescriptor[]): FileBindingSet {
-    return { sourceFilePath, bindings };
+function fileBindings(inputFilePath: string, bindings: readonly BindingDescriptor[]): FileBindingSet {
+    return {
+        inputFilePath,
+        parsedInputFilePath: inputFilePath,
+        targetFilePath: inputFilePath,
+        moduleReferences: [],
+        bindings
+    };
 }
 
 type CompanionIndexFixtureOptions = {
@@ -76,6 +82,7 @@ suite('binding-id', function () {
 
         const bindingB = descriptor('b', { declarationNode: declarationB as unknown as TsMorphNode });
         const index = buildDeclarationNodeIndex([ fileBindings('/src/a.ts', [ bindingA, bindingB ]) ]);
+        assert.strictEqual(index.idsByNode.size, 2);
         assert.deepStrictEqual(index.idsByNode.get(declarationA as unknown as TsMorphNode), [ '/src/a.ts::a' ]);
 
         assert.deepStrictEqual(index.idsByNode.get(declarationB as unknown as TsMorphNode), [ '/src/a.ts::b' ]);
@@ -120,6 +127,49 @@ suite('binding-id', function () {
         assert.deepStrictEqual(index.idsByNode.get(declarationNode), [
             '/src/shared.txt::config'
         ]);
+    });
+
+    test('buildDeclarationNodeIndex maps parsed declaration source paths to target files', function () {
+        const declarationNode = {
+            getSourceFile() {
+                return {
+                    getFilePath() {
+                        return '/authored/index.ts';
+                    }
+                };
+            }
+        };
+        const binding = descriptor('api', { declarationNode: declarationNode as unknown as TsMorphNode });
+
+        const index = buildDeclarationNodeIndex([
+            {
+                inputFilePath: '/generated/index.js',
+                parsedInputFilePath: '/virtual/index.js',
+                targetFilePath: 'index.js',
+                moduleReferences: [],
+                bindings: [ binding ]
+            }
+        ]);
+
+        assert.deepStrictEqual(index.idsByFileAndName.get('/authored/index.ts')?.get('api'), [ 'index.js::api' ]);
+        assert.strictEqual(index.targetFilePathByInputFilePath.get('/authored/index.ts'), 'index.js');
+    });
+
+    test('buildDeclarationNodeIndex ignores declarations without source file paths', function () {
+        const index = buildDeclarationNodeIndex([
+            {
+                inputFilePath: '/generated/index.js',
+                parsedInputFilePath: '/virtual/index.js',
+                targetFilePath: 'index.js',
+                moduleReferences: [],
+                bindings: [ descriptor('api') ]
+            }
+        ]);
+
+        assert.strictEqual(index.idsByFileAndName.has('Stryker was here'), false);
+        assert.strictEqual(index.targetFilePathByInputFilePath.has('Stryker was here'), false);
+        assert.strictEqual(index.idsByFileAndName.has(undefined as unknown as string), false);
+        assert.strictEqual(index.targetFilePathByInputFilePath.has(undefined as unknown as string), false);
     });
 
     test('buildBindingsByFile groups binding ids by their source file', function () {

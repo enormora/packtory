@@ -27,10 +27,10 @@ type SideEffectStatement = {
 };
 
 function impureResource(
-    sourceFilePath: string,
+    inputFilePath: string,
     statements: readonly SideEffectStatement[]
 ): AnalyzedBundleResource {
-    return analyzedBundleResource(sourceFilePath, {
+    return analyzedBundleResource(inputFilePath, {
         analysis: {
             sideEffectStatements: statements
         }

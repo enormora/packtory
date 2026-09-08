@@ -56,7 +56,7 @@ function createLinkedPackage(name: string): BundleFixtureLinkedBundle {
         roots: {
             main: {
                 js: {
-                    sourceFilePath: `/${name}/index.js`,
+                    inputFilePath: `/${name}/index.js`,
                     targetFilePath: 'index.js',
                     content: '',
                     isExecutable: false
@@ -70,7 +70,7 @@ function createVersionedPackage(name: string): BundleFixtureVersionedBundleWithM
     return versionedBundleWithManifest({
         name,
         version: '0.0.0',
-        mainFile: { sourceFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
+        mainFile: { inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
         packageJson: { name, version: '0.0.0' },
         manifestFile: { filePath: 'package.json', content: '{}' }
     });

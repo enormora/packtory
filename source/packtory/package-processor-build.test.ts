@@ -231,7 +231,7 @@ suite('package-processor-build', function () {
                 roots: { main: { js: '/src/index.js' } },
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 includeSourceMapFiles: true,
-                additionalFiles: [ { sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
+                additionalFiles: [ { inputFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
                 mainPackageJson: options.mainPackageJson,
                 additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
                 additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
@@ -246,7 +246,7 @@ suite('package-processor-build', function () {
                 {
                     bundle: createLinkedBundle(),
                     transformationsEnabled: true,
-                    substitutionPublicModuleSourceFilePaths: new Set<string>(),
+                    substitutionPublicModuleInputFilePaths: new Set<string>(),
                     deadCodeElimination: undefined
                 }
             ]
@@ -281,7 +281,7 @@ suite('package-processor-build', function () {
                 {
                     bundle: createLinkedBundle(),
                     transformationsEnabled: false,
-                    substitutionPublicModuleSourceFilePaths: new Set<string>(),
+                    substitutionPublicModuleInputFilePaths: new Set<string>(),
                     deadCodeElimination: { enabled: false }
                 }
             ]

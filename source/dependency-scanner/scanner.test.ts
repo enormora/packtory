@@ -40,19 +40,30 @@ function dependencyScannerFactory(overrides: Overrides = {}): DependencyScanner 
 }
 
 function localCode(filePath: string): ModuleReference {
-    return { kind: 'local-code', filePath };
+    return { kind: 'local-code', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
 }
 
 function localAsset(filePath: string): ModuleReference {
-    return { kind: 'local-asset', filePath };
+    return { kind: 'local-asset', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
 }
 
 function externalPackage(packageName: string): ModuleReference {
-    return { kind: 'external-package', packageName, specifier: packageName };
+    return {
+        kind: 'external-package',
+        packageName,
+        sourceSpecifier: packageName,
+        emittedSpecifier: packageName
+    };
 }
 
 function generatedManifest(filePath: string): ModuleReference {
-    return { kind: 'generated-manifest', filePath };
+    return { kind: 'generated-manifest', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
+}
+
+function localFileShapes(localFiles: DependencyFiles['localFiles']): readonly Record<string, unknown>[] {
+    return localFiles.map(function ({ moduleReferences, ...localFile }) {
+        return localFile;
+    });
 }
 
 suite('scanner', function () {
@@ -161,7 +172,7 @@ suite('scanner', function () {
             const graph = await dependencyScanner.scan(...scanArgs);
             const result = graph.flatten('/dir/entry.js');
 
-            assert.deepStrictEqual(result, {
+            assert.partialDeepStrictEqual(result, {
                 localFiles: [ { directDependencies: new Set(), filePath: '/dir/entry.js', project: {} } ],
                 externalDependencies: new Map()
             });
@@ -225,7 +236,7 @@ suite('scanner', function () {
             const result = await scanWithSourceMapLocate(locate);
 
             assert.strictEqual(locate.callCount, 1);
-            assert.deepStrictEqual(result, {
+            assert.partialDeepStrictEqual(result, {
                 localFiles: [ { directDependencies: new Set(), filePath: '/dir/entry.js', project: {} } ],
                 externalDependencies: new Map()
             });
@@ -234,7 +245,7 @@ suite('scanner', function () {
         test('returns additional dependencies for source maps if they exist', async function () {
             const result = await scanWithSourceMapLocate(fake.resolves(Maybe.just('/dir/foo.map')));
 
-            assert.deepStrictEqual(result, {
+            assert.partialDeepStrictEqual(result, {
                 localFiles: [
                     { directDependencies: new Set(), filePath: '/dir/foo.map', project: {} },
                     { directDependencies: new Set([ '/dir/foo.map' ]), filePath: '/dir/entry.js', project: {} }
@@ -255,7 +266,7 @@ suite('scanner', function () {
             });
             const result = graph.flatten('/dir/entry.js');
 
-            assert.deepStrictEqual(result.localFiles, [
+            assert.deepStrictEqual(localFileShapes(result.localFiles), [
                 {
                     directDependencies: new Set([ '/dir/foo.js', '/dir/bar.js' ]),
                     filePath: '/dir/entry.js',
@@ -298,7 +309,7 @@ suite('scanner', function () {
                 }
             });
             assert.deepStrictEqual(getReferencedModules.getCall(3).args, [ '/dir/baz.js' ]);
-            assert.deepStrictEqual(result.localFiles, [
+            assert.deepStrictEqual(localFileShapes(result.localFiles), [
                 {
                     directDependencies: new Set([ '/dir/foo.js', '/dir/bar.js' ]),
                     filePath: '/dir/entry.js',
@@ -358,7 +369,7 @@ suite('scanner', function () {
                     externalPackage('any-module')
                 ]);
 
-                assert.deepStrictEqual(result.localFiles, [
+                assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/foo.js' ]), filePath: '/dir/entry.js', project: {} },
                     { directDependencies: new Set([ '/dir/foo.js' ]), filePath: '/dir/foo.js', project: {} }
                 ]);
@@ -372,7 +383,7 @@ suite('scanner', function () {
                         referencedFrom: [ '/dir/entry.js' ],
                         references: [
                             {
-                                sourceFilePath: '/dir/entry.js',
+                                targetFilePath: '/dir/entry.js',
                                 sourceSpecifier: 'any-module',
                                 emittedSpecifier: 'any-module'
                             }
@@ -389,7 +400,7 @@ suite('scanner', function () {
                         referencedFrom: [ '/dir/entry.js' ],
                         references: [
                             {
-                                sourceFilePath: '/dir/entry.js',
+                                targetFilePath: '/dir/entry.js',
                                 sourceSpecifier: '@scope/any-module',
                                 emittedSpecifier: '@scope/any-module'
                             }
@@ -418,7 +429,7 @@ suite('scanner', function () {
                         referencedFrom: [ '/dir/entry.js' ],
                         references: [
                             {
-                                sourceFilePath: '/dir/entry.js',
+                                targetFilePath: '/dir/entry.js',
                                 sourceSpecifier: 'any-module',
                                 emittedSpecifier: 'any-module'
                             }
@@ -432,7 +443,7 @@ suite('scanner', function () {
             test('doesn’t include the same local dependency twice', async function () {
                 const result = await scanWithReferencedModules([ localCode('/dir/foo.js'), localCode('/dir/foo.js') ]);
 
-                assert.deepStrictEqual(result.localFiles, [
+                assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/foo.js' ]), filePath: '/dir/entry.js', project: {} },
                     { directDependencies: new Set([ '/dir/foo.js' ]), filePath: '/dir/foo.js', project: {} }
                 ]);
@@ -441,7 +452,7 @@ suite('scanner', function () {
             test('returns local asset files without a project', async function () {
                 const result = await scanWithReferencedModules([ localAsset('/dir/data.json') ]);
 
-                assert.deepStrictEqual(result.localFiles, [
+                assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/data.json' ]), filePath: '/dir/entry.js', project: {} },
                     { directDependencies: new Set(), filePath: '/dir/data.json', project: undefined }
                 ]);
@@ -450,7 +461,7 @@ suite('scanner', function () {
             test('returns generated manifest files with the generated-manifest marker', async function () {
                 const result = await scanWithReferencedModules([ generatedManifest('/dir/package.json') ]);
 
-                assert.deepStrictEqual(result.localFiles, [
+                assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/package.json' ]), filePath: '/dir/entry.js', project: {} },
                     {
                         directDependencies: new Set(),
@@ -468,7 +479,7 @@ suite('scanner', function () {
                 const result = await scanWithReferencedModuleStub(getReferencedModules);
 
                 assert.strictEqual(getReferencedModules.callCount, 1);
-                assert.deepStrictEqual(result.localFiles, [
+                assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     {
                         directDependencies: new Set([ '/dir/data.json', '/dir/package.json' ]),
                         filePath: '/dir/entry.js',

@@ -1,7 +1,7 @@
 import type { ExcludedFile, IncludedFile } from '../../progress/progress-broadcaster.ts';
 
 export type ScanInspectionInput = {
-    readonly contents: readonly { readonly fileDescription: { readonly sourceFilePath: string; }; }[];
+    readonly contents: readonly { readonly fileDescription: { readonly inputFilePath: string; }; }[];
     readonly externalDependencies: ReadonlyMap<string, unknown>;
 };
 
@@ -13,7 +13,7 @@ export type ScanInspectionResult = {
 export function inspectScanResults(bundle: ScanInspectionInput): ScanInspectionResult {
     const included: IncludedFile[] = bundle.contents.map(function (entry) {
         return {
-            path: entry.fileDescription.sourceFilePath,
+            path: entry.fileDescription.inputFilePath,
             reason: 'reachable-from-entry'
         };
     });

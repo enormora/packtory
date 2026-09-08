@@ -12,7 +12,7 @@ export type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
 
 type AdditionalFileDescription = Extract<
     ResourceResolveOptions['additionalFiles'][number],
-    { readonly sourceFilePath: string; readonly targetFilePath: string; }
+    { readonly inputFilePath: string; readonly targetFilePath: string; }
 >;
 
 export function resolveSourcesFolder(

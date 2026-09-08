@@ -28,6 +28,7 @@ function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGr
                 emittedSpecifier: dependencyName
             };
         }),
+        moduleReferences: [],
         project: {
             getProject
         }
@@ -45,8 +46,8 @@ function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): rea
 }
 
 const fooBarLocalFiles = [
-    { directDependencies: new Set([ 'bar.js' ]), filePath: 'foo.js', project: {} },
-    { directDependencies: new Set(), filePath: 'bar.js', project: {} }
+    { directDependencies: new Set([ 'bar.js' ]), filePath: 'foo.js', moduleReferences: [], project: {} },
+    { directDependencies: new Set(), filePath: 'bar.js', moduleReferences: [], project: {} }
 ];
 
 suite('dependency-graph', function () {
@@ -97,6 +98,7 @@ suite('dependency-graph', function () {
                     filePath: 'foo.js',
                     sourceMapFilePath: Maybe.nothing(),
                     externalDependencies: [],
+                    moduleReferences: [],
                     localFiles: [],
                     project: { getProject }
                 }
@@ -120,6 +122,7 @@ suite('dependency-graph', function () {
                     filePath: 'foo.js',
                     sourceMapFilePath: Maybe.nothing(),
                     externalDependencies: [],
+                    moduleReferences: [],
                     localFiles: [ 'bar.js' ],
                     project: { getProject }
                 },
@@ -127,6 +130,7 @@ suite('dependency-graph', function () {
                     filePath: 'bar.js',
                     sourceMapFilePath: Maybe.nothing(),
                     externalDependencies: [],
+                    moduleReferences: [],
                     localFiles: [ 'baz.js' ],
                     project: { getProject }
                 },
@@ -134,6 +138,7 @@ suite('dependency-graph', function () {
                     filePath: 'baz.js',
                     sourceMapFilePath: Maybe.nothing(),
                     externalDependencies: [],
+                    moduleReferences: [],
                     localFiles: [],
                     project: { getProject }
                 }
@@ -146,6 +151,7 @@ suite('dependency-graph', function () {
             graph.addDependency('package.json', {
                 sourceMapFilePath: Maybe.nothing(),
                 externalDependencies: [],
+                moduleReferences: [],
                 isGeneratedManifest: true
             });
 
@@ -156,6 +162,7 @@ suite('dependency-graph', function () {
                     filePath: 'package.json',
                     sourceMapFilePath: Maybe.nothing(),
                     externalDependencies: [],
+                    moduleReferences: [],
                     localFiles: [],
                     project: undefined,
                     isGeneratedManifest: true
@@ -193,20 +200,20 @@ suite('dependency-graph', function () {
                     [ 'a', {
                         name: 'a',
                         referencedFrom: [ 'foo.js' ],
-                        references: [ { sourceFilePath: 'foo.js', sourceSpecifier: 'a', emittedSpecifier: 'a' } ]
+                        references: [ { targetFilePath: 'foo.js', sourceSpecifier: 'a', emittedSpecifier: 'a' } ]
                     } ],
                     [ 'b', {
                         name: 'b',
                         referencedFrom: [ 'foo.js', 'bar.js' ],
                         references: [
-                            { sourceFilePath: 'foo.js', sourceSpecifier: 'b', emittedSpecifier: 'b' },
-                            { sourceFilePath: 'bar.js', sourceSpecifier: 'b', emittedSpecifier: 'b' }
+                            { targetFilePath: 'foo.js', sourceSpecifier: 'b', emittedSpecifier: 'b' },
+                            { targetFilePath: 'bar.js', sourceSpecifier: 'b', emittedSpecifier: 'b' }
                         ]
                     } ],
                     [ 'c', {
                         name: 'c',
                         referencedFrom: [ 'bar.js' ],
-                        references: [ { sourceFilePath: 'bar.js', sourceSpecifier: 'c', emittedSpecifier: 'c' } ]
+                        references: [ { targetFilePath: 'bar.js', sourceSpecifier: 'c', emittedSpecifier: 'c' } ]
                     } ]
                 ])
             });
@@ -217,14 +224,20 @@ suite('dependency-graph', function () {
 
             graph.addDependency('foo.js', {
                 sourceMapFilePath: Maybe.just('foo.js.map'),
-                externalDependencies: []
+                externalDependencies: [],
+                moduleReferences: []
             });
 
             const result = graph.flatten('foo.js');
 
             assert.deepStrictEqual(result.localFiles, [
-                { directDependencies: new Set(), filePath: 'foo.js.map', project: undefined },
-                { directDependencies: new Set([ 'foo.js.map' ]), filePath: 'foo.js', project: undefined }
+                { directDependencies: new Set(), filePath: 'foo.js.map', moduleReferences: [], project: undefined },
+                {
+                    directDependencies: new Set([ 'foo.js.map' ]),
+                    filePath: 'foo.js',
+                    moduleReferences: [],
+                    project: undefined
+                }
             ]);
         });
     });
@@ -232,8 +245,8 @@ suite('dependency-graph', function () {
     test('mergeDependencyFiles() merges two sets of dependency files', function () {
         const firstSet: DependencyFiles = {
             localFiles: [
-                { filePath: 'foo.js', directDependencies: new Set() },
-                { filePath: 'bar.js', directDependencies: new Set() }
+                { filePath: 'foo.js', directDependencies: new Set(), moduleReferences: [] },
+                { filePath: 'bar.js', directDependencies: new Set(), moduleReferences: [] }
             ],
             externalDependencies: new Map([
                 [ 'a', { name: 'a', referencedFrom: [ 'foo.js' ] } ],
@@ -242,8 +255,8 @@ suite('dependency-graph', function () {
         };
         const secondSet: DependencyFiles = {
             localFiles: [
-                { filePath: 'bar.js', directDependencies: new Set() },
-                { filePath: 'baz.js', directDependencies: new Set() }
+                { filePath: 'bar.js', directDependencies: new Set(), moduleReferences: [] },
+                { filePath: 'baz.js', directDependencies: new Set(), moduleReferences: [] }
             ],
             externalDependencies: new Map([
                 [ 'b', { name: 'b', referencedFrom: [ 'baz.js' ] } ],
@@ -254,9 +267,9 @@ suite('dependency-graph', function () {
 
         assert.deepStrictEqual(result, {
             localFiles: [
-                { filePath: 'foo.js', directDependencies: new Set() },
-                { filePath: 'bar.js', directDependencies: new Set() },
-                { filePath: 'baz.js', directDependencies: new Set() }
+                { filePath: 'foo.js', directDependencies: new Set(), moduleReferences: [] },
+                { filePath: 'bar.js', directDependencies: new Set(), moduleReferences: [] },
+                { filePath: 'baz.js', directDependencies: new Set(), moduleReferences: [] }
             ],
             externalDependencies: new Map([
                 [ 'a', { name: 'a', referencedFrom: [ 'foo.js' ] } ],

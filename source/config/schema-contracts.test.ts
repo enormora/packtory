@@ -27,7 +27,7 @@ suite('schema-contracts', function () {
         );
 
         assert.deepStrictEqual(result, {
-            additionalFileShape: [ 'sourceFilePath', 'targetFilePath' ],
+            additionalFileShape: [ 'inputFilePath', 'targetFilePath' ],
             rootShape: [ 'js', 'declarationFile' ],
             registrySettingsShape: [ 'registryUrl', 'auth' ],
             mainPackageJsonShape: [ 'type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports' ],
@@ -277,7 +277,7 @@ suite('schema-contracts', function () {
 
             console.log(JSON.stringify({
                 validAdditionalFileSuccess: safeParse(additionalFileDescriptionSchema, {
-                    sourceFilePath: 'README.md',
+                    inputFilePath: 'README.md',
                     targetFilePath: 'README.md'
                 }).success,
                 missingAdditionalFileSourceSuccess: safeParse(additionalFileDescriptionSchema, {

@@ -1,5 +1,6 @@
 import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
 import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
+import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { PackageSurface } from '../package-surface/surface.ts';
 import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
 
@@ -14,12 +15,20 @@ export type LinkedBundle = {
     readonly surface: PackageSurface;
     readonly exportPackageJson?: true | undefined;
     readonly linkedBundleDependencies: ExternalDependencies;
-    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly externalDependencies: ExternalDependencies;
 };
 
-export type BundleSubstitutionSource = Pick<LinkedBundle, 'contents' | 'name' | 'roots' | 'surface'>;
+export type BundleSubstitutionSource = {
+    readonly contents: readonly {
+        readonly directDependencies: ReadonlySet<string>;
+        readonly fileDescription: TransferableFileDescription;
+    }[];
+    readonly name: string;
+    readonly roots: Readonly<Record<string, RootFileDescription>>;
+    readonly surface: PackageSurface;
+};
 type BundleWithContents<TResource extends { readonly isSubstituted: boolean; }> = {
     readonly contents: readonly TResource[];
 };

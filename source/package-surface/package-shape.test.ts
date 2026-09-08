@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { buildExportEntry, toImportTarget, type RootFileDescription } from './package-shape.ts';
 
 const baseRoot: RootFileDescription = {
-    js: { sourceFilePath: '/src/index.ts', targetFilePath: 'index.js', isExecutable: false, content: '' }
+    js: { inputFilePath: '/src/index.ts', targetFilePath: 'index.js', isExecutable: false, content: '' }
 };
 
 suite('package-shape', function () {
@@ -19,7 +19,7 @@ suite('package-shape', function () {
     test('buildExportEntry includes a "types" target when the root has an attached declaration file', function () {
         const root: RootFileDescription = {
             ...baseRoot,
-            declarationFile: { sourceFilePath: '/src/index.d.ts', targetFilePath: 'index.d.ts' }
+            declarationFile: { inputFilePath: '/src/index.d.ts', targetFilePath: 'index.d.ts' }
         };
 
         assert.deepStrictEqual(buildExportEntry(root), { import: './index.js', types: './index.d.ts' });

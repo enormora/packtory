@@ -6,12 +6,12 @@ import { collectFileOwnership } from './file-ownership.ts';
 
 function bundle(
     name: string,
-    files: readonly { readonly sourceFilePath: string; readonly survivingBindings: readonly string[]; }[]
+    files: readonly { readonly inputFilePath: string; readonly survivingBindings: readonly string[]; }[]
 ): AnalyzedBundle {
     return analyzedBundle({
         name,
         contents: files.map(function (file) {
-            return analyzedBundleResource(file.sourceFilePath, {
+            return analyzedBundleResource(file.inputFilePath, {
                 analysis: { survivingBindings: new Set(file.survivingBindings) }
             });
         })
@@ -26,15 +26,15 @@ suite('file-ownership', function () {
 
     test('collectFileOwnership keys ownership entries by source file path', function () {
         const ownership = collectFileOwnership([
-            bundle('pkg-a', [ { sourceFilePath: '/src/a.ts', survivingBindings: [ 'x' ] } ])
+            bundle('pkg-a', [ { inputFilePath: '/src/a.ts', survivingBindings: [ 'x' ] } ])
         ]);
         assert.deepStrictEqual(Array.from(ownership.keys()), [ '/src/a.ts' ]);
     });
 
     test('collectFileOwnership accumulates one owner per bundle that contains the file', function () {
         const ownership = collectFileOwnership([
-            bundle('pkg-a', [ { sourceFilePath: '/src/shared.ts', survivingBindings: [ 'x' ] } ]),
-            bundle('pkg-b', [ { sourceFilePath: '/src/shared.ts', survivingBindings: [ 'y' ] } ])
+            bundle('pkg-a', [ { inputFilePath: '/src/shared.ts', survivingBindings: [ 'x' ] } ]),
+            bundle('pkg-b', [ { inputFilePath: '/src/shared.ts', survivingBindings: [ 'y' ] } ])
         ]);
 
         const owners = ownership.get('/src/shared.ts');

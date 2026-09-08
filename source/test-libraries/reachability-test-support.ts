@@ -1,16 +1,43 @@
 import assert from 'node:assert';
+import path from 'node:path';
+import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import { extractTopLevelBindings } from '../dead-code-eliminator/reachability/binding-extractor.ts';
 import { bindingId } from '../dead-code-eliminator/reachability/binding-id.ts';
 import type { FileBindings } from '../dead-code-eliminator/reachability/local-seed-gathering.ts';
 import { buildReachabilityIndex, type ReachabilityIndex } from '../dead-code-eliminator/reachability/reachability.ts';
+import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import { createProject } from './typescript-project.ts';
 
 export const probeTestTimeoutMs = 10_000;
 
+function localModuleReferences(filePath: string, content: string): readonly ArtifactModuleReference[] {
+    const project = createProject({ withFiles: [ { filePath, content } ] });
+    const sourceFile = project.getSourceFileOrThrow(filePath);
+    return getModuleReferenceLiterals(sourceFile).flatMap(function (literal) {
+        const specifier = literal.getLiteralValue();
+        if (!specifier.startsWith('.')) {
+            return [];
+        }
+        return {
+            type: 'local-code',
+            sourceSpecifier: specifier,
+            emittedSpecifier: specifier,
+            targetFilePath: path.posix.normalize(path.posix.join(path.posix.dirname(filePath), specifier))
+        };
+    });
+}
+
 export function fileBindingsFor(filePath: string, content: string): FileBindings {
     const project = createProject({ withFiles: [ { filePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(filePath);
-    return { sourceFilePath: filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
+    return {
+        inputFilePath: filePath,
+        parsedInputFilePath: sourceFile.getFilePath(),
+        targetFilePath: filePath,
+        moduleReferences: localModuleReferences(filePath, content),
+        sourceFile,
+        bindings: extractTopLevelBindings(sourceFile)
+    };
 }
 
 export function multiFileBindingsFor(
@@ -23,7 +50,14 @@ export function multiFileBindingsFor(
     });
     return files.map(function (file) {
         const sourceFile = project.getSourceFileOrThrow(file.filePath);
-        return { sourceFilePath: file.filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
+        return {
+            inputFilePath: file.filePath,
+            parsedInputFilePath: sourceFile.getFilePath(),
+            targetFilePath: file.filePath,
+            moduleReferences: localModuleReferences(file.filePath, file.content),
+            sourceFile,
+            bindings: extractTopLevelBindings(sourceFile)
+        };
     });
 }
 

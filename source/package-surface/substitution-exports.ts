@@ -8,24 +8,24 @@ import { toImportTarget, type BundleLike, type ExportEntry } from './package-sha
 type SubstitutionBundle = Pick<BundleLike, 'contents' | 'name' | 'roots'>;
 type BundleContent = BundleLike['contents'][number];
 type SubstitutionBundleLookups = {
-    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly contentByInputFilePath: ReadonlyMap<string, BundleContent>;
     readonly hasDeclarationRoots: boolean;
     readonly targetFilePaths: ReadonlySet<string>;
-    readonly rootSourceFilePaths: ReadonlySet<string>;
+    readonly rootInputFilePaths: ReadonlySet<string>;
 };
 type BundleContentLookups = {
-    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly contentByInputFilePath: ReadonlyMap<string, BundleContent>;
     readonly targetFilePaths: ReadonlySet<string>;
 };
 
-function collectRootSourceFilePaths(bundle: SubstitutionBundle): ReadonlySet<string> {
-    const rootSourceFilePaths = new Set<string>();
+function collectRootInputFilePaths(bundle: SubstitutionBundle): ReadonlySet<string> {
+    const rootInputFilePaths = new Set<string>();
 
     for (const root of Object.values(bundle.roots)) {
-        rootSourceFilePaths.add(root.js.sourceFilePath);
+        rootInputFilePaths.add(root.js.inputFilePath);
     }
 
-    return rootSourceFilePaths;
+    return rootInputFilePaths;
 }
 
 function hasDeclarationRoots(bundle: SubstitutionBundle): boolean {
@@ -35,41 +35,41 @@ function hasDeclarationRoots(bundle: SubstitutionBundle): boolean {
 }
 
 function collectBundleContentLookups(bundle: SubstitutionBundle): BundleContentLookups {
-    const contentBySourceFilePath = new Map<string, BundleContent>();
+    const contentByInputFilePath = new Map<string, BundleContent>();
     const targetFilePaths = new Set<string>();
 
     for (const entry of bundle.contents) {
-        const { sourceFilePath, targetFilePath } = entry.fileDescription;
+        const { inputFilePath, targetFilePath } = entry.fileDescription;
 
-        if (!contentBySourceFilePath.has(sourceFilePath)) {
-            contentBySourceFilePath.set(sourceFilePath, entry);
+        if (!contentByInputFilePath.has(inputFilePath)) {
+            contentByInputFilePath.set(inputFilePath, entry);
         }
 
         targetFilePaths.add(targetFilePath);
     }
 
-    return { contentBySourceFilePath, targetFilePaths };
+    return { contentByInputFilePath, targetFilePaths };
 }
 
 function createSubstitutionBundleLookups(bundle: SubstitutionBundle): SubstitutionBundleLookups {
-    const { contentBySourceFilePath, targetFilePaths } = collectBundleContentLookups(bundle);
+    const { contentByInputFilePath, targetFilePaths } = collectBundleContentLookups(bundle);
 
     return {
-        contentBySourceFilePath,
+        contentByInputFilePath,
         hasDeclarationRoots: hasDeclarationRoots(bundle),
         targetFilePaths,
-        rootSourceFilePaths: collectRootSourceFilePaths(bundle)
+        rootInputFilePaths: collectRootInputFilePaths(bundle)
     };
 }
 
 function findBundleContent(
     bundleName: string,
-    contentBySourceFilePath: ReadonlyMap<string, BundleContent>,
-    sourceFilePath: string
+    contentByInputFilePath: ReadonlyMap<string, BundleContent>,
+    inputFilePath: string
 ): BundleContent {
-    const content = contentBySourceFilePath.get(sourceFilePath);
+    const content = contentByInputFilePath.get(inputFilePath);
     if (content === undefined) {
-        throw new Error(`Package "${bundleName}" is missing content for "${sourceFilePath}"`);
+        throw new Error(`Package "${bundleName}" is missing content for "${inputFilePath}"`);
     }
 
     return content;
@@ -131,13 +131,13 @@ function declarationTargetFilePathFor(
 function buildSubstitutionExportEntry(
     bundleName: string,
     lookups: SubstitutionBundleLookups,
-    sourceFilePath: string
+    inputFilePath: string
 ): readonly [string, ExportEntry] | undefined {
-    if (lookups.rootSourceFilePaths.has(sourceFilePath)) {
+    if (lookups.rootInputFilePaths.has(inputFilePath)) {
         return undefined;
     }
 
-    const content = findBundleContent(bundleName, lookups.contentBySourceFilePath, sourceFilePath);
+    const content = findBundleContent(bundleName, lookups.contentByInputFilePath, inputFilePath);
     const jsTargetFilePath = content.fileDescription.targetFilePath;
     if (isDeclarationCompanionFilePath(jsTargetFilePath)) {
         return [
@@ -165,8 +165,8 @@ export function collectSubstitutionExports(
     const lookups = createSubstitutionBundleLookups(bundle);
     const substitutionExports: Record<string, ExportEntry> = {};
 
-    for (const sourceFilePath of substitutionPublicModuleSourcePaths) {
-        const entry = buildSubstitutionExportEntry(bundle.name, lookups, sourceFilePath);
+    for (const inputFilePath of substitutionPublicModuleSourcePaths) {
+        const entry = buildSubstitutionExportEntry(bundle.name, lookups, inputFilePath);
         if (entry !== undefined) {
             const [ exportKey, exportEntry ] = entry;
             substitutionExports[exportKey] = exportEntry;

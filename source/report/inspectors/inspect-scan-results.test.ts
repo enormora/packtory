@@ -6,8 +6,8 @@ suite('inspect-scan-results', function () {
     test('inspectScanResults returns included files with reason "reachable-from-entry"', function () {
         const bundle = {
             contents: [
-                { fileDescription: { sourceFilePath: '/src/a.ts' } },
-                { fileDescription: { sourceFilePath: '/src/b.ts' } }
+                { fileDescription: { inputFilePath: '/src/a.ts' } },
+                { fileDescription: { inputFilePath: '/src/b.ts' } }
             ],
             externalDependencies: new Map<string, unknown>()
         };

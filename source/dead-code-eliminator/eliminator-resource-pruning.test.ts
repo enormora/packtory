@@ -11,13 +11,13 @@ import {
 } from '../test-libraries/eliminator-test-support.ts';
 
 function resource(
-    sourceFilePath: string,
+    inputFilePath: string,
     content: string,
     targetFilePath: string,
     directDependencies: ReadonlySet<string> = new Set<string>()
 ): LinkedBundleResource {
     return {
-        ...bundleResource(sourceFilePath, { content, directDependencies, targetFilePath }),
+        ...bundleResource(inputFilePath, { content, directDependencies, targetFilePath }),
         isSubstituted: false
     };
 }
@@ -26,9 +26,9 @@ function bundle(contents: readonly LinkedBundleResource[]): LinkedBundle {
     return linkedBundle({ name: 'a', contents });
 }
 
-function explicitResource(sourceFilePath: string, content: string, targetFilePath: string): LinkedBundleResource {
+function explicitResource(inputFilePath: string, content: string, targetFilePath: string): LinkedBundleResource {
     return {
-        ...resource(sourceFilePath, content, targetFilePath),
+        ...resource(inputFilePath, content, targetFilePath),
         isExplicitlyIncluded: true
     };
 }
@@ -123,7 +123,7 @@ suite('eliminator resource pruning', function () {
             const declarationRoot = {
                 content: 'export type Api = string;\n',
                 isExecutable: false,
-                sourceFilePath: '/src/index.d.ts',
+                inputFilePath: '/src/index.d.ts',
                 targetFilePath: 'index.d.ts'
             };
             const input = linkedBundle({
@@ -144,7 +144,7 @@ suite('eliminator resource pruning', function () {
                         js: {
                             content: '',
                             isExecutable: false,
-                            sourceFilePath: '/src/index.js',
+                            inputFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         },
                         declarationFile: declarationRoot

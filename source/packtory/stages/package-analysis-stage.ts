@@ -8,52 +8,52 @@ export type PackageAnalysisDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
 };
 
-function mergeSourceFilePaths(
+function mergeInputFilePaths(
     existing: ReadonlySet<string> | undefined,
-    sourceFilePaths: ReadonlySet<string>
+    inputFilePaths: ReadonlySet<string>
 ): Set<string> {
     const merged = new Set(existing);
-    for (const sourceFilePath of sourceFilePaths) {
-        merged.add(sourceFilePath);
+    for (const inputFilePath of inputFilePaths) {
+        merged.add(inputFilePath);
     }
     return merged;
 }
 
-function withSubstitutionPublicModuleSourceFilePaths(
-    sourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+function withSubstitutionPublicModuleInputFilePaths(
+    inputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
     packageName: string,
-    sourceFilePaths: ReadonlySet<string>
+    inputFilePaths: ReadonlySet<string>
 ): ReadonlyMap<string, ReadonlySet<string>> {
-    const updated = new Map(sourceFilePathsByPackageName);
+    const updated = new Map(inputFilePathsByPackageName);
     updated.set(
         packageName,
-        mergeSourceFilePaths(sourceFilePathsByPackageName.get(packageName), sourceFilePaths)
+        mergeInputFilePaths(inputFilePathsByPackageName.get(packageName), inputFilePaths)
     );
     return updated;
 }
 
-function collectSubstitutionPublicModuleSourceFilePaths(
+function collectSubstitutionPublicModuleInputFilePaths(
     linkedPackages: readonly LinkedPackage[]
 ): ReadonlyMap<string, ReadonlySet<string>> {
-    let sourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+    let inputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
     for (const linkedPackage of linkedPackages) {
-        const substitutions = linkedPackage.linkedBundle.substitutedSourceFilePathsByPackageName;
-        for (const [ packageName, sourceFilePaths ] of substitutions) {
-            sourceFilePathsByPackageName = withSubstitutionPublicModuleSourceFilePaths(
-                sourceFilePathsByPackageName,
+        const substitutions = linkedPackage.linkedBundle.substitutedInputFilePathsByPackageName;
+        for (const [ packageName, inputFilePaths ] of substitutions) {
+            inputFilePathsByPackageName = withSubstitutionPublicModuleInputFilePaths(
+                inputFilePathsByPackageName,
                 packageName,
-                sourceFilePaths
+                inputFilePaths
             );
         }
     }
-    return sourceFilePathsByPackageName;
+    return inputFilePathsByPackageName;
 }
 
-function substitutionPublicModuleSourceFilePathsFor(
-    sourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+function substitutionPublicModuleInputFilePathsFor(
+    inputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
     packageName: string
 ): ReadonlySet<string> {
-    return sourceFilePathsByPackageName.get(packageName) ?? new Set<string>();
+    return inputFilePathsByPackageName.get(packageName) ?? new Set<string>();
 }
 
 export async function analyzeResolvedPackages(
@@ -62,7 +62,7 @@ export async function analyzeResolvedPackages(
     linkedPackages: readonly LinkedPackage[]
 ): Promise<readonly ResolvedPackage[]> {
     const deadCodeEliminationByName = resolveDeadCodeEliminationByName(config);
-    const publicSubstitutionPathsByName = collectSubstitutionPublicModuleSourceFilePaths(linkedPackages);
+    const publicSubstitutionPathsByName = collectSubstitutionPublicModuleInputFilePaths(linkedPackages);
     const analyzedBundles = await dependencies.deadCodeEliminator.eliminate(
         linkedPackages.map(function (linkedPackage) {
             const deadCodeElimination = deadCodeEliminationByName.get(linkedPackage.name);
@@ -72,7 +72,7 @@ export async function analyzeResolvedPackages(
             return {
                 bundle: linkedPackage.linkedBundle,
                 transformationsEnabled: deadCodeElimination?.enabled ?? true,
-                substitutionPublicModuleSourceFilePaths: substitutionPublicModuleSourceFilePathsFor(
+                substitutionPublicModuleInputFilePaths: substitutionPublicModuleInputFilePathsFor(
                     publicSubstitutionPathsByName,
                     linkedPackage.name
                 ),

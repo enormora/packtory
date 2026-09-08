@@ -39,17 +39,17 @@ export function buildResult(overrides: Parameters<typeof createBuildResultFixtur
     return createBuildResultFixture({
         contents: [
             createAnalyzedResource({
-                sourceFilePath: '/workspace/src/index.js',
+                inputFilePath: '/workspace/src/index.js',
                 targetFilePath: 'src/index.js',
                 content: 'export const kept = 1;\n'
             }),
             createAnalyzedResource({
-                sourceFilePath: '/workspace/src/index.js.map',
+                inputFilePath: '/workspace/src/index.js.map',
                 targetFilePath: 'src/index.js.map',
                 content: '{"version":3}'
             }),
             createAnalyzedResource({
-                sourceFilePath: '/workspace/types/index.d.ts',
+                inputFilePath: '/workspace/types/index.d.ts',
                 targetFilePath: 'types/index.d.ts',
                 content: 'export declare const kept: number;\n'
             })
@@ -238,7 +238,7 @@ function singleArtifactResult(options: SingleArtifactDocumentOptions, artifactSo
             createBuildResultFixture({
                 contents: [
                     createAnalyzedResource({
-                        sourceFilePath: artifactSourcePath,
+                        inputFilePath: artifactSourcePath,
                         targetFilePath: 'index.js',
                         content: options.emittedContent ?? 'export const same = 1;\n'
                     })
@@ -293,7 +293,7 @@ export async function buildChangedSourceDiffDocument(
             createBuildResultFixture({
                 contents: [
                     createAnalyzedResource({
-                        sourceFilePath: '/workspace/src/index.js',
+                        inputFilePath: '/workspace/src/index.js',
                         targetFilePath: 'src/index.js',
                         content: emittedContent
                     })

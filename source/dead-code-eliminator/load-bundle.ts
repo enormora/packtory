@@ -31,6 +31,10 @@ export type LoadedBundle = {
     readonly reachability: ReachabilityIndex;
 };
 
+function parseFilePathFor(resource: LinkedBundleResource): string {
+    return `/.packtory-artifacts/${resource.fileDescription.targetFilePath}`;
+}
+
 function projectForResource(
     runtimeProject: Project,
     declarationProject: Project,
@@ -49,7 +53,7 @@ function loadResource(
     }
     const project = projectForResource(runtimeProject, declarationProject, resource);
     const sourceFile = project.createSourceFile(
-        resource.fileDescription.sourceFilePath,
+        parseFilePathFor(resource),
         resource.fileDescription.content,
         { overwrite: true }
     );
@@ -61,7 +65,10 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
     for (const entry of loaded) {
         if (entry.sourceFile !== undefined) {
             result.push({
-                sourceFilePath: entry.resource.fileDescription.sourceFilePath,
+                inputFilePath: entry.resource.fileDescription.inputFilePath,
+                parsedInputFilePath: entry.sourceFile.getFilePath(),
+                targetFilePath: entry.resource.fileDescription.targetFilePath,
+                moduleReferences: entry.resource.moduleReferences,
                 sourceFile: entry.sourceFile,
                 bindings: entry.bindings
             });
@@ -70,17 +77,33 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
     return result;
 }
 
-function substitutionPublicModuleFilePathsFor(
-    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+function targetFilePathByInputFilePath(resources: readonly LinkedBundleResource[]): ReadonlyMap<string, string> {
+    return new Map(
+        resources.map(function (resource) {
+            return [ resource.fileDescription.inputFilePath, resource.fileDescription.targetFilePath ];
+        })
+    );
+}
+
+function substitutionPublicModuleTargetPathsFor(
+    substitutionPublicModuleInputFilePaths: ReadonlySet<string>,
+    targetPathsByInputPath: ReadonlyMap<string, string>
 ): ReadonlySet<string> {
-    const paths = new Set<string>();
-    for (const sourceFilePath of substitutionPublicModuleSourceFilePaths) {
-        paths.add(sourceFilePath);
-        for (const companionPath of declarationCompanionCandidates(sourceFilePath)) {
-            paths.add(companionPath);
-        }
-    }
-    return paths;
+    return new Set(
+        Array
+            .from(
+                substitutionPublicModuleInputFilePaths,
+                function (inputFilePath) {
+                    return targetPathsByInputPath.get(inputFilePath);
+                }
+            )
+            .filter(function (targetFilePath): targetFilePath is string {
+                return targetFilePath !== undefined;
+            })
+            .flatMap(function (targetFilePath) {
+                return [ targetFilePath, ...declarationCompanionCandidates(targetFilePath) ];
+            })
+    );
 }
 
 function rootFilePathsFor(bundle: LinkedBundle, rootId: string): readonly string[] {
@@ -89,19 +112,20 @@ function rootFilePathsFor(bundle: LinkedBundle, rootId: string): readonly string
         throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its entry surface`);
     }
     return root.declarationFile === undefined
-        ? [ root.js.sourceFilePath ]
-        : [ root.js.sourceFilePath, root.declarationFile.sourceFilePath ];
+        ? [ root.js.targetFilePath ]
+        : [ root.js.targetFilePath, root.declarationFile.targetFilePath ];
 }
 
 function entryRootFilePathsFor(
     bundle: LinkedBundle,
-    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+    substitutionPublicModuleInputFilePaths: ReadonlySet<string>
 ): ReadonlySet<string> {
+    const targetPathsByInputPath = targetFilePathByInputFilePath(bundle.contents);
     return new Set([
         ...Array.from(getEntryRootIds(bundle)).flatMap(function (rootId) {
             return rootFilePathsFor(bundle, rootId);
         }),
-        ...substitutionPublicModuleFilePathsFor(substitutionPublicModuleSourceFilePaths)
+        ...substitutionPublicModuleTargetPathsFor(substitutionPublicModuleInputFilePaths, targetPathsByInputPath)
     ]);
 }
 
@@ -119,7 +143,7 @@ export function loadBundle(
     const reachability = buildReachabilityIndex({
         bundleName: input.bundle.name,
         files: fileBindings,
-        entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleSourceFilePaths),
+        entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleInputFilePaths),
         deadCodeElimination: input.deadCodeElimination,
         trace
     });

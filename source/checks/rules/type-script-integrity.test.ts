@@ -89,7 +89,7 @@ function binOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
                 js: {
                     content: '',
                     isExecutable: true,
-                    sourceFilePath: 'cli.js',
+                    inputFilePath: 'cli.js',
                     targetFilePath: 'cli.js'
                 },
                 ...hasDeclaration
@@ -97,7 +97,7 @@ function binOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
                         declarationFile: {
                             content: '',
                             isExecutable: false,
-                            sourceFilePath: 'cli.d.ts',
+                            inputFilePath: 'cli.d.ts',
                             targetFilePath: 'cli.d.ts'
                         }
                     }
@@ -120,7 +120,7 @@ function moduleAndBinBundle(name: string): CheckBundle {
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: 'index.js',
+                    inputFilePath: 'index.js',
                     targetFilePath: 'index.js'
                 }
             },
@@ -128,7 +128,7 @@ function moduleAndBinBundle(name: string): CheckBundle {
                 js: {
                     content: '',
                     isExecutable: true,
-                    sourceFilePath: 'cli.js',
+                    inputFilePath: 'cli.js',
                     targetFilePath: 'cli.js'
                 }
             }

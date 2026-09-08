@@ -5,7 +5,7 @@ import { inspectLinkerRewrites } from './inspect-linker-rewrites.ts';
 suite('inspect-linker-rewrites', function () {
     test('inspectLinkerRewrites returns no rewrites when no resource is substituted', function () {
         const rewrites = inspectLinkerRewrites({
-            contents: [ { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: false } ],
+            contents: [ { fileDescription: { inputFilePath: '/src/a.ts' }, isSubstituted: false } ],
             linkedBundleDependencies: new Map<string, unknown>([ [ 'pkg-b', {} ] ])
         });
 
@@ -15,8 +15,8 @@ suite('inspect-linker-rewrites', function () {
     test('inspectLinkerRewrites emits one rewrite per substituted resource per linked bundle', function () {
         const rewrites = inspectLinkerRewrites({
             contents: [
-                { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true },
-                { fileDescription: { sourceFilePath: '/src/b.ts' }, isSubstituted: true }
+                { fileDescription: { inputFilePath: '/src/a.ts' }, isSubstituted: true },
+                { fileDescription: { inputFilePath: '/src/b.ts' }, isSubstituted: true }
             ],
             linkedBundleDependencies: new Map<string, unknown>([
                 [ 'pkg-b', {} ],
@@ -43,7 +43,7 @@ suite('inspect-linker-rewrites', function () {
 
     test('inspectLinkerRewrites returns an empty array when there are no linked bundle dependencies', function () {
         const rewrites = inspectLinkerRewrites({
-            contents: [ { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true } ],
+            contents: [ { fileDescription: { inputFilePath: '/src/a.ts' }, isSubstituted: true } ],
             linkedBundleDependencies: new Map<string, unknown>()
         });
 
@@ -53,8 +53,8 @@ suite('inspect-linker-rewrites', function () {
     test('inspectLinkerRewrites emits rewrites only for the substituted resources when the bundle mixes substituted and unmodified files', function () {
         const rewrites = inspectLinkerRewrites({
             contents: [
-                { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true },
-                { fileDescription: { sourceFilePath: '/src/b.ts' }, isSubstituted: false }
+                { fileDescription: { inputFilePath: '/src/a.ts' }, isSubstituted: true },
+                { fileDescription: { inputFilePath: '/src/b.ts' }, isSubstituted: false }
             ],
             linkedBundleDependencies: new Map<string, unknown>([ [ 'pkg-b', {} ] ])
         });

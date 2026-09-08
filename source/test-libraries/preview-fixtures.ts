@@ -12,12 +12,13 @@ export function createAnalyzedResource(
 ): AnalyzedBundleResource {
     return {
         fileDescription: {
-            sourceFilePath: overrides.sourceFilePath ?? '/workspace/src/index.js',
+            inputFilePath: overrides.inputFilePath ?? '/workspace/src/index.js',
             targetFilePath: overrides.targetFilePath ?? 'src/index.js',
             content: overrides.content ?? 'export const kept = 1;\n',
             isExecutable: overrides.isExecutable ?? false
         },
         directDependencies: new Set<string>(),
+        moduleReferences: [],
         isExplicitlyIncluded: false,
         isSubstituted: false,
         analysis: {

@@ -1,7 +1,7 @@
 import { unique } from 'remeda';
 
 export type DependencyReference = {
-    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
     readonly sourceSpecifier: string;
     readonly emittedSpecifier: string;
 };
@@ -30,7 +30,7 @@ function uniqueReferences(
     const result: DependencyReference[] = [];
 
     for (const reference of references) {
-        const key = `${reference.sourceFilePath}\0${reference.sourceSpecifier}\0${reference.emittedSpecifier}`;
+        const key = `${reference.targetFilePath}\0${reference.sourceSpecifier}\0${reference.emittedSpecifier}`;
         if (!keys.has(key)) {
             keys.add(key);
             result.push(reference);
@@ -43,17 +43,17 @@ function uniqueReferences(
 
 function createExternalDependency(
     name: string,
-    sourceFilePath: string,
+    targetFilePath: string,
     specifier: DependencySpecifierReference
 ): ExternalDependency {
     const reference = {
-        sourceFilePath,
+        targetFilePath,
         sourceSpecifier: specifier.sourceSpecifier,
         emittedSpecifier: specifier.emittedSpecifier
     };
     return {
         name,
-        referencedFrom: [ sourceFilePath ],
+        referencedFrom: [ targetFilePath ],
         references: [ reference ]
     };
 }
@@ -87,10 +87,10 @@ export function mergeExternalDependencies(
 
 export function mergeExternalDependencyReference(
     reference: NamedDependencySpecifierReference,
-    sourceFilePath: string,
+    targetFilePath: string,
     existingDependency: ExternalDependency | undefined
 ): ExternalDependency {
-    const dependency = createExternalDependency(reference.name, sourceFilePath, reference);
+    const dependency = createExternalDependency(reference.name, targetFilePath, reference);
     if (existingDependency === undefined) {
         return dependency;
     }

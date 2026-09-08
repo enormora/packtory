@@ -15,6 +15,7 @@ type ResolvedContentDescription = {
     readonly project?: Project;
     readonly isExplicitlyIncluded?: boolean;
     readonly isGeneratedManifest?: true;
+    readonly targetFilePath?: string;
 };
 
 function buildInputGraph(
@@ -22,7 +23,7 @@ function buildInputGraph(
     entryPath = '/entry.js'
 ): ResourceGraph {
     const root = {
-        js: { content: '', isExecutable: false, sourceFilePath: entryPath, targetFilePath: 'entry.js' },
+        js: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createGraphFromResolvedBundle({
@@ -30,7 +31,10 @@ function buildInputGraph(
             return {
                 ...bundleResource(entry.source, {
                     content: entry.content,
-                    directDependencies: new Set(entry.directDependencies),
+                    ...entry.targetFilePath === undefined ? {} : { targetFilePath: entry.targetFilePath },
+                    directDependencies: new Set((entry.directDependencies ?? []).map(function (filePath) {
+                        return filePath.replace(/^\//u, '');
+                    })),
                     isExplicitlyIncluded: entry.isExplicitlyIncluded ?? false
                 }),
                 project: entry.project,
@@ -52,23 +56,23 @@ function emptySubstitutionAnalysis(): FileAnalysis {
     };
 }
 
-function bundleSource(packageName: string, sourceFilePath: string, isSubstituted = false): VersionedBundleWithManifest {
-    const targetFilePath = sourceFilePath.replace(/^\//u, '');
+function bundleSource(packageName: string, inputFilePath: string, isSubstituted = false): VersionedBundleWithManifest {
+    const targetFilePath = inputFilePath.replace(/^\//u, '');
     return versionedBundleWithManifest({
         name: packageName,
         version: '21',
-        roots: { main: { js: { content: '', isExecutable: false, sourceFilePath, targetFilePath } } },
+        roots: { main: { js: { content: '', isExecutable: false, inputFilePath, targetFilePath } } },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         contents: [
             {
-                ...bundleResource(sourceFilePath, { targetFilePath }),
+                ...bundleResource(inputFilePath, { targetFilePath }),
                 isSubstituted,
                 analysis: emptySubstitutionAnalysis()
             }
         ],
         packageJson: { name: packageName, version: '21' },
         exportsField: { '.': { import: `./${targetFilePath}` } },
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
+        mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
     });
 }
@@ -79,7 +83,7 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
         version: '21',
         roots: {
             main: {
-                js: { content: '', isExecutable: false, sourceFilePath: '/foo.js', targetFilePath: 'foo.js' }
+                js: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -97,21 +101,24 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
         ],
         packageJson: { name: packageName, version: '21' },
         exportsField: { '.': { import: './foo.js' } },
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '/foo.js', targetFilePath: 'foo.js' },
+        mainFile: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
     });
 }
 
 const entryWithFooImport = {
-    directDependencies: new Set([ '/foo.js' ]),
+    directDependencies: new Set([ 'foo.js' ]),
     fileDescription: {
         content: 'import "./foo.js";',
         isExecutable: false,
-        sourceFilePath: '/entry.js',
+        inputFilePath: '/entry.js',
         targetFilePath: 'entry.js'
     },
     isSubstituted: false,
-    isExplicitlyIncluded: false
+    isExplicitlyIncluded: false,
+    moduleReferences: [
+        { type: 'local-code', sourceSpecifier: './foo.js', emittedSpecifier: './foo.js', targetFilePath: 'foo.js' }
+    ]
 } as const;
 
 const fooFileResult = {
@@ -119,11 +126,12 @@ const fooFileResult = {
     fileDescription: {
         content: 'true',
         isExecutable: false,
-        sourceFilePath: '/foo.js',
+        inputFilePath: '/foo.js',
         targetFilePath: 'foo.js'
     },
     isSubstituted: false,
-    isExplicitlyIncluded: false
+    isExplicitlyIncluded: false,
+    moduleReferences: []
 } as const;
 
 const entryFooSetup = [
@@ -135,13 +143,22 @@ function substitutedEntryContent(packageName: string): unknown {
     return {
         directDependencies: new Set(),
         fileDescription: {
-            sourceFilePath: '/entry.js',
+            inputFilePath: '/entry.js',
             isExecutable: false,
             targetFilePath: 'entry.js',
             content: `import "${packageName}";`
         },
         isSubstituted: true,
-        isExplicitlyIncluded: false
+        isExplicitlyIncluded: false,
+        moduleReferences: [
+            {
+                type: 'linked-code',
+                packageName,
+                sourceSpecifier: './foo.js',
+                emittedSpecifier: packageName,
+                targetFilePath: 'foo.js'
+            }
+        ]
     };
 }
 
@@ -153,17 +170,17 @@ function substitutedEntryResult(packageName: string): unknown {
             packageName,
             {
                 name: packageName,
-                referencedFrom: [ '/entry.js' ],
+                referencedFrom: [ 'entry.js' ],
                 references: [
                     {
-                        sourceFilePath: '/entry.js',
+                        targetFilePath: 'entry.js',
                         sourceSpecifier: './foo.js',
                         emittedSpecifier: packageName
                     }
                 ]
             }
         ] ]),
-        substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
+        substitutedInputFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
     };
 }
 
@@ -202,16 +219,28 @@ function entryWithLicenseResult(packageName: string): unknown {
                 fileDescription: {
                     content: 'license text',
                     isExecutable: false,
-                    sourceFilePath: '/LICENSE',
+                    inputFilePath: '/LICENSE',
                     targetFilePath: 'LICENSE'
                 },
                 isSubstituted: false,
-                isExplicitlyIncluded: true
+                isExplicitlyIncluded: true,
+                moduleReferences: []
             }
         ],
         externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
-        substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
+        linkedBundleDependencies: new Map([ [
+            packageName,
+            {
+                name: packageName,
+                referencedFrom: [ 'entry.js' ],
+                references: [ {
+                    targetFilePath: 'entry.js',
+                    sourceSpecifier: './foo.js',
+                    emittedSpecifier: packageName
+                } ]
+            }
+        ] ]),
+        substitutedInputFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
     };
 }
 
@@ -234,7 +263,7 @@ const passthroughResult = {
     contents: [ entryWithFooImport, fooFileResult ],
     externalDependencies: new Map(),
     linkedBundleDependencies: new Map(),
-    substitutedSourceFilePathsByPackageName: new Map(),
+    substitutedInputFilePathsByPackageName: new Map(),
     sourceMapTransformsByTargetPath: new Map()
 } as const;
 
@@ -272,7 +301,7 @@ suite('substitute-bundles', function () {
                     roots: {
                         main: {
                             js: {
-                                sourceFilePath: '/bar.js',
+                                inputFilePath: '/bar.js',
                                 targetFilePath: 'bar.js',
                                 content: '',
                                 isExecutable: false
@@ -299,7 +328,7 @@ suite('substitute-bundles', function () {
                     ],
                     packageJson: { name: 'hidden-package', version: '1.0.0' },
                     exportsField: { '.': { import: './bar.js' } },
-                    mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
+                    mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
                     manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
                 })
             ], []);
@@ -324,7 +353,7 @@ suite('substitute-bundles', function () {
 
             assert.deepStrictEqual(result.linkedBundleDependencies.get('the-package')?.references, [
                 {
-                    sourceFilePath: '/entry.js',
+                    targetFilePath: 'entry.js',
                     sourceSpecifier: 'the-package',
                     emittedSpecifier: 'the-package'
                 }
@@ -395,35 +424,63 @@ suite('substitute-bundles', function () {
 
         assert.partialDeepStrictEqual(result, {
             contents: [
-                {
-                    directDependencies: new Set([ '/foo.js' ]),
-                    fileDescription: {
-                        content: 'import "./foo.js";',
-                        isExecutable: false,
-                        sourceFilePath: '/entry.js',
-                        targetFilePath: 'entry.js'
-                    },
-                    isSubstituted: false,
-                    isExplicitlyIncluded: false
-                },
+                entryWithFooImport,
                 {
                     directDependencies: new Set(),
                     fileDescription: {
                         content: 'import "first-package"; import "second-package";',
                         isExecutable: false,
-                        sourceFilePath: '/foo.js',
+                        inputFilePath: '/foo.js',
                         targetFilePath: 'foo.js'
                     },
                     isSubstituted: true,
-                    isExplicitlyIncluded: false
+                    isExplicitlyIncluded: false,
+                    moduleReferences: [
+                        {
+                            type: 'linked-code',
+                            packageName: 'first-package',
+                            sourceSpecifier: './bar.js',
+                            emittedSpecifier: 'first-package',
+                            targetFilePath: 'bar.js'
+                        },
+                        {
+                            type: 'linked-code',
+                            packageName: 'second-package',
+                            sourceSpecifier: './baz.js',
+                            emittedSpecifier: 'second-package',
+                            targetFilePath: 'baz.js'
+                        }
+                    ]
                 }
             ],
             externalDependencies: new Map(),
             linkedBundleDependencies: new Map([
-                [ 'first-package', { name: 'first-package', referencedFrom: [ '/foo.js' ] } ],
-                [ 'second-package', { name: 'second-package', referencedFrom: [ '/foo.js' ] } ]
+                [
+                    'first-package',
+                    {
+                        name: 'first-package',
+                        referencedFrom: [ 'foo.js' ],
+                        references: [ {
+                            targetFilePath: 'foo.js',
+                            sourceSpecifier: './bar.js',
+                            emittedSpecifier: 'first-package'
+                        } ]
+                    }
+                ],
+                [
+                    'second-package',
+                    {
+                        name: 'second-package',
+                        referencedFrom: [ 'foo.js' ],
+                        references: [ {
+                            targetFilePath: 'foo.js',
+                            sourceSpecifier: './baz.js',
+                            emittedSpecifier: 'second-package'
+                        } ]
+                    }
+                ]
             ]),
-            substitutedSourceFilePathsByPackageName: new Map([
+            substitutedInputFilePathsByPackageName: new Map([
                 [ 'first-package', new Set([ '/bar.js' ]) ],
                 [ 'second-package', new Set([ '/baz.js' ]) ]
             ])
@@ -448,22 +505,13 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(
-            result.contents.find(function (content) {
-                return content.fileDescription.sourceFilePath === '/package.json';
-            }),
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: '{"name":"test"}',
-                    isExecutable: false,
-                    sourceFilePath: '/package.json',
-                    targetFilePath: 'package.json'
-                },
-                isSubstituted: false,
-                isExplicitlyIncluded: false,
-                isGeneratedManifest: true
-            }
-        );
+        const packageJson = result.contents.find(function (content) {
+            return content.fileDescription.inputFilePath === '/package.json';
+        });
+        assert.partialDeepStrictEqual(packageJson, {
+            isGeneratedManifest: true,
+            moduleReferences: [],
+            directDependencies: new Set()
+        });
     });
 });

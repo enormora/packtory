@@ -1,5 +1,5 @@
 import type { Project } from 'ts-morph';
-import { filter, flatMap, pipe } from 'remeda';
+import { flatMap, pipe } from 'remeda';
 import type {
     DependencySpecifierReference,
     ExternalDependencies
@@ -10,13 +10,17 @@ import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolv
 
 export type ResourceGraphNodeData = {
     readonly fileDescription: TransferableFileDescription;
+    readonly moduleReferences: BundleResource['moduleReferences'];
     readonly project?: Project | undefined;
     readonly externalDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
     readonly isExplicitlyIncluded: boolean;
     readonly isGeneratedManifest?: true | undefined;
 };
 
-export type ResourceGraph = DirectedGraph<string, ResourceGraphNodeData>;
+export type ResourceGraph = DirectedGraph<string, ResourceGraphNodeData> & {
+    readonly inputFilePathByTargetFilePath: ReadonlyMap<string, string>;
+    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
+};
 
 function collectResourceSpecificExternalDependencies(
     resource: BundleResource,
@@ -24,51 +28,82 @@ function collectResourceSpecificExternalDependencies(
 ): readonly (DependencySpecifierReference & { readonly name: string; })[] {
     return pipe(
         Array.from(externalDependencies.values()),
-        filter(function (dependency) {
-            return dependency.referencedFrom.includes(resource.fileDescription.sourceFilePath);
-        }),
         flatMap(function (dependency) {
             const references = dependency.references?.filter(function (reference) {
-                return reference.sourceFilePath === resource.fileDescription.sourceFilePath;
+                return reference.targetFilePath === resource.fileDescription.targetFilePath;
             });
-            if (references === undefined || references.length === 0) {
+            if (references !== undefined) {
+                return references.map(function (reference) {
+                    return {
+                        name: dependency.name,
+                        sourceSpecifier: reference.sourceSpecifier,
+                        emittedSpecifier: reference.emittedSpecifier
+                    };
+                });
+            }
+            if (dependency.referencedFrom.includes(resource.fileDescription.targetFilePath)) {
                 return [ {
                     name: dependency.name,
                     sourceSpecifier: dependency.name,
                     emittedSpecifier: dependency.name
                 } ];
             }
-            return references.map(function (reference) {
-                return {
-                    name: dependency.name,
-                    sourceSpecifier: reference.sourceSpecifier,
-                    emittedSpecifier: reference.emittedSpecifier
-                };
-            });
+            return [];
         })
     );
 }
 
-export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceGraph {
-    const graph = createDirectedGraph<string, ResourceGraphNodeData>();
+function targetPathIndexes(bundle: ResolvedBundle): Pick<
+    ResourceGraph,
+    'inputFilePathByTargetFilePath' | 'targetFilePathByInputFilePath'
+> {
+    const inputFilePathByTargetFilePath = new Map<string, string>();
+    const targetFilePathByInputFilePath = new Map<string, string>();
+    for (const resource of bundle.contents) {
+        inputFilePathByTargetFilePath.set(
+            resource.fileDescription.targetFilePath,
+            resource.fileDescription.inputFilePath
+        );
+        targetFilePathByInputFilePath.set(
+            resource.fileDescription.inputFilePath,
+            resource.fileDescription.targetFilePath
+        );
+    }
+    return { inputFilePathByTargetFilePath, targetFilePathByInputFilePath };
+}
 
+function addResourceNodes(graph: ResourceGraph, bundle: ResolvedBundle): void {
     for (const resource of bundle.contents) {
         const externalDependencies = collectResourceSpecificExternalDependencies(resource, bundle.externalDependencies);
 
-        graph.addNode(resource.fileDescription.sourceFilePath, {
+        graph.addNode(resource.fileDescription.inputFilePath, {
             fileDescription: resource.fileDescription,
+            moduleReferences: resource.moduleReferences,
             externalDependencies,
             project: resource.project,
             isExplicitlyIncluded: resource.isExplicitlyIncluded,
             ...resource.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
     }
+}
 
+function connectDirectDependencies(graph: ResourceGraph, bundle: ResolvedBundle): void {
     for (const resource of bundle.contents) {
         for (const directDependency of resource.directDependencies) {
-            graph.connect({ from: resource.fileDescription.sourceFilePath, to: directDependency });
+            const inputFilePath = graph.inputFilePathByTargetFilePath.get(directDependency);
+            if (inputFilePath !== undefined) {
+                graph.connect({ from: resource.fileDescription.inputFilePath, to: inputFilePath });
+            }
         }
     }
+}
+
+export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceGraph {
+    const indexes = targetPathIndexes(bundle);
+    const graph = Object.assign(createDirectedGraph<string, ResourceGraphNodeData>(), indexes);
+
+    addResourceNodes(graph, bundle);
+    connectDirectDependencies(graph, bundle);
 
     return graph;
 }

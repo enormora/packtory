@@ -17,7 +17,7 @@ export function buildBundleArtifactIndex(results: readonly BuildAndPublishResult
             for (const entry of result.bundle.contents) {
                 entries.set(entry.fileDescription.targetFilePath, {
                     content: entry.fileDescription.content,
-                    sourcePath: entry.fileDescription.sourceFilePath
+                    sourcePath: entry.fileDescription.inputFilePath
                 });
             }
             return [ result.bundle.name, entries ] as const;

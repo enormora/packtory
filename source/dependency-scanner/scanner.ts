@@ -57,9 +57,10 @@ type ScanContext = {
 
 type DependencyNodeDataInput = {
     readonly externalDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
+    readonly moduleReferences: readonly ModuleReference[];
     readonly options: Required<ScanOptions>;
     readonly project: TypescriptProject | undefined;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly sourcesFolder: string;
 };
 
@@ -69,13 +70,14 @@ export function createDependencyScanner(
     const { sourceMapFileLocator, typescriptProjectAnalyzer } = dependencyScannerDependencies;
 
     async function getDependencyNodeData(input: DependencyNodeDataInput): Promise<DependencyGraphNodeData> {
-        const sourceMapFilePath = input.options.includeSourceMapFiles && isCodeFile(input.sourceFilePath)
-            ? await sourceMapFileLocator.locate(input.sourceFilePath, input.sourcesFolder)
+        const sourceMapFilePath = input.options.includeSourceMapFiles && isCodeFile(input.inputFilePath)
+            ? await sourceMapFileLocator.locate(input.inputFilePath, input.sourcesFolder)
             : Maybe.nothing<string>();
 
         return {
             sourceMapFilePath,
             externalDependencies: input.externalDependencies,
+            moduleReferences: input.moduleReferences,
             project: input.project
         };
     }
@@ -88,8 +90,8 @@ export function createDependencyScanner(
             if (reference.kind === moduleReferenceKind.externalPackage) {
                 externalDependencies.push({
                     name: reference.packageName,
-                    sourceSpecifier: reference.specifier,
-                    emittedSpecifier: reference.specifier
+                    sourceSpecifier: reference.sourceSpecifier,
+                    emittedSpecifier: reference.emittedSpecifier
                 });
             } else {
                 localReferences.push(reference);
@@ -129,23 +131,24 @@ export function createDependencyScanner(
         context: ScanContext,
         reference: ScannableLocalReference
     ): Promise<void> {
-        const sourceFilePath = reference.filePath;
+        const inputFilePath = reference.filePath;
         const referencedModules = getReferencedModules(context.project, reference);
         const { localReferences, externalDependencies } = collectReferenceLists(referencedModules);
         const nodeData = await getDependencyNodeData({
             externalDependencies,
+            moduleReferences: referencedModules,
             options: context.options,
             project: getNodeProject(context.project, reference),
-            sourceFilePath,
+            inputFilePath,
             sourcesFolder: context.folder
         });
-        context.graph.addDependency(sourceFilePath, toDependencyNode(reference, nodeData));
+        context.graph.addDependency(inputFilePath, toDependencyNode(reference, nodeData));
         for (const localReference of localReferences) {
             if (!context.graph.isKnown(localReference.filePath)) {
                 await scanDependenciesOfReference(context, localReference);
             }
-            if (!context.graph.hasConnection(sourceFilePath, localReference.filePath)) {
-                context.graph.connect(sourceFilePath, localReference.filePath);
+            if (!context.graph.hasConnection(inputFilePath, localReference.filePath)) {
+                context.graph.connect(inputFilePath, localReference.filePath);
             }
         }
     }
@@ -158,7 +161,12 @@ export function createDependencyScanner(
             if (!context.graph.isKnown(entryPointFile)) {
                 await scanDependenciesOfReference(
                     context,
-                    { kind: moduleReferenceKind.localCode, filePath: entryPointFile }
+                    {
+                        kind: moduleReferenceKind.localCode,
+                        filePath: entryPointFile,
+                        sourceSpecifier: entryPointFile,
+                        emittedSpecifier: entryPointFile
+                    }
                 );
             }
         }

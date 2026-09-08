@@ -1,4 +1,10 @@
 import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
+import {
+    mergeExternalDependencyReference,
+    type ExternalDependencies,
+    type ExternalDependency,
+    type NamedDependencySpecifierReference
+} from '../dependency-scanner/external-dependencies.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import { combineAllBundleFiles } from './content.ts';
@@ -20,7 +26,7 @@ export type ResourceResolver = {
     ) => Promise<ResolvedBundle>;
     resolveWithPromotedDeclarationCompanions: (
         options: ResourceResolveOptions,
-        substitutedSourceFilePaths: ReadonlySet<string>
+        substitutedInputFilePaths: ReadonlySet<string>
     ) => Promise<ResolvedBundle>;
 };
 
@@ -28,7 +34,7 @@ const packageJsonIndentationSpaces = 4;
 
 type BundleFileDescriptionInput = {
     readonly isGeneratedManifest?: true | undefined;
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
 };
 
@@ -45,9 +51,9 @@ function hasDeclarationRoots(options: ResourceResolveOptions): boolean {
 
 async function findReadableDeclarationCompanion(
     fileManager: Pick<FileManager, 'checkReadability'>,
-    sourceFilePath: string
+    inputFilePath: string
 ): Promise<string | undefined> {
-    for (const candidate of declarationCompanionCandidates(sourceFilePath)) {
+    for (const candidate of declarationCompanionCandidates(inputFilePath)) {
         const readability = await fileManager.checkReadability(candidate);
         if (readability.isReadable) {
             return candidate;
@@ -58,11 +64,11 @@ async function findReadableDeclarationCompanion(
 
 async function findReadableDeclarationCompanions(
     fileManager: Pick<FileManager, 'checkReadability'>,
-    substitutedSourceFilePaths: ReadonlySet<string>
+    substitutedInputFilePaths: ReadonlySet<string>
 ): Promise<readonly string[]> {
     const companions: string[] = [];
-    for (const sourceFilePath of substitutedSourceFilePaths) {
-        const companion = await findReadableDeclarationCompanion(fileManager, sourceFilePath);
+    for (const inputFilePath of substitutedInputFilePaths) {
+        const companion = await findReadableDeclarationCompanion(fileManager, inputFilePath);
         if (companion !== undefined) {
             companions.push(companion);
         }
@@ -79,15 +85,78 @@ async function resolveFileDescription(
         return {
             content: serializeVirtualManifest(mainPackageJson),
             isExecutable: false,
-            sourceFilePath: bundleFile.sourceFilePath,
+            inputFilePath: bundleFile.inputFilePath,
             targetFilePath: bundleFile.targetFilePath
         };
     }
 
     return await fileManager.getTransferableFileDescriptionFromPath(
-        bundleFile.sourceFilePath,
+        bundleFile.inputFilePath,
         bundleFile.targetFilePath
     );
+}
+
+function targetPathByInputPath(resources: readonly ResolvedContent[]): ReadonlyMap<string, string> {
+    return new Map(
+        resources.map(function (resource) {
+            return [ resource.fileDescription.inputFilePath, resource.fileDescription.targetFilePath ];
+        })
+    );
+}
+
+function targetFilePathFor(
+    targetByInputPath: ReadonlyMap<string, string>,
+    inputFilePath: string
+): string {
+    return targetByInputPath.get(inputFilePath) ?? inputFilePath;
+}
+
+function dependencySpecifierReferences(
+    dependency: ExternalDependency
+): readonly (NamedDependencySpecifierReference & { readonly targetFilePath: string; })[] {
+    if (dependency.references !== undefined) {
+        return dependency.references.map(function (reference) {
+            return {
+                name: dependency.name,
+                targetFilePath: reference.targetFilePath,
+                sourceSpecifier: reference.sourceSpecifier,
+                emittedSpecifier: reference.emittedSpecifier
+            };
+        });
+    }
+    return dependency.referencedFrom.map(function (targetFilePath) {
+        return {
+            name: dependency.name,
+            targetFilePath,
+            sourceSpecifier: dependency.name,
+            emittedSpecifier: dependency.name
+        };
+    });
+}
+
+function externalDependenciesWithTargetPaths(
+    dependencies: ExternalDependencies,
+    targetByInputPath: ReadonlyMap<string, string>
+): ExternalDependencies {
+    const dependenciesByName = new Map<string, ExternalDependency>();
+    for (const dependency of dependencies.values()) {
+        for (const reference of dependencySpecifierReferences(dependency)) {
+            const existing = dependenciesByName.get(reference.name);
+            dependenciesByName.set(
+                reference.name,
+                mergeExternalDependencyReference(
+                    {
+                        name: reference.name,
+                        sourceSpecifier: reference.sourceSpecifier,
+                        emittedSpecifier: reference.emittedSpecifier
+                    },
+                    targetFilePathFor(targetByInputPath, reference.targetFilePath),
+                    existing
+                )
+            );
+        }
+    }
+    return dependenciesByName;
 }
 
 export function createResourceResolver(dependencies: ResourceResolverDependencies): ResourceResolver {
@@ -121,6 +190,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                 return {
                     fileDescription,
                     directDependencies: bundleFile.directDependencies,
+                    moduleReferences: bundleFile.moduleReferences,
                     project: bundleFile.project,
                     isExplicitlyIncluded: bundleFile.isExplicitlyIncluded,
                     ...bundleFile.isGeneratedManifest ? { isGeneratedManifest: true } : {}
@@ -128,12 +198,16 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
             })
         );
 
+        const targetByInputPath = targetPathByInputPath(contents);
         return {
             contents,
             name: options.name,
             exportPackageJson: options.exportPackageJson,
             surface: normalized.surface,
-            externalDependencies: resolvedDependencies.externalDependencies,
+            externalDependencies: externalDependenciesWithTargetPaths(
+                resolvedDependencies.externalDependencies,
+                targetByInputPath
+            ),
             roots: buildResolvedRoots(normalized, contents)
         };
     }
@@ -145,9 +219,9 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
 
         resolveWithPromotedDeclarations,
 
-        async resolveWithPromotedDeclarationCompanions(options, substitutedSourceFilePaths) {
+        async resolveWithPromotedDeclarationCompanions(options, substitutedInputFilePaths) {
             const promotedDeclarationEntryFiles = hasDeclarationRoots(options)
-                ? await findReadableDeclarationCompanions(fileManager, substitutedSourceFilePaths)
+                ? await findReadableDeclarationCompanions(fileManager, substitutedInputFilePaths)
                 : [];
             return await resolveWithPromotedDeclarations(options, promotedDeclarationEntryFiles);
         }

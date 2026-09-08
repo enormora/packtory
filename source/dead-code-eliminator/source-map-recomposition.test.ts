@@ -16,7 +16,7 @@ function resourceOutput(targetFilePath: string, transforms: readonly TransformRe
 
 function mapResource(targetFilePath: string, content: string): AnalyzedBundleResource {
     return {
-        fileDescription: { sourceFilePath: '/src/x.map', targetFilePath, content, isExecutable: false }
+        fileDescription: { inputFilePath: '/src/x.map', targetFilePath, content, isExecutable: false }
     } as unknown as AnalyzedBundleResource;
 }
 

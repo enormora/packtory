@@ -25,7 +25,7 @@ function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
         }
         const sortedSources = resources
             .map(function (resource) {
-                return resource.fileDescription.sourceFilePath;
+                return resource.fileDescription.inputFilePath;
             })
             .toSorted(function (left, right) {
                 return left.localeCompare(right);

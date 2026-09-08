@@ -9,7 +9,7 @@ export type GeneratedExpression = {
 };
 
 export type DeadCodeEliminationGeneratedFile = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly content: string;
     readonly dependencies: readonly string[];
@@ -113,13 +113,13 @@ export function deadCodeEliminationDependencyPath(
 }
 
 function deadCodeEliminationFileFromSource(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     lines: readonly string[],
     dependencies: readonly string[]
 ): DeadCodeEliminationGeneratedFile {
     return {
-        sourceFilePath,
+        inputFilePath,
         targetFilePath,
         content: `${lines.join('\n')}\n`,
         dependencies
@@ -156,7 +156,7 @@ export function deadCodeEliminationEventPush(eventName: string): string {
 
 function generatedFileToResource(file: DeadCodeEliminationGeneratedFile): LinkedBundleResource {
     return {
-        ...bundleResource(file.sourceFilePath, {
+        ...bundleResource(file.inputFilePath, {
             content: file.content,
             directDependencies: new Set(file.dependencies),
             targetFilePath: file.targetFilePath
@@ -191,13 +191,13 @@ function deadCodeEliminationLinkedBundleFrom(
                 js: {
                     content: rootRuntime.content,
                     isExecutable: false,
-                    sourceFilePath: rootRuntime.sourceFilePath,
+                    inputFilePath: rootRuntime.inputFilePath,
                     targetFilePath: rootRuntime.targetFilePath
                 },
                 declarationFile: {
                     content: rootDeclaration.content,
                     isExecutable: false,
-                    sourceFilePath: rootDeclaration.sourceFilePath,
+                    inputFilePath: rootDeclaration.inputFilePath,
                     targetFilePath: rootDeclaration.targetFilePath
                 }
             }

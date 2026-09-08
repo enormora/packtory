@@ -23,23 +23,23 @@ suite('normalize-paths', function () {
         assert.strictEqual(Object.hasOwn(result, 'declarationFile'), false);
     });
 
-    test('normalizeAdditionalFile resolves the sourceFilePath relative to the source folder', function () {
+    test('normalizeAdditionalFile resolves the inputFilePath relative to the source folder', function () {
         assert.deepStrictEqual(
-            normalizeAdditionalFile({ sourceFilePath: 'README.md', targetFilePath: 'README.md' }, '/src'),
-            { sourceFilePath: '/src/README.md', targetFilePath: 'README.md' }
+            normalizeAdditionalFile({ inputFilePath: 'README.md', targetFilePath: 'README.md' }, '/src'),
+            { inputFilePath: '/src/README.md', targetFilePath: 'README.md' }
         );
     });
 
-    test('normalizeAdditionalFile keeps an absolute sourceFilePath unchanged', function () {
+    test('normalizeAdditionalFile keeps an absolute inputFilePath unchanged', function () {
         assert.deepStrictEqual(
-            normalizeAdditionalFile({ sourceFilePath: '/abs/README.md', targetFilePath: 'README.md' }, '/src'),
-            { sourceFilePath: '/abs/README.md', targetFilePath: 'README.md' }
+            normalizeAdditionalFile({ inputFilePath: '/abs/README.md', targetFilePath: 'README.md' }, '/src'),
+            { inputFilePath: '/abs/README.md', targetFilePath: 'README.md' }
         );
     });
 
     test('normalizeAdditionalFile keeps the targetFilePath untouched', function () {
         assert.strictEqual(
-            normalizeAdditionalFile({ sourceFilePath: 'a.md', targetFilePath: 'docs/a.md' }, '/src').targetFilePath,
+            normalizeAdditionalFile({ inputFilePath: 'a.md', targetFilePath: 'docs/a.md' }, '/src').targetFilePath,
             'docs/a.md'
         );
     });

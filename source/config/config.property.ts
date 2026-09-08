@@ -7,23 +7,13 @@ import { configToResolveAndLinkOptions, type ResolveAndLinkOptions } from '../pa
 import { linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { PackageConfig, PackageConfigsByName, PacktoryConfig } from './config.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
-import type { AdditionalPackageJsonAttributes } from './package-json.ts';
+import { isForbiddenAdditionalPackageJsonAttributeName, type AdditionalPackageJsonAttributes } from './package-json.ts';
 
 const packageNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);
 const fileNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);
 const dependencyNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);
 const additionalAttributeKeyArbitrary = fileNameArbitrary.filter(function (key) {
-    return ![
-        'dependencies',
-        'peerDependencies',
-        'devDependencies',
-        'main',
-        'name',
-        'types',
-        'type',
-        'version'
-    ]
-        .includes(key);
+    return !isForbiddenAdditionalPackageJsonAttributeName(key);
 });
 
 type GeneratedRoot = {
@@ -66,7 +56,7 @@ function additionalFilesFor(baseName: string | undefined, extension: string): Co
             ? undefined
             : [
                 {
-                    sourceFilePath: `${baseName}.${extension}`,
+                    inputFilePath: `${baseName}.${extension}`,
                     targetFilePath: `${baseName}.${extension}`
                 }
             ]

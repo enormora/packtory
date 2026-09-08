@@ -4,6 +4,8 @@ import { isCodeFile } from '../common/code-files.ts';
 import { packageManifestFilePath } from '../common/package-layout.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { LocalFile } from '../dependency-scanner/dependency-graph.ts';
+import { moduleReferenceKind, type ModuleReference } from '../dependency-scanner/source-file-references.ts';
+import type { ArtifactModuleReference } from './resolved-bundle.ts';
 
 function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string): string {
     if (!path.isAbsolute(filePath)) {
@@ -39,9 +41,10 @@ function rejectAdditionalFileTarget(targetFilePath: string): void {
 }
 
 type ResolvedBundleFile = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly directDependencies: ReadonlySet<string>;
+    readonly moduleReferences: readonly ArtifactModuleReference[];
     readonly project?: Project | undefined;
     readonly isExplicitlyIncluded: boolean;
     readonly isGeneratedManifest?: true | undefined;
@@ -61,19 +64,101 @@ function toSourceRelativeTargetPath(sourcesFolder: string, filePath: string): st
     return targetFilePath;
 }
 
+function targetPathForLocalFile(sourcesFolder: string, localFile: LocalFile): string {
+    return localFile.isGeneratedManifest
+        ? packageManifestFilePath
+        : toSourceRelativeTargetPath(sourcesFolder, localFile.filePath);
+}
+
+function targetPathByInputPathFor(
+    sourcesFolder: string,
+    localDependencies: readonly LocalFile[]
+): ReadonlyMap<string, string> {
+    return new Map(
+        localDependencies.map(function (localFile) {
+            return [ localFile.filePath, targetPathForLocalFile(sourcesFolder, localFile) ];
+        })
+    );
+}
+
+function requireTargetPath(
+    targetPathByInputPath: ReadonlyMap<string, string>,
+    inputFilePath: string
+): string {
+    const targetFilePath = targetPathByInputPath.get(inputFilePath);
+    if (targetFilePath === undefined) {
+        throw new Error(`Resolved local reference "${inputFilePath}" is missing from bundle contents`);
+    }
+    return targetFilePath;
+}
+
+function localArtifactReference(
+    type: 'generated-manifest' | 'local-asset' | 'local-code',
+    reference: Extract<ModuleReference, { readonly kind: 'generated-manifest' | 'local-asset' | 'local-code'; }>,
+    targetPathByInputPath: ReadonlyMap<string, string>
+): ArtifactModuleReference {
+    return {
+        type,
+        sourceSpecifier: reference.sourceSpecifier,
+        emittedSpecifier: reference.emittedSpecifier,
+        targetFilePath: requireTargetPath(targetPathByInputPath, reference.filePath)
+    };
+}
+
+function artifactModuleReference(
+    reference: ModuleReference,
+    targetPathByInputPath: ReadonlyMap<string, string>
+): ArtifactModuleReference {
+    if (reference.kind === moduleReferenceKind.externalPackage) {
+        return {
+            type: 'external-package',
+            sourceSpecifier: reference.sourceSpecifier,
+            emittedSpecifier: reference.emittedSpecifier,
+            packageName: reference.packageName
+        };
+    }
+    if (reference.kind === moduleReferenceKind.generatedManifest) {
+        return localArtifactReference('generated-manifest', reference, targetPathByInputPath);
+    }
+    if (reference.kind === moduleReferenceKind.localAsset) {
+        return localArtifactReference('local-asset', reference, targetPathByInputPath);
+    }
+    return localArtifactReference('local-code', reference, targetPathByInputPath);
+}
+
+function artifactModuleReferences(
+    references: readonly ModuleReference[],
+    targetPathByInputPath: ReadonlyMap<string, string>
+): readonly ArtifactModuleReference[] {
+    return references.map(function (reference) {
+        return artifactModuleReference(reference, targetPathByInputPath);
+    });
+}
+
+function directDependencyTargets(
+    localFile: LocalFile,
+    targetPathByInputPath: ReadonlyMap<string, string>
+): ReadonlySet<string> {
+    return new Set(
+        Array.from(localFile.directDependencies, function (inputFilePath) {
+            return requireTargetPath(targetPathByInputPath, inputFilePath);
+        })
+    );
+}
+
 export function combineAllBundleFiles(
     sourcesFolder: string,
     localDependencies: readonly LocalFile[],
     additionalFiles: readonly (AdditionalFileDescription | string)[]
 ): readonly ResolvedBundleFile[] {
+    const targetPathByInputPath = targetPathByInputPathFor(sourcesFolder, localDependencies);
     const resolvedLocalFiles = localDependencies.map(function (localFile) {
-        const targetFilePath = localFile.isGeneratedManifest
-            ? packageManifestFilePath
-            : toSourceRelativeTargetPath(sourcesFolder, localFile.filePath);
+        const targetFilePath = targetPathForLocalFile(sourcesFolder, localFile);
         const resolvedBundleFile: ResolvedBundleFile = {
-            sourceFilePath: localFile.filePath,
+            inputFilePath: localFile.filePath,
             targetFilePath,
-            directDependencies: localFile.directDependencies,
+            directDependencies: directDependencyTargets(localFile, targetPathByInputPath),
+            moduleReferences: artifactModuleReferences(localFile.moduleReferences, targetPathByInputPath),
             ...localFile.project === undefined ? {} : { project: localFile.project },
             isExplicitlyIncluded: false,
             ...localFile.isGeneratedManifest ? { isGeneratedManifest: true } : {}
@@ -84,12 +169,13 @@ export function combineAllBundleFiles(
     const additionalContents = additionalFiles.map(function (additionalFile): ResolvedBundleFile {
         if (typeof additionalFile === 'string') {
             rejectAdditionalFileTarget(additionalFile);
-            const sourceFilePath = path.join(sourcesFolder, additionalFile);
+            const inputFilePath = path.join(sourcesFolder, additionalFile);
             const targetFilePath = additionalFile;
             return {
-                sourceFilePath,
+                inputFilePath,
                 targetFilePath,
                 directDependencies: new Set(),
+                moduleReferences: [],
                 isExplicitlyIncluded: true
             };
         }
@@ -100,9 +186,10 @@ export function combineAllBundleFiles(
         rejectAdditionalFileTarget(additionalFile.targetFilePath);
 
         return {
-            sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),
+            inputFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.inputFilePath),
             targetFilePath: additionalFile.targetFilePath,
             directDependencies: new Set(),
+            moduleReferences: [],
             isExplicitlyIncluded: true
         };
     });

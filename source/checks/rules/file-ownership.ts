@@ -12,7 +12,7 @@ export function collectFileOwnership(
 
     for (const bundle of bundles) {
         for (const resource of bundle.contents) {
-            const filePath = resource.fileDescription.sourceFilePath;
+            const filePath = resource.fileDescription.inputFilePath;
             const owners = ownership.get(filePath) ?? [];
             owners.push({
                 bundleName: bundle.name,

@@ -9,7 +9,7 @@ import {
 import { optionalPackageSettingsSchema } from './optional-package-settings-schema.ts';
 
 const validOptionalPackageSettings = {
-    additionalFiles: [ { sourceFilePath: 'README.md', targetFilePath: 'README.md' } ],
+    additionalFiles: [ { inputFilePath: 'README.md', targetFilePath: 'README.md' } ],
     includeSourceMapFiles: true,
     additionalPackageJsonAttributes: { license: 'MIT' }
 };

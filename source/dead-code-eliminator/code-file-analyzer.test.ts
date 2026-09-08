@@ -18,12 +18,13 @@ function loadedCodeResource(targetFilePath: string, content: string): LoadedCode
     return {
         resource: {
             fileDescription: {
-                sourceFilePath: `/src/${targetFilePath}`,
+                inputFilePath: `/src/${targetFilePath}`,
                 targetFilePath,
                 content,
                 isExecutable: false
             },
             directDependencies: new Set<string>(),
+            moduleReferences: [],
             isExplicitlyIncluded: true,
             isSubstituted: false
         },
@@ -36,12 +37,13 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
     return {
         resource: {
             fileDescription: {
-                sourceFilePath: `/src/${targetFilePath}`,
+                inputFilePath: `/src/${targetFilePath}`,
                 targetFilePath,
                 content,
                 isExecutable: false
             },
             directDependencies: new Set<string>(),
+            moduleReferences: [],
             isExplicitlyIncluded: true,
             isSubstituted: false
         },
@@ -106,7 +108,7 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, {
             ...baseContext,
-            reachable: new Set([ bindingId('/src/a.ts', 'foo') ]),
+            reachable: new Set([ bindingId('a.ts', 'foo') ]),
             transformationsEnabled: true
         });
 

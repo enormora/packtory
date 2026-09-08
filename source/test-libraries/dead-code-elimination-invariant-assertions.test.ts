@@ -4,17 +4,17 @@ import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-elimin
 import { analyzedBundle, analyzedBundleResource, externalDependency } from './bundle-fixtures.ts';
 import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
 
-function resource(sourceFilePath: string, targetFilePath: string, content: string): AnalyzedBundleResource {
-    return analyzedBundleResource(sourceFilePath, { content, targetFilePath });
+function resource(inputFilePath: string, targetFilePath: string, content: string): AnalyzedBundleResource {
+    return analyzedBundleResource(inputFilePath, { content, targetFilePath });
 }
 
 function resourceWithDependencies(
-    sourceFilePath: string,
+    inputFilePath: string,
     targetFilePath: string,
     content: string,
     directDependencies: ReadonlySet<string>
 ): AnalyzedBundleResource {
-    return analyzedBundleResource(sourceFilePath, { content, targetFilePath, directDependencies });
+    return analyzedBundleResource(inputFilePath, { content, targetFilePath, directDependencies });
 }
 
 function bundleWith(contents: readonly AnalyzedBundleResource[]): AnalyzedBundle {
@@ -99,6 +99,19 @@ suite('dead code elimination invariant assertions', function () {
         );
     });
 
+    test('rejects dangling local export declarations', function () {
+        assertInvariantFailure(
+            bundleWith([
+                resource(
+                    '/src/imported-expression-origin.ts',
+                    'dead-code-eliminator/imported-expression-origin.js',
+                    'export { arePureCallArguments };\n'
+                )
+            ]),
+            /imported-expression-origin\.js exports local arePureCallArguments, but no local binding remains/u
+        );
+    });
+
     test('accepts declaration imports resolved through declaration companions', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
@@ -112,28 +125,28 @@ suite('dead code elimination invariant assertions', function () {
         ]);
     });
 
-    test('rejects dependency metadata that references a pruned source file', function () {
+    test('rejects dependency metadata that references a pruned target file', function () {
         assertInvariantFailure(
             analyzedBundle({
                 name: 'pkg',
                 contents: [ resource('/src/index.js', 'index.js', 'export const api = 1;\n') ],
                 externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/missing.js' ]) ] ])
             }),
-            /external dependency dep references pruned source file \/src\/missing\.js/u
+            /external dependency dep references pruned target file missing\.js/u
         );
     });
 
-    test('rejects direct dependencies from emitted code to pruned source files', function () {
+    test('rejects direct dependencies from emitted code to pruned target files', function () {
         assertInvariantFailure(
             bundleWith([
                 resourceWithDependencies(
                     '/src/index.js',
                     'index.js',
                     'export const api = 1;\n',
-                    new Set([ '/src/dead.js' ])
+                    new Set([ 'dead.js' ])
                 )
             ]),
-            /index\.js has direct dependency on pruned source file \/src\/dead\.js/u
+            /index\.js has direct dependency on pruned target file dead\.js/u
         );
     });
 

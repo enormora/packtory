@@ -56,10 +56,10 @@ function missingMapFileManager(sourceContent: string): FakeFileManager {
     });
 }
 
-async function attributeSingleFile(fileManager: FakeFileManager, sourceFilePath: string): Promise<readonly string[]> {
+async function attributeSingleFile(fileManager: FakeFileManager, inputFilePath: string): Promise<readonly string[]> {
     return attributeChangelogSourceFiles(
         { fileManager, repositoryFolder: '/repo' },
-        bundleWith([ analyzedBundleResource(sourceFilePath) ]),
+        bundleWith([ analyzedBundleResource(inputFilePath) ]),
         []
     );
 }

@@ -15,7 +15,7 @@ function registerArtifactKindTests(): void {
                 filePath: 'src/index.js',
                 content: 'export const a = 1;',
                 isExecutable: false,
-                sourceFilePath: '/workspace/src/index.js'
+                inputFilePath: '/workspace/src/index.js'
             }
         ]);
 
@@ -143,7 +143,7 @@ function registerArtifactMetadataTests(): void {
                 filePath: 'deep/nested/file.js',
                 content: 'export {};',
                 isExecutable: false,
-                sourceFilePath: '/workspace/src/file.js',
+                inputFilePath: '/workspace/src/file.js',
                 isSubstituted: true
             }
         ]);

@@ -8,11 +8,11 @@ import {
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import { findAllPathReplacements, type ImportPathReplacementRequest } from './replacement-lookup.ts';
 
-function rootFile(sourceFilePath: string, targetFilePath: string): BundleSubstitutionSource['roots'][string]['js'] {
+function rootFile(inputFilePath: string, targetFilePath: string): BundleSubstitutionSource['roots'][string]['js'] {
     return {
         content: '',
         isExecutable: false,
-        sourceFilePath,
+        inputFilePath,
         targetFilePath
     };
 }
@@ -25,20 +25,20 @@ function entryRoot(): BundleSubstitutionSource['roots'][string] {
 }
 
 type TestResource = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly content: string;
 };
 
-function testResource(sourceFilePath: string, targetFilePath: string, content: string): TestResource {
-    return { sourceFilePath, targetFilePath, content };
+function testResource(inputFilePath: string, targetFilePath: string, content: string): TestResource {
+    return { inputFilePath, targetFilePath, content };
 }
 
 function peerBundle(resources: readonly TestResource[]): BundleSubstitutionSource {
     return linkedBundleFixture({
         name: 'pkg-b',
         contents: resources.map(function (resource) {
-            return bundleResourceFixture(resource.sourceFilePath, {
+            return bundleResourceFixture(resource.inputFilePath, {
                 targetFilePath: resource.targetFilePath,
                 content: resource.content
             });
@@ -56,23 +56,23 @@ function peerEntryBundle(entryContent: string): BundleSubstitutionSource {
 }
 
 function request(
-    sourceFilePath: string,
+    inputFilePath: string,
     requiredExportNames: readonly string[],
     requiresNamespaceExport: boolean
 ): ImportPathReplacementRequest {
     return {
-        sourceFilePath,
+        inputFilePath,
         requiredExportNames: new Set(requiredExportNames),
         requiresNamespaceExport
     };
 }
 
-function namedRequest(sourceFilePath: string, requiredExportNames: readonly string[]): ImportPathReplacementRequest {
-    return request(sourceFilePath, requiredExportNames, false);
+function namedRequest(inputFilePath: string, requiredExportNames: readonly string[]): ImportPathReplacementRequest {
+    return request(inputFilePath, requiredExportNames, false);
 }
 
-function namespaceRequest(sourceFilePath: string): ImportPathReplacementRequest {
-    return request(sourceFilePath, [], true);
+function namespaceRequest(inputFilePath: string): ImportPathReplacementRequest {
+    return request(inputFilePath, [], true);
 }
 
 function assertReplacement(requests: readonly ImportPathReplacementRequest[], bundle: BundleSubstitutionSource): void {

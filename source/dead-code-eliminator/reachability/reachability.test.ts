@@ -317,7 +317,9 @@ const project = createProject({
 });
 const sourceFile = project.getSourceFileOrThrow('entry.ts');
 const files = [{
-    sourceFilePath: 'entry.ts',
+    inputFilePath: 'entry.ts',
+    parsedInputFilePath: sourceFile.getFilePath(),
+    targetFilePath: 'entry.ts',
     sourceFile,
     bindings: extractTopLevelBindings(sourceFile)
 }];

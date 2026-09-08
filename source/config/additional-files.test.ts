@@ -8,13 +8,13 @@ suite('additional-files', function () {
     suite('additional file schema shape', function () {
         test('schema accepts a valid additional file description', function () {
             assert.strictEqual(
-                safeParse(additionalFileDescriptionSchema, { sourceFilePath: 'foo', targetFilePath: 'bar' }).success,
+                safeParse(additionalFileDescriptionSchema, { inputFilePath: 'foo', targetFilePath: 'bar' }).success,
                 true
             );
         });
 
         test('schema rejects an additional file description without targetFilePath', function () {
-            assert.strictEqual(safeParse(additionalFileDescriptionSchema, { sourceFilePath: 'foo' }).success, false);
+            assert.strictEqual(safeParse(additionalFileDescriptionSchema, { inputFilePath: 'foo' }).success, false);
         });
 
         test(
@@ -22,11 +22,11 @@ suite('additional-files', function () {
             checkValidationSuccess({
                 schema: additionalFileDescriptionSchema,
                 data: {
-                    sourceFilePath: 'foo',
+                    inputFilePath: 'foo',
                     targetFilePath: 'bar'
                 },
                 expectedData: {
-                    sourceFilePath: 'foo',
+                    inputFilePath: 'foo',
                     targetFilePath: 'bar'
                 }
             })
@@ -46,57 +46,57 @@ suite('additional-files', function () {
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
                 data: {},
-                expectedMessages: [ 'at sourceFilePath: missing property', 'at targetFilePath: missing property' ]
+                expectedMessages: [ 'at inputFilePath: missing property', 'at targetFilePath: missing property' ]
             })
         );
 
         test(
-            'validation fails when sourceFilePath is missing',
+            'validation fails when inputFilePath is missing',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
                 data: { targetFilePath: 'foo' },
-                expectedMessages: [ 'at sourceFilePath: missing property' ]
+                expectedMessages: [ 'at inputFilePath: missing property' ]
             })
         );
 
         test(
-            'validation fails when sourceFilePath is not a string',
+            'validation fails when inputFilePath is not a string',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { sourceFilePath: [], targetFilePath: 'foo' },
+                data: { inputFilePath: [], targetFilePath: 'foo' },
                 expectedMessages: [
-                    'at sourceFilePath: expected string, but got array',
-                    'at sourceFilePath: array must contain at least 1 element'
+                    'at inputFilePath: expected string, but got array',
+                    'at inputFilePath: array must contain at least 1 element'
                 ]
             })
         );
 
         test(
-            'validation fails when sourceFilePath is undefined',
+            'validation fails when inputFilePath is undefined',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { sourceFilePath: undefined, targetFilePath: 'foo' },
-                expectedMessages: [ 'at sourceFilePath: expected string, but got undefined' ]
+                data: { inputFilePath: undefined, targetFilePath: 'foo' },
+                expectedMessages: [ 'at inputFilePath: expected string, but got undefined' ]
             })
         );
     });
 
     suite('additional file path validation', function () {
         test(
-            'validation fails when sourceFilePath is null',
+            'validation fails when inputFilePath is null',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { sourceFilePath: null, targetFilePath: 'foo' },
-                expectedMessages: [ 'at sourceFilePath: expected string, but got null' ]
+                data: { inputFilePath: null, targetFilePath: 'foo' },
+                expectedMessages: [ 'at inputFilePath: expected string, but got null' ]
             })
         );
 
         test(
-            'validation fails when sourceFilePath is an empty string',
+            'validation fails when inputFilePath is an empty string',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { sourceFilePath: '', targetFilePath: 'foo' },
-                expectedMessages: [ 'at sourceFilePath: string must contain at least 1 character' ]
+                data: { inputFilePath: '', targetFilePath: 'foo' },
+                expectedMessages: [ 'at inputFilePath: string must contain at least 1 character' ]
             })
         );
 
@@ -104,7 +104,7 @@ suite('additional-files', function () {
             'validation fails when targetFilePath is missing',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { sourceFilePath: 'foo' },
+                data: { inputFilePath: 'foo' },
                 expectedMessages: [ 'at targetFilePath: missing property' ]
             })
         );
@@ -113,7 +113,7 @@ suite('additional-files', function () {
             'validation fails when targetFilePath is not a string',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { targetFilePath: [], sourceFilePath: 'foo' },
+                data: { targetFilePath: [], inputFilePath: 'foo' },
                 expectedMessages: [
                     'at targetFilePath: expected string, but got array',
                     'at targetFilePath: array must contain at least 1 element'
@@ -125,7 +125,7 @@ suite('additional-files', function () {
             'validation fails when targetFilePath is undefined',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { targetFilePath: undefined, sourceFilePath: 'foo' },
+                data: { targetFilePath: undefined, inputFilePath: 'foo' },
                 expectedMessages: [ 'at targetFilePath: expected string, but got undefined' ]
             })
         );
@@ -134,7 +134,7 @@ suite('additional-files', function () {
             'validation fails when targetFilePath is null',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { targetFilePath: null, sourceFilePath: 'foo' },
+                data: { targetFilePath: null, inputFilePath: 'foo' },
                 expectedMessages: [ 'at targetFilePath: expected string, but got null' ]
             })
         );
@@ -143,7 +143,7 @@ suite('additional-files', function () {
             'validation fails when targetFilePath is an empty string',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { targetFilePath: '', sourceFilePath: 'foo' },
+                data: { targetFilePath: '', inputFilePath: 'foo' },
                 expectedMessages: [ 'at targetFilePath: string must contain at least 1 character' ]
             })
         );
@@ -152,7 +152,7 @@ suite('additional-files', function () {
             'validation fails when an additional unknown property is given',
             checkValidationFailure({
                 schema: additionalFileDescriptionSchema,
-                data: { targetFilePath: 'bar', sourceFilePath: 'foo', something: 'else' },
+                data: { targetFilePath: 'bar', inputFilePath: 'foo', something: 'else' },
                 expectedMessages: [ 'unexpected additional property: "something"' ]
             })
         );
@@ -163,8 +163,8 @@ suite('additional-files', function () {
                     `validation succeeds for "${accepted}"`,
                     checkValidationSuccess({
                         schema: additionalFileDescriptionSchema,
-                        data: { sourceFilePath: 'src', targetFilePath: accepted },
-                        expectedData: { sourceFilePath: 'src', targetFilePath: accepted }
+                        data: { inputFilePath: 'src', targetFilePath: accepted },
+                        expectedData: { inputFilePath: 'src', targetFilePath: accepted }
                     })
                 );
             }
@@ -188,7 +188,7 @@ suite('additional-files', function () {
                     `validation fails for "${rejected}"`,
                     checkValidationFailure({
                         schema: additionalFileDescriptionSchema,
-                        data: { sourceFilePath: 'src', targetFilePath: rejected },
+                        data: { inputFilePath: 'src', targetFilePath: rejected },
                         expectedMessages: [ 'at targetFilePath: invalid input' ]
                     })
                 );

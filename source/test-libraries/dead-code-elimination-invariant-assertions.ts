@@ -42,7 +42,7 @@ type ResolvedTarget = {
 type BundleIndex = {
     readonly bundle: AnalyzedBundle;
     readonly resourcesByTargetPath: ReadonlyMap<string, IndexedResource>;
-    readonly sourcePaths: ReadonlySet<string>;
+    readonly targetPaths: ReadonlySet<string>;
 };
 
 type ModuleCheck = {
@@ -56,17 +56,17 @@ type IndexBuild = {
     readonly issues: IssueRecorder;
     readonly bundle: AnalyzedBundle;
     readonly project: Project;
-    readonly addSourcePath: (sourceFilePath: string) => void;
+    readonly addTargetPath: (targetFilePath: string) => void;
     readonly hasTargetPath: (targetPath: string) => boolean;
     readonly setResource: (targetPath: string, resource: IndexedResource) => void;
 };
 
-type MissingSourcePathCheck = {
+type MissingTargetPathCheck = {
     readonly issues: IssueRecorder;
     readonly index: BundleIndex;
     readonly label: string;
     readonly dependencyName: string;
-    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
 };
 
 const runtimeTargetExtensions = [
@@ -82,6 +82,15 @@ const runtimeTargetExtensions = [
     '.wasm'
 ];
 const declarationTargetExtensions = [ '.d.ts', '.d.mts', '.d.cts' ];
+const localDeclarationMethods = [
+    'getClass',
+    'getEnum',
+    'getFunction',
+    'getInterface',
+    'getModule',
+    'getTypeAlias',
+    'getVariableDeclaration'
+] as const;
 
 function normalizeTargetPath(targetFilePath: string): string {
     return path.posix.normalize(targetFilePath);
@@ -293,7 +302,40 @@ function checkReExportNames(context: ModuleCheck, declaration: ExportDeclaration
     }
 }
 
+function hasLocalImportBinding(sourceFile: SourceFile, name: string): boolean {
+    return sourceFile.getImportDeclarations().some(function (declaration) {
+        return declaration.getDefaultImport()?.getText() === name ||
+            declaration.getNamespaceImport()?.getText() === name ||
+            declaration.getNamedImports().some(function (namedImport) {
+                return (namedImport.getAliasNode()?.getText() ?? namedImport.getName()) === name;
+            });
+    });
+}
+
+function hasLocalBinding(sourceFile: SourceFile, name: string): boolean {
+    return localDeclarationMethods.some(function (method) {
+        return sourceFile[method](name) !== undefined;
+    }) || hasLocalImportBinding(sourceFile, name);
+}
+
+function checkLocalExportNames(context: ModuleCheck, declaration: ExportDeclaration): void {
+    if (declaration.getModuleSpecifierValue() !== undefined || !isNamedExportActive(context.mode, declaration)) {
+        return;
+    }
+    for (const namedExport of declaration.getNamedExports()) {
+        const localName = namedExport.getName();
+        if (!hasLocalBinding(declaration.getSourceFile(), localName)) {
+            context.issues.add([
+                `${context.index.bundle.name}: ${context.importerTargetPath}`,
+                `exports local ${localName}, but no local binding remains`
+            ]
+                .join(' '));
+        }
+    }
+}
+
 function checkExportDeclaration(context: ModuleCheck, declaration: ExportDeclaration): void {
+    checkLocalExportNames(context, declaration);
     const target = exportTarget(context, declaration);
     if (target !== undefined) {
         checkReExportNames(context, declaration, target);
@@ -343,10 +385,10 @@ function checkStaticModuleGraph(
     }
 }
 
-function addMissingSourcePathIssue(input: MissingSourcePathCheck): void {
-    if (!input.index.sourcePaths.has(input.sourceFilePath)) {
+function addMissingTargetPathIssue(input: MissingTargetPathCheck): void {
+    if (!input.index.targetPaths.has(input.targetFilePath)) {
         const source = `${input.index.bundle.name}: ${input.label} ${input.dependencyName}`;
-        input.issues.add(`${source} references pruned source file ${input.sourceFilePath}`);
+        input.issues.add(`${source} references pruned target file ${input.targetFilePath}`);
     }
 }
 
@@ -357,42 +399,42 @@ function checkDependencyMap(
     dependencies: AnalyzedBundle['externalDependencies']
 ): void {
     for (const dependency of dependencies.values()) {
-        for (const sourceFilePath of dependency.referencedFrom) {
-            addMissingSourcePathIssue({ issues, index, label, dependencyName: dependency.name, sourceFilePath });
+        for (const targetFilePath of dependency.referencedFrom) {
+            addMissingTargetPathIssue({ issues, index, label, dependencyName: dependency.name, targetFilePath });
         }
         const references = dependency.references ?? [];
         for (const reference of references) {
-            addMissingSourcePathIssue({
+            addMissingTargetPathIssue({
                 issues,
                 index,
                 label,
                 dependencyName: dependency.name,
-                sourceFilePath: reference.sourceFilePath
+                targetFilePath: reference.targetFilePath
             });
         }
     }
 }
 
-function directDependencyIssue(index: BundleIndex, resource: AnalyzedBundleResource, sourceFilePath: string): string {
+function directDependencyIssue(index: BundleIndex, resource: AnalyzedBundleResource, targetFilePath: string): string {
     return [
         `${index.bundle.name}: ${resource.fileDescription.targetFilePath}`,
-        `has direct dependency on pruned source file ${sourceFilePath}`
+        `has direct dependency on pruned target file ${targetFilePath}`
     ]
         .join(' ');
 }
 
 function checkDirectDependencies(issues: IssueRecorder, index: BundleIndex, resource: AnalyzedBundleResource): void {
     if (isCodeTargetPath(resource.fileDescription.targetFilePath)) {
-        for (const sourceFilePath of resource.directDependencies) {
-            if (!sourceFilePath.endsWith('.map') && !index.sourcePaths.has(sourceFilePath)) {
-                issues.add(directDependencyIssue(index, resource, sourceFilePath));
+        for (const targetFilePath of resource.directDependencies) {
+            if (!targetFilePath.endsWith('.map') && !index.targetPaths.has(targetFilePath)) {
+                issues.add(directDependencyIssue(index, resource, targetFilePath));
             }
         }
     }
 }
 
 function checkSubstitutedSourcePathPackages(issues: IssueRecorder, index: BundleIndex): void {
-    for (const packageName of index.bundle.substitutedSourceFilePathsByPackageName.keys()) {
+    for (const packageName of index.bundle.substitutedInputFilePathsByPackageName.keys()) {
         if (!index.bundle.linkedBundleDependencies.has(packageName)) {
             issues.add([
                 `${index.bundle.name}: substituted source paths keep package ${packageName}`,
@@ -431,7 +473,7 @@ function indexResource(build: IndexBuild, resource: AnalyzedBundleResource): voi
     if (build.hasTargetPath(targetPath)) {
         build.issues.add(`${build.bundle.name}: duplicate emitted target path ${targetPath}`);
     }
-    build.addSourcePath(resource.fileDescription.sourceFilePath);
+    build.addTargetPath(targetPath);
     build.setResource(targetPath, {
         resource,
         sourceFile: sourceFileForResource(build, resource, targetPath)
@@ -440,13 +482,13 @@ function indexResource(build: IndexBuild, resource: AnalyzedBundleResource): voi
 
 function createBundleIndex(issues: IssueRecorder, bundle: AnalyzedBundle): BundleIndex {
     const resourcesByTargetPath = new Map<string, IndexedResource>();
-    const sourcePaths = new Set<string>();
+    const targetPaths = new Set<string>();
     const build: IndexBuild = {
         issues,
         bundle,
         project: createProject(),
-        addSourcePath(sourceFilePath) {
-            sourcePaths.add(sourceFilePath);
+        addTargetPath(targetFilePath) {
+            targetPaths.add(targetFilePath);
         },
         hasTargetPath(targetPath) {
             return resourcesByTargetPath.has(targetPath);
@@ -461,7 +503,7 @@ function createBundleIndex(issues: IssueRecorder, bundle: AnalyzedBundle): Bundl
     return {
         bundle,
         resourcesByTargetPath,
-        sourcePaths
+        targetPaths
     };
 }
 

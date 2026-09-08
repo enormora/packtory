@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { rootHasDeclarationFile, type RootFileDescription } from './resolved-bundle.ts';
 
 const jsOnly: RootFileDescription = {
-    js: { sourceFilePath: '/a/index.ts', targetFilePath: 'index.js', content: '', isExecutable: false }
+    js: { inputFilePath: '/a/index.ts', targetFilePath: 'index.js', content: '', isExecutable: false }
 };
 
 suite('resolved-bundle', function () {
@@ -15,7 +15,7 @@ suite('resolved-bundle', function () {
         const withDts: RootFileDescription = {
             ...jsOnly,
             declarationFile: {
-                sourceFilePath: '/a/index.d.ts',
+                inputFilePath: '/a/index.d.ts',
                 targetFilePath: 'index.d.ts',
                 content: '',
                 isExecutable: false

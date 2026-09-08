@@ -24,11 +24,54 @@ type ConfigWithGraphInternal<TConfig extends PackagedConfig> = {
     readonly packageGraph: DirectedGraph<string, undefined>;
 };
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeAdditionalFileDescriptionAliases(value: unknown): unknown {
+    if (
+        !isRecord(value) ||
+        !Object.hasOwn(value, 'sourceFilePath') ||
+        Object.hasOwn(value, 'inputFilePath')
+    ) {
+        return value;
+    }
+
+    const { sourceFilePath, ...canonical } = value;
+    return {
+        ...canonical,
+        inputFilePath: sourceFilePath
+    };
+}
+
+function normalizeAdditionalFileAliases(settings: unknown): unknown {
+    if (!isRecord(settings) || !Array.isArray(settings.additionalFiles)) {
+        return settings;
+    }
+
+    return {
+        ...settings,
+        additionalFiles: settings.additionalFiles.map(normalizeAdditionalFileDescriptionAliases)
+    };
+}
+
+function normalizeConfigAliases(config: unknown): unknown {
+    const configRecord: Readonly<Record<string, unknown>> = Object.fromEntries(Object.entries(new Object(config)));
+
+    return {
+        ...configRecord,
+        commonPackageSettings: normalizeAdditionalFileAliases(configRecord.commonPackageSettings),
+        packages: Array.isArray(configRecord.packages)
+            ? configRecord.packages.map(normalizeAdditionalFileAliases)
+            : configRecord.packages
+    };
+}
+
 function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWithoutRegistry>(
     schema: ZodMiniType,
     config: unknown
 ): Result<GraphGenerationPossibleResult<TConfig>, readonly string[]> {
-    const schemaValidationResult = safeParse(schema, config);
+    const schemaValidationResult = safeParse(schema, normalizeConfigAliases(config));
     if (!schemaValidationResult.success) {
         return Result.err(schemaValidationResult.error.issues);
     }

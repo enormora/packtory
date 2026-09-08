@@ -11,7 +11,7 @@ import type { ResourceGraphNodeData } from './resource-graph.ts';
 
 type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
     readonly bundleDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
-    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly isSubstituted: boolean;
 };
@@ -27,11 +27,12 @@ type FlattenCollectors = {
     readonly collect: (
         filePath: string,
         data: SubstitutedResourceGraphNodeData,
-        directDependencies: ReadonlySet<string>
+        directDependencies: ReadonlySet<string>,
+        targetFilePathByInputFilePath: ReadonlyMap<string, string>
     ) => void;
     readonly contents: readonly LinkedBundleResource[];
     readonly linkedBundleDependencies: ReadonlyMap<string, ExternalDependency>;
-    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly externalDependencies: ReadonlyMap<string, ExternalDependency>;
 };
@@ -60,14 +61,14 @@ function collectLinkedBundleDependencies(
     }
 }
 
-function collectSubstitutedSourceFilePaths(
+function collectSubstitutedInputFilePaths(
     target: ReadonlyMap<string, ReadonlySet<string>>,
     source: ReadonlyMap<string, ReadonlySet<string>>
 ): readonly (readonly [string, ReadonlySet<string>])[] {
     const result = new Map(target);
-    for (const [ packageName, sourceFilePaths ] of source) {
+    for (const [ packageName, inputFilePaths ] of source) {
         const existing = result.get(packageName) ?? [];
-        result.set(packageName, new Set([ ...existing, ...sourceFilePaths ]));
+        result.set(packageName, new Set([ ...existing, ...inputFilePaths ]));
     }
     return Array.from(result);
 }
@@ -86,6 +87,17 @@ function collectExternalDependencies(
     }
 }
 
+function directDependencyTargetPaths(
+    directDependencies: ReadonlySet<string>,
+    targetFilePathByInputFilePath: ReadonlyMap<string, string>
+): ReadonlySet<string> {
+    return new Set(
+        Array.from(directDependencies, function (inputFilePath) {
+            return targetFilePathByInputFilePath.get(inputFilePath) ?? inputFilePath;
+        })
+    );
+}
+
 function collectSourceMapTransforms(
     sourceMapTransformsByTargetPath: MutableSourceMapTransformRecord,
     source: ReadonlyMap<string, readonly SourceMapTransform[]>
@@ -99,7 +111,7 @@ function collectSourceMapTransforms(
 function createFlattenCollectors(): FlattenCollectors {
     const contents: LinkedBundleResource[] = [];
     const linkedBundleDependencies = new Map<string, ExternalDependency>();
-    const substitutedSourceFilePathsByPackageName = new Map<string, Set<string>>();
+    const substitutedInputFilePathsByPackageName = new Map<string, Set<string>>();
     const sourceMapTransformsByTargetPath = new Map<string, readonly SourceMapTransform[]>();
     const externalDependencies = new Map<string, ExternalDependency>();
     const visited = new Set<string>();
@@ -107,7 +119,8 @@ function createFlattenCollectors(): FlattenCollectors {
     function collect(
         filePath: string,
         data: SubstitutedResourceGraphNodeData,
-        directDependencies: ReadonlySet<string>
+        directDependencies: ReadonlySet<string>,
+        targetFilePathByInputFilePath: ReadonlyMap<string, string>
     ): void {
         if (visited.has(filePath)) {
             return;
@@ -116,30 +129,39 @@ function createFlattenCollectors(): FlattenCollectors {
         visited.add(filePath);
         contents.push({
             fileDescription: data.fileDescription,
-            directDependencies,
+            directDependencies: directDependencyTargetPaths(directDependencies, targetFilePathByInputFilePath),
+            moduleReferences: data.moduleReferences,
             isSubstituted: data.isSubstituted,
             isExplicitlyIncluded: data.isExplicitlyIncluded,
             ...data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
 
-        collectLinkedBundleDependencies(linkedBundleDependencies, data.bundleDependencies, filePath);
+        collectLinkedBundleDependencies(
+            linkedBundleDependencies,
+            data.bundleDependencies,
+            data.fileDescription.targetFilePath
+        );
         for (
-            const [ packageName, sourceFilePaths ] of collectSubstitutedSourceFilePaths(
-                substitutedSourceFilePathsByPackageName,
-                data.substitutedSourceFilePathsByPackageName
+            const [ packageName, inputFilePaths ] of collectSubstitutedInputFilePaths(
+                substitutedInputFilePathsByPackageName,
+                data.substitutedInputFilePathsByPackageName
             )
         ) {
-            substitutedSourceFilePathsByPackageName.set(packageName, new Set(sourceFilePaths));
+            substitutedInputFilePathsByPackageName.set(packageName, new Set(inputFilePaths));
         }
         collectSourceMapTransforms(sourceMapTransformsByTargetPath, data.sourceMapTransformsByTargetPath);
-        collectExternalDependencies(externalDependencies, data.externalDependencies, filePath);
+        collectExternalDependencies(
+            externalDependencies,
+            data.externalDependencies,
+            data.fileDescription.targetFilePath
+        );
     }
 
     return {
         collect,
         contents,
         linkedBundleDependencies,
-        substitutedSourceFilePathsByPackageName,
+        substitutedInputFilePathsByPackageName,
         sourceMapTransformsByTargetPath,
         externalDependencies
     };
@@ -148,6 +170,14 @@ function createFlattenCollectors(): FlattenCollectors {
 export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
     const graph = createDirectedGraph<string, SubstitutedResourceGraphNodeData>();
     const nodeDataByFilePath = new Map<string, SubstitutedResourceGraphNodeData>();
+
+    function targetFilePathByInputFilePath(): ReadonlyMap<string, string> {
+        return new Map(
+            Array.from(nodeDataByFilePath, function ([ filePath, data ]) {
+                return [ filePath, data.fileDescription.targetFilePath ];
+            })
+        );
+    }
 
     return {
         add(filePath, data) {
@@ -166,14 +196,15 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 collect,
                 contents,
                 linkedBundleDependencies,
-                substitutedSourceFilePathsByPackageName,
+                substitutedInputFilePathsByPackageName,
                 sourceMapTransformsByTargetPath,
                 externalDependencies
             } = createFlattenCollectors();
+            const targetPaths = targetFilePathByInputFilePath();
 
             for (const rootFilePath of rootFilePaths) {
                 graph.visitBreadthFirstSearch(rootFilePath, function (node) {
-                    collect(node.id, node.data, node.adjacentNodeIds);
+                    collect(node.id, node.data, node.adjacentNodeIds, targetPaths);
                 });
             }
 
@@ -182,13 +213,13 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
             });
             for (const [ filePath, data ] of includedNodes) {
                 const directDependencies = graph.getAdjacentIds(filePath);
-                collect(filePath, data, directDependencies);
+                collect(filePath, data, directDependencies, targetPaths);
             }
 
             return {
                 contents,
                 linkedBundleDependencies,
-                substitutedSourceFilePathsByPackageName,
+                substitutedInputFilePathsByPackageName,
                 sourceMapTransformsByTargetPath,
                 externalDependencies
             };

@@ -47,9 +47,9 @@ function graphWithFiles(rootFile: string, additionalLocalFiles: readonly string[
             return {
                 externalDependencies: new Map(),
                 localFiles: [
-                    { directDependencies: new Set(additionalLocalFiles), filePath: rootFile },
+                    { directDependencies: new Set(additionalLocalFiles), filePath: rootFile, moduleReferences: [] },
                     ...additionalLocalFiles.map(function (filePath) {
-                        return { directDependencies: new Set<string>(), filePath };
+                        return { directDependencies: new Set<string>(), filePath, moduleReferences: [] };
                     })
                 ]
             };

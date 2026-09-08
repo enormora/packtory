@@ -49,7 +49,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -61,7 +61,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "import { bar } from 'foo';\nexport const foo = bar('foo');\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -77,7 +77,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/entry.d.ts'),
+                            inputFilePath: path.join(fixture, 'src/entry.d.ts'),
                             targetFilePath: 'entry.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -89,7 +89,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "export type Bar = string;\nexport type { Foo } from 'foo';\n",
                             isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
+                            inputFilePath: path.join(fixture, 'src/foo.d.ts'),
                             targetFilePath: 'foo.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -109,7 +109,7 @@ suite('type-roots', function () {
                 mainFile: {
                     content: "import { foo } from './foo.js';\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -119,7 +119,7 @@ suite('type-roots', function () {
                 typesMainFile: {
                     content: "export declare const foo: import('./foo.js').Foo;\n",
                     isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.d.ts'),
+                    inputFilePath: path.join(fixture, 'src/entry.d.ts'),
                     targetFilePath: 'entry.d.ts'
                 },
                 version: '42.0.0'

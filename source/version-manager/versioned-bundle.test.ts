@@ -38,7 +38,7 @@ function explicitCliBundle(packageInterface: PackageInterface): AnalyzedBundle {
         roots: {
             cli: {
                 js: {
-                    sourceFilePath: '/src/cli.js',
+                    inputFilePath: '/src/cli.js',
                     targetFilePath: 'cli.js',
                     content: '#!/usr/bin/env node\nconsole.log("cli");\n',
                     isExecutable: true
@@ -54,7 +54,7 @@ function explicitCliBundle(packageInterface: PackageInterface): AnalyzedBundle {
 
 function assertCliMainFile(result: VersionedBundle): void {
     assert.deepStrictEqual(result.mainFile, {
-        sourceFilePath: '/src/cli.js',
+        inputFilePath: '/src/cli.js',
         targetFilePath: 'cli.js',
         content: '#!/usr/bin/env node\nconsole.log("cli");\n',
         isExecutable: true
@@ -81,14 +81,14 @@ suite('versioned-bundle', function () {
                     versionedBundle({
                         name: 'bundle-dependency',
                         version: '2.0.0',
-                        mainFile: { sourceFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
+                        mainFile: { inputFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
                     })
                 ],
                 bundlePeerDependencies: [
                     versionedBundle({
                         name: 'peer-dependency',
                         version: '3.0.0',
-                        mainFile: { sourceFilePath: '/src/peer.js', targetFilePath: 'peer.js' }
+                        mainFile: { inputFilePath: '/src/peer.js', targetFilePath: 'peer.js' }
                     })
                 ]
             })

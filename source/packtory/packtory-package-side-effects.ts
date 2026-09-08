@@ -17,8 +17,8 @@ type PackageSideEffectsInspectionDependencies = PackageAnalysisDependencies & Pa
     readonly repositoryFolder: string;
 };
 
-function sourcePath(repositoryFolder: string, sourceFilePath: string): string {
-    return path.relative(repositoryFolder, sourceFilePath).split(path.sep).join(path.posix.sep);
+function sourcePath(repositoryFolder: string, inputFilePath: string): string {
+    return path.relative(repositoryFolder, inputFilePath).split(path.sep).join(path.posix.sep);
 }
 
 function packagePath(targetFilePath: string): string {
@@ -64,7 +64,7 @@ function impureFiles(target: ResolvedPackage, repositoryFolder: string): readonl
         })
         .map(function (resource) {
             return {
-                sourcePath: sourcePath(repositoryFolder, resource.fileDescription.sourceFilePath),
+                sourcePath: sourcePath(repositoryFolder, resource.fileDescription.inputFilePath),
                 packagePath: packagePath(resource.fileDescription.targetFilePath),
                 statements: resource.analysis.sideEffectStatements
             };

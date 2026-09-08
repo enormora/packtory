@@ -12,7 +12,10 @@ function rootSourceFile(content: string): SourceFile {
 function emptyIndex(): DeclarationNodeIndex {
     return {
         idsByNode: new Map(),
-        idsByFileAndName: new Map()
+        idsByFileAndName: new Map(),
+        idsByTargetFileAndName: new Map(),
+        moduleReferencesByTargetFilePath: new Map(),
+        targetFilePathByInputFilePath: new Map()
     };
 }
 
@@ -24,8 +27,134 @@ function indexedDeclaration(sourceFile: SourceFile, statementOffset: number, bin
     const declaration = statement.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
     return {
         idsByNode: new Map<TsMorphNode, readonly string[]>([ [ declaration, [ bindingId ] ] ]),
-        idsByFileAndName: new Map()
+        idsByFileAndName: new Map(),
+        idsByTargetFileAndName: new Map(),
+        moduleReferencesByTargetFilePath: new Map(),
+        targetFilePathByInputFilePath: new Map()
     };
+}
+
+function collectImportTargets(content: string, declarationIndex: DeclarationNodeIndex): Set<string> {
+    const project = createProject({ withFiles: [ { filePath: '/src/index.js', content } ] });
+    const sourceFile = project.getSourceFileOrThrow('/src/index.js');
+    const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
+    return collectIdentifierTargets(importSpecifier, declarationIndex);
+}
+
+function registerRelativeImportTests(): void {
+    test('collectIdentifierTargets maps named import specifiers to relative runtime exports', function () {
+        const targets = collectImportTargets(
+            'import { config as localConfig } from "./shared.js";\nconst api = localConfig;',
+            {
+                idsByNode: new Map(),
+                idsByFileAndName: new Map([
+                    [ '/src/shared.js', new Map([ [ 'config', [ '/src/shared.js::config' ] ] ]) ]
+                ]),
+                idsByTargetFileAndName: new Map([
+                    [ 'shared.js', new Map([ [ 'config', [ '/src/shared.js::config' ] ] ]) ]
+                ]),
+                moduleReferencesByTargetFilePath: new Map([
+                    [
+                        'index.js',
+                        [
+                            {
+                                type: 'local-code',
+                                sourceSpecifier: './wrong.js',
+                                emittedSpecifier: './wrong.js',
+                                targetFilePath: 'wrong.js'
+                            },
+                            {
+                                type: 'local-code',
+                                sourceSpecifier: './shared.js',
+                                emittedSpecifier: './shared.js',
+                                targetFilePath: 'shared.js'
+                            }
+                        ]
+                    ]
+                ]),
+                targetFilePathByInputFilePath: new Map([ [ '/src/index.js', 'index.js' ] ])
+            }
+        );
+
+        assert.deepStrictEqual(targets, new Set([ '/src/shared.js::config' ]));
+    });
+
+    test('collectIdentifierTargets does not map relative asset imports to exported bindings', function () {
+        const targets = collectImportTargets('import { config } from "./config.json";\nconst api = config;', {
+            idsByNode: new Map(),
+            idsByFileAndName: new Map(),
+            idsByTargetFileAndName: new Map([
+                [ 'config.json', new Map([ [ 'config', [ 'config.json::config' ] ] ]) ]
+            ]),
+            moduleReferencesByTargetFilePath: new Map([
+                [
+                    'index.js',
+                    [
+                        {
+                            type: 'local-asset',
+                            sourceSpecifier: './config.json',
+                            emittedSpecifier: './config.json',
+                            targetFilePath: 'config.json'
+                        }
+                    ]
+                ]
+            ]),
+            targetFilePathByInputFilePath: new Map([ [ '/src/index.js', 'index.js' ] ])
+        });
+
+        assert.deepStrictEqual(targets, new Set());
+    });
+
+    test('collectIdentifierTargets does not map relative imports with missing target exports', function () {
+        const targets = collectImportTargets('import { config } from "./shared.js";\nconst api = config;', {
+            idsByNode: new Map(),
+            idsByFileAndName: new Map(),
+            idsByTargetFileAndName: new Map(),
+            moduleReferencesByTargetFilePath: new Map([
+                [
+                    'index.js',
+                    [
+                        {
+                            type: 'local-code',
+                            sourceSpecifier: './shared.js',
+                            emittedSpecifier: './shared.js',
+                            targetFilePath: 'shared.js'
+                        }
+                    ]
+                ]
+            ]),
+            targetFilePathByInputFilePath: new Map([ [ '/src/index.js', 'index.js' ] ])
+        });
+
+        assert.deepStrictEqual(targets, new Set());
+    });
+
+    test('collectIdentifierTargets ignores relative imports when the importer has no target path', function () {
+        const targets = collectImportTargets('import { config } from "./shared.js";\nconst api = config;', {
+            idsByNode: new Map(),
+            idsByFileAndName: new Map(),
+            idsByTargetFileAndName: new Map([
+                [ undefined as unknown as string, new Map([ [ 'config', [ 'missing-target::config' ] ] ]) ],
+                [ 'shared.js', new Map([ [ 'config', [ 'shared.js::config' ] ] ]) ]
+            ]),
+            moduleReferencesByTargetFilePath: new Map([
+                [
+                    undefined as unknown as string,
+                    [
+                        {
+                            type: 'local-code',
+                            sourceSpecifier: './shared.js',
+                            emittedSpecifier: './shared.js',
+                            targetFilePath: 'shared.js'
+                        }
+                    ]
+                ]
+            ]),
+            targetFilePathByInputFilePath: new Map()
+        });
+
+        assert.deepStrictEqual(targets, new Set());
+    });
 }
 
 suite('identifier-target-collector', function () {
@@ -68,31 +197,67 @@ suite('identifier-target-collector', function () {
             idsByNode: new Map(),
             idsByFileAndName: new Map([
                 [ sourceFile.getFilePath(), new Map([ [ 'x', [ '/external.ts::x' ] ] ]) ]
-            ])
+            ]),
+            idsByTargetFileAndName: new Map(),
+            moduleReferencesByTargetFilePath: new Map(),
+            targetFilePathByInputFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set([ '/external.ts::x' ]));
     });
 
-    test('collectIdentifierTargets maps named import specifiers to relative runtime exports', function () {
+    registerRelativeImportTests();
+
+    test('collectIdentifierTargets maps emitted js imports to ts source identity exports by target path', function () {
         const project = createProject({
             withFiles: [
                 {
-                    filePath: '/src/index.js',
-                    content: 'import { config as localConfig } from "./shared.js";\nconst api = localConfig;'
+                    filePath: '/source/file-manager/file-manager.ts',
+                    content: 'import { isExecutableFileMode } from "./permissions.js";\n'
                 }
             ]
         });
-        const sourceFile = project.getSourceFileOrThrow('/src/index.js');
+        const sourceFile = project.getSourceFileOrThrow('/source/file-manager/file-manager.ts');
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
-        const targets = collectIdentifierTargets(importSpecifier, {
+        const bindingIds = [ '/source/file-manager/permissions.ts::isExecutableFileMode' ];
+        const declarationIndex: DeclarationNodeIndex = {
             idsByNode: new Map(),
             idsByFileAndName: new Map([
-                [ '/src/shared.js', new Map([ [ 'config', [ '/src/shared.js::config' ] ] ]) ]
+                [
+                    '/source/file-manager/permissions.ts',
+                    new Map([ [ 'isExecutableFileMode', bindingIds ] ])
+                ]
+            ]),
+            idsByTargetFileAndName: new Map([
+                [
+                    'file-manager/permissions.js',
+                    new Map([ [ 'isExecutableFileMode', bindingIds ] ])
+                ]
+            ]),
+            moduleReferencesByTargetFilePath: new Map([
+                [
+                    'file-manager/file-manager.js',
+                    [
+                        {
+                            type: 'local-code',
+                            sourceSpecifier: './permissions',
+                            emittedSpecifier: './permissions.js',
+                            targetFilePath: 'file-manager/permissions.js'
+                        }
+                    ]
+                ]
+            ]),
+            targetFilePathByInputFilePath: new Map([
+                [ '/source/file-manager/file-manager.ts', 'file-manager/file-manager.js' ],
+                [ '/source/file-manager/permissions.ts', 'file-manager/permissions.js' ]
             ])
-        });
+        };
+        const targets = collectIdentifierTargets(importSpecifier, declarationIndex);
 
-        assert.deepStrictEqual(targets, new Set([ '/src/shared.js::config' ]));
+        assert.deepStrictEqual(
+            targets,
+            new Set([ '/source/file-manager/permissions.ts::isExecutableFileMode' ])
+        );
     });
 
     test('collectIdentifierTargets does not map named imports from external modules', function () {
@@ -108,7 +273,10 @@ suite('identifier-target-collector', function () {
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
         const targets = collectIdentifierTargets(importSpecifier, {
             idsByNode: new Map(),
-            idsByFileAndName: new Map([ [ '/src/shared', new Map([ [ 'config', [ '/src/shared::config' ] ] ]) ] ])
+            idsByFileAndName: new Map([ [ '/src/shared', new Map([ [ 'config', [ '/src/shared::config' ] ] ]) ] ]),
+            idsByTargetFileAndName: new Map(),
+            moduleReferencesByTargetFilePath: new Map(),
+            targetFilePathByInputFilePath: new Map()
         });
 
         assert.deepStrictEqual(targets, new Set());
@@ -125,11 +293,19 @@ suite('identifier-target-collector', function () {
         });
         const sourceFile = project.getSourceFileOrThrow('/src/index.js');
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
-        const targets = collectIdentifierTargets(importSpecifier, {
-            idsByNode: new Map(),
-            idsByFileAndName: new Map()
-        });
-
-        assert.deepStrictEqual(targets, new Set());
+        assert.throws(
+            function () {
+                collectIdentifierTargets(importSpecifier, {
+                    idsByNode: new Map(),
+                    idsByFileAndName: new Map(),
+                    idsByTargetFileAndName: new Map(),
+                    moduleReferencesByTargetFilePath: new Map(),
+                    targetFilePathByInputFilePath: new Map([ [ '/src/index.js', 'index.js' ] ])
+                });
+            },
+            {
+                message: 'Missing resolved module reference for "./missing.js" in "index.js"'
+            }
+        );
     });
 });

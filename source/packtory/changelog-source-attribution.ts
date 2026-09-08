@@ -183,11 +183,11 @@ function resolveMapSource(mapFilePath: string, traceMap: TraceMap, source: strin
 }
 
 function resolveSingleSourceMappingUrl(
-    sourceFilePath: string,
+    inputFilePath: string,
     sourceMappingUrls: readonly string[]
 ): string | undefined {
     if (sourceMappingUrls.length > 1) {
-        throw new Error(`Multiple sourceMappingURL references found in "${sourceFilePath}"`);
+        throw new Error(`Multiple sourceMappingURL references found in "${inputFilePath}"`);
     }
 
     return sourceMappingUrls[0];
@@ -195,28 +195,28 @@ function resolveSingleSourceMappingUrl(
 
 async function ensureMapIsReadable(
     dependencies: ChangelogSourceAttributionDependencies,
-    sourceFilePath: string,
+    inputFilePath: string,
     mapFilePath: string
 ): Promise<void> {
     const readability = await dependencies.fileManager.checkReadability(mapFilePath);
     if (!readability.isReadable) {
-        throw new Error(`Source map "${mapFilePath}" referenced by "${sourceFilePath}" is not readable`);
+        throw new Error(`Source map "${mapFilePath}" referenced by "${inputFilePath}" is not readable`);
     }
 }
 
 async function readReferencedMap(
     dependencies: ChangelogSourceAttributionDependencies,
-    sourceFilePath: string
+    inputFilePath: string
 ): Promise<ReferencedMap | undefined> {
-    const fileContent = await dependencies.fileManager.readFile(sourceFilePath);
-    const sourceMappingUrl = resolveSingleSourceMappingUrl(sourceFilePath, collectSourceMappingUrls(fileContent));
+    const fileContent = await dependencies.fileManager.readFile(inputFilePath);
+    const sourceMappingUrl = resolveSingleSourceMappingUrl(inputFilePath, collectSourceMappingUrls(fileContent));
 
     if (sourceMappingUrl === undefined) {
         return undefined;
     }
 
-    const mapFilePath = path.resolve(path.dirname(sourceFilePath), sourceMappingUrl);
-    await ensureMapIsReadable(dependencies, sourceFilePath, mapFilePath);
+    const mapFilePath = path.resolve(path.dirname(inputFilePath), sourceMappingUrl);
+    await ensureMapIsReadable(dependencies, inputFilePath, mapFilePath);
     return {
         mapFilePath,
         content: await dependencies.fileManager.readFile(mapFilePath)
@@ -225,11 +225,11 @@ async function readReferencedMap(
 
 async function attributeJavaScriptFile(
     dependencies: ChangelogSourceAttributionDependencies,
-    sourceFilePath: string
+    inputFilePath: string
 ): Promise<readonly string[]> {
-    const referencedMap = await readReferencedMap(dependencies, sourceFilePath);
+    const referencedMap = await readReferencedMap(dependencies, inputFilePath);
     if (referencedMap === undefined) {
-        return [ toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath) ];
+        return [ toRepositoryRelativePath(dependencies.repositoryFolder, inputFilePath) ];
     }
 
     const traceMap = parseTraceMap(referencedMap.mapFilePath, referencedMap.content);
@@ -246,12 +246,12 @@ async function collectAttributedFiles(
     entry: AnalyzedBundleResource
 ): Promise<readonly string[]> {
     const {
-        fileDescription: { sourceFilePath }
+        fileDescription: { inputFilePath }
     } = entry;
-    if (isJavaScriptFile(sourceFilePath)) {
-        return attributeJavaScriptFile(dependencies, sourceFilePath);
+    if (isJavaScriptFile(inputFilePath)) {
+        return attributeJavaScriptFile(dependencies, inputFilePath);
     }
-    return [ toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath) ];
+    return [ toRepositoryRelativePath(dependencies.repositoryFolder, inputFilePath) ];
 }
 
 export async function attributeChangelogSourceFiles(

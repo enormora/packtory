@@ -12,7 +12,7 @@ import {
 } from './resource-resolver.ts';
 
 type TransferableFile = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly content: string;
     readonly isExecutable: boolean;
@@ -27,7 +27,7 @@ type ResolverFixture = {
     readonly scan: SinonSpy;
 };
 type FileDescriptionCall = {
-    readonly sourceFilePath: string;
+    readonly inputFilePath: string;
     readonly targetFilePath: string;
 };
 type GeneratedManifestFixture = {
@@ -38,11 +38,11 @@ type GeneratedManifestFixture = {
 type ResolvedBundle = Awaited<ReturnType<ResourceResolver['resolve']>>;
 type ResolvedContent = ResolvedBundle['contents'][number];
 
-function createTransferableFile(sourceFilePath: string, targetFilePath = sourceFilePath.slice(1)): TransferableFile {
+function createTransferableFile(inputFilePath: string, targetFilePath = inputFilePath.slice(1)): TransferableFile {
     return {
-        sourceFilePath,
+        inputFilePath,
         targetFilePath,
-        content: `content:${sourceFilePath}`,
+        content: `content:${inputFilePath}`,
         isExecutable: false
     };
 }
@@ -63,6 +63,7 @@ function createGraph(input: GraphInput): DependencyGraph {
             sourceSpecifier: externalDependencyName,
             emittedSpecifier: externalDependencyName
         } ],
+        moduleReferences: [],
         project: project as never
     });
 
@@ -70,6 +71,7 @@ function createGraph(input: GraphInput): DependencyGraph {
         graph.addDependency(localFile, {
             sourceMapFilePath: Maybe.nothing(),
             externalDependencies: [],
+            moduleReferences: [],
             project: project as never
         });
         graph.connect(rootFile, localFile);
@@ -82,7 +84,7 @@ type Overrides = {
     readonly readableFiles?: readonly string[];
     readonly scan?: SinonSpy;
     readonly transferableFileDescriptionResponder?: (
-        sourceFilePath: string,
+        inputFilePath: string,
         targetFilePath: string
     ) => TransferableFile;
 };
@@ -103,8 +105,8 @@ function createResolver(overrides: Overrides = {}): ResolverFixture {
     });
     const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
     const baseFileManager = createFakeFileManager({
-        transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
-            return { value: responder(sourceFilePath, targetFilePath) };
+        transferableFileDescriptionResponder(inputFilePath, targetFilePath) {
+            return { value: responder(inputFilePath, targetFilePath) };
         }
     });
     const readableFiles = overrides.readableFiles === undefined
@@ -186,18 +188,18 @@ function typedBaseResolveOptions(): typeof baseResolveOptions & {
     };
 }
 
-function hasContentSourcePath(result: ResolvedBundle, sourceFilePath: string): boolean {
+function hasContentSourcePath(result: ResolvedBundle, inputFilePath: string): boolean {
     return result.contents.some(function (entry) {
-        return entry.fileDescription.sourceFilePath === sourceFilePath;
+        return entry.fileDescription.inputFilePath === inputFilePath;
     });
 }
 
-function assertPromotedDeclarationScan(scan: SinonSpy, sourceFilePath: string): void {
+function assertPromotedDeclarationScan(scan: SinonSpy, inputFilePath: string): void {
     assertDeepSubset(scan, {
         callCount: 3,
         thirdCall: {
             args: [
-                sourceFilePath,
+                inputFilePath,
                 '/src',
                 {
                     includeSourceMapFiles: false,
@@ -209,10 +211,10 @@ function assertPromotedDeclarationScan(scan: SinonSpy, sourceFilePath: string): 
     });
 }
 
-function assertFourthPromotedDeclarationScan(scan: SinonSpy, sourceFilePath: string): void {
+function assertFourthPromotedDeclarationScan(scan: SinonSpy, inputFilePath: string): void {
     assert.strictEqual(scan.callCount, 4);
     assert.deepStrictEqual(scan.getCall(3).args, [
-        sourceFilePath,
+        inputFilePath,
         '/src',
         {
             includeSourceMapFiles: false,
@@ -228,13 +230,13 @@ function generatedManifestFixture(graph: DependencyGraph): GeneratedManifestFixt
     const fileDescriptionCalls: FileDescriptionCall[] = [];
     const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan, scanEntries };
     const fileManager = createFakeFileManager({
-        transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
+        transferableFileDescriptionResponder(inputFilePath, targetFilePath) {
             if (targetFilePath === 'package.json') {
                 throw new Error('should not read generated manifest');
             }
 
-            fileDescriptionCalls.push({ sourceFilePath, targetFilePath });
-            return { value: createTransferableFile(sourceFilePath, targetFilePath) };
+            fileDescriptionCalls.push({ inputFilePath, targetFilePath });
+            return { value: createTransferableFile(inputFilePath, targetFilePath) };
         }
     });
 
@@ -259,6 +261,7 @@ function addGeneratedManifestDependency(graph: DependencyGraph): void {
     graph.addDependency('/src/package.json', {
         sourceMapFilePath: Maybe.nothing(),
         externalDependencies: [],
+        moduleReferences: [],
         isGeneratedManifest: true
     });
     graph.connect('/src/index.js', '/src/package.json');
@@ -331,12 +334,12 @@ suite('resource-resolver', function () {
         assert.strictEqual(fileManager.getTransferableFileDescriptionCallCount(), 1);
         assert.deepStrictEqual(fileDescriptionCalls, [
             {
-                sourceFilePath: '/src/index.js',
+                inputFilePath: '/src/index.js',
                 targetFilePath: 'index.js'
             }
         ]);
         assert.deepStrictEqual(fileManager.getTransferableFileDescriptionCall(0), {
-            sourceFilePath: '/src/index.js',
+            inputFilePath: '/src/index.js',
             targetFilePath: 'index.js'
         });
     });

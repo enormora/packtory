@@ -102,17 +102,17 @@ suite('package-analysis-stage', function () {
             ...linkedPackageNamed('consumer'),
             linkedBundle: {
                 ...createLinkedBundle('consumer'),
-                substitutedSourceFilePathsByPackageName: new Map([
+                substitutedInputFilePathsByPackageName: new Map([
                     [ 'pkg-a', new Set([ '/provider/feature.js', '/provider/feature.d.ts' ]) ]
                 ])
             }
         };
         const eliminator = stubEliminator(async function (inputs) {
             assert.deepStrictEqual(
-                inputs[0]?.substitutionPublicModuleSourceFilePaths,
+                inputs[0]?.substitutionPublicModuleInputFilePaths,
                 new Set([ '/provider/feature.js', '/provider/feature.d.ts' ])
             );
-            assert.deepStrictEqual(inputs[1]?.substitutionPublicModuleSourceFilePaths, new Set<string>());
+            assert.deepStrictEqual(inputs[1]?.substitutionPublicModuleInputFilePaths, new Set<string>());
             return [ createAnalyzedBundle('pkg-a'), createAnalyzedBundle('consumer') ];
         });
 

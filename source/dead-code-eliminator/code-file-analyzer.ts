@@ -41,10 +41,10 @@ function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
 }
 
 function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet<string>): ReadonlySet<string> {
-    const { sourceFilePath } = loaded.resource.fileDescription;
+    const { targetFilePath } = loaded.resource.fileDescription;
     return new Set(
         loaded.bindings.flatMap(function (binding) {
-            return reachable.has(bindingId(sourceFilePath, binding.name)) ? [ binding.name ] : [];
+            return reachable.has(bindingId(targetFilePath, binding.name)) ? [ binding.name ] : [];
         })
     );
 }
@@ -57,7 +57,7 @@ function transformSourceFile(
 ): TransformedSourceFile {
     const result = applyRemovalPlan(sourceFile, {
         bundleName: context.bundleName,
-        sourceFilePath: loaded.resource.fileDescription.sourceFilePath,
+        inputFilePath: loaded.resource.fileDescription.inputFilePath,
         targetFilePath: loaded.resource.fileDescription.targetFilePath,
         survivingNames: surviving,
         trace: context.trace
@@ -73,7 +73,7 @@ type CodeAnalysis = {
 
 function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): CodeAnalysis {
     const moduleAnalysis = buildModuleAnalysis({
-        sourceFilePath: loaded.resource.fileDescription.sourceFilePath,
+        inputFilePath: loaded.resource.fileDescription.inputFilePath,
         targetFilePath: loaded.resource.fileDescription.targetFilePath,
         sourceFile: loaded.sourceFile,
         bindings: loaded.bindings,

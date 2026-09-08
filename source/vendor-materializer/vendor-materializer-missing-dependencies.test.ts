@@ -14,7 +14,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
                 transferableFileDescriptions: [
                     {
                         value: {
-                            sourceFilePath: '/repo/node_modules/leaf/bin.js',
+                            inputFilePath: '/repo/node_modules/leaf/bin.js',
                             targetFilePath: 'node_modules/leaf/bin.js',
                             content: '',
                             isExecutable: true

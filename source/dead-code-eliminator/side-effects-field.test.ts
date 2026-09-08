@@ -13,8 +13,9 @@ function analysis(hasSideEffects: boolean): FileAnalysis {
 
 function resource(targetFilePath: string, hasSideEffects = false): AnalyzedBundleResource {
     return {
-        fileDescription: { content: '', isExecutable: false, sourceFilePath: `/${targetFilePath}`, targetFilePath },
+        fileDescription: { content: '', isExecutable: false, inputFilePath: `/${targetFilePath}`, targetFilePath },
         directDependencies: new Set<string>(),
+        moduleReferences: [],
         isSubstituted: false,
         isExplicitlyIncluded: false,
         analysis: analysis(hasSideEffects)

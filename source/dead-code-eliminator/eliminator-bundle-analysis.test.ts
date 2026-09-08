@@ -190,7 +190,7 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'const api = { live() { return 1; }, dead() { return 2; } };',
@@ -209,7 +209,7 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'function build() { return { helper() { return 1; }, other() { return 2; } }; }',
@@ -229,7 +229,7 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: [ 'const { helper, other } = { helper: 1, other: 2 };', 'export const live = helper;' ].join(
                     '\n'
@@ -249,7 +249,7 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
                 name: 'pkg',
-                sourceFilePath: '/src/index.ts',
+                inputFilePath: '/src/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'const globalSchema = 1;',

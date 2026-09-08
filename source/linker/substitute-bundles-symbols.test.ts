@@ -27,7 +27,7 @@ function peerBundleWithEntryExport(entryContent: string): VersionedBundleWithMan
                 js: {
                     content: '',
                     isExecutable: false,
-                    sourceFilePath: '/pkg-entry.js',
+                    inputFilePath: '/pkg-entry.js',
                     targetFilePath: 'pkg-entry.js'
                 }
             }
@@ -53,7 +53,7 @@ function peerBundleWithEntryExport(entryContent: string): VersionedBundleWithMan
         ],
         packageJson: { name: 'peer-package', version: '21' },
         exportsField: { './pkg-entry.js': { import: './pkg-entry.js' } },
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '/pkg-entry.js', targetFilePath: 'pkg-entry.js' },
+        mainFile: { content: '', isExecutable: false, inputFilePath: '/pkg-entry.js', targetFilePath: 'pkg-entry.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/package.json' }
     });
 }
@@ -75,7 +75,7 @@ function buildInputGraph(entryContent: string): ResourceGraph {
         ]
     });
     const root = {
-        js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
+        js: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createResolvedGraph({

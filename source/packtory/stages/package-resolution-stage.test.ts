@@ -66,19 +66,19 @@ function configWithPackage(name: string): ValidConfigWithoutRegistryResult {
 
 function linkedBundle(
     name: string,
-    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>
+    substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>
 ): LinkedBundle {
     return {
         name,
         contents: [],
         roots: {
             main: {
-                js: { content: '', isExecutable: false, sourceFilePath: '/src/index.js', targetFilePath: 'index.js' }
+                js: { content: '', isExecutable: false, inputFilePath: '/src/index.js', targetFilePath: 'index.js' }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         linkedBundleDependencies: new Map(),
-        substitutedSourceFilePathsByPackageName,
+        substitutedInputFilePathsByPackageName,
         sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map()
     };
@@ -151,7 +151,7 @@ suite('package-resolution-stage', function () {
         const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
         const promotionCalls: {
             readonly packageName: string;
-            readonly sourceFilePaths: ReadonlySet<string>;
+            readonly inputFilePaths: ReadonlySet<string>;
         }[] = [];
         let resolveAndLinkCallCount = 0;
         async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
@@ -167,8 +167,8 @@ suite('package-resolution-stage', function () {
                 packageProcessor: {
                     ...stubPackageProcessor,
                     resolveAndLink,
-                    async resolveAndLinkWithPromotedDeclarationCompanions(options, sourceFilePaths) {
-                        promotionCalls.push({ packageName: options.name, sourceFilePaths });
+                    async resolveAndLinkWithPromotedDeclarationCompanions(options, inputFilePaths) {
+                        promotionCalls.push({ packageName: options.name, inputFilePaths });
                         return linkedBundle(options.name, new Map());
                     }
                 },
@@ -180,7 +180,7 @@ suite('package-resolution-stage', function () {
 
         assert.strictEqual(resolveAndLinkCallCount, 3);
         assert.deepStrictEqual(promotionCalls, [
-            { packageName: 'pkg-a', sourceFilePaths: new Set([ '/src/pkg-a/internal.js' ]) }
+            { packageName: 'pkg-a', inputFilePaths: new Set([ '/src/pkg-a/internal.js' ]) }
         ]);
         assert.strictEqual(capture.emitScheduledEvents, false);
     });

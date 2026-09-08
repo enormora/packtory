@@ -9,6 +9,7 @@ import {
     type ExternalDependencies,
     type ExternalDependency
 } from './external-dependencies.ts';
+import type { ModuleReference } from './source-file-references.ts';
 import type { TypescriptProject } from './typescript-project-analyzer.ts';
 
 type ExternalDependencyReferenceInput = NamedDependencySpecifierReference;
@@ -17,6 +18,7 @@ export type DependencyGraphNodeData = {
     readonly sourceMapFilePath: Maybe<string>;
     readonly project?: TypescriptProject | undefined;
     readonly externalDependencies: readonly ExternalDependencyReferenceInput[];
+    readonly moduleReferences: readonly ModuleReference[];
     readonly isGeneratedManifest?: true | undefined;
 };
 
@@ -28,6 +30,7 @@ type DependencyNode = DependencyGraphNodeData & {
 export type LocalFile = {
     readonly filePath: string;
     readonly directDependencies: ReadonlySet<string>;
+    readonly moduleReferences: readonly ModuleReference[];
     readonly project?: Project | undefined;
     readonly isGeneratedManifest?: true | undefined;
 };
@@ -62,6 +65,7 @@ function sourceMapLocalFile(
     return {
         filePath: sourceMapFilePath.value,
         directDependencies: new Set(),
+        moduleReferences: [],
         project: project?.getProject()
     };
 }
@@ -101,6 +105,7 @@ export function createDependencyGraph(): DependencyGraph {
                     filePath: node.id,
                     sourceMapFilePath: node.data.sourceMapFilePath,
                     externalDependencies: node.data.externalDependencies,
+                    moduleReferences: node.data.moduleReferences,
                     localFiles: Array.from(node.adjacentNodeIds),
                     project: node.data.project,
                     ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
@@ -122,6 +127,7 @@ export function createDependencyGraph(): DependencyGraph {
                 localFiles.set(node.id, {
                     filePath: node.id,
                     directDependencies,
+                    moduleReferences: node.data.moduleReferences,
                     project: node.data.project?.getProject(),
                     ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                 });
