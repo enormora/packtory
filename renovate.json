@@ -4,6 +4,10 @@
         "github>enormora/renovate-config#1.0.2",
         "github>enormora/renovate-config:github-automerge#1.0.2"
     ],
+    "ignoreDeps": [
+        "@packtory/cli",
+        "@packtory/github-release-gate"
+    ],
     "ignorePaths": [
         "**/node_modules/**",
         "**/integration-tests/**"
