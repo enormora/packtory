@@ -47,23 +47,42 @@ function permissionsResource(): LinkedBundleResource {
     );
 }
 
-function fileManagerBundle(): LinkedBundle {
-    const fileManager = fileManagerResource();
+function packageBundleWithMainEntry(
+    entry: LinkedBundleResource,
+    contents: readonly LinkedBundleResource[]
+): LinkedBundle {
     return linkedBundle({
         name: 'pkg',
-        contents: [ fileManager, permissionsResource() ],
+        contents,
         roots: {
             main: {
                 js: {
-                    content: fileManager.fileDescription.content,
+                    content: entry.fileDescription.content,
                     isExecutable: false,
-                    inputFilePath: '/source/file-manager/file-manager.ts',
-                    targetFilePath: 'file-manager/file-manager.js'
+                    inputFilePath: entry.fileDescription.inputFilePath,
+                    targetFilePath: entry.fileDescription.targetFilePath
                 }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
+}
+
+function fileManagerBundle(): LinkedBundle {
+    const fileManager = fileManagerResource();
+    return packageBundleWithMainEntry(fileManager, [ fileManager, permissionsResource() ]);
+}
+
+async function assertUnusedPermissionIsEliminated(bundle: LinkedBundle): Promise<void> {
+    const eliminator = createTestEliminator();
+    const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
+    const emittedPermissions = analyzed?.contents.find(function (candidate) {
+        return candidate.fileDescription.targetFilePath === 'dist/permissions.js';
+    });
+
+    assertDefined(emittedPermissions);
+    assert.strictEqual(emittedPermissions.fileDescription.content.includes('allowed'), true);
+    assert.strictEqual(emittedPermissions.fileDescription.content.includes('unused'), false);
 }
 
 suite('published artifact dead code elimination regressions', function () {
@@ -82,43 +101,52 @@ suite('published artifact dead code elimination regressions', function () {
     });
 
     test('eliminate resolves emitted imports from source-map authored input paths by target path', async function () {
-        const eliminator = createTestEliminator();
         const entry = resource(
             '/workspace/src/file-manager.ts',
             'dist/file-manager.js',
             'import { allowed } from "./permissions.js";\nexport const api = allowed;\n'
         );
-        const bundle = linkedBundle({
-            name: 'pkg',
-            contents: [
-                entry,
-                resource(
-                    '/workspace/src/permissions.ts',
-                    'dist/permissions.js',
-                    'export const allowed = true;\nexport const unused = false;\n'
-                )
-            ],
-            roots: {
-                main: {
-                    js: {
-                        content: entry.fileDescription.content,
-                        isExecutable: false,
-                        inputFilePath: '/workspace/src/file-manager.ts',
-                        targetFilePath: 'dist/file-manager.js'
-                    }
-                }
-            },
-            surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-        });
+        const bundle = packageBundleWithMainEntry(entry, [
+            entry,
+            resource(
+                '/workspace/src/permissions.ts',
+                'dist/permissions.js',
+                'export const allowed = true;\nexport const unused = false;\n'
+            )
+        ]);
 
-        const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
-        const emittedPermissions = analyzed?.contents.find(function (candidate) {
-            return candidate.fileDescription.targetFilePath === 'dist/permissions.js';
-        });
+        await assertUnusedPermissionIsEliminated(bundle);
+    });
 
-        assertDefined(emittedPermissions);
-        assert.strictEqual(emittedPermissions.fileDescription.content.includes('allowed'), true);
-        assert.strictEqual(emittedPermissions.fileDescription.content.includes('unused'), false);
+    test('eliminate resolves emitted imports when source-map authored files are absent', async function () {
+        const entry = resource(
+            '/build/index.js',
+            'dist/index.js',
+            'import { allowed } from "./permissions.js";\nexport const api = allowed;\n'
+        );
+        const map = resource(
+            '/build/index.js.map',
+            'dist/index.js.map',
+            JSON.stringify({
+                version: 3,
+                file: 'index.js',
+                sources: [ '../source/index.ts' ],
+                sourcesContent: undefined,
+                names: [],
+                mappings: ''
+            })
+        );
+        const bundle = packageBundleWithMainEntry(entry, [
+            entry,
+            resource(
+                '/build/permissions.js',
+                'dist/permissions.js',
+                'export const allowed = true;\nexport const unused = false;\n'
+            ),
+            map
+        ]);
+
+        await assertUnusedPermissionIsEliminated(bundle);
     });
 
     test('eliminate keeps a local function named by a surviving local export declaration', async function () {

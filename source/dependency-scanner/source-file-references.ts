@@ -3,7 +3,6 @@ import { isBuiltin } from 'node:module';
 import { oneLine } from 'common-tags';
 import {
     SyntaxKind,
-    ts,
     type CallExpression,
     type PropertyAccessExpression,
     type SourceFile,
@@ -11,6 +10,7 @@ import {
 } from 'ts-morph';
 import { getInjectedDynamicImportLiterals } from './injected-dynamic-imports.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
+import { resolveTypescriptModuleFilePath } from './typescript-module-resolution.ts';
 
 export const moduleReferenceKind = {
     externalPackage: 'external-package',
@@ -134,36 +134,6 @@ function classifyLocalReference(
     return { kind: moduleReferenceKind.localCode, filePath: resolvedFilePath, ...specifiers };
 }
 
-function resolvedModuleForImport(
-    importValue: string,
-    containingSourceFile: Readonly<SourceFile>
-): Readonly<ts.ResolvedModule | undefined> {
-    const project = containingSourceFile.getProject();
-    return ts
-        .resolveModuleName(
-            importValue,
-            containingSourceFile.getFilePath(),
-            project.getCompilerOptions(),
-            project.getModuleResolutionHost()
-        )
-        .resolvedModule;
-}
-
-export function resolveSourceFileForLiteral(
-    literal: StringLiteral,
-    containingSourceFile: Readonly<SourceFile>
-): Readonly<SourceFile | undefined> {
-    const project = containingSourceFile.getProject();
-    const resolvedModule = resolvedModuleForImport(literal.getLiteralValue(), containingSourceFile);
-
-    if (resolvedModule !== undefined) {
-        const resolvedFilePath = resolvedModule.resolvedFileName;
-        return project.getSourceFile(resolvedFilePath);
-    }
-
-    return undefined;
-}
-
 function resolveWasmReference(
     importValue: string,
     containingSourceFile: Readonly<SourceFile>,
@@ -202,21 +172,25 @@ function resolveModuleReferenceForImport(
     containingSourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): Readonly<ModuleReference | undefined> {
-    const resolvedModule = resolvedModuleForImport(importValue, containingSourceFile);
-    if (resolvedModule !== undefined) {
+    const resolvedFilePath = resolveTypescriptModuleFilePath({
+        moduleSpecifier: importValue,
+        containingSourceFile,
+        resolutionMode: 'type'
+    });
+    if (resolvedFilePath !== undefined) {
         if (!isRelativeOrAbsoluteSpecifier(importValue) && !isHashSpecifier(importValue)) {
             return {
                 kind: moduleReferenceKind.externalPackage,
                 packageName: externalPackageNameForResolvedImport(
                     importValue,
-                    resolvedModule.resolvedFileName,
+                    resolvedFilePath,
                     containingSourceFile
                 ),
                 ...referenceSpecifiers(importValue)
             };
         }
 
-        return classifyLocalReference(resolvedModule.resolvedFileName, packageJsonPath, importValue);
+        return classifyLocalReference(resolvedFilePath, packageJsonPath, importValue);
     }
 
     return importValue.endsWith('.wasm')

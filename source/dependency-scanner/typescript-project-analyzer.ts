@@ -23,10 +23,6 @@ export type TypescriptProjectAnalyzer = {
     analyzeProject: (folder: string, options: AnalyzationOptions) => TypescriptProject;
 };
 
-export function getSourcePathFromSourceFile(sourceFile: Readonly<SourceFile>): string {
-    return sourceFile.getFilePath();
-}
-
 export function createTypescriptProjectAnalyzer(
     dependencies: TypescriptProjectAnalyzerDependencies
 ): TypescriptProjectAnalyzer {

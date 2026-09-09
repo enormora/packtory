@@ -1,11 +1,8 @@
 import type { Project, SourceFile } from 'ts-morph';
 import { buildLineIndex } from '../../dead-code-eliminator/transform/line-index.ts';
 import type { PositionAtom, SourceMapTransform } from '../../dead-code-eliminator/transform/atom-translator.ts';
-import {
-    getModuleReferenceLiterals,
-    resolveSourceFileForLiteral
-} from '../../dependency-scanner/source-file-references.ts';
-import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.ts';
+import { getModuleReferenceLiterals } from '../../dependency-scanner/source-file-references.ts';
+import { resolveTypescriptModuleFilePath } from '../../dependency-scanner/typescript-module-resolution.ts';
 import type { ImportPathReplacement } from '../replacement-lookup.ts';
 
 type Replacements = ReadonlyMap<string, ImportPathReplacement>;
@@ -32,9 +29,13 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
     const edits: LiteralEdit[] = [];
     const literals = getModuleReferenceLiterals(sourceFile);
     for (const literal of literals) {
-        const resolvedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
-        if (resolvedSourceFile !== undefined) {
-            const replacement = replacements.get(getSourcePathFromSourceFile(resolvedSourceFile));
+        const resolvedFilePath = resolveTypescriptModuleFilePath({
+            moduleSpecifier: literal.getLiteralValue(),
+            containingSourceFile: sourceFile,
+            resolutionMode: 'type'
+        });
+        if (resolvedFilePath !== undefined) {
+            const replacement = replacements.get(resolvedFilePath);
             if (replacement !== undefined) {
                 edits.push({
                     start: literal.getStart() + 1,
