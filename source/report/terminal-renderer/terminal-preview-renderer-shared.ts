@@ -65,17 +65,21 @@ export type FailureDocumentHeader = {
     readonly issues: readonly string[];
 };
 
-const resultTypeHeadings = {
-    [previewResultType.config]: 'Configuration issues',
-    [previewResultType.checks]: 'Check failures',
-    [previewResultType.partial]: 'Package failures'
-} as const;
+function resultTypeHeading(resultType: FailureDocumentHeader['resultType']): string {
+    if (resultType === previewResultType.config) {
+        return 'Configuration issues';
+    }
+    if (resultType === previewResultType.checks) {
+        return 'Check failures';
+    }
+    return 'Package failures';
+}
 
 export function renderFailureDocumentHeader(document: FailureDocumentHeader, colors: Colors): readonly string[] {
     const chip = `[${document.modeLabel}]`;
     const lines = [ `${colors.bold(document.title)} ${colors.yellow(chip)}` ];
     if (document.resultType !== previewResultType.success) {
-        lines.push(colors.red(resultTypeHeadings[document.resultType]));
+        lines.push(colors.red(resultTypeHeading(document.resultType)));
     }
     lines.push(
         ...document.issues.map(function (issue) {

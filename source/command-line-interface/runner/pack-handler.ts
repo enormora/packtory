@@ -127,12 +127,6 @@ function formatPeerFailure(error: PeerDependenciesUnsatisfiedPackFailure): strin
     );
 }
 
-const packageFailureSuffixByType = {
-    [packPackageFailureType.bundleDependenciesUnsupported]:
-        'declares bundleDependencies which pack does not yet support without --vendor-dependencies',
-    [packPackageFailureType.packageNotFound]: 'is not declared in the packtory configuration'
-} as const;
-
 function formatInvalidPackMode(message: string): string {
     return `${getErrorSymbol()} ${message}`;
 }
@@ -181,8 +175,15 @@ function formatVendorDependencyNotFoundFailure(error: VendorDependencyNotFoundPa
     return `${header}\n${details}`;
 }
 
+function packageNameFailureSuffix(error: PackageNamePackFailure): string {
+    if (error.type === packPackageFailureType.bundleDependenciesUnsupported) {
+        return 'declares bundleDependencies which pack does not yet support without --vendor-dependencies';
+    }
+    return 'is not declared in the packtory configuration';
+}
+
 function formatPackageNameFailure(error: PackageNamePackFailure): string {
-    return `${getErrorSymbol()} Package "${error.packageName}" ${packageFailureSuffixByType[error.type]}`;
+    return `${getErrorSymbol()} Package "${error.packageName}" ${packageNameFailureSuffix(error)}`;
 }
 
 function isIssueFailure(error: PackFailure): error is IssuePackFailure {

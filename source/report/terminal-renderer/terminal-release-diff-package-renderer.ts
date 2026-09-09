@@ -23,11 +23,6 @@ type ReleaseDiffPackageRendererOptions = {
 };
 
 const fileMarker = { added: '+', modified: '~', removed: '-' } as const;
-const modifiedAnnotationLabel = {
-    [modifiedFileContentChangeKind.binary]: ' (binary, no text diff)',
-    [modifiedFileContentChangeKind.modeOnly]: ' (mode only)',
-    [modifiedFileContentChangeKind.text]: ''
-} as const;
 const hunkIndentDepthIncrement = 2;
 
 function indent(depth: number): string {
@@ -67,8 +62,18 @@ function renderModeChangeSuffix(file: ModifiedFile, colors: Colors): string {
     return colors.yellow(` mode ${unixModeFor(file.oldIsExecutable)} -> ${unixModeFor(file.newIsExecutable)}`);
 }
 
+function modifiedAnnotationLabel(file: ModifiedFile): string {
+    if (file.contentChange.kind === modifiedFileContentChangeKind.binary) {
+        return ' (binary, no text diff)';
+    }
+    if (file.contentChange.kind === modifiedFileContentChangeKind.modeOnly) {
+        return ' (mode only)';
+    }
+    return '';
+}
+
 function renderModifiedAnnotation(file: ModifiedFile, colors: Colors): string {
-    const annotation = modifiedAnnotationLabel[file.contentChange.kind];
+    const annotation = modifiedAnnotationLabel(file);
     return colors.dim(annotation);
 }
 
