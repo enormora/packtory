@@ -330,6 +330,23 @@ function dependencyUpdatePullRequestsFor(target: ChangelogTarget): readonly Pull
     );
 }
 
+function dependencyUpdatePullRequestIdsFor(target: ChangelogTarget): ReadonlySet<number> {
+    return new Set(
+        target.packagePlan.changelogDependencyUpdates.flatMap(function (update) {
+            return manifestPullRequestsForUpdate(target, update).map(function (pullRequest) {
+                return pullRequest.id;
+            });
+        })
+    );
+}
+
+function unmatchedManifestDependencyPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    const dependencyUpdatePullRequestIds = dependencyUpdatePullRequestIdsFor(target);
+    return target.manifestDependencyPullRequests.filter(function (pullRequest) {
+        return !dependencyUpdatePullRequestIds.has(pullRequest.id);
+    });
+}
+
 function nonManifestPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
     const manifestPullRequestIds = new Set(
         target.manifestDependencyPullRequests.map(function (pullRequest) {
@@ -376,7 +393,11 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
         return target.pullRequests;
     }
 
-    return [ ...nonManifestPullRequestsFor(target), ...dependencyUpdatePullRequestsFor(target) ];
+    return [
+        ...nonManifestPullRequestsFor(target),
+        ...dependencyUpdatePullRequestsFor(target),
+        ...unmatchedManifestDependencyPullRequestsFor(target)
+    ];
 }
 
 function prLogConfigForRendering(config: PrLogConfig): PrLogConfig {
