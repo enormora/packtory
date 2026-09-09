@@ -6,8 +6,9 @@ import {
     type ModuleReferenceShape
 } from '../test-libraries/module-reference-shapes.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { getReferencedModules, resolveSourceFileForLiteral } from './source-file-references.ts';
+import { getReferencedModules } from './source-file-references.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
+import { resolveTypescriptModuleFilePath } from './typescript-module-resolution.ts';
 
 const packageJsonPath = '/package.json';
 
@@ -24,7 +25,7 @@ type ImportMetaResolveExpectation = {
 
 type ResolvedImportLiteral = {
     readonly project: ReturnType<typeof createProject>;
-    readonly result: ReturnType<typeof resolveSourceFileForLiteral>;
+    readonly result: ReturnType<typeof resolveTypescriptModuleFilePath>;
 };
 
 suite('source-file-references import.meta and package assets', function () {
@@ -269,10 +270,17 @@ suite('source-file-references import.meta and package assets', function () {
             if (literal === undefined) {
                 assert.fail('Expected an import literal to exist');
             }
-            return { project, result: resolveSourceFileForLiteral(literal, sourceFile) };
+            return {
+                project,
+                result: resolveTypescriptModuleFilePath({
+                    moduleSpecifier: literal.getLiteralValue(),
+                    containingSourceFile: sourceFile,
+                    resolutionMode: 'type'
+                })
+            };
         }
 
-        test('resolveSourceFileForLiteral() returns undefined when ts cannot resolve the module', function () {
+        test('resolveTypescriptModuleFilePath() returns undefined when ts cannot resolve the module', function () {
             const { result } = resolveFirstImportLiteral([
                 { filePath: 'main.ts', content: 'import {} from "not-resolved";' }
             ]);
@@ -280,13 +288,13 @@ suite('source-file-references import.meta and package assets', function () {
             assert.strictEqual(result, undefined);
         });
 
-        test('resolveSourceFileForLiteral() resolves dynamic import literals directly', function () {
+        test('resolveTypescriptModuleFilePath() resolves dynamic import literals directly', function () {
             const { project, result } = resolveFirstImportLiteral([
                 { filePath: 'main.ts', content: 'async function load() { return import("./foo"); }' },
                 { filePath: 'foo.ts', content: 'export const foo = 1;' }
             ]);
 
-            assert.strictEqual(result, project.getSourceFileOrThrow('foo.ts'));
+            assert.strictEqual(result, project.getSourceFileOrThrow('foo.ts').getFilePath());
         });
     });
 });

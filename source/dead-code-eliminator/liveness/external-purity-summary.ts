@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
@@ -16,9 +17,12 @@ import {
     type Statement,
     type VariableDeclaration
 } from 'ts-morph';
+import {
+    packageTypeForResolvedFilePath,
+    resolveTypescriptModuleFilePath
+} from '../../dependency-scanner/typescript-module-resolution.ts';
 import type { ImportedExpressionOrigin } from '../imported-expression-origin.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { resolveModuleSourceFile } from './external-module-resolution.ts';
 
 export type ExportPurity = 'pure-callable' | 'pure-object' | 'unknown';
 
@@ -262,8 +266,33 @@ function mergeExports(
     }
 }
 
+function packageTypeFor(filePath: string, containingSourceFile: SourceFile): string | undefined {
+    return packageTypeForResolvedFilePath({ filePath, containingSourceFile });
+}
+
+function isExternalPurityRuntimeSource(filePath: string, containingSourceFile: SourceFile): boolean {
+    const extension = path.extname(filePath);
+    return extension === '.mjs' || extension === '.js' && packageTypeFor(filePath, containingSourceFile) === 'module';
+}
+
+function resolvedModuleSourceFile(
+    moduleSpecifier: string,
+    containingSourceFile: SourceFile
+): SourceFile | undefined {
+    const filePath = resolveTypescriptModuleFilePath({
+        moduleSpecifier,
+        containingSourceFile,
+        resolutionMode: 'runtime'
+    });
+    if (filePath === undefined || !isExternalPurityRuntimeSource(filePath, containingSourceFile)) {
+        return undefined;
+    }
+    const project = containingSourceFile.getProject();
+    return project.getSourceFile(filePath) ?? project.addSourceFileAtPathIfExists(filePath);
+}
+
 function resolvedModuleSummary(context: SummaryContext, moduleSpecifier: string): ExternalPuritySummary | undefined {
-    const target = resolveModuleSourceFile(moduleSpecifier, context.sourceFile);
+    const target = resolvedModuleSourceFile(moduleSpecifier, context.sourceFile);
     return target === undefined ? undefined : context.buildSummary(target);
 }
 
@@ -447,7 +476,7 @@ export function exportPurityForOrigin(
     origin: ImportedExpressionOrigin,
     containingSourceFile: SourceFile
 ): ExportPurity {
-    const sourceFile = resolveModuleSourceFile(origin.from, containingSourceFile);
+    const sourceFile = resolvedModuleSourceFile(origin.from, containingSourceFile);
     if (sourceFile === undefined) {
         return 'unknown';
     }

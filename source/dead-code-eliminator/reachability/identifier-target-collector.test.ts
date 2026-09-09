@@ -282,6 +282,32 @@ suite('identifier-target-collector', function () {
         assert.deepStrictEqual(targets, new Set());
     });
 
+    test('collectIdentifierTargets does not map bare imports through malformed local references', function () {
+        const targets = collectImportTargets('import { config } from "shared";\nconst api = config;', {
+            idsByNode: new Map(),
+            idsByFileAndName: new Map(),
+            idsByTargetFileAndName: new Map([
+                [ 'shared.js', new Map([ [ 'config', [ 'shared.js::config' ] ] ]) ]
+            ]),
+            moduleReferencesByTargetFilePath: new Map([
+                [
+                    'index.js',
+                    [
+                        {
+                            type: 'local-code',
+                            sourceSpecifier: 'shared',
+                            emittedSpecifier: 'shared',
+                            targetFilePath: 'shared.js'
+                        }
+                    ]
+                ]
+            ]),
+            targetFilePathByInputFilePath: new Map([ [ '/src/index.js', 'index.js' ] ])
+        });
+
+        assert.deepStrictEqual(targets, new Set());
+    });
+
     test('collectIdentifierTargets does not map missing relative runtime exports', function () {
         const project = createProject({
             withFiles: [

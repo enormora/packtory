@@ -20,7 +20,7 @@ function replaceImportPaths(
     return replaceImportPathsWithTransform(project, inputFilePath, sourceContent, replacements).content;
 }
 
-suite('import-paths', function () {
+function registerPassThroughTests(): void {
     test('returns source code unmodified when project is undefined', function () {
         const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
@@ -94,6 +94,32 @@ suite('import-paths', function () {
             sourceMapTransform: undefined
         });
     });
+
+    test('does not rewrite unresolved imports through malformed replacements', function () {
+        const project = createProject({
+            withFiles: [
+                { filePath: '/folder/foo.ts', content: 'import "./missing";' }
+            ]
+        });
+        const replacements = new Map<unknown, ImportPathReplacement>([ [ undefined, replacement('replacement') ] ]);
+
+        const result = replaceImportPathsWithTransform(
+            project,
+            '/folder/foo.ts',
+            'import "./missing";',
+            replacements as Replacements
+        );
+
+        assert.deepStrictEqual(result, {
+            content: 'import "./missing";',
+            dependencyReferences: [],
+            sourceMapTransform: undefined
+        });
+    });
+}
+
+suite('import-paths', function () {
+    registerPassThroughTests();
 
     test('returns the source code with the modified import statement', function () {
         const project = createProject({

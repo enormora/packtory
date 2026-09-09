@@ -26,22 +26,50 @@ function assertDefined<T>(value: T | undefined): asserts value is T {
     }
 }
 
+function packageNameFor(specifier: string): string {
+    if (specifier.startsWith('@')) {
+        const [ scope, name ] = specifier.split('/', 2);
+        assertDefined(name);
+        return `${scope}/${name}`;
+    }
+    return specifier.split('/', 1)[0] ?? specifier;
+}
+
+function linkedReference(specifier: string): LinkedBundleResource['moduleReferences'][number] | undefined {
+    if (!specifier.startsWith('pkg-')) {
+        return undefined;
+    }
+    const separatorIndex = specifier.indexOf('/');
+    return separatorIndex === -1
+        ? undefined
+        : {
+            type: 'linked-code',
+            packageName: specifier.slice(0, separatorIndex),
+            sourceSpecifier: specifier,
+            emittedSpecifier: specifier,
+            targetFilePath: specifier.slice(separatorIndex + 1)
+        };
+}
+
+function moduleReference(specifier: string): LinkedBundleResource['moduleReferences'][number] {
+    const reference = linkedReference(specifier);
+    if (reference !== undefined) {
+        return reference;
+    }
+    return {
+        type: 'external-package',
+        packageName: packageNameFor(specifier),
+        sourceSpecifier: specifier,
+        emittedSpecifier: specifier
+    };
+}
+
 function linkedReferencesFrom(content: string): LinkedBundleResource['moduleReferences'] {
-    return Array.from(
-        content.matchAll(/(?:from|import)\s+"(?<packageName>pkg-[^/"]+)\/(?<targetFilePath>[^"]+)"/gu),
-        function (match) {
-            const { packageName, targetFilePath } = match.groups ?? {};
-            assertDefined(packageName);
-            assertDefined(targetFilePath);
-            return {
-                type: 'linked-code',
-                packageName,
-                sourceSpecifier: `${packageName}/${targetFilePath}`,
-                emittedSpecifier: `${packageName}/${targetFilePath}`,
-                targetFilePath
-            };
-        }
-    );
+    return Array.from(content.matchAll(/(?:from|import)\s+"(?<specifier>[^"]+)"/gu), function (match) {
+        const { specifier } = match.groups ?? {};
+        assertDefined(specifier);
+        return moduleReference(specifier);
+    });
 }
 
 function bundleWith(

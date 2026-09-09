@@ -1,4 +1,5 @@
 import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import { assertArtifactModuleReferenceContract } from '../artifact-module-reference-contract.ts';
 import type { DeadCodeEliminationTrace } from '../trace.ts';
 import { bfsClosure, type BfsClosureDependencies } from './bfs-closure.ts';
 import { buildBindingsByFile, buildDeclarationNodeIndex, buildNodeById } from './binding-id.ts';
@@ -54,6 +55,10 @@ export function buildReachabilityIndex(
     input: ReachabilityInput,
     dependencies: Partial<BfsClosureDependencies<string>> = {}
 ): ReachabilityIndex {
+    assertArtifactModuleReferenceContract({
+        bundleName: input.bundleName,
+        files: input.files
+    });
     const resolvedDependencies = tracedDependencies(input, { ...defaultDependencies, ...dependencies });
     const declarationIndex = buildDeclarationNodeIndex(input.files);
     const nodeById = buildNodeById(input.files);

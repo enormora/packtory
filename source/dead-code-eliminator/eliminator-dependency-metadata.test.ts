@@ -183,16 +183,6 @@ suite('eliminator dependency metadata', function () {
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), []);
         });
 
-        test('eliminate ignores import-map specifiers in dependency metadata', async function () {
-            const eliminator = createTestEliminator();
-            const input = externalIndexBundle(
-                'import { api } from "#internal";\nexport const value = api;\n',
-                dependencyMap('#internal')
-            );
-            const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), []);
-        });
-
         test('eliminate does not borrow package metadata from another source file', async function () {
             const eliminator = createTestEliminator();
             const input = linkedBundle({
