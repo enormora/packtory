@@ -4,20 +4,12 @@ import { fake } from 'sinon';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { safeParse } from '../common/schema-validation.ts';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import { isForbiddenAdditionalPackageJsonAttributeName, packageJsonDependencyFieldNames } from './package-json.ts';
+import { isForbiddenAdditionalPackageJsonAttributeName } from './package-json.ts';
 import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
 import { mainPackageJsonSchema } from './main-package-json-schema.ts';
 
 suite('package-json', function () {
     suite('package json constants and module type', function () {
-        test('package.json dependency field names are exposed as runtime constants', function () {
-            assert.deepStrictEqual(packageJsonDependencyFieldNames, [
-                'dependencies',
-                'devDependencies',
-                'peerDependencies'
-            ]);
-        });
-
         test('forbidden additional package.json attribute helper identifies allowed and forbidden keys', function () {
             assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('dependencies'), true);
             assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('imports'), true);
