@@ -389,10 +389,6 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
         return dependencyOnlyChangelogPullRequestsFor(target);
     }
 
-    if (target.packagePlan.changelogDependencyUpdates.length === 0) {
-        return target.pullRequests;
-    }
-
     return [
         ...nonManifestPullRequestsFor(target),
         ...dependencyUpdatePullRequestsFor(target),

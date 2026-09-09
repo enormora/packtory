@@ -359,17 +359,10 @@ function registerManifestDependencyFilterTests(): void {
 
     test('keeps manifest dependency pull requests without current dependency versions', async function () {
         const engine = createEngine({
-            collectMergedPullRequests: fake.resolves([
-                { id: 1, title: 'Add feature' },
-                { id: 2, title: 'Remove React' }
-            ]),
-            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Add feature' } ]),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([
-                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
-                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
-                ])
-            )
+            collectMergedPullRequests: fake.resolves([ testPullRequest(2, 'Remove React') ]),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 2, 'package-lock.json' ] ])),
+            resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
         });
 
         const changelog = await generate(
@@ -385,11 +378,7 @@ function registerManifestDependencyFilterTests(): void {
 
         assert.strictEqual(
             changelog.groupedMarkdown,
-            [
-                '* Add feature ([#1](https://github.com/owner/repo/pull/1))',
-                '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
-            ]
-                .join('\n')
+            '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
         );
     });
 
