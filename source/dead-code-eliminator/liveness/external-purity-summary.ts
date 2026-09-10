@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
@@ -10,14 +11,18 @@ import {
     type FunctionExpression,
     type MethodDeclaration,
     type ObjectLiteralExpression,
+    type Project,
     type PropertyAssignment,
     type SourceFile,
     type Statement,
     type VariableDeclaration
 } from 'ts-morph';
+import {
+    packageTypeForResolvedFilePath,
+    resolveTypescriptModuleFilePath
+} from '../../dependency-scanner/typescript-module-resolution.ts';
 import type { ImportedExpressionOrigin } from '../imported-expression-origin.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { resolvedRuntimeSourceFile } from '../runtime-source-file.ts';
 
 export type ExportPurity = 'pure-callable' | 'pure-object' | 'unknown';
 
@@ -55,14 +60,13 @@ type SupportedObjectProperty = MethodDeclaration | PropertyAssignment;
 
 const noExportEntries: readonly ExportPurityEntry[] = [];
 
-function isProjectSummaryStore(value: unknown): value is SummaryCache {
+function isProjectSummaryStore(value: unknown): value is Map<string, ExternalPuritySummary> {
     return value instanceof Map;
 }
 
-function projectSummaryCache(sourceFile: SourceFile): SummaryCache {
-    const project = sourceFile.getProject();
+function projectSummaryCache(project: Project): Map<string, ExternalPuritySummary> {
     const stored: unknown = Reflect.get(project, projectSummaryCache.name);
-    const cache: SummaryCache = isProjectSummaryStore(stored) ? stored : new Map<string, ExternalPuritySummary>();
+    const cache = isProjectSummaryStore(stored) ? stored : new Map<string, ExternalPuritySummary>();
     Reflect.set(project, projectSummaryCache.name, cache);
     return cache;
 }
@@ -262,8 +266,33 @@ function mergeExports(
     }
 }
 
+function packageTypeFor(filePath: string, containingSourceFile: SourceFile): string | undefined {
+    return packageTypeForResolvedFilePath({ filePath, containingSourceFile });
+}
+
+function isExternalPurityRuntimeSource(filePath: string, containingSourceFile: SourceFile): boolean {
+    const extension = path.extname(filePath);
+    return extension === '.mjs' || extension === '.js' && packageTypeFor(filePath, containingSourceFile) === 'module';
+}
+
+function resolvedModuleSourceFile(
+    moduleSpecifier: string,
+    containingSourceFile: SourceFile
+): SourceFile | undefined {
+    const filePath = resolveTypescriptModuleFilePath({
+        moduleSpecifier,
+        containingSourceFile,
+        resolutionMode: 'runtime'
+    });
+    if (filePath === undefined || !isExternalPurityRuntimeSource(filePath, containingSourceFile)) {
+        return undefined;
+    }
+    const project = containingSourceFile.getProject();
+    return project.getSourceFile(filePath) ?? project.addSourceFileAtPathIfExists(filePath);
+}
+
 function resolvedModuleSummary(context: SummaryContext, moduleSpecifier: string): ExternalPuritySummary | undefined {
-    const target = resolvedRuntimeSourceFile(moduleSpecifier, context.sourceFile);
+    const target = resolvedModuleSourceFile(moduleSpecifier, context.sourceFile);
     return target === undefined ? undefined : context.buildSummary(target);
 }
 
@@ -434,7 +463,7 @@ function createExternalPuritySummary(
 }
 
 function buildExternalPuritySummary(sourceFile: SourceFile): ExternalPuritySummary {
-    const cache = projectSummaryCache(sourceFile);
+    const cache = projectSummaryCache(sourceFile.getProject());
     const cached = cache.get(sourceFile.getFilePath());
     return cached ?? createExternalPuritySummary(sourceFile, cache, buildExternalPuritySummary);
 }
@@ -447,7 +476,7 @@ export function exportPurityForOrigin(
     origin: ImportedExpressionOrigin,
     containingSourceFile: SourceFile
 ): ExportPurity {
-    const sourceFile = resolvedRuntimeSourceFile(origin.from, containingSourceFile);
+    const sourceFile = resolvedModuleSourceFile(origin.from, containingSourceFile);
     if (sourceFile === undefined) {
         return 'unknown';
     }

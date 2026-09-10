@@ -1,18 +1,28 @@
+import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
+    VariableDeclarationKind,
     type CallExpression,
     type Expression,
     type Identifier,
     type Node as TsMorphNodeType,
-    type NewExpression
+    type ObjectLiteralExpression,
+    type NewExpression,
+    type SourceFile,
+    type VariableDeclaration
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
-import { constantPropertyKeyOfExpression, constantValueOfExpression } from './constant-expression.ts';
+import {
+    packageTypeForResolvedFilePath,
+    resolveTypescriptModuleFilePath
+} from '../dependency-scanner/typescript-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
     arePureCallArguments,
     resolveImportedExpressionOrigin,
+    resolveImportedExpressionPath,
+    type ImportedExpressionOrigin,
     type ExpressionPurityChecker
 } from './imported-expression-origin.ts';
 import { externalCallIsPure } from './liveness/external-purity.ts';
@@ -67,15 +77,104 @@ function computedPropertyNameExpression(property: TsMorphNode): Expression | und
     return undefined;
 }
 
+function packageTypeFor(filePath: string, containingSourceFile: SourceFile): string | undefined {
+    return packageTypeForResolvedFilePath({ filePath, containingSourceFile });
+}
+
+function isRuntimeModuleSource(filePath: string, containingSourceFile: SourceFile): boolean {
+    return path.extname(filePath) === '.js' && packageTypeFor(filePath, containingSourceFile) === 'module';
+}
+
+function resolvedRuntimeSourceFile(
+    moduleSpecifier: string,
+    containingSourceFile: SourceFile
+): SourceFile | undefined {
+    const filePath = resolveTypescriptModuleFilePath({
+        moduleSpecifier,
+        containingSourceFile,
+        resolutionMode: 'runtime'
+    });
+    if (filePath === undefined || !isRuntimeModuleSource(filePath, containingSourceFile)) {
+        return undefined;
+    }
+    const project = containingSourceFile.getProject();
+    return project.getSourceFile(filePath) ?? project.addSourceFileAtPathIfExists(filePath);
+}
+
+function objectPropertyInitializer(expression: ObjectLiteralExpression, propertyName: string): Expression | undefined {
+    const property = expression.getProperty(propertyName);
+    return TsMorphNode.isPropertyAssignment(property) ? property.getInitializerOrThrow() : undefined;
+}
+
+function primitiveKeyExpression(expression: Expression | undefined): boolean {
+    return TsMorphNode.isStringLiteral(unwrapExpression(expression));
+}
+
+function expressionMemberIsPrimitiveKey(expression: Expression | undefined, propertyName: string): boolean {
+    const unwrapped = unwrapExpression(expression);
+    if (!TsMorphNode.isObjectLiteralExpression(unwrapped)) {
+        return false;
+    }
+    return primitiveKeyExpression(objectPropertyInitializer(unwrapped, propertyName));
+}
+
+function constDeclarationInitializer(declaration: VariableDeclaration): Expression | undefined {
+    const statement = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.VariableStatement);
+    return statement.isExported() && statement.getDeclarationKind() === VariableDeclarationKind.Const
+        ? declaration.getInitializer()
+        : undefined;
+}
+
+function exportPathIsPrimitiveKey(
+    sourceFile: SourceFile,
+    exportName: string,
+    propertyName: string
+): boolean {
+    const declaration = sourceFile.getVariableDeclaration(exportName);
+    if (declaration === undefined) {
+        return false;
+    }
+    return expressionMemberIsPrimitiveKey(constDeclarationInitializer(declaration), propertyName);
+}
+
+function importedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return resolveImportedExpressionPath(unwrapped);
+    }
+    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+        const base = importedExpressionPath(unwrapped.getExpression());
+        return base === undefined ? undefined : { from: base.from, path: [ ...base.path, unwrapped.getName() ] };
+    }
+    return undefined;
+}
+
+function importedExpressionIsPrimitiveKey(expression: Expression): boolean {
+    const origin = importedExpressionPath(expression);
+    if (origin === undefined) {
+        return false;
+    }
+    const sourceFile = resolvedRuntimeSourceFile(origin.from, expression.getSourceFile());
+    const [ exportName = origin.from, propertyName = exportName, ...rest ] = origin.path;
+    return sourceFile !== undefined && rest.length === 0 &&
+        exportPathIsPrimitiveKey(sourceFile, exportName, propertyName);
+}
+
+function computedPropertyNameIsPure(
+    expression: Expression,
+    recurse: ExpressionPurityChecker
+): boolean {
+    return recurse(expression) || importedExpressionIsPrimitiveKey(expression);
+}
+
 function isPurePropertyAssignment(
     property: TsMorphNode,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined
+    recurse: ExpressionPurityChecker
 ): boolean {
     const computedNameExpression = computedPropertyNameExpression(property);
     if (
         computedNameExpression !== undefined &&
-        constantPropertyKeyOfExpression(computedNameExpression, settings) === undefined
+        !computedPropertyNameIsPure(computedNameExpression, recurse)
     ) {
         return false;
     }
@@ -193,14 +292,13 @@ function arrayLiteralExpressionIsPure(expression: Expression, recurse: Expressio
 
 function objectLiteralExpressionIsPure(
     expression: Expression,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined
+    recurse: ExpressionPurityChecker
 ): boolean {
     return expression
         .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
         .getProperties()
         .every(function (property) {
-            return isPurePropertyAssignment(property, recurse, settings);
+            return isPurePropertyAssignment(property, recurse);
         });
 }
 
@@ -268,9 +366,6 @@ function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);
-    if (constantValueOfExpression(unwrapped, settings) !== undefined) {
-        return true;
-    }
     if (TsMorphNode.isIdentifier(unwrapped)) {
         return isPureIdentifierRead(unwrapped);
     }
