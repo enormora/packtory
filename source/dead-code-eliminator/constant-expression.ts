@@ -92,12 +92,6 @@ type ConstantExpressionReader = {
     readonly value: (expression: Expression) => ConstantValue | undefined;
 };
 
-const rightReturningOperators = new Set<SyntaxKind>([
-    SyntaxKind.AmpersandAmpersandToken,
-    SyntaxKind.BarBarToken,
-    SyntaxKind.QuestionQuestionToken
-]);
-
 function shorthandPropertyIsSupported(property: ObjectPropertyNode): property is ShorthandPropertyAssignment {
     return TsMorphNode.isShorthandPropertyAssignment(property) &&
         property.getObjectAssignmentInitializer() === undefined;
@@ -295,7 +289,12 @@ function constantExpressionReader(context: ConstantContext): ConstantExpressionR
             return objectConstant(properties);
         },
         operatorReturnsRight(operator) {
-            return rightReturningOperators.has(operator);
+            const rightReturningOperators = [
+                SyntaxKind.AmpersandAmpersandToken,
+                SyntaxKind.BarBarToken,
+                SyntaxKind.QuestionQuestionToken
+            ];
+            return rightReturningOperators.includes(operator);
         },
         propertyAccessValue(expression) {
             return reader.importedPropertyAccessValue(expression) ?? reader.localPropertyAccessValue(expression);
