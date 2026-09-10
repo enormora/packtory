@@ -359,42 +359,6 @@ function registerManifestDependencyFilterTests(): void {
 
     test('keeps manifest dependency pull requests without current dependency versions', async function () {
         const engine = createEngine({
-            collectMergedPullRequests: fake.resolves([
-                { id: 1, title: 'Add feature' },
-                { id: 2, title: 'Remove React' }
-            ]),
-            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Add feature' } ]),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([
-                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
-                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
-                ])
-            )
-        });
-
-        const changelog = await generate(
-            [
-                releasePackage({
-                    releaseClassification: 'substantive',
-                    changelogDependencyNames: [ 'react' ],
-                    changelogDependencyUpdates: []
-                })
-            ],
-            engine
-        );
-
-        assert.strictEqual(
-            changelog.groupedMarkdown,
-            [
-                '* Add feature ([#1](https://github.com/owner/repo/pull/1))',
-                '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
-            ]
-                .join('\n')
-        );
-    });
-
-    test('keeps labeled manifest dependency pull requests without current dependency versions', async function () {
-        const engine = createEngine({
             collectMergedPullRequests: fake.resolves([ testPullRequest(2, 'Remove React') ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
             readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 2, 'package-lock.json' ] ])),
@@ -415,6 +379,41 @@ function registerManifestDependencyFilterTests(): void {
         assert.strictEqual(
             changelog.groupedMarkdown,
             '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
+        );
+    });
+
+    test('keeps labeled manifest dependency pull requests without current dependency versions', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([
+                testPullRequest(1, 'Update Vue to 3.0.0'),
+                testPullRequest(2, 'Remove React')
+            ]),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([
+                [ 1, 'package-lock.json' ],
+                [ 2, 'package-lock.json' ]
+            ])),
+            resolvePullRequestLabels: labelUpgradesById(new Set([ 1, 2 ]))
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive',
+                    changelogDependencyNames: [ 'react', 'vue' ],
+                    changelogDependencyUpdates: [ { name: 'vue', version: '3.0.0' } ]
+                })
+            ],
+            engine
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            [
+                '* Update Vue to 3.0.0 ([#1](https://github.com/owner/repo/pull/1))',
+                '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
+            ]
+                .join('\n')
         );
     });
 
