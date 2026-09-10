@@ -1,0 +1,24 @@
+[
+    {
+        "type": "consumer-producer-api",
+        "id": "declaration-companion-runtime-export",
+        "fixture": "dead-code-elimination-declaration-companion-regression",
+        "entryPackage": "pkg-producer",
+        "entryTargetFilePath": "pkg-producer/index.js",
+        "expectedApiResult": "error",
+        "contentAssertions": [
+            {
+                "type": "contains-text",
+                "targetFilePath": "pkg-producer/shared.js",
+                "text": "export const sharedConfig"
+            },
+            {
+                "type": "omits-text",
+                "targetFilePath": "pkg-producer/shared.js",
+                "text": "unusedConfig"
+            }
+        ],
+        "fixtureSha256": "dcd2416ebb66df374851ef9907c3352fbb658bdf745018fd4bbd617b2aa6838e",
+        "assertionSha256": "945ad23f61901e23554f8bf11c71a385df897d7720060dffce5ca61b85006f9e"
+    }
+]
