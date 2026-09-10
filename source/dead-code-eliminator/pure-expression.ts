@@ -8,6 +8,7 @@ import {
     type NewExpression
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import { constantPropertyKeyOfExpression, constantValueOfExpression } from './constant-expression.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
     arePureCallArguments,
@@ -66,9 +67,16 @@ function computedPropertyNameExpression(property: TsMorphNode): Expression | und
     return undefined;
 }
 
-function isPurePropertyAssignment(property: TsMorphNode, recurse: ExpressionPurityChecker): boolean {
+function isPurePropertyAssignment(
+    property: TsMorphNode,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
     const computedNameExpression = computedPropertyNameExpression(property);
-    if (computedNameExpression !== undefined && !recurse(computedNameExpression)) {
+    if (
+        computedNameExpression !== undefined &&
+        constantPropertyKeyOfExpression(computedNameExpression, settings) === undefined
+    ) {
         return false;
     }
     if (TsMorphNode.isPropertyAssignment(property)) {
@@ -183,12 +191,16 @@ function arrayLiteralExpressionIsPure(expression: Expression, recurse: Expressio
         });
 }
 
-function objectLiteralExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+function objectLiteralExpressionIsPure(
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
     return expression
         .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
         .getProperties()
         .every(function (property) {
-            return isPurePropertyAssignment(property, recurse);
+            return isPurePropertyAssignment(property, recurse, settings);
         });
 }
 
@@ -256,6 +268,9 @@ function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);
+    if (constantValueOfExpression(unwrapped, settings) !== undefined) {
+        return true;
+    }
     if (TsMorphNode.isIdentifier(unwrapped)) {
         return isPureIdentifierRead(unwrapped);
     }
