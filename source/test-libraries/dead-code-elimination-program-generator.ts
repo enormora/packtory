@@ -295,6 +295,7 @@ function programFrom(input: ProgramInput): GeneratedDeadCodeEliminationProgram {
             name: packageName,
             runtimeFiles: input.runtimeFiles,
             declarationFiles: input.declarationFiles,
+            assetFiles: [],
             rootTargetFilePath: 'index.js',
             rootDeclarationTargetFilePath: 'index.d.ts'
         },
