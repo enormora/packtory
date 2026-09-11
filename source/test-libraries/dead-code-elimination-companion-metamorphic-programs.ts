@@ -165,6 +165,7 @@ function companionProducerBundle(
         declarationFiles: includeCompanions
             ? [ rootApiDeclaration(), baseSharedDeclaration(), sharedDeclaration() ]
             : [ rootApiDeclaration() ],
+        assetFiles: [],
         rootTargetFilePath: producerIndexTargetPath,
         rootDeclarationTargetFilePath: 'pkg-producer/index.d.ts'
     };
@@ -181,6 +182,7 @@ function companionConsumerBundle(): DeadCodeEliminationGeneratedBundle {
                 []
             )
         ],
+        assetFiles: [],
         rootTargetFilePath: consumerIndexTargetPath,
         rootDeclarationTargetFilePath: 'pkg-consumer/index.d.ts'
     };

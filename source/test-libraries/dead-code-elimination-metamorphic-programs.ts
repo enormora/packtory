@@ -89,6 +89,7 @@ function singleBundle(
         name: packageName,
         runtimeFiles,
         declarationFiles,
+        assetFiles: [],
         rootTargetFilePath: 'index.js',
         rootDeclarationTargetFilePath: 'index.d.ts'
     };

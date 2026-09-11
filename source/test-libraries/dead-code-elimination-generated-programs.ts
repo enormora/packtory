@@ -19,6 +19,7 @@ export type DeadCodeEliminationGeneratedBundle = {
     readonly name: string;
     readonly runtimeFiles: readonly DeadCodeEliminationGeneratedFile[];
     readonly declarationFiles: readonly DeadCodeEliminationGeneratedFile[];
+    readonly assetFiles: readonly DeadCodeEliminationGeneratedFile[];
     readonly rootTargetFilePath: string;
     readonly rootDeclarationTargetFilePath: string;
 };
@@ -93,7 +94,7 @@ function deadCodeEliminationSourcePathFor(targetFilePath: string): string {
     return `/src/${targetFilePath}`;
 }
 
-function deadCodeEliminationModuleSpecifier(
+export function deadCodeEliminationTargetModuleSpecifier(
     fromTargetFilePath: string,
     toTargetFilePath: string
 ): string {
@@ -107,7 +108,7 @@ export function deadCodeEliminationDependencyPath(
 ): string {
     const targetPath = path.posix.join(
         path.posix.dirname(fromTargetFilePath),
-        deadCodeEliminationModuleSpecifier(fromTargetFilePath, toTargetFilePath)
+        deadCodeEliminationTargetModuleSpecifier(fromTargetFilePath, toTargetFilePath)
     );
     return deadCodeEliminationSourcePathFor(path.posix.normalize(targetPath));
 }
@@ -183,9 +184,10 @@ function deadCodeEliminationLinkedBundleFrom(
 ): LinkedBundle {
     const rootRuntime = generatedFileWithTarget(input, input.rootTargetFilePath);
     const rootDeclaration = generatedFileWithTarget(input, input.rootDeclarationTargetFilePath);
+    const contents = [ ...input.runtimeFiles, ...input.declarationFiles, ...input.assetFiles ];
     return linkedBundle({
         name: input.name,
-        contents: [ ...input.runtimeFiles, ...input.declarationFiles ].map(generatedFileToResource),
+        contents: contents.map(generatedFileToResource),
         roots: {
             main: {
                 js: {
@@ -219,7 +221,7 @@ function formatFile(bundleName: string, file: DeadCodeEliminationGeneratedFile):
 }
 
 function fileListingFor(bundle: DeadCodeEliminationGeneratedBundle): string {
-    return [ ...bundle.runtimeFiles, ...bundle.declarationFiles ]
+    return [ ...bundle.runtimeFiles, ...bundle.declarationFiles, ...bundle.assetFiles ]
         .map(function (file) {
             return formatFile(bundle.name, file);
         })
