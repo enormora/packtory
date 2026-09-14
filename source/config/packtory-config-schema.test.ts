@@ -145,6 +145,18 @@ suite('packtory-config-schema', function () {
                                 label: 'operations',
                                 pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$',
                                 replace: 'Update $<dependency> from $<from> to $<to>'
+                            },
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?) to (?<version>.+?)$',
+                                replace: 'Update $<dependency> to $<version>',
+                                versionGroup: 'version'
+                            },
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?)$',
+                                replace: 'Update $<dependency>',
+                                collapse: 'same'
                             }
                         ],
                         labelLookupIntervalMilliseconds: 500,

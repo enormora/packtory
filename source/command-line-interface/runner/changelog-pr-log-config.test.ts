@@ -1,7 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { CollapseRule } from '@pr-log/core';
 import type { ChangelogSettings } from '../../config/changelog-settings.ts';
 import { createPrLogConfig } from './changelog-pr-log-config.ts';
+
+type VersionChainCollapseRule = Extract<CollapseRule, { readonly fromGroup: string; }>;
+type HighestVersionCollapseRule = Extract<CollapseRule, { readonly versionGroup: string; }>;
+type SameTitleCollapseRule = Extract<CollapseRule, { readonly collapse: 'same'; }>;
 
 function collectPrLogSettingIssues(settings: ChangelogSettings['prLog']): readonly string[] {
     try {
@@ -11,6 +16,18 @@ function collectPrLogSettingIssues(settings: ChangelogSettings['prLog']): readon
         assert.ok(error instanceof Error);
         return error.message.split('\n');
     }
+}
+
+function isVersionChainCollapseRule(rule: CollapseRule | undefined): rule is VersionChainCollapseRule {
+    return rule !== undefined && Object.hasOwn(rule, 'fromGroup') && Object.hasOwn(rule, 'toGroup');
+}
+
+function isHighestVersionCollapseRule(rule: CollapseRule | undefined): rule is HighestVersionCollapseRule {
+    return rule !== undefined && Object.hasOwn(rule, 'versionGroup');
+}
+
+function isSameTitleCollapseRule(rule: CollapseRule | undefined): rule is SameTitleCollapseRule {
+    return rule !== undefined && Object.hasOwn(rule, 'collapse');
 }
 
 suite('changelog-pr-log-config', function () {
@@ -33,6 +50,8 @@ suite('changelog-pr-log-config', function () {
             }
         });
 
+        const collapseRule = prLogConfig.collapseRules[0];
+        assert.ok(isVersionChainCollapseRule(collapseRule));
         assert.deepStrictEqual(
             {
                 bugLabel: prLogConfig.validLabels.get('bug'),
@@ -40,10 +59,10 @@ suite('changelog-pr-log-config', function () {
                 ignoredLabels: prLogConfig.ignoredLabels,
                 versionBumps: prLogConfig.versionBumps,
                 dateFormat: prLogConfig.dateFormat,
-                collapseRulePatternMatches: prLogConfig.collapseRules[0]?.pattern.test('Update foo from 1 to 2'),
-                collapseRuleKeyGroup: prLogConfig.collapseRules[0]?.keyGroup,
-                collapseRuleFromGroup: prLogConfig.collapseRules[0]?.fromGroup,
-                collapseRuleToGroup: prLogConfig.collapseRules[0]?.toGroup,
+                collapseRulePatternMatches: collapseRule.pattern.test('Update foo from 1 to 2'),
+                collapseRuleKeyGroup: collapseRule.keyGroup,
+                collapseRuleFromGroup: collapseRule.fromGroup,
+                collapseRuleToGroup: collapseRule.toGroup,
                 labelLookupIntervalMilliseconds: prLogConfig.labelLookupIntervalMilliseconds,
                 maximumRateLimitRetryCount: prLogConfig.maximumRateLimitRetryCount
             },
@@ -123,25 +142,49 @@ suite('changelog-pr-log-config', function () {
                         keyGroup: 'name',
                         fromGroup: 'before',
                         toGroup: 'after'
+                    },
+                    {
+                        label: 'upgrade',
+                        pattern: '^(?<name>.+) (?<version>.+)$',
+                        replace: '$<name>',
+                        keyGroup: 'name',
+                        versionGroup: 'version'
+                    },
+                    {
+                        label: 'upgrade',
+                        pattern: '^(?<name>.+)$',
+                        replace: '$<name>',
+                        keyGroup: 'name',
+                        collapse: 'same'
                     }
                 ]
             }
         });
 
+        const versionChainCollapseRule = prLogConfig.collapseRules[0];
+        const versionCollapseRule = prLogConfig.collapseRules[1];
+        const sameTitleCollapseRule = prLogConfig.collapseRules[2];
+        assert.ok(isVersionChainCollapseRule(versionChainCollapseRule));
+        assert.ok(isHighestVersionCollapseRule(versionCollapseRule));
+        assert.ok(isSameTitleCollapseRule(sameTitleCollapseRule));
         assert.deepStrictEqual(
             {
-                flags: prLogConfig.collapseRules[0]?.pattern.flags,
-                matchesUnicode: prLogConfig.collapseRules[0]?.pattern.test('\u{E9} 1 2'),
-                keyGroup: prLogConfig.collapseRules[0]?.keyGroup,
-                fromGroup: prLogConfig.collapseRules[0]?.fromGroup,
-                toGroup: prLogConfig.collapseRules[0]?.toGroup
+                flags: versionChainCollapseRule.pattern.flags,
+                matchesUnicode: versionChainCollapseRule.pattern.test('\u{E9} 1 2'),
+                keyGroup: versionChainCollapseRule.keyGroup,
+                fromGroup: versionChainCollapseRule.fromGroup,
+                toGroup: versionChainCollapseRule.toGroup,
+                versionGroup: versionCollapseRule.versionGroup,
+                collapse: sameTitleCollapseRule.collapse
             },
             {
                 flags: 'u',
                 matchesUnicode: true,
                 keyGroup: 'name',
                 fromGroup: 'before',
-                toGroup: 'after'
+                toGroup: 'after',
+                versionGroup: 'version',
+                collapse: 'same'
             }
         );
     });

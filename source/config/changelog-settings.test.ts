@@ -74,6 +74,20 @@ suite('changelog-settings', function () {
                             keyGroup: 'dependency',
                             fromGroup: 'from',
                             toGroup: 'to'
+                        },
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?) to (?<version>.+?)$',
+                            replace: 'Update $<dependency> to $<version>',
+                            keyGroup: 'dependency',
+                            versionGroup: 'version'
+                        },
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?)$',
+                            replace: 'Update $<dependency>',
+                            keyGroup: 'dependency',
+                            collapse: 'same'
                         }
                     ],
                     labelLookupIntervalMilliseconds: 500,
@@ -95,6 +109,41 @@ suite('changelog-settings', function () {
             assert.strictEqual(safeParse(changelogSettingsSchema, { targetScopedLabelPattern: '' }).success, false);
             assert.strictEqual(safeParse(changelogSettingsSchema, { packageTagFormat: '' }).success, false);
             assert.strictEqual(safeParse(changelogSettingsSchema, { explicitBaseRef: '' }).success, false);
+        });
+
+        test('schema rejects invalid pr-log settings', function () {
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    prLog: {
+                        collapseRules: [
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?)$',
+                                replace: 'Update $<dependency>',
+                                collapse: 'all'
+                            }
+                        ]
+                    }
+                })
+                    .success,
+                false
+            );
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    prLog: {
+                        collapseRules: [
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?) to (?<version>.+?)$',
+                                replace: 'Update $<dependency> to $<version>',
+                                versionGroup: ''
+                            }
+                        ]
+                    }
+                })
+                    .success,
+                false
+            );
         });
 
         test('schema rejects unsafe output paths', function () {

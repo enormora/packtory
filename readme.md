@@ -245,7 +245,7 @@ The configuration for `packtory` is an object with the following properties:
    - `prLog.ignoredLabels` skips pull request labels during changelog attribution.
    - `prLog.versionBumps` configures the `major`, `minor`, and `patch` label groups used by `versioning.source: 'pull-request-labels'`.
    - `prLog.dateFormat` customizes rendered changelog dates.
-   - `prLog.collapseRules` groups repeated pull request entries with a configured label, regular expression, replacement, and optional capture group names.
+   - `prLog.collapseRules` groups repeated pull request entries with a configured label, regular expression, replacement, and optional chain, highest-version, or same-title collapse fields.
    - `prLog.labelLookupIntervalMilliseconds` and `prLog.maximumRateLimitRetryCount` tune GitHub label lookup timing and retry behavior.
    - `targetScopedLabelPattern` customizes package-specific labels. It must contain `{targetName}` and `{label}`.
    - `packageTagFormat` customizes package tag lookup for changelog base refs. `explicitBaseRef` uses one fixed base ref instead.

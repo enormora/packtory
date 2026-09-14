@@ -39,11 +39,26 @@ function createVersionBumps(
 }
 
 function createCollapseRule(rule: ConfiguredCollapseRule): CollapseRule {
-    return {
+    const baseRule = {
         label: rule.label,
         pattern: new RegExp(rule.pattern, 'u'),
         replace: rule.replace,
-        keyGroup: rule.keyGroup ?? 'dependency',
+        keyGroup: rule.keyGroup ?? 'dependency'
+    };
+    if (rule.collapse === 'same') {
+        return {
+            ...baseRule,
+            collapse: rule.collapse
+        };
+    }
+    if (rule.versionGroup !== undefined) {
+        return {
+            ...baseRule,
+            versionGroup: rule.versionGroup
+        };
+    }
+    return {
+        ...baseRule,
         fromGroup: rule.fromGroup ?? 'from',
         toGroup: rule.toGroup ?? 'to'
     };
