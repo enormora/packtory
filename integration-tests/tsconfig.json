@@ -8,9 +8,15 @@
     "references": [{ "path": "../source/tsconfig.sources.json" }],
     "include": [
         "./**/*.ts",
+        "../source/test-libraries/bundle-fixtures.ts",
+        "../source/test-libraries/dead-code-elimination-trace-fixtures.ts",
         "../source/test-libraries/dead-code-elimination-export-resolution.ts",
         "../source/test-libraries/dead-code-elimination-invariant-assertions.ts",
         "../source/test-libraries/dead-code-elimination-regression-locks.ts",
+        "../source/test-libraries/deep-subset-assertion.ts",
+        "../source/test-libraries/eliminator-fixtures.ts",
+        "../source/test-libraries/eliminator-test-support.ts",
+        "../source/test-libraries/module-reference-fixtures.ts",
         "../source/test-libraries/typescript-project.ts"
     ],
     "exclude": ["fixtures/**/*"]

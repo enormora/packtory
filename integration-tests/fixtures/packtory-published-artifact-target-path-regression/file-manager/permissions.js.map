@@ -1,0 +1,8 @@
+{
+    "version": 3,
+    "file": "file-manager/permissions.js",
+    "sources": ["../source/file-manager/permissions.ts"],
+    "sourcesContent": [null],
+    "names": [],
+    "mappings": ""
+}

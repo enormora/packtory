@@ -1,0 +1,8 @@
+{
+    "version": 3,
+    "file": "file-manager/file-manager.js",
+    "sources": ["../source/file-manager/file-manager.ts"],
+    "sourcesContent": [null],
+    "names": [],
+    "mappings": ""
+}

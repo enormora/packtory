@@ -1,0 +1,8 @@
+{
+    "version": 3,
+    "file": "dead-code-eliminator/imported-expression-origin.js",
+    "sources": ["../source/dead-code-eliminator/imported-expression-origin.ts"],
+    "sourcesContent": [null],
+    "names": [],
+    "mappings": ""
+}

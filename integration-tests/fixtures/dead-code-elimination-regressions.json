@@ -20,5 +20,101 @@
         ],
         "fixtureSha256": "dcd2416ebb66df374851ef9907c3352fbb658bdf745018fd4bbd617b2aa6838e",
         "assertionSha256": "945ad23f61901e23554f8bf11c71a385df897d7720060dffce5ca61b85006f9e"
+    },
+    {
+        "type": "artifact-bundle-content",
+        "id": "packtory-0.0.92-file-manager-permissions",
+        "fixture": "packtory-published-artifact-target-path-regression",
+        "bundleName": "packtory",
+        "entryTargetFilePath": "file-manager/file-manager.js",
+        "resources": [
+            {
+                "fixtureFilePath": "file-manager/file-manager.js",
+                "inputFilePath": "/source/file-manager/file-manager.ts",
+                "targetFilePath": "file-manager/file-manager.js"
+            },
+            {
+                "fixtureFilePath": "file-manager/file-manager.js.map",
+                "inputFilePath": "/build/file-manager/file-manager.js.map",
+                "targetFilePath": "file-manager/file-manager.js.map"
+            },
+            {
+                "fixtureFilePath": "file-manager/permissions.js",
+                "inputFilePath": "/source/file-manager/permissions.ts",
+                "targetFilePath": "file-manager/permissions.js"
+            },
+            {
+                "fixtureFilePath": "file-manager/permissions.js.map",
+                "inputFilePath": "/build/file-manager/permissions.js.map",
+                "targetFilePath": "file-manager/permissions.js.map"
+            }
+        ],
+        "contentAssertions": [
+            {
+                "type": "contains-text",
+                "targetFilePath": "file-manager/permissions.js",
+                "text": "function isExecutableFileMode"
+            },
+            {
+                "type": "omits-text",
+                "targetFilePath": "file-manager/permissions.js",
+                "text": "unusedPermissionMode"
+            },
+            {
+                "type": "source-map-sources",
+                "targetFilePath": "file-manager/file-manager.js.map",
+                "sources": ["../source/file-manager/file-manager.ts"]
+            },
+            {
+                "type": "source-map-sources",
+                "targetFilePath": "file-manager/permissions.js.map",
+                "sources": ["../source/file-manager/permissions.ts"]
+            }
+        ],
+        "fixtureSha256": "3f71764fde5abdf9918af191a41931d2f186db2c88636f56213cab94ea4afcd2",
+        "assertionSha256": "3b9e91ed716f3dd7e3b2ce8a0460fb1e419b159bf74822fc2bc57840a61d97fd"
+    },
+    {
+        "type": "artifact-bundle-content",
+        "id": "packtory-0.0.92-imported-expression-origin-export",
+        "fixture": "packtory-published-artifact-dangling-export-regression",
+        "bundleName": "packtory",
+        "entryTargetFilePath": "dead-code-eliminator/imported-expression-origin.js",
+        "resources": [
+            {
+                "fixtureFilePath": "dead-code-eliminator/imported-expression-origin.js",
+                "inputFilePath": "/source/dead-code-eliminator/imported-expression-origin.ts",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js"
+            },
+            {
+                "fixtureFilePath": "dead-code-eliminator/imported-expression-origin.js.map",
+                "inputFilePath": "/build/dead-code-eliminator/imported-expression-origin.js.map",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js.map"
+            }
+        ],
+        "contentAssertions": [
+            {
+                "type": "contains-text",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js",
+                "text": "function arePureCallArguments"
+            },
+            {
+                "type": "contains-text",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js",
+                "text": "export { arePureCallArguments }"
+            },
+            {
+                "type": "omits-text",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js",
+                "text": "unusedOriginProbe"
+            },
+            {
+                "type": "source-map-sources",
+                "targetFilePath": "dead-code-eliminator/imported-expression-origin.js.map",
+                "sources": ["../source/dead-code-eliminator/imported-expression-origin.ts"]
+            }
+        ],
+        "fixtureSha256": "ae3aaac24ee152bdc2d259f95fb554460ca0fada3a0f34b53d24f72c5f860172",
+        "assertionSha256": "51a6b7971d96b6f4220aaade4c18590e8815891e4c739dcb0581cee882d740a4"
     }
 ]
