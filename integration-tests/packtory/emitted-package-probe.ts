@@ -4,14 +4,15 @@ import fs from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import type { AnalyzedBundle } from '../../source/dead-code-eliminator/analyzed-bundle.ts';
 import { createFileManager } from '../../source/file-manager/file-manager.ts';
 import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
 
-async function writeAnalyzedPackage(resolvedPackage: ResolvedPackage): Promise<string> {
+async function writeAnalyzedPackage(analyzedBundle: AnalyzedBundle): Promise<string> {
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
     const packageFolder = await mkdtemp(path.join(tmpdir(), 'packtory-dead-code-elimination-import-repair-'));
     await fileManager.writeFile(path.join(packageFolder, 'package.json'), '{"type":"module"}\n');
-    for (const resource of resolvedPackage.analyzedBundle.contents) {
+    for (const resource of analyzedBundle.contents) {
         await fileManager.writeFile(
             path.join(packageFolder, resource.fileDescription.targetFilePath),
             resource.fileDescription.content
@@ -49,10 +50,26 @@ function importScript(entryUrl: string): string {
     return `const module = await import(${JSON.stringify(entryUrl)}); console.log(JSON.stringify(module.api()));`;
 }
 
+function importOnlyScript(entryUrl: string): string {
+    return `await import(${JSON.stringify(entryUrl)}); console.log(JSON.stringify("ok"));`;
+}
+
 export async function runEmittedPackageApi(resolvedPackage: ResolvedPackage, targetFilePath: string): Promise<unknown> {
-    const packageFolder = await writeAnalyzedPackage(resolvedPackage);
+    const packageFolder = await writeAnalyzedPackage(resolvedPackage.analyzedBundle);
     try {
         return await runNodeProbe(importScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href));
+    } finally {
+        await rm(packageFolder, { recursive: true, force: true });
+    }
+}
+
+export async function importEmittedPackageEntry(
+    analyzedBundle: AnalyzedBundle,
+    targetFilePath: string
+): Promise<void> {
+    const packageFolder = await writeAnalyzedPackage(analyzedBundle);
+    try {
+        await runNodeProbe(importOnlyScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href));
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }
