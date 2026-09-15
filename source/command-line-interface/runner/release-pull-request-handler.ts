@@ -1,4 +1,3 @@
-import { parseValidConfig } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
 import {
     authorizeReleasePublishFromCommit,
@@ -185,12 +184,11 @@ function parseReleasePullRequestConfig(
     dependencies: Pick<ReleasePullRequestHandlerDependencies, 'workingDirectory'>,
     rawConfig: unknown
 ): LoadedReleasePullRequestConfig {
-    const releasePullRequestConfigContainer = parseCommandLineInterfacePacktoryConfig(rawConfig);
-    const parsedConfig = parseValidConfig(rawConfig);
-    if (releasePullRequestConfigContainer === undefined || parsedConfig === undefined) {
+    const parsedConfig = parseCommandLineInterfacePacktoryConfig(rawConfig);
+    if (parsedConfig === undefined) {
         throw new Error('The loaded config is invalid for release PR management');
     }
-    const config = resolveReleasePullRequestConfig(releasePullRequestConfigContainer);
+    const config = resolveReleasePullRequestConfig(parsedConfig);
     return {
         config,
         policyConfig: {

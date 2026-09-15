@@ -1,6 +1,5 @@
 import path from 'node:path';
 import type { PrLogConfig, PrLogEngine } from '@pr-log/core';
-import type { z } from 'zod/mini';
 import { safeParse } from '../../common/schema-validation.ts';
 import type { ChangelogOutput, ChangelogSettings } from '../../config/changelog-settings.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
@@ -13,8 +12,6 @@ type PackagePathConfig = {
     readonly name: string;
     readonly sourcesFolder?: string | undefined;
 };
-
-type ParsedPacktoryConfig = Readonly<z.infer<typeof packtoryConfigSchema>>;
 
 export type ChangelogConfig = {
     readonly changelog?: ChangelogSettings | undefined;
@@ -56,17 +53,9 @@ export type ChangelogGenerationOptions = {
     readonly targetScopedLabelPattern: string | undefined;
 };
 
-function isPassThroughObject(value: unknown): boolean {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isChangelogSettings(changelog: ParsedPacktoryConfig['changelog']): changelog is ChangelogSettings | undefined {
-    return changelog?.prLog === undefined || isPassThroughObject(changelog.prLog);
-}
-
 export function parseValidConfig(config: unknown): ChangelogConfig | undefined {
     const result = safeParse(packtoryConfigSchema, config);
-    if (!result.success || !isChangelogSettings(result.data.changelog)) {
+    if (!result.success) {
         return undefined;
     }
     return {

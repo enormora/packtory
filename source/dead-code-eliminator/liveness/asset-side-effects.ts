@@ -1,11 +1,13 @@
 import path from 'node:path';
 
-const sideEffectAssetExtensions = new Set([ '.css', '.less', '.sass', '.scss' ]);
+function sideEffectAssetExtensions(): readonly string[] {
+    return [ '.css', '.less', '.sass', '.scss' ];
+}
 
 export function sideEffectAssetImportKind(specifier: string): string | undefined {
     const extension = path.extname(specifier);
-    if (!sideEffectAssetExtensions.has(extension)) {
-        return undefined;
+    if (sideEffectAssetExtensions().includes(extension)) {
+        return `${extension.slice(1)} import`;
     }
-    return `${extension.slice(1)} import`;
+    return undefined;
 }
