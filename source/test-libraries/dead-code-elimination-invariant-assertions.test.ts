@@ -112,13 +112,23 @@ suite('dead code elimination invariant assertions', function () {
         );
     });
 
-    test('accepts declaration imports resolved through declaration companions', function () {
+    test('accepts declaration imports resolved through declaration targets', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
                 resource(
                     '/src/index.d.ts',
                     'index.d.ts',
                     'import type { Api } from "./types.js";\nexport type Public = Api;\n'
+                ),
+                resource('/src/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
+            ])
+        ]);
+        assertValidDeadCodeEliminationOutput('case', [
+            bundleWith([
+                resource(
+                    '/src/index.d.ts',
+                    'index.d.ts',
+                    'import type { Api } from "./types.ts";\nexport type Public = Api;\n'
                 ),
                 resource('/src/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
             ])

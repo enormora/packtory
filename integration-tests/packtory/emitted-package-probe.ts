@@ -21,7 +21,7 @@ async function writeAnalyzedPackage(analyzedBundle: AnalyzedBundle): Promise<str
     return packageFolder;
 }
 
-async function runNodeProbe(script: string): Promise<unknown> {
+async function runNodeProbe(script: string, timeoutMilliseconds: number): Promise<unknown> {
     return new Promise<unknown>(function (resolve, reject) {
         execFile(
             process.execPath,
@@ -29,7 +29,7 @@ async function runNodeProbe(script: string): Promise<unknown> {
             {
                 cwd: process.cwd(),
                 encoding: 'utf8',
-                timeout: 3000
+                timeout: timeoutMilliseconds
             },
             function (error, standardOutput) {
                 if (error instanceof Error) {
@@ -54,10 +54,19 @@ function importOnlyScript(entryUrl: string): string {
     return `await import(${JSON.stringify(entryUrl)}); console.log(JSON.stringify("ok"));`;
 }
 
+async function linkProjectDependencies(packageFolder: string): Promise<void> {
+    const dependencyLinkType = process.platform === 'win32' ? 'junction' : 'dir';
+    await fs.promises.symlink(
+        path.join(process.cwd(), 'node_modules'),
+        path.join(packageFolder, 'node_modules'),
+        dependencyLinkType
+    );
+}
+
 export async function runEmittedPackageApi(resolvedPackage: ResolvedPackage, targetFilePath: string): Promise<unknown> {
     const packageFolder = await writeAnalyzedPackage(resolvedPackage.analyzedBundle);
     try {
-        return await runNodeProbe(importScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href));
+        return await runNodeProbe(importScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href), 3000);
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }
@@ -69,7 +78,20 @@ export async function importEmittedPackageEntry(
 ): Promise<void> {
     const packageFolder = await writeAnalyzedPackage(analyzedBundle);
     try {
-        await runNodeProbe(importOnlyScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href));
+        await runNodeProbe(importOnlyScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href), 3000);
+    } finally {
+        await rm(packageFolder, { recursive: true, force: true });
+    }
+}
+
+export async function importEmittedPackageEntryWithProjectDependencies(
+    analyzedBundle: AnalyzedBundle,
+    targetFilePath: string
+): Promise<void> {
+    const packageFolder = await writeAnalyzedPackage(analyzedBundle);
+    try {
+        await linkProjectDependencies(packageFolder);
+        await runNodeProbe(importOnlyScript(pathToFileURL(path.join(packageFolder, targetFilePath)).href), 60_000);
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }
