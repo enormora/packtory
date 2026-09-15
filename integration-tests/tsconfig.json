@@ -13,6 +13,7 @@
         "../source/test-libraries/dead-code-elimination-export-resolution.ts",
         "../source/test-libraries/dead-code-elimination-invariant-assertions.ts",
         "../source/test-libraries/dead-code-elimination-regression-locks.ts",
+        "../source/test-libraries/dead-code-elimination-target-candidates.ts",
         "../source/test-libraries/deep-subset-assertion.ts",
         "../source/test-libraries/eliminator-fixtures.ts",
         "../source/test-libraries/eliminator-test-support.ts",

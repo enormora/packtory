@@ -9,7 +9,6 @@ import {
     type SourceFile,
     type StringLiteral
 } from 'ts-morph';
-import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import {
@@ -21,6 +20,7 @@ import {
     hasDeadCodeEliminationExportedName,
     type DeadCodeEliminationExportCheckMode
 } from './dead-code-elimination-export-resolution.ts';
+import { candidatesFor, declarationCandidates } from './dead-code-elimination-target-candidates.ts';
 import { createProject } from './typescript-project.ts';
 
 type CheckMode = DeadCodeEliminationExportCheckMode;
@@ -69,19 +69,6 @@ type MissingTargetPathCheck = {
     readonly targetFilePath: string;
 };
 
-const runtimeTargetExtensions = [
-    '.js',
-    '.jsx',
-    '.mjs',
-    '.cjs',
-    '.ts',
-    '.tsx',
-    '.mts',
-    '.cts',
-    '.json',
-    '.wasm'
-];
-const declarationTargetExtensions = [ '.d.ts', '.d.mts', '.d.cts' ];
 const localDeclarationMethods = [
     'getClass',
     'getEnum',
@@ -109,28 +96,6 @@ function resolveTargetPath(importerTargetPath: string, specifier: string): strin
         return normalizeTargetPath(specifier.slice(1));
     }
     return normalizeTargetPath(path.posix.join(path.posix.dirname(importerTargetPath), specifier));
-}
-
-function appendedCandidates(targetPath: string, extensions: readonly string[]): readonly string[] {
-    return extensions.map(function (extension) {
-        return `${targetPath}${extension}`;
-    });
-}
-
-function runtimeCandidates(targetPath: string): readonly string[] {
-    return [ targetPath, ...appendedCandidates(targetPath, runtimeTargetExtensions) ];
-}
-
-function declarationCandidates(targetPath: string): readonly string[] {
-    return [
-        targetPath,
-        ...declarationCompanionCandidates(targetPath),
-        ...appendedCandidates(targetPath, declarationTargetExtensions)
-    ];
-}
-
-function candidatesFor(mode: CheckMode, targetPath: string): readonly string[] {
-    return mode === 'runtime' ? runtimeCandidates(targetPath) : declarationCandidates(targetPath);
 }
 
 function isTargetAllowedInMode(mode: CheckMode, targetPath: string): boolean {
