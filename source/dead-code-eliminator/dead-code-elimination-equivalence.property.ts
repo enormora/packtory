@@ -11,6 +11,10 @@ import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 const coreRunsPerCaseKind = 17;
 const broadRuns = 25;
+const broadRunBatchSize = 5;
+const broadRunStarts = Array.from({ length: broadRuns / broadRunBatchSize }, function (_unused, index) {
+    return index * broadRunBatchSize + 1;
+});
 
 async function assertEquivalent(program: GeneratedDeadCodeEliminationProgram): Promise<void> {
     try {
@@ -41,12 +45,15 @@ suite('dead code elimination equivalence', function () {
         }
     });
 
-    test('preserves behavior for generated broad module graphs', async function () {
-        await fc.assert(
-            fc.asyncProperty(deadCodeEliminationBroadProgramArbitrary, async function (program) {
-                await assertEquivalent(program);
-            }),
-            { numRuns: broadRuns }
-        );
-    });
+    for (const firstRun of broadRunStarts) {
+        const lastRun = firstRun + broadRunBatchSize - 1;
+        test(`preserves behavior for generated broad module graphs ${firstRun}-${lastRun}`, async function () {
+            await fc.assert(
+                fc.asyncProperty(deadCodeEliminationBroadProgramArbitrary, async function (program) {
+                    await assertEquivalent(program);
+                }),
+                { numRuns: broadRunBatchSize }
+            );
+        });
+    }
 });

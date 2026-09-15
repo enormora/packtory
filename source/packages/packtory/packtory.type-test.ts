@@ -245,6 +245,18 @@ describe('PacktoryConfig - accepted shapes', function () {
                             readonly label: 'operations';
                             readonly pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$';
                             readonly replace: 'Update $<dependency> from $<from> to $<to>';
+                        },
+                        {
+                            readonly label: 'operations';
+                            readonly pattern: '^Update (?<dependency>.+?) to (?<to>.+?)$';
+                            readonly replace: 'Update $<dependency> to $<to>';
+                            readonly versionGroup: 'to';
+                        },
+                        {
+                            readonly label: 'operations';
+                            readonly pattern: '^Update (?<dependency>.+?)$';
+                            readonly replace: 'Update $<dependency>';
+                            readonly collapse: 'same';
                         }
                     ];
                     readonly labelLookupIntervalMilliseconds: LabelLookupIntervalMilliseconds;

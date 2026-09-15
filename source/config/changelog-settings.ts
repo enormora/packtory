@@ -39,12 +39,46 @@ const changelogOutputSchema = z.union([
     explicitPackageFileOutputSchema,
     githubReleaseOutputSchema
 ]);
+
+const prLogVersionBumpsSchema = z.readonly(
+    z.strictObject({
+        major: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
+        minor: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
+        patch: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+    })
+);
+
+const prLogCollapseRuleSchema = z.readonly(
+    z.strictObject({
+        label: nonEmptyStringSchema,
+        pattern: nonEmptyStringSchema,
+        replace: nonEmptyStringSchema,
+        keyGroup: z.optional(nonEmptyStringSchema),
+        collapse: z.optional(z.literal('same')),
+        fromGroup: z.optional(nonEmptyStringSchema),
+        toGroup: z.optional(nonEmptyStringSchema),
+        versionGroup: z.optional(nonEmptyStringSchema)
+    })
+);
+
+const prLogSettingsSchema = z.readonly(
+    z.strictObject({
+        validLabels: z.optional(z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema))),
+        ignoredLabels: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
+        versionBumps: z.optional(prLogVersionBumpsSchema),
+        dateFormat: z.optional(nonEmptyStringSchema),
+        collapseRules: z.optional(z.readonly(z.array(prLogCollapseRuleSchema))),
+        labelLookupIntervalMilliseconds: z.optional(z.number()),
+        maximumRateLimitRetryCount: z.optional(z.number())
+    })
+);
+
 export const changelogSettingsSchema = z.readonly(
     z.strictObject({
         explicitBaseRef: z.optional(nonEmptyStringSchema),
         outputs: z.optional(z.readonly(z.tuple([ changelogOutputSchema ], changelogOutputSchema))),
         packageTagFormat: z.optional(nonEmptyStringSchema),
-        prLog: z.optional(z.unknown()),
+        prLog: z.optional(prLogSettingsSchema),
         targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
     })
 );
@@ -55,8 +89,10 @@ type PrLogCollapseRuleSettings = {
     readonly pattern: string;
     readonly replace: string;
     readonly keyGroup?: string | undefined;
+    readonly collapse?: 'same' | undefined;
     readonly fromGroup?: string | undefined;
     readonly toGroup?: string | undefined;
+    readonly versionGroup?: string | undefined;
 };
 export type ChangelogSettings = {
     readonly explicitBaseRef?: string | undefined;
