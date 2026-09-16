@@ -1,5 +1,6 @@
 import { isDefined, pickBy } from 'remeda';
 import { noPublication, publishedToRegistry } from '../bundle-emitter/publication-outcome.ts';
+import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
 import { createVersionProviderContext } from './options/version-provider-context.ts';
 import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
@@ -61,6 +62,12 @@ function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
 }
 
 function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly SiblingPackage[] {
+    return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
+}
+
+function publishDependencyBundlesFromOptions(
+    buildOptions: BuildAndPublishOptions
+): readonly PublishedPackageWithManifest[] {
     return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
 }
 
@@ -225,6 +232,24 @@ function publishRecoveryAttempt(result: BuildAndPublishResult | undefined): Publ
 
 async function attemptPublishRecovery(input: PublishRecoveryInput): Promise<PublishRecoveryAttempt> {
     return publishRecoveryAttempt(await recoverPublishedPackageAfterFailure(input));
+}
+
+async function verifyPublishedArtifactSmokeGate(input: PublishRecoveryInput): Promise<void> {
+    if (wasAlreadyPublished(input.result)) {
+        return;
+    }
+    await input.dependencies.publishedArtifactSmokeGate.verify({
+        analyzedBundle: input.options.analyzedBundle,
+        bundle: input.result.bundle,
+        extraFiles: input.result.extraFiles,
+        dependencyBundles: publishDependencyBundlesFromOptions(input.options.buildOptions)
+    });
+}
+
+async function verifyPreparedPublish(input: PublishRecoveryInput): Promise<BuildAndPublishResult> {
+    const targetVerified = await verifyPublishTarget(input.dependencies, input.options, input.result);
+    await verifyPublishedArtifactSmokeGate({ ...input, result: targetVerified });
+    return targetVerified;
 }
 
 async function publishPreparedResult(
@@ -478,12 +503,12 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         assertEsmMainPackageJson(options.buildOptions.mainPackageJson);
         const currentHeadPublishAttempt = await tryFinalizePublishedCurrentHead(dependencies, options);
         if (currentHeadPublishAttempt === false) {
-            return verifyPublishTarget(dependencies, options, await buildPendingPublish(options));
+            return verifyPreparedPublish({ dependencies, options, result: await buildPendingPublish(options) });
         }
         const result = currentHeadPublishAttempt ??
             await tryFinalizeCurrentProviderVersion(options) ??
             await buildPendingPublish(options);
-        return verifyPublishTarget(dependencies, options, result);
+        return verifyPreparedPublish({ dependencies, options, result });
     }
 
     async function publishPreparedPackage(

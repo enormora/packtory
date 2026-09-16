@@ -63,6 +63,7 @@ type PublishFixturePackagesInput = {
     readonly packages?: PackageConfigList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
     readonly authMode?: 'basic' | 'bearer';
+    readonly dryRun?: boolean;
     readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
 };
 type PublishTaggedVersionInput = {
@@ -198,7 +199,10 @@ export async function publishFixturePackages(input: PublishFixturePackagesInput)
     const config = await createPublishConfig(configInput);
     const registrySettings = createRegistrySettings(input.registryDetails, input.authMode ?? 'basic');
 
-    const outcome = await buildAndPublishAll({ ...config, registrySettings }, { dryRun: false, stage: false });
+    const outcome = await buildAndPublishAll(
+        { ...config, registrySettings },
+        { dryRun: input.dryRun ?? false, stage: false }
+    );
     return outcome.result;
 }
 

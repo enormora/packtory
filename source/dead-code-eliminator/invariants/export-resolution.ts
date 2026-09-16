@@ -4,7 +4,7 @@ import {
     type SourceFile,
     type Statement
 } from 'ts-morph';
-import { collectVariableDeclarationBindings } from '../dead-code-eliminator/variable-declaration-bindings.ts';
+import { collectVariableDeclarationBindings } from '../variable-declaration-bindings.ts';
 
 export type DeadCodeEliminationExportCheckMode = 'declaration' | 'runtime';
 
@@ -23,6 +23,7 @@ type DeadCodeEliminationExportResolver = {
 };
 
 export type DeadCodeEliminationExportSearch = {
+    readonly maximumDepth: number;
     readonly mode: DeadCodeEliminationExportCheckMode;
     readonly targetPath: string;
     readonly exportName: string;
@@ -37,6 +38,7 @@ type ExportableDeclaration = {
 
 type ExportedNameSearch = {
     readonly input: DeadCodeEliminationExportSearch;
+    readonly remainingDepth: number;
     readonly visited: ReadonlySet<string>;
 };
 
@@ -55,8 +57,10 @@ function exportAssignmentNames(statement: Statement): readonly string[] {
 }
 
 function exportedDeclarationName(declaration: ExportableDeclaration): readonly string[] {
-    const name = declaration.getName();
-    return name !== undefined && declaration.isExported() ? [ name ] : [];
+    if (!declaration.isExported()) {
+        return [];
+    }
+    return [ String(declaration.getName()) ];
 }
 
 function functionExportNames(statement: Statement): readonly string[] {
@@ -171,6 +175,7 @@ function namedReExportMatches(search: ReExportSearch): boolean {
                     exportName: namedExport.getName(),
                     sourceFile
                 },
+                remainingDepth: search.remainingDepth,
                 visited: search.visited
             });
     });
@@ -186,6 +191,7 @@ function starReExportMatches(search: ReExportSearch): boolean {
         search.input.exportName !== 'default' &&
         search.hasExportedName({
             input: { ...search.input, targetPath: search.target.targetPath, sourceFile },
+            remainingDepth: search.remainingDepth,
             visited: search.visited
         });
 }
@@ -226,14 +232,21 @@ function reExportDeclarationsMatch(
 
 function hasExportedName(search: ExportedNameSearch): boolean {
     const key = searchKey(search.input);
-    if (search.visited.has(key)) {
+    if (search.remainingDepth === 0) {
         return false;
     }
-    const nextSearch = { ...search, visited: new Set([ ...search.visited, key ]) };
-    return directExportNames(search.input.sourceFile).has(search.input.exportName) ||
-        reExportDeclarationsMatch(nextSearch, hasExportedName);
+    const firstVisit = !search.visited.has(key);
+    const nextSearch = {
+        ...search,
+        remainingDepth: search.remainingDepth - 1,
+        visited: new Set([ ...search.visited, key ])
+    };
+    return firstVisit && (
+        directExportNames(search.input.sourceFile).has(search.input.exportName) ||
+        reExportDeclarationsMatch(nextSearch, hasExportedName)
+    );
 }
 
 export function hasDeadCodeEliminationExportedName(input: DeadCodeEliminationExportSearch): boolean {
-    return hasExportedName({ input, visited: new Set() });
+    return hasExportedName({ input, remainingDepth: input.maximumDepth, visited: new Set() });
 }

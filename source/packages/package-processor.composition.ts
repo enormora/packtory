@@ -1,4 +1,7 @@
 import fs from 'node:fs';
+import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -19,6 +22,11 @@ import { createTypescriptProjectAnalyzer } from '../dependency-scanner/typescrip
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
+import {
+    createPublishedArtifactSmokeGate,
+    type PublishedArtifactSmokeGateDependencies,
+    type SmokeProbeInput
+} from '../packtory/published-artifact-smoke-gate.ts';
 import type { VersionSourceResolver } from '../packtory/map-config.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { withStageTimings } from '../report/decorators.ts';
@@ -41,6 +49,50 @@ import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
 
 async function importPackageJson(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
+}
+
+function importProbeErrorMessage(error: Error, stdout: string, stderr: string): string {
+    const stderrOutput = stderr.trim();
+    const stdoutOutput = stdout.trim();
+    if (stderrOutput.length > 0) {
+        return stderrOutput;
+    }
+    return stdoutOutput.length > 0 ? stdoutOutput : error.message;
+}
+
+async function runImportProbe(input: SmokeProbeInput): Promise<void> {
+    const script = `await import(${JSON.stringify(input.specifier)});`;
+    return new Promise(function (resolve, reject) {
+        execFile(
+            process.execPath,
+            [ '--experimental-strip-types', '--enable-source-maps', '--input-type=module', '-e', script ],
+            { cwd: input.cwd, encoding: 'utf8', timeout: input.timeoutMs },
+            function (error, stdout, stderr) {
+                if (error === null) {
+                    resolve();
+                    return;
+                }
+                reject(new Error(importProbeErrorMessage(error, stdout, stderr)));
+            }
+        );
+    });
+}
+
+async function linkDirectory(
+    sourcePath: string,
+    targetPath: string,
+    type: PublishedArtifactSmokeGateDependencies['dependencyLinkType']
+): Promise<void> {
+    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.promises.symlink(sourcePath, targetPath, type);
+}
+
+async function createTemporaryFolder(prefix: string): Promise<string> {
+    return await fs.promises.mkdtemp(path.join(tmpdir(), prefix));
+}
+
+async function removeFolder(folderPath: string): Promise<void> {
+    await fs.promises.rm(folderPath, { recursive: true, force: true });
 }
 
 export type PackageProcessorComposition = {
@@ -191,6 +243,16 @@ export function buildPackageProcessorComposition(
         sbomFileBuilder: parts.sbomFileBuilder,
         deadCodeEliminator: parts.deadCodeEliminator,
         fileManager: parts.fileManager,
+        publishedArtifactSmokeGate: createPublishedArtifactSmokeGate({
+            collectContents: parts.artifactsBuilder.collectContents,
+            fileManager: parts.fileManager,
+            createTemporaryFolder,
+            removeFolder,
+            linkDirectory,
+            runImportProbe,
+            dependencyLinkType: process.platform === 'win32' ? 'junction' : 'dir',
+            repositoryFolder: parts.repositoryFolder
+        }),
         repositoryFolder: parts.repositoryFolder
     });
     const packageProcessor = withStageTimings(basePackageProcessor, parts.progressBroadcaster.provider);

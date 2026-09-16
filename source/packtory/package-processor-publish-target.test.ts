@@ -16,6 +16,7 @@ import type { BuildAndPublishResult } from './package-processor.ts';
 type AutomaticBumpOverrides = {
     readonly generateSbom?: SinonSpy;
     readonly publish?: SinonSpy;
+    readonly smokePublishedArtifact?: SinonSpy;
     readonly verifyBundlePublishTarget: SinonSpy;
 };
 type AutomaticBumpScenario = {
@@ -40,6 +41,9 @@ function createAutomaticBumpProcessor(overrides: AutomaticBumpOverrides): Automa
         increaseVersion: fake.returns(rebuiltBundle),
         ...overrides.generateSbom === undefined ? {} : { generateSbom: overrides.generateSbom },
         verifyBundlePublishTarget: overrides.verifyBundlePublishTarget,
+        ...overrides.smokePublishedArtifact === undefined
+            ? {}
+            : { smokePublishedArtifact: overrides.smokePublishedArtifact },
         ...overrides.publish === undefined ? {} : { publish: overrides.publish }
     });
 
@@ -76,6 +80,58 @@ suite('package-processor publish target preflight', function () {
         assert.strictEqual(publish.callCount, 0);
     });
 
+    test('tryBuildAndPublish() smoke-checks changed target artifacts after exact target checks', async function () {
+        const verifyBundlePublishTarget = fake.resolves({
+            alreadyPublished: false,
+            publishedArtifacts: Maybe.nothing()
+        });
+        const smokePublishedArtifact = fake.resolves(undefined);
+        const { processor, rebuiltBundle } = createAutomaticBumpProcessor({
+            verifyBundlePublishTarget,
+            smokePublishedArtifact
+        });
+        const analyzedBundle = createAnalyzedBundle();
+        const buildOptions = createBuildAndPublishOptions();
+
+        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions, stage: false });
+
+        assert.strictEqual(smokePublishedArtifact.callCount, 1);
+        assert.strictEqual(verifyBundlePublishTarget.calledBefore(smokePublishedArtifact), true);
+        assert.deepStrictEqual(smokePublishedArtifact.firstCall.args, [
+            {
+                analyzedBundle,
+                bundle: rebuiltBundle,
+                extraFiles: [],
+                dependencyBundles: [
+                    ...buildOptions.bundleDependencies,
+                    ...buildOptions.bundlePeerDependencies
+                ]
+            }
+        ]);
+    });
+
+    test('buildAndPublish() rejects smoke check failures before publish', async function () {
+        const smokePublishedArtifact = fake.rejects(new Error('artifact import failed'));
+        const publish = fake.resolves(publishedToRegistry);
+        const { processor } = createAutomaticBumpProcessor({
+            verifyBundlePublishTarget: fake.resolves({
+                alreadyPublished: false,
+                publishedArtifacts: Maybe.nothing()
+            }),
+            smokePublishedArtifact,
+            publish
+        });
+
+        await assert.rejects(async function () {
+            await processor.buildAndPublish({
+                analyzedBundle: createAnalyzedBundle(),
+                buildOptions: createBuildAndPublishOptions(),
+                stage: false
+            });
+        }, { message: 'artifact import failed' });
+        assert.strictEqual(publish.callCount, 0);
+    });
+
     test('tryBuildAndPublish() rejects pinned target version artifact collisions before publish', async function () {
         const versionedBundle = createVersionedBundle('package-a', '2.0.0');
         const verifyBundlePublishTarget = fake.rejects(
@@ -101,11 +157,13 @@ suite('package-processor publish target preflight', function () {
     });
 
     test('tryBuildAndPublish() returns already-published when the exact latest target artifacts match', async function () {
+        const smokePublishedArtifact = fake.rejects(new Error('should not smoke-check unchanged artifacts'));
         const { processor, rebuiltBundle } = createAutomaticBumpProcessor({
             verifyBundlePublishTarget: fake.resolves({
                 alreadyPublished: true,
                 publishedArtifacts: publishedArtifacts('1.2.4', 'published-head')
-            })
+            }),
+            smokePublishedArtifact
         });
 
         const result = await processor.tryBuildAndPublish({
@@ -121,6 +179,27 @@ suite('package-processor publish target preflight', function () {
             extraFiles: [],
             previousReleaseArtifacts: publishedArtifacts('1.2.4', 'published-head')
         });
+        assert.strictEqual(smokePublishedArtifact.callCount, 0);
+    });
+
+    test('tryBuildAndPublish() skips smoke checks when the latest registry package already matches', async function () {
+        const smokePublishedArtifact = fake.rejects(new Error('should not smoke-check unchanged artifacts'));
+        const { processor } = createProcessor({
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: true,
+                previousReleaseArtifacts: Maybe.nothing()
+            }),
+            smokePublishedArtifact,
+            verifyBundlePublishTarget: fake.rejects(new Error('should not verify unchanged artifacts'))
+        });
+
+        await processor.tryBuildAndPublish({
+            analyzedBundle: createAnalyzedBundle(),
+            buildOptions: createBuildAndPublishOptions(),
+            stage: false
+        });
+
+        assert.strictEqual(smokePublishedArtifact.callCount, 0);
     });
 
     test('tryBuildAndPublish() passes generated extra files to exact target checks', async function () {
@@ -154,8 +233,10 @@ suite('package-processor publish target preflight', function () {
 
     test('tryBuildAndPublish() skips exact target checks in stage mode', async function () {
         const verifyBundlePublishTarget = fake.rejects(new Error('should not verify staged targets'));
+        const smokePublishedArtifact = fake.resolves(undefined);
         const { processor } = createAutomaticBumpProcessor({
-            verifyBundlePublishTarget
+            verifyBundlePublishTarget,
+            smokePublishedArtifact
         });
 
         await processor.tryBuildAndPublish({
@@ -165,5 +246,6 @@ suite('package-processor publish target preflight', function () {
         });
 
         assert.strictEqual(verifyBundlePublishTarget.callCount, 0);
+        assert.strictEqual(smokePublishedArtifact.callCount, 1);
     });
 });

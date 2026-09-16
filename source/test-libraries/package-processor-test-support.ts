@@ -91,6 +91,7 @@ export type ProcessorOverrides = {
     readonly checkBundleAlreadyPublished?: SinonSpy;
     readonly publish?: SinonSpy;
     readonly generateSbom?: SinonSpy;
+    readonly smokePublishedArtifact?: SinonSpy;
     readonly eliminate?: SinonSpy;
     readonly repositoryFolder?: string;
 };
@@ -108,6 +109,7 @@ export type ProcessorContext = {
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly publish: SinonSpy;
     readonly generateSbom: SinonSpy;
+    readonly smokePublishedArtifact: SinonSpy;
 };
 
 type ProcessorSpies = {
@@ -123,6 +125,7 @@ type ProcessorSpies = {
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly publish: SinonSpy;
     readonly generateSbom: SinonSpy;
+    readonly smokePublishedArtifact: SinonSpy;
     readonly eliminate: SinonSpy;
 };
 
@@ -150,6 +153,7 @@ function createDefaultProcessorSpies(): ProcessorSpies {
         }),
         publish: fake.resolves(undefined),
         generateSbom: fake.resolves(undefined),
+        smokePublishedArtifact: fake.resolves(undefined),
         eliminate: fake(async function (eliminationInputs: readonly EliminationInput[]) {
             return eliminationInputs.map(function (input) {
                 const bundle: AnalyzedBundle = { ...input.bundle, contents: [], sideEffectsField: undefined };
@@ -183,6 +187,7 @@ function createProcessorSpies(overrides: ProcessorOverrides): ProcessorSpies {
         ),
         publish: providedSpy(overrides.publish, defaults.publish),
         generateSbom: providedSpy(overrides.generateSbom, defaults.generateSbom),
+        smokePublishedArtifact: providedSpy(overrides.smokePublishedArtifact, defaults.smokePublishedArtifact),
         eliminate: providedSpy(overrides.eliminate, defaults.eliminate)
     };
 }
@@ -206,6 +211,7 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
         },
         versionManager: { addVersion: spies.addVersion, increaseVersion: spies.increaseVersion },
         sbomFileBuilder: { generate: spies.generateSbom },
+        publishedArtifactSmokeGate: { verify: spies.smokePublishedArtifact },
         deadCodeEliminator: { eliminate: spies.eliminate },
         fileManager: {
             async checkReadability() {
@@ -230,7 +236,8 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
         increaseVersion: spies.increaseVersion,
         checkBundleAlreadyPublished: spies.checkBundleAlreadyPublished,
         publish: spies.publish,
-        generateSbom: spies.generateSbom
+        generateSbom: spies.generateSbom,
+        smokePublishedArtifact: spies.smokePublishedArtifact
     };
 }
 
