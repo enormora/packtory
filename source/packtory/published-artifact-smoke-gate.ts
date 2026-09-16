@@ -67,10 +67,6 @@ type StagedPackage = {
     readonly files: readonly FileDescription[];
 };
 
-const smokeProbeTimeoutMs = 3000;
-const dotSlashLength = './'.length;
-const dotSlashPrefix = './';
-
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype;
 }
@@ -80,7 +76,7 @@ function normalizeArtifactPath(filePath: string): string {
 }
 
 function stripLeadingDotSlash(filePath: string): string {
-    return filePath.startsWith(dotSlashPrefix) ? filePath.slice(dotSlashLength) : filePath;
+    return filePath.startsWith('./') ? filePath.slice('./'.length) : filePath;
 }
 
 function exportSpecifier(packageName: string, exportPath: string): string {
@@ -387,7 +383,7 @@ async function collectProbeIssues(
                 specifier: target.specifier,
                 packageName,
                 targetFilePath: target.targetFilePath,
-                timeoutMs: smokeProbeTimeoutMs
+                timeoutMs: 3000
             });
         } catch (error: unknown) {
             issues.push(
