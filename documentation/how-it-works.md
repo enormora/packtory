@@ -303,6 +303,17 @@ The classifier is what makes the difference between a file packtory will tree-sh
 
 Pure-leaf expressions are: literals, identifiers, function/arrow/class expressions, certain unary/binary operators, plus parenthesised, `as`, `satisfies`, `!`, and `<T>` wrappers. Object and array literals are pure iff their elements are.
 
+Soundness policy:
+
+- Static imports, local reexports, star reexports, namespace imports, and default exports must resolve to emitted runtime targets and exported names. Missing targets fail DCE invariants.
+- Dynamic import literals and `import.meta.resolve()` keep dependency metadata when they survive. Dead literals disappear with removed code. Unsupported `import.meta.resolve()` shapes fail during scanning.
+- Package `exports`, package `imports`, and conditional exports use the shared TypeScript module resolver before DCE. DCE consumes resolved artifact references and does not re-resolve emitted local paths.
+- Class static blocks, top-level await, control flow, unknown statements, calls, property reads, element access, computed keys, and getters are effectful unless a narrower proof exists.
+- Side-effect-only imports and side-effecting files preserve runtime evaluation. Dead specifier imports become bare imports, and files reached by surviving bare imports are retained.
+- Declaration companions and source maps with missing physical sources do not decide runtime liveness. Runtime liveness is based on emitted artifact targets, and missing runtime targets fail invariants.
+
+Unknown code is live by default. Unknown imports preserve affected declarations or fail before publish. More aggressive removal needs a static proof or explicit trust configuration.
+
 The same classifier serves three purposes:
 
 1. **Gating tree-shaking** per file (above).

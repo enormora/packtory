@@ -491,6 +491,8 @@ Within each bundle, the analyzer:
 
 Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
 
+DCE is conservative by design. Unknown top-level code is treated as effectful, unknown imports preserve the affected code or fail an integrity check, and resolver uncertainty is never used as a reason to remove code. More removal requires either a static proof in packtory's analysis or an explicit trust setting such as `pureImports`, `pureConstructors`, or a pure annotation.
+
 ### Free side-effect features
 
 The same static analysis also drives, regardless of any `checks` configuration:

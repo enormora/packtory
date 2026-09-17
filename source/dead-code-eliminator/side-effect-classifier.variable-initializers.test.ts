@@ -183,11 +183,26 @@ suite('side-effect-classifier variable initializers', function () {
         test('treats a const with an unresolved identifier reference as impure', function () {
             assert.deepStrictEqual(classify('const x = missing;'), [ { line: 1, kind: 'variable initializer' } ]);
         });
+    });
 
+    suite('side-effect-classifier access initializers', function () {
         test('treats a const with a property access as impure', function () {
             assert.deepStrictEqual(classify('declare const obj: { x: number }; const x = obj.x;'), [
                 { line: 1, kind: 'variable initializer' }
             ]);
+        });
+
+        test('treats a const with an element access as impure', function () {
+            assert.deepStrictEqual(classify('declare const obj: { value: number }; const x = obj["value"];'), [
+                { line: 1, kind: 'variable initializer' }
+            ]);
+        });
+
+        test('treats a const with a getter-backed property read as impure', function () {
+            assert.deepStrictEqual(
+                classify('const source = { get value() { return compute(); } }; const x = source.value;'),
+                [ { line: 1, kind: 'variable initializer' } ]
+            );
         });
     });
 });
