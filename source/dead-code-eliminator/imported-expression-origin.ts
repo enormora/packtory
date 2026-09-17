@@ -77,7 +77,7 @@ function originMatchesTrustedImport(
     return pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
 }
 
-function expressionOriginIsTrusted(
+export function originIsTrustedPureImport(
     origin: ImportedExpressionOrigin | undefined,
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
@@ -112,7 +112,7 @@ function originOfTrustedCall(
     recurse: ExpressionPurityChecker,
     settings: DeadCodeEliminationSettings | undefined
 ): ImportedExpressionOrigin | undefined {
-    if (!expressionOriginIsTrusted(callee, settings)) {
+    if (!originIsTrustedPureImport(callee, settings)) {
         return undefined;
     }
     return arePureCallArguments(callArguments, recurse) ? callee : undefined;
@@ -121,6 +121,18 @@ function originOfTrustedCall(
 export function resolveImportedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
     const identifier = unwrapExpression(expression).asKind(SyntaxKind.Identifier);
     return identifier === undefined ? undefined : importedOriginForIdentifier(identifier);
+}
+
+export function resolveImportedExpressionPropertyPath(expression: Expression): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return resolveImportedExpressionPath(unwrapped);
+    }
+    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+        const base = resolveImportedExpressionPropertyPath(unwrapped.getExpression());
+        return base === undefined ? undefined : { from: base.from, path: [ ...base.path, unwrapped.getName() ] };
+    }
+    return undefined;
 }
 
 function propertyAccessOrigin(

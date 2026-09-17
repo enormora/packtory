@@ -125,6 +125,18 @@ suite('pure-expression', function () {
                 true
             );
         });
+
+        test('isPureExpression returns true for an object literal with a pure spread and local accessor', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression(
+                        'const spread = { x: 1 };\nconst a = { ...spread, get y() { return 2; } };'
+                    ),
+                    undefined
+                ),
+                true
+            );
+        });
     });
 
     suite('operator and call purity', function () {

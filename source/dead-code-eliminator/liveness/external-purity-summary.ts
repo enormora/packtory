@@ -482,3 +482,20 @@ export function exportPurityForOrigin(
     }
     return buildExternalPuritySummary(sourceFile).exports.get(exportKey(origin)) ?? 'unknown';
 }
+
+export function exportHasPureObjectReturnForOrigin(
+    origin: ImportedExpressionOrigin,
+    containingSourceFile: SourceFile
+): boolean {
+    const sourceFile = resolvedModuleSourceFile(origin.from, containingSourceFile);
+    if (sourceFile === undefined) {
+        return false;
+    }
+    const nestedExportPrefix = `${exportKey(origin)}.`;
+    for (const key of buildExternalPuritySummary(sourceFile).exports.keys()) {
+        if (key.startsWith(nestedExportPrefix)) {
+            return true;
+        }
+    }
+    return false;
+}
