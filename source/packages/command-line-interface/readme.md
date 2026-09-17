@@ -41,6 +41,7 @@ packtory <command> [options]
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
+- **publish:** Before publishing changed packages, verifies the exact target version and smoke-imports generated public runtime exports from a temporary package install layout. Bin targets are checked for presence but are not executed.
 - **config inspect:** Loads `packtory.config.js`, validates Packtory and CLI-only settings, then prints package count, package names, resolved `sourcesFolder`, roots, and bundled package dependencies.
 - **release --publish --tag --push --github-release --no-dry-run:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API. `--push` is accepted for compatibility with existing workflows because tags are created remotely.
 - **release-pr maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
@@ -100,7 +101,7 @@ packtory <command> [options]
 - Packages that have never been published are rendered with a `[first publish]` chip and every bundled file in the **Added** group.
 - Packages whose new build is byte-equal to the published version are rendered as a single dim `no changes` line.
 - A package that fails earlier in the dry-run build appears in the document `Issues` section rather than as a per-package diff entry.
-- A package whose selected target version already exists with different artifacts, or exists without being tagged `latest`, appears in `Issues` before publish can start.
+- A package whose selected target version already exists with different artifacts, exists without being tagged `latest`, or fails generated runtime export smoke checks appears in `Issues` before publish can start.
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output. Failure-only runs go directly to standard output.
 - `packtory release-diff` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
 - `release-diff` is read-only: it never publishes and never writes to the registry. It is currently terminal-only; an HTML/`--open` variant and an `--against <version>` selector are not part of this release.

@@ -163,6 +163,21 @@ suite('publish', function () {
         );
 
         test(
+            'dry-run publish succeeds through generated runtime export smoke checks',
+            checkWithRegistry(async function (registryDetails) {
+                const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
+
+                assertPublishSucceeded(
+                    await publishFixturePackages({
+                        fixturePath: fixturePathValue,
+                        registryDetails,
+                        dryRun: true
+                    })
+                );
+            })
+        );
+
+        test(
             'publishes the configured manual version and keeps it stable for an unchanged rerun',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');

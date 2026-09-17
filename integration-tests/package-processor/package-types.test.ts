@@ -47,7 +47,7 @@ suite('package-types', function () {
                     {
                         directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
-                            content: "import { foo } from './foo';\n",
+                            content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
                             inputFilePath: path.join(fixture, 'src/entry.js'),
                             targetFilePath: 'entry.js'
@@ -60,7 +60,7 @@ suite('package-types', function () {
                         directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
                         fileDescription: {
                             content:
-                                "import { bar } from './bar';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
+                                "import { bar } from './bar.js';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
                             isExecutable: false,
                             inputFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js'
@@ -86,7 +86,7 @@ suite('package-types', function () {
                     'example-module': '1.2.3'
                 },
                 mainFile: {
-                    content: "import { foo } from './foo';\n",
+                    content: "import { foo } from './foo.js';\n",
                     isExecutable: false,
                     inputFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'

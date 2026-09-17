@@ -1,6 +1,6 @@
-import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
-import { isDeclarationCodeTargetPath } from '../dead-code-eliminator/liveness/runtime-code.ts';
-import type { DeadCodeEliminationExportCheckMode } from './dead-code-elimination-export-resolution.ts';
+import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
+import { isDeclarationCodeTargetPath } from '../liveness/runtime-code.ts';
+import type { DeadCodeEliminationExportCheckMode } from './export-resolution.ts';
 
 type SourceDeclarationTargetRule = {
     readonly declarationExtensions: readonly string[];
