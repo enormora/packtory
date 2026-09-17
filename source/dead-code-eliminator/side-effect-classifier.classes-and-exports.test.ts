@@ -113,9 +113,15 @@ suite('side-effect-classifier classes and exports', function () {
     });
 
     suite('side-effect-classifier multiline sources', function () {
-        test('treats top-level await as impure (parsed inside an expression statement)', function () {
+        test('treats await inside a function body as pure at module evaluation time', function () {
             const content = [ 'async function main() {', '  await Promise.resolve();', '}' ].join('\n');
             assert.deepStrictEqual(classify(content), []);
+        });
+
+        test('treats top-level await as impure', function () {
+            assert.deepStrictEqual(classify('await Promise.resolve();'), [
+                { line: 1, kind: 'expression statement' }
+            ]);
         });
 
         test('treats a const with an await initializer as impure', function () {
