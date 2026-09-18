@@ -24,11 +24,9 @@ import {
 import {
     arePureCallArguments,
     originIsTrustedPureImport,
-    resolveImportedExpressionOrigin,
     resolveImportedExpressionPropertyPath,
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
-import { externalCallIsPure } from './liveness/external-purity.ts';
 import {
     exportHasPureObjectReturnForOrigin,
     exportPurityForOrigin
@@ -49,20 +47,6 @@ type ExpressionFactContext = {
     readonly cache: WeakMap<Expression, ExpressionFact>;
     readonly settings: DeadCodeEliminationSettings | undefined;
 };
-
-const expressionFactCaches = new Map<DeadCodeEliminationSettings | undefined, WeakMap<Expression, ExpressionFact>>();
-
-function expressionFactCacheFor(
-    settings: DeadCodeEliminationSettings | undefined
-): WeakMap<Expression, ExpressionFact> {
-    const stored = expressionFactCaches.get(settings);
-    if (stored !== undefined) {
-        return stored;
-    }
-    const cache = new WeakMap<Expression, ExpressionFact>();
-    expressionFactCaches.set(settings, cache);
-    return cache;
-}
 
 function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver): boolean {
     if (TsMorphNode.isOmittedExpression(element)) {
@@ -225,12 +209,7 @@ function callExpressionFact(
         factFor,
         settings
     );
-    if (expressionFactIsPure(importedCallFact)) {
-        return importedCallFact;
-    }
-    const fallbackCallIsPure = externalCallIsPure(expression, purityCheckerFor(factFor)) ||
-        resolveImportedExpressionOrigin(expression, purityCheckerFor(factFor), settings) !== undefined;
-    return fallbackCallIsPure ? pureValueFact : unknownFact;
+    return importedCallFact;
 }
 
 function propertyAccessExpressionFact(
@@ -412,20 +391,24 @@ function calculateExpressionFact(
     return expressionPurityRuleFor(unwrapped.getKind())?.(unwrapped, factFor, context.settings) ?? unknownFact;
 }
 
-function expressionFactFor(expression: Expression, context: ExpressionFactContext): ExpressionFact {
-    const cached = context.cache.get(expression);
-    if (cached !== undefined) {
-        return cached;
-    }
+function cacheCalculatedExpressionFact(
+    expression: Expression,
+    context: ExpressionFactContext,
+    factFor: ExpressionFactResolver
+): ExpressionFact {
     context.cache.set(expression, unknownFact);
-    const factFor: ExpressionFactResolver = function (candidate) {
-        return expressionFactFor(candidate, context);
-    };
     const fact = calculateExpressionFact(expression, context, factFor);
     context.cache.set(expression, fact);
     return fact;
 }
 
+function expressionFactFor(expression: Expression, context: ExpressionFactContext): ExpressionFact {
+    const factFor: ExpressionFactResolver = function (candidate) {
+        return expressionFactFor(candidate, context);
+    };
+    return context.cache.get(expression) ?? cacheCalculatedExpressionFact(expression, context, factFor);
+}
+
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
-    return expressionFactIsPure(expressionFactFor(expression, { cache: expressionFactCacheFor(settings), settings }));
+    return expressionFactIsPure(expressionFactFor(expression, { cache: new WeakMap(), settings }));
 }

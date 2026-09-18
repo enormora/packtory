@@ -20,25 +20,24 @@ import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
 
 type PureCallableFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-callable'; };
 type PureObjectFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-object'; };
-type PureValueFact = { readonly type: 'pure-value'; };
-type UnknownExpressionFact = { readonly type: 'unknown'; };
+type PureValueFact = { readonly origin: undefined; readonly type: 'pure-value'; };
+type UnknownExpressionFact = { readonly origin: undefined; readonly type: 'unknown'; };
 
 export type ExpressionFact = PureCallableFact | PureObjectFact | PureValueFact | UnknownExpressionFact;
 
 export type ExpressionFactResolver = (expression: Expression) => ExpressionFact;
 type MutationRecord = { readonly name: string; readonly start: number; };
 
-export const pureValueFact: ExpressionFact = { type: 'pure-value' };
+export const pureValueFact: ExpressionFact = { origin: undefined, type: 'pure-value' };
 export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin: undefined };
-export const unknownFact: ExpressionFact = { type: 'unknown' };
-const mutationRecordsBySourceFile = new WeakMap<SourceFile, readonly MutationRecord[]>();
+export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
 export function expressionFactIsPure(fact: ExpressionFact): boolean {
-    return fact.type !== 'unknown';
+    return [ 'pure-callable', 'pure-object', 'pure-value' ].includes(fact.type);
 }
 
 export function expressionFactOrigin(fact: ExpressionFact): ImportedExpressionOrigin | undefined {
-    return fact.type === 'pure-object' || fact.type === 'pure-callable' ? fact.origin : undefined;
+    return fact.origin;
 }
 
 export function purityCheckerFor(factFor: ExpressionFactResolver): ExpressionPurityChecker {
@@ -63,9 +62,6 @@ function importedExpressionFact(
     if (originIsTrustedPureImport(origin, settings)) {
         return pureObjectWithOrigin(origin);
     }
-    if (origin.from.startsWith('.') || origin.from.startsWith('/')) {
-        return pureValueFact;
-    }
     const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile());
     if (exportPurity === 'pure-callable') {
         return pureCallableWithOrigin(origin);
@@ -76,41 +72,60 @@ function importedExpressionFact(
     return pureValueFact;
 }
 
-const alwaysAvailableDeclarationKinds = new Set<SyntaxKind>([
-    SyntaxKind.FunctionDeclaration,
-    SyntaxKind.ImportClause,
-    SyntaxKind.ImportSpecifier,
-    SyntaxKind.NamespaceImport,
-    SyntaxKind.Parameter
-]);
-const orderedDeclarationKinds = new Set<SyntaxKind>([
-    SyntaxKind.ClassDeclaration,
-    SyntaxKind.EnumDeclaration,
-    SyntaxKind.VariableDeclaration
-]);
-const importedOriginDeclarationKinds = new Set<SyntaxKind>([
-    SyntaxKind.ImportClause,
-    SyntaxKind.ImportSpecifier,
-    SyntaxKind.NamespaceImport
-]);
-const assignmentOperatorKinds = new Set<SyntaxKind>([
-    SyntaxKind.EqualsToken,
-    SyntaxKind.PlusEqualsToken,
-    SyntaxKind.MinusEqualsToken,
-    SyntaxKind.AsteriskEqualsToken,
-    SyntaxKind.AsteriskAsteriskEqualsToken,
-    SyntaxKind.SlashEqualsToken,
-    SyntaxKind.PercentEqualsToken,
-    SyntaxKind.LessThanLessThanEqualsToken,
-    SyntaxKind.GreaterThanGreaterThanEqualsToken,
-    SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
-    SyntaxKind.AmpersandEqualsToken,
-    SyntaxKind.BarEqualsToken,
-    SyntaxKind.CaretEqualsToken,
-    SyntaxKind.AmpersandAmpersandEqualsToken,
-    SyntaxKind.BarBarEqualsToken,
-    SyntaxKind.QuestionQuestionEqualsToken
-]);
+function syntaxKindIsOneOf(kind: SyntaxKind, ...candidates: readonly SyntaxKind[]): boolean {
+    return candidates.includes(kind);
+}
+
+function declarationKindIsAlwaysAvailable(kind: SyntaxKind): boolean {
+    return syntaxKindIsOneOf(
+        kind,
+        SyntaxKind.FunctionDeclaration,
+        SyntaxKind.ImportClause,
+        SyntaxKind.ImportSpecifier,
+        SyntaxKind.NamespaceImport,
+        SyntaxKind.Parameter
+    );
+}
+
+function declarationKindIsOrdered(kind: SyntaxKind): boolean {
+    return syntaxKindIsOneOf(
+        kind,
+        SyntaxKind.ClassDeclaration,
+        SyntaxKind.EnumDeclaration,
+        SyntaxKind.VariableDeclaration
+    );
+}
+
+function declarationKindHasImportedOrigin(kind: SyntaxKind): boolean {
+    return syntaxKindIsOneOf(
+        kind,
+        SyntaxKind.ImportClause,
+        SyntaxKind.ImportSpecifier,
+        SyntaxKind.NamespaceImport
+    );
+}
+
+function operatorKindIsAssignment(kind: SyntaxKind): boolean {
+    return syntaxKindIsOneOf(
+        kind,
+        SyntaxKind.EqualsToken,
+        SyntaxKind.PlusEqualsToken,
+        SyntaxKind.MinusEqualsToken,
+        SyntaxKind.AsteriskEqualsToken,
+        SyntaxKind.AsteriskAsteriskEqualsToken,
+        SyntaxKind.SlashEqualsToken,
+        SyntaxKind.PercentEqualsToken,
+        SyntaxKind.LessThanLessThanEqualsToken,
+        SyntaxKind.GreaterThanGreaterThanEqualsToken,
+        SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
+        SyntaxKind.AmpersandEqualsToken,
+        SyntaxKind.BarEqualsToken,
+        SyntaxKind.CaretEqualsToken,
+        SyntaxKind.AmpersandAmpersandEqualsToken,
+        SyntaxKind.BarBarEqualsToken,
+        SyntaxKind.QuestionQuestionEqualsToken
+    );
+}
 
 function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expression: Identifier): boolean {
     return Math.sign(expression.getStart() - declaration.getEnd()) === 1;
@@ -118,10 +133,10 @@ function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expressi
 
 function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expression: Identifier): boolean {
     const kind = declaration.getKind();
-    if (alwaysAvailableDeclarationKinds.has(kind)) {
+    if (declarationKindIsAlwaysAvailable(kind)) {
         return true;
     }
-    if (orderedDeclarationKinds.has(kind)) {
+    if (declarationKindIsOrdered(kind)) {
         return declarationIsAvailableBeforeRead(declaration, expression);
     }
 
@@ -148,7 +163,7 @@ function binaryExpressionMutationRecord(expression: TsMorphNode): MutationRecord
     if (!TsMorphNode.isBinaryExpression(expression)) {
         return undefined;
     }
-    if (!assignmentOperatorKinds.has(expression.getOperatorToken().getKind())) {
+    if (!operatorKindIsAssignment(expression.getOperatorToken().getKind())) {
         return undefined;
     }
     const identifier = rootMutationIdentifier(expression.getLeft());
@@ -171,25 +186,13 @@ function mutationRecordForNode(node: TsMorphNode): MutationRecord | undefined {
     return binaryExpressionMutationRecord(node) ?? updateExpressionMutationRecord(node);
 }
 
-function collectMutationRecords(sourceFile: SourceFile): readonly MutationRecord[] {
-    const records: MutationRecord[] = [];
+function* collectMutationRecords(sourceFile: SourceFile): Generator<MutationRecord> {
     for (const node of sourceFile.getDescendants()) {
         const record = mutationRecordForNode(node);
         if (record !== undefined) {
-            records.push(record);
+            yield record;
         }
     }
-    return records;
-}
-
-function mutationRecordsForSourceFile(sourceFile: SourceFile): readonly MutationRecord[] {
-    const stored = mutationRecordsBySourceFile.get(sourceFile);
-    if (stored !== undefined) {
-        return stored;
-    }
-    const records = collectMutationRecords(sourceFile);
-    mutationRecordsBySourceFile.set(sourceFile, records);
-    return records;
 }
 
 function mutationRecordTargetsDeclaration(
@@ -198,14 +201,17 @@ function mutationRecordTargetsDeclaration(
     read: Identifier
 ): boolean {
     return record.name === declaration.getName() &&
-        record.start > declaration.getEnd() &&
-        record.start < read.getStart();
+        Math.sign(record.start - declaration.getEnd()) === 1 &&
+        Math.sign(read.getStart() - record.start) === 1;
 }
 
 function declarationIsMutatedBeforeRead(declaration: VariableDeclaration, read: Identifier): boolean {
-    return mutationRecordsForSourceFile(read.getSourceFile()).some(function (record) {
-        return mutationRecordTargetsDeclaration(record, declaration, read);
-    });
+    for (const record of collectMutationRecords(read.getSourceFile())) {
+        if (mutationRecordTargetsDeclaration(record, declaration, read)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function variableDeclarationIsConst(declaration: VariableDeclaration): boolean {
@@ -214,7 +220,7 @@ function variableDeclarationIsConst(declaration: VariableDeclaration): boolean {
 }
 
 function factNeedsMutationCheck(fact: ExpressionFact): boolean {
-    return fact.type !== 'pure-value' && fact.type !== 'unknown';
+    return fact.type === 'pure-object' || fact.type === 'pure-callable';
 }
 
 function variableInitializerFact(
@@ -247,7 +253,7 @@ function importedOriginForIdentifierDeclaration(
     declaration: TsMorphNodeType,
     expression: Identifier
 ): ImportedExpressionOrigin | undefined {
-    return importedOriginDeclarationKinds.has(declaration.getKind())
+    return declarationKindHasImportedOrigin(declaration.getKind())
         ? resolveImportedExpressionPath(expression)
         : undefined;
 }
