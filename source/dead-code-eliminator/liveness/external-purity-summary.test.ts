@@ -2,7 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Project, SourceFile } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { exportPurityForOrigin, type ExportPurity } from './external-purity-summary.ts';
+import {
+    exportHasPureObjectReturnForOrigin,
+    exportPurityForOrigin,
+    type ExportPurity
+} from './external-purity-summary.ts';
 
 type TestFile = {
     readonly filePath: string;
@@ -244,6 +248,10 @@ suite('external purity summary', function () {
                 .getSourceFileOrThrow('/project/src/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing), 'unknown');
+            assert.strictEqual(
+                exportHasPureObjectReturnForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing),
+                false
+            );
         });
 
         test('exportPurityForOrigin requires module package type for resolved js files', function () {

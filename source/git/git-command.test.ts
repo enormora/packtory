@@ -11,6 +11,8 @@ type FakeGitCommandChildProcess = {
     readonly once: (eventName: 'close', listener: () => void) => FakeGitCommandChildProcess;
 };
 
+const realChildProcessDeadlineMs = 5000;
+
 function createFakeGitCommandChildProcess(
     recordCloseListener: (listener: () => void) => void
 ): FakeGitCommandChildProcess {
@@ -118,7 +120,7 @@ suite('git-command', function () {
                 'process.stdout.write("stdout"); process.stderr.write("stderr");'
             ]),
             'child process git command success',
-            500
+            realChildProcessDeadlineMs
         );
 
         assert.deepStrictEqual(result, { stdout: 'stdout', stderr: 'stderr' });
@@ -130,7 +132,7 @@ suite('git-command', function () {
             withPromiseDeadline(
                 runChildProcessGitCommand(process.execPath, [ '-e', 'process.exit(13);' ]),
                 'failed child process git command',
-                500
+                realChildProcessDeadlineMs
             ),
             /Command failed/u
         );
@@ -142,7 +144,7 @@ suite('git-command', function () {
             withPromiseDeadline(
                 runChildProcessGitCommand('/definitely-missing/packtory-git-command', []),
                 'missing child process git command',
-                500
+                realChildProcessDeadlineMs
             ),
             /^Error: spawn \/definitely-missing\/packtory-git-command ENOENT$/u
         );

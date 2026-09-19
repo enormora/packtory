@@ -14,12 +14,6 @@ type TrustedImport = {
     readonly imports?: readonly string[] | undefined;
 };
 
-type ImportedExpressionOriginResolver = (
-    expression: Expression,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined
-) => ImportedExpressionOrigin | undefined;
-
 function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpressionOrigin | undefined {
     if (TsMorphNode.isImportSpecifier(declaration)) {
         return {
@@ -77,7 +71,7 @@ function originMatchesTrustedImport(
     return pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
 }
 
-function expressionOriginIsTrusted(
+export function originIsTrustedPureImport(
     origin: ImportedExpressionOrigin | undefined,
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
@@ -99,68 +93,21 @@ function arePureCallArguments(callArguments: readonly TsMorphNode[], recurse: Ex
     });
 }
 
-function appendPropertyAccess(
-    base: ImportedExpressionOrigin | undefined,
-    propertyName: string
-): ImportedExpressionOrigin | undefined {
-    return base === undefined ? undefined : { from: base.from, path: [ ...base.path, propertyName ] };
-}
-
-function originOfTrustedCall(
-    callee: ImportedExpressionOrigin | undefined,
-    callArguments: readonly TsMorphNode[],
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined
-): ImportedExpressionOrigin | undefined {
-    if (!expressionOriginIsTrusted(callee, settings)) {
-        return undefined;
-    }
-    return arePureCallArguments(callArguments, recurse) ? callee : undefined;
-}
-
 export function resolveImportedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
     const identifier = unwrapExpression(expression).asKind(SyntaxKind.Identifier);
     return identifier === undefined ? undefined : importedOriginForIdentifier(identifier);
 }
 
-function propertyAccessOrigin(
-    expression: Expression,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined,
-    resolveOrigin: ImportedExpressionOriginResolver
-): ImportedExpressionOrigin | undefined {
-    if (!TsMorphNode.isPropertyAccessExpression(expression)) {
-        return undefined;
-    }
-    const base = resolveOrigin(expression.getExpression(), recurse, settings);
-    return appendPropertyAccess(base, expression.getName());
-}
-
-function trustedCallOrigin(
-    expression: Expression,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined,
-    resolveOrigin: ImportedExpressionOriginResolver
-): ImportedExpressionOrigin | undefined {
-    if (!TsMorphNode.isCallExpression(expression)) {
-        return undefined;
-    }
-    const callee = resolveOrigin(expression.getExpression(), recurse, settings);
-    return originOfTrustedCall(callee, expression.getArguments(), recurse, settings);
-}
-
-export function resolveImportedExpressionOrigin(
-    expression: Expression,
-    recurse: ExpressionPurityChecker,
-    settings: DeadCodeEliminationSettings | undefined
-): ImportedExpressionOrigin | undefined {
+export function resolveImportedExpressionPropertyPath(expression: Expression): ImportedExpressionOrigin | undefined {
     const unwrapped = unwrapExpression(expression);
-    const directOrigin = resolveImportedExpressionPath(unwrapped);
-    if (directOrigin !== undefined) {
-        return directOrigin;
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return resolveImportedExpressionPath(unwrapped);
     }
-    return propertyAccessOrigin(unwrapped, recurse, settings, resolveImportedExpressionOrigin) ??
-        trustedCallOrigin(unwrapped, recurse, settings, resolveImportedExpressionOrigin);
+    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+        const base = resolveImportedExpressionPropertyPath(unwrapped.getExpression());
+        return base === undefined ? undefined : { from: base.from, path: [ ...base.path, unwrapped.getName() ] };
+    }
+    return undefined;
 }
 
 export { arePureCallArguments };

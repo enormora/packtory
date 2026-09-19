@@ -1,31 +1,36 @@
-import path from 'node:path';
 import {
     Node as TsMorphNode,
     SyntaxKind,
-    VariableDeclarationKind,
     type CallExpression,
     type Expression,
-    type Identifier,
-    type Node as TsMorphNodeType,
-    type ObjectLiteralExpression,
-    type NewExpression,
-    type SourceFile,
-    type VariableDeclaration
+    type NewExpression
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
-import {
-    packageTypeForResolvedFilePath,
-    resolveTypescriptModuleFilePath
-} from '../dependency-scanner/typescript-module-resolution.ts';
+import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
+    expressionFactIsPure,
+    expressionFactOrigin,
+    identifierReadFact,
+    pureCallableWithOrigin,
+    pureLocalObjectFact,
+    pureObjectWithOrigin,
+    pureValueFact,
+    purityCheckerFor,
+    unknownFact,
+    type ExpressionFact,
+    type ExpressionFactResolver
+} from './expression-facts.ts';
+import {
     arePureCallArguments,
-    resolveImportedExpressionOrigin,
-    resolveImportedExpressionPath,
-    type ImportedExpressionOrigin,
-    type ExpressionPurityChecker
+    originIsTrustedPureImport,
+    resolveImportedExpressionPropertyPath,
+    type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
-import { externalCallIsPure } from './liveness/external-purity.ts';
+import {
+    exportHasPureObjectReturnForOrigin,
+    exportPurityForOrigin
+} from './liveness/external-purity-summary.ts';
 import {
     allowedBinaryOperators,
     allowedPrefixUnaryOperators,
@@ -35,31 +40,22 @@ import {
 
 type PurityRule = (
     expression: Expression,
-    recurse: ExpressionPurityChecker,
+    factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
-) => boolean;
+) => ExpressionFact;
+type ExpressionFactContext = {
+    readonly cache: WeakMap<Expression, ExpressionFact>;
+    readonly settings: DeadCodeEliminationSettings | undefined;
+};
 
-const alwaysAvailableDeclarationKinds = new Set<SyntaxKind>([
-    SyntaxKind.FunctionDeclaration,
-    SyntaxKind.ImportClause,
-    SyntaxKind.ImportSpecifier,
-    SyntaxKind.NamespaceImport,
-    SyntaxKind.Parameter
-]);
-const orderedDeclarationKinds = new Set<SyntaxKind>([
-    SyntaxKind.ClassDeclaration,
-    SyntaxKind.EnumDeclaration,
-    SyntaxKind.VariableDeclaration
-]);
-
-function isPureArrayElement(element: Expression, recurse: ExpressionPurityChecker): boolean {
+function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver): boolean {
     if (TsMorphNode.isOmittedExpression(element)) {
         return true;
     }
     if (TsMorphNode.isSpreadElement(element)) {
-        return recurse(element.getExpression());
+        return expressionFactIsPure(factFor(element.getExpression()));
     }
-    return recurse(element);
+    return expressionFactIsPure(factFor(element));
 }
 
 function computedPropertyNameExpression(property: TsMorphNode): Expression | undefined {
@@ -77,153 +73,52 @@ function computedPropertyNameExpression(property: TsMorphNode): Expression | und
     return undefined;
 }
 
-function packageTypeFor(filePath: string, containingSourceFile: SourceFile): string | undefined {
-    return packageTypeForResolvedFilePath({ filePath, containingSourceFile });
-}
-
-function isRuntimeModuleSource(filePath: string, containingSourceFile: SourceFile): boolean {
-    return path.extname(filePath) === '.js' && packageTypeFor(filePath, containingSourceFile) === 'module';
-}
-
-function resolvedRuntimeSourceFile(
-    moduleSpecifier: string,
-    containingSourceFile: SourceFile
-): SourceFile | undefined {
-    const filePath = resolveTypescriptModuleFilePath({
-        moduleSpecifier,
-        containingSourceFile,
-        resolutionMode: 'runtime'
-    });
-    if (filePath === undefined || !isRuntimeModuleSource(filePath, containingSourceFile)) {
-        return undefined;
-    }
-    const project = containingSourceFile.getProject();
-    return project.getSourceFile(filePath) ?? project.addSourceFileAtPathIfExists(filePath);
-}
-
-function objectPropertyInitializer(expression: ObjectLiteralExpression, propertyName: string): Expression | undefined {
-    const property = expression.getProperty(propertyName);
-    return TsMorphNode.isPropertyAssignment(property) ? property.getInitializerOrThrow() : undefined;
-}
-
-function primitiveKeyExpression(expression: Expression | undefined): boolean {
-    return TsMorphNode.isStringLiteral(unwrapExpression(expression));
-}
-
-function expressionMemberIsPrimitiveKey(expression: Expression | undefined, propertyName: string): boolean {
-    const unwrapped = unwrapExpression(expression);
-    if (!TsMorphNode.isObjectLiteralExpression(unwrapped)) {
-        return false;
-    }
-    return primitiveKeyExpression(objectPropertyInitializer(unwrapped, propertyName));
-}
-
-function constDeclarationInitializer(declaration: VariableDeclaration): Expression | undefined {
-    const statement = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.VariableStatement);
-    return statement.isExported() && statement.getDeclarationKind() === VariableDeclarationKind.Const
-        ? declaration.getInitializer()
-        : undefined;
-}
-
-function exportPathIsPrimitiveKey(
-    sourceFile: SourceFile,
-    exportName: string,
-    propertyName: string
-): boolean {
-    const declaration = sourceFile.getVariableDeclaration(exportName);
-    if (declaration === undefined) {
-        return false;
-    }
-    return expressionMemberIsPrimitiveKey(constDeclarationInitializer(declaration), propertyName);
-}
-
-function importedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
-    const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
-        return resolveImportedExpressionPath(unwrapped);
-    }
-    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
-        const base = importedExpressionPath(unwrapped.getExpression());
-        return base === undefined ? undefined : { from: base.from, path: [ ...base.path, unwrapped.getName() ] };
-    }
-    return undefined;
-}
-
-function importedExpressionIsPrimitiveKey(expression: Expression): boolean {
-    const origin = importedExpressionPath(expression);
-    if (origin === undefined) {
-        return false;
-    }
-    const sourceFile = resolvedRuntimeSourceFile(origin.from, expression.getSourceFile());
-    const [ exportName = origin.from, propertyName = exportName, ...rest ] = origin.path;
-    return sourceFile !== undefined && rest.length === 0 &&
-        exportPathIsPrimitiveKey(sourceFile, exportName, propertyName);
-}
-
-function computedPropertyNameIsPure(
-    expression: Expression,
-    recurse: ExpressionPurityChecker
-): boolean {
-    return recurse(expression) || importedExpressionIsPrimitiveKey(expression);
-}
-
-function isPurePropertyAssignment(
+function propertyAssignmentCreationIsPure(
     property: TsMorphNode,
-    recurse: ExpressionPurityChecker
+    factFor: ExpressionFactResolver
 ): boolean {
     const computedNameExpression = computedPropertyNameExpression(property);
     if (
         computedNameExpression !== undefined &&
-        !computedPropertyNameIsPure(computedNameExpression, recurse)
+        !computedPropertyNameIsPure(computedNameExpression, factFor)
     ) {
         return false;
     }
     if (TsMorphNode.isPropertyAssignment(property)) {
-        return recurse(property.getInitializerOrThrow());
+        return expressionFactIsPure(factFor(property.getInitializerOrThrow()));
     }
     if (TsMorphNode.isSpreadAssignment(property)) {
-        return recurse(property.getExpression());
+        return expressionFactIsPure(factFor(property.getExpression()));
     }
     return inherentlyPurePropertyKinds.has(property.getKind());
 }
 
-function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expression: Identifier): boolean {
-    return Math.sign(expression.getStart() - declaration.getEnd()) === 1;
+function spreadAssignmentSourceIsSafe(
+    property: TsMorphNode,
+    factFor: ExpressionFactResolver
+): boolean {
+    if (TsMorphNode.isSpreadAssignment(property)) {
+        return factFor(property.getExpression()).type === 'pure-object';
+    }
+    return true;
 }
 
-function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expression: Identifier): boolean {
-    const kind = declaration.getKind();
-    if (alwaysAvailableDeclarationKinds.has(kind)) {
-        return true;
-    }
-    if (orderedDeclarationKinds.has(kind)) {
-        return declarationIsAvailableBeforeRead(declaration, expression);
-    }
-
-    return false;
-}
-
-function identifierDeclarations(expression: Identifier): readonly TsMorphNodeType[] {
-    const symbol = expression.getSymbol();
-    return symbol?.getDeclarations() ?? [];
-}
-
-function isPureIdentifierRead(expression: Identifier): boolean {
-    if (expression.getText() === 'undefined') {
-        return true;
-    }
-    return identifierDeclarations(expression).some(function (declaration) {
-        return declarationMakesIdentifierReadPure(declaration, expression);
-    });
+function createdObjectPropertyIsSafeToSpread(
+    property: TsMorphNode,
+    factFor: ExpressionFactResolver
+): boolean {
+    return !TsMorphNode.isGetAccessorDeclaration(property) &&
+        !TsMorphNode.isSetAccessorDeclaration(property) &&
+        spreadAssignmentSourceIsSafe(property, factFor);
 }
 
 function isPureBuiltinCallExpression(
     callTarget: Expression,
     expression: CallExpression,
-    recurse: ExpressionPurityChecker
+    factFor: ExpressionFactResolver
 ): boolean {
     return TsMorphNode.isIdentifier(callTarget) && callTarget.getText() === 'Symbol'
-        ? arePureCallArguments(expression.getArguments(), recurse)
+        ? arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor))
         : false;
 }
 
@@ -234,23 +129,106 @@ function hasPureAnnotation(expression: Expression): boolean {
 
 function pureAnnotationMakesCallPure(
     expression: CallExpression | NewExpression,
-    recurse: ExpressionPurityChecker
+    factFor: ExpressionFactResolver
 ): boolean {
-    return hasPureAnnotation(expression) && arePureCallArguments(expression.getArguments(), recurse);
+    return hasPureAnnotation(expression) && arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
 }
 
-function isPureCallExpression(
-    expression: CallExpression,
-    recurse: ExpressionPurityChecker,
+function appendOriginPath(
+    origin: ImportedExpressionOrigin | undefined,
+    segment: string
+): ImportedExpressionOrigin | undefined {
+    return origin === undefined ? undefined : { from: origin.from, path: [ ...origin.path, segment ] };
+}
+
+function originForExpressionFact(
+    expression: Expression,
+    factFor: ExpressionFactResolver
+): ImportedExpressionOrigin | undefined {
+    return expressionFactOrigin(factFor(expression));
+}
+
+function originForCallTarget(
+    expression: Expression,
+    factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
-): boolean {
+): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+        const base = unwrapped.getExpression();
+        const baseOrigin = TsMorphNode.isPropertyAccessExpression(unwrapExpression(base))
+            ? originForCallTarget(base, factFor, settings)
+            : resolveImportedExpressionPropertyPath(base) ?? originForExpressionFact(base, factFor);
+        return appendOriginPath(baseOrigin, unwrapped.getName());
+    }
+    return resolveImportedExpressionPropertyPath(unwrapped) ?? originForExpressionFact(unwrapped, factFor);
+}
+
+function externalCallResultFact(
+    origin: ImportedExpressionOrigin,
+    expression: CallExpression
+): ExpressionFact {
+    if (exportPurityForOrigin(origin, expression.getSourceFile()) !== 'pure-callable') {
+        return unknownFact;
+    }
+    return exportHasPureObjectReturnForOrigin(origin, expression.getSourceFile())
+        ? pureObjectWithOrigin(origin)
+        : pureValueFact;
+}
+
+function importedCallResultFact(
+    origin: ImportedExpressionOrigin | undefined,
+    expression: CallExpression,
+    factFor: ExpressionFactResolver,
+    settings: DeadCodeEliminationSettings | undefined
+): ExpressionFact {
+    if (origin === undefined || !arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor))) {
+        return unknownFact;
+    }
+    if (originIsTrustedPureImport(origin, settings)) {
+        return pureObjectWithOrigin(origin);
+    }
+    return externalCallResultFact(origin, expression);
+}
+
+function callExpressionFact(
+    expression: CallExpression,
+    factFor: ExpressionFactResolver,
+    settings: DeadCodeEliminationSettings | undefined
+): ExpressionFact {
     const callTarget = unwrapExpression(expression.getExpression());
-    return (
-        pureAnnotationMakesCallPure(expression, recurse) ||
-        isPureBuiltinCallExpression(callTarget, expression, recurse) ||
-        externalCallIsPure(expression, recurse) ||
-        resolveImportedExpressionOrigin(expression, recurse, settings) !== undefined
+    if (
+        pureAnnotationMakesCallPure(expression, factFor) ||
+        isPureBuiltinCallExpression(callTarget, expression, factFor)
+    ) {
+        return pureValueFact;
+    }
+    const importedCallFact = importedCallResultFact(
+        originForCallTarget(callTarget, factFor, settings),
+        expression,
+        factFor,
+        settings
     );
+    return importedCallFact;
+}
+
+function propertyAccessExpressionFact(
+    expression: Expression,
+    factFor: ExpressionFactResolver,
+    settings: DeadCodeEliminationSettings | undefined
+): ExpressionFact {
+    const origin = originForCallTarget(expression, factFor, settings);
+    if (origin === undefined) {
+        return unknownFact;
+    }
+    if (originIsTrustedPureImport(origin, settings)) {
+        return pureObjectWithOrigin(origin);
+    }
+    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile());
+    if (exportPurity === 'pure-callable') {
+        return pureCallableWithOrigin(origin);
+    }
+    return exportPurity === 'pure-object' ? pureObjectWithOrigin(origin) : unknownFact;
 }
 
 function constructorNameIsTrusted(
@@ -263,118 +241,174 @@ function constructorNameIsTrusted(
 
 function isPureNewExpression(
     expression: NewExpression,
-    recurse: ExpressionPurityChecker,
+    factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
     const constructorExpression = unwrapExpression(expression.getExpression());
     const trustedConstructorCall = constructorNameIsTrusted(constructorExpression, settings) &&
-        arePureCallArguments(expression.getArguments(), recurse);
-    return pureAnnotationMakesCallPure(expression, recurse) || trustedConstructorCall;
+        arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
+    return pureAnnotationMakesCallPure(expression, factFor) || trustedConstructorCall;
 }
 
-function templateExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
-    return expression
+function templateExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
+    const spansArePure = expression
         .asKindOrThrow(SyntaxKind.TemplateExpression)
         .getTemplateSpans()
         .every(function (span) {
-            return recurse(span.getExpression());
+            return expressionFactIsPure(factFor(span.getExpression()));
         });
+    return spansArePure ? pureValueFact : unknownFact;
 }
 
-function arrayLiteralExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
-    return expression
+function arrayLiteralExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
+    const elementsArePure = expression
         .asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
         .getElements()
         .every(function (element) {
-            return isPureArrayElement(element, recurse);
+            return isPureArrayElement(element, factFor);
         });
+    return elementsArePure ? pureValueFact : unknownFact;
 }
 
-function objectLiteralExpressionIsPure(
+function objectLiteralExpressionFact(
     expression: Expression,
-    recurse: ExpressionPurityChecker
-): boolean {
-    return expression
+    factFor: ExpressionFactResolver
+): ExpressionFact {
+    const properties = expression
         .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
-        .getProperties()
-        .every(function (property) {
-            return isPurePropertyAssignment(property, recurse);
-        });
+        .getProperties();
+    if (
+        properties.some(function (property) {
+            return !propertyAssignmentCreationIsPure(property, factFor);
+        })
+    ) {
+        return unknownFact;
+    }
+    const hasSpread = properties.some(function (property) {
+        return TsMorphNode.isSpreadAssignment(property);
+    });
+    const spreadSourcesAreSafe = properties.every(function (property) {
+        return spreadAssignmentSourceIsSafe(property, factFor);
+    });
+    if (hasSpread && !spreadSourcesAreSafe) {
+        return unknownFact;
+    }
+    const createdObjectIsSafeToSpread = properties.every(function (property) {
+        return createdObjectPropertyIsSafeToSpread(property, factFor);
+    });
+    return createdObjectIsSafeToSpread
+        ? pureLocalObjectFact
+        : pureValueFact;
 }
 
-function prefixUnaryExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+function prefixUnaryExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
     const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
-    return allowedPrefixUnaryOperators.has(unary.getOperatorToken()) && recurse(unary.getOperand());
+    const operandIsPure = allowedPrefixUnaryOperators.has(unary.getOperatorToken()) &&
+        expressionFactIsPure(factFor(unary.getOperand()));
+    return operandIsPure ? pureValueFact : unknownFact;
 }
 
-function binaryExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+function binaryExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
     const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
     if (!allowedBinaryOperators.has(binary.getOperatorToken().getKind())) {
-        return false;
+        return unknownFact;
     }
-    return recurse(binary.getLeft()) && recurse(binary.getRight());
+    return expressionFactIsPure(factFor(binary.getLeft())) && expressionFactIsPure(factFor(binary.getRight()))
+        ? pureValueFact
+        : unknownFact;
 }
 
-function callExpressionIsPure(
+function callExpressionRule(
     expression: Expression,
-    recurse: ExpressionPurityChecker,
+    factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
-): boolean {
-    return isPureCallExpression(expression.asKindOrThrow(SyntaxKind.CallExpression), recurse, settings);
+): ExpressionFact {
+    return callExpressionFact(expression.asKindOrThrow(SyntaxKind.CallExpression), factFor, settings);
 }
 
-function newExpressionIsPure(
+function newExpressionFact(
     expression: Expression,
-    recurse: ExpressionPurityChecker,
+    factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
-): boolean {
-    return isPureNewExpression(expression.asKindOrThrow(SyntaxKind.NewExpression), recurse, settings);
+): ExpressionFact {
+    return isPureNewExpression(expression.asKindOrThrow(SyntaxKind.NewExpression), factFor, settings)
+        ? pureValueFact
+        : unknownFact;
 }
 
 function literalStructurePurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
     if (kind === SyntaxKind.TemplateExpression) {
-        return templateExpressionIsPure;
+        return templateExpressionFact;
     }
     if (kind === SyntaxKind.ArrayLiteralExpression) {
-        return arrayLiteralExpressionIsPure;
+        return arrayLiteralExpressionFact;
     }
     if (kind === SyntaxKind.ObjectLiteralExpression) {
-        return objectLiteralExpressionIsPure;
+        return objectLiteralExpressionFact;
+    }
+    return undefined;
+}
+
+function memberPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
+    if (kind === SyntaxKind.PropertyAccessExpression) {
+        return propertyAccessExpressionFact;
     }
     return undefined;
 }
 
 function operationPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
     if (kind === SyntaxKind.PrefixUnaryExpression) {
-        return prefixUnaryExpressionIsPure;
+        return prefixUnaryExpressionFact;
     }
     if (kind === SyntaxKind.BinaryExpression) {
-        return binaryExpressionIsPure;
+        return binaryExpressionFact;
     }
     if (kind === SyntaxKind.CallExpression) {
-        return callExpressionIsPure;
+        return callExpressionRule;
     }
     if (kind === SyntaxKind.NewExpression) {
-        return newExpressionIsPure;
+        return newExpressionFact;
     }
     return undefined;
 }
 
 function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    return literalStructurePurityRuleFor(kind) ?? operationPurityRuleFor(kind);
+    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRuleFor(kind);
+}
+
+function calculateExpressionFact(
+    expression: Expression,
+    context: ExpressionFactContext,
+    factFor: ExpressionFactResolver
+): ExpressionFact {
+    const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return identifierReadFact(unwrapped, factFor, context.settings);
+    }
+    if (pureLeafKinds.has(unwrapped.getKind())) {
+        return pureValueFact;
+    }
+    return expressionPurityRuleFor(unwrapped.getKind())?.(unwrapped, factFor, context.settings) ?? unknownFact;
+}
+
+function cacheCalculatedExpressionFact(
+    expression: Expression,
+    context: ExpressionFactContext,
+    factFor: ExpressionFactResolver
+): ExpressionFact {
+    context.cache.set(expression, unknownFact);
+    const fact = calculateExpressionFact(expression, context, factFor);
+    context.cache.set(expression, fact);
+    return fact;
+}
+
+function expressionFactFor(expression: Expression, context: ExpressionFactContext): ExpressionFact {
+    const factFor: ExpressionFactResolver = function (candidate) {
+        return expressionFactFor(candidate, context);
+    };
+    return context.cache.get(expression) ?? cacheCalculatedExpressionFact(expression, context, factFor);
 }
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
-    const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
-        return isPureIdentifierRead(unwrapped);
-    }
-    const recurse: ExpressionPurityChecker = function (candidate) {
-        return isPureExpression(candidate, settings);
-    };
-    const kind = unwrapped.getKind();
-    if (pureLeafKinds.has(kind)) {
-        return true;
-    }
-    return expressionPurityRuleFor(kind)?.(unwrapped, recurse, settings) ?? false;
+    return expressionFactIsPure(expressionFactFor(expression, { cache: new WeakMap(), settings }));
 }

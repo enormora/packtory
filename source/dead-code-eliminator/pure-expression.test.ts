@@ -116,6 +116,13 @@ suite('pure-expression', function () {
             );
         });
 
+        test('isPureExpression returns true for an object literal with a local pure computed name', function () {
+            assert.strictEqual(
+                isPureExpression(variableInitializer('const key = "value";\nconst a = { [key]: 1 };', 'a'), undefined),
+                true
+            );
+        });
+
         test('isPureExpression returns true for an object literal with a pure spread value', function () {
             assert.strictEqual(
                 isPureExpression(
@@ -123,6 +130,31 @@ suite('pure-expression', function () {
                     undefined
                 ),
                 true
+            );
+        });
+
+        test('isPureExpression returns true for an object literal with a pure spread and local accessor', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    firstVariableInitializerExpression(
+                        'const spread = { x: 1 };\nconst a = { ...spread, get y() { return 2; } };'
+                    ),
+                    undefined
+                ),
+                true
+            );
+        });
+
+        test('isPureExpression returns false for an object spread of a local accessor object', function () {
+            assert.strictEqual(
+                isPureExpression(
+                    variableInitializer(
+                        'const spread = { get y() { return 2; } };\nconst a = { ...spread };',
+                        'a'
+                    ),
+                    undefined
+                ),
+                false
             );
         });
     });
