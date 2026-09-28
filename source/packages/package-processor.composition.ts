@@ -61,7 +61,14 @@ function importProbeErrorMessage(error: Error, stdout: string, stderr: string): 
 }
 
 async function runImportProbe(input: SmokeProbeInput): Promise<void> {
-    const script = `await import(${JSON.stringify(input.specifier)});`;
+    const script = `
+        try {
+            await import(${JSON.stringify(input.specifier)});
+        } catch (error) {
+            console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+            process.exitCode = 1;
+        }
+    `;
     return new Promise(function (resolve, reject) {
         execFile(
             process.execPath,

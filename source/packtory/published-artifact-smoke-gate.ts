@@ -47,12 +47,12 @@ export type PublishedArtifactSmokeGateDependencies = {
     readonly repositoryFolder: string;
 };
 
-type RuntimeExportTarget = {
+export type RuntimeExportTarget = {
     readonly specifier: string;
     readonly targetFilePath: string;
 };
 
-type BinTarget = {
+export type BinTarget = {
     readonly name: string;
     readonly targetFilePath: string;
 };
@@ -140,7 +140,7 @@ function runtimeExportsFromExportMap(
     });
 }
 
-function runtimeExportsFromExportsField(
+export function runtimeExportsFromExportsField(
     packageName: string,
     exportsField: unknown
 ): readonly RuntimeExportTarget[] {
@@ -156,7 +156,7 @@ function runtimeExportsFromExportsField(
         : runtimeExportsFromRootConditions(packageName, exportsField);
 }
 
-function binTargetsFromBinField(
+export function binTargetsFromBinField(
     packageName: string,
     binField: unknown
 ): readonly BinTarget[] {

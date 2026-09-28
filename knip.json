@@ -9,6 +9,7 @@
         "source/test-libraries/github-release-gate-test-support.ts!",
         "source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts!",
         "source/build-support/mutation-timeout/check-mutation-timeouts.ts!",
+        "source/build-support/canaries/canaries.entry-point.ts!",
         "integration-tests/**/*.ts",
         "dependency-cruiser.config.js",
         "mocha.config.property-tests.json",

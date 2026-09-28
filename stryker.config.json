@@ -13,6 +13,7 @@
         "no-config": true,
         "ui": "tdd",
         "extension": ["ts"],
+        "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": ["source/**/*.test.ts"]
     },
     "testRunnerNodeArgs": ["--experimental-strip-types", "--enable-source-maps"],
@@ -21,6 +22,7 @@
         "!source/**/*.test.ts",
         "!source/**/*.property.ts",
         "!source/**/*.type-test.ts",
+        "!source/build-support/canaries/**/*.ts",
         "!source/test-libraries/**/*.ts",
         "!source/**/*.entry-point.ts",
         "!source/packages/**/*.composition.ts"
