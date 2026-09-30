@@ -3,8 +3,12 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { suite, test } from 'mocha';
-import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { runSelectedCanary, runShellCommand, type CanaryRunnerDependencies } from './canary-runner.ts';
+import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
+import {
+    runSelectedCanary,
+    runShellCommand,
+    type CanaryRunnerDependencies
+} from './canary-runner.ts';
 
 type CommandCall = {
     readonly command: string;
@@ -68,18 +72,20 @@ function createRunnerDependencies(
     failingModes: ReadonlySet<'baseline' | 'candidate'>
 ): CanaryRunnerDependencies & {
     readonly commandCalls: readonly CommandCall[];
+    readonly fileManager: FakeFileManager;
     readonly removedFolders: readonly string[];
 } {
     const commandCalls: CommandCall[] = [];
     const removedFolders: string[] = [];
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [ { value: manifestContent(publishCommand) } ]
+    });
     return {
         commandCalls,
         async createTemporaryFolder(prefix) {
             return `/workspace/${prefix}clone`;
         },
-        fileManager: createFakeFileManager({
-            simulatedReadFileResponses: [ { value: manifestContent(publishCommand) } ]
-        }),
+        fileManager,
         async removeFolder(folderPath) {
             removedFolders.push(folderPath);
         },
@@ -147,6 +153,32 @@ suite('canary-runner', function () {
                 '/workspace/packtory-canary-sample-baseline-clone',
                 '/workspace/packtory-canary-sample-candidate-clone'
             ]
+        );
+        assert.deepStrictEqual(
+            dependencies.commandCalls.filter(function (call) {
+                return call.command === 'npm install --no-save --ignore-scripts @packtory/cli@latest';
+            }),
+            [
+                {
+                    command: 'npm install --no-save --ignore-scripts @packtory/cli@latest',
+                    cwd: '/workspace/packtory-canary-sample-baseline-clone'
+                }
+            ]
+        );
+        assert.strictEqual(
+            dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
+                return call.filePath === '/workspace/packtory-canary-sample-baseline-clone/node_modules/.bin/packtory';
+            }),
+            false
+        );
+        assert.strictEqual(
+            dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
+                return (
+                    call.filePath === '/workspace/packtory-canary-sample-candidate-clone/node_modules/.bin/packtory' &&
+                    call.content.includes('command-line-interface.entry-point.ts')
+                );
+            }),
+            true
         );
     });
 

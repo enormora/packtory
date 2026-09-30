@@ -68,9 +68,8 @@ async function runEntryPoint(
     const summary = formatCanarySummary(result);
     if (args.summaryPath.length > 0) {
         await fileManager.writeFile(args.summaryPath, summary);
-    } else {
-        dependencies.stdoutWrite(summary);
     }
+    dependencies.stdoutWrite(summary);
     writeWarnings(warningAnnotationMessages(result), dependencies);
     if (hasCanaryIssues(result)) {
         throw new Error(`Canary "${result.name}" reported ${result.issues.length} issue(s)`);
