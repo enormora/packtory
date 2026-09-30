@@ -8,6 +8,7 @@ import {
     type SharedPackageOptions,
     type VersioningSettings
 } from './options/prepare-package-options.ts';
+import { resolveBundleDependencyClosure } from './options/bundle-dependency-resolution.ts';
 import { collectGeneratedAttributionPaths } from './generated-attribution-paths.ts';
 import {
     resolvePublishSettings,
@@ -28,6 +29,7 @@ type PackageAttributionOptions = {
 type BuildAndPublishSharedOptions = PackageAttributionOptions & SharedPackageOptions<PublishedPackageWithManifest>;
 
 export type BuildAndPublishOptions = BuildAndPublishSharedOptions & {
+    readonly bundleDependencyClosure: readonly PublishedPackageWithManifest[];
     readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
     readonly publishSettings: PublishSettings;
     readonly versioning: PublishVersioningSettings;
@@ -85,6 +87,11 @@ export function configToBuildAndPublishOptions(
     return {
         ...sharedOptions,
         additionalChangelogSourceFiles,
+        bundleDependencyClosure: resolveBundleDependencyClosure(
+            packageConfig,
+            packageConfigs,
+            context.existingBundles
+        ),
         versioning: resolveVersioning(packageName, versioning, packtoryConfig, context.resolveVersionSource),
         registrySettings: packtoryConfig.registrySettings ?? {},
         publishSettings,

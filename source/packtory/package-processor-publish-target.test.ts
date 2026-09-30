@@ -102,10 +102,7 @@ suite('package-processor publish target preflight', function () {
                 analyzedBundle,
                 bundle: rebuiltBundle,
                 extraFiles: [],
-                dependencyBundles: [
-                    ...buildOptions.bundleDependencies,
-                    ...buildOptions.bundlePeerDependencies
-                ]
+                dependencyBundles: buildOptions.bundleDependencyClosure
             }
         ]);
     });

@@ -258,14 +258,17 @@ export function createResolveOptions(): ResolveAndLinkOptions {
 }
 
 export function createBuildAndPublishOptions(): BuildAndPublishOptions {
+    const bundleDependency = createVersionedBundle('bundle-dependency', '1.0.0');
+    const peerDependency = createVersionedBundle('peer-dependency', '2.0.0');
     return {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         publishSettings: { access: 'public', sbom: { enabled: false } } as const,
         ignoredAttributionPaths: [],
-        bundleDependencies: [ createVersionedBundle('bundle-dependency', '1.0.0') ],
-        bundlePeerDependencies: [ createVersionedBundle('peer-dependency', '2.0.0') ]
+        bundleDependencies: [ bundleDependency ],
+        bundlePeerDependencies: [ peerDependency ],
+        bundleDependencyClosure: [ bundleDependency, peerDependency ]
     };
 }
 

@@ -92,6 +92,44 @@ suite('published artifact smoke gate dependency staging', function () {
         );
     });
 
+    test('stages transitive bundle dependencies', async function () {
+        const targetBundle = withPackageJson(bundle(), {
+            dependencies: { 'package-b': '1.0.0' }
+        });
+        const dependencyBundle = withPackageJson(
+            bundle({
+                name: 'package-b',
+                contents: [ resource('dependency.js') ],
+                exportsField: { '.': { import: './dependency.js' } }
+            }),
+            { dependencies: { 'package-c': '1.0.0' } }
+        );
+        const transitiveDependencyBundle = bundle({
+            name: 'package-c',
+            contents: [ resource('transitive-dependency.js') ],
+            exportsField: { '.': { import: './transitive-dependency.js' } }
+        });
+        const context = createContext();
+
+        await context.gate.verify({
+            analyzedBundle: matchingAnalyzedBundle(targetBundle),
+            bundle: targetBundle,
+            extraFiles: [],
+            dependencyBundles: [ dependencyBundle, transitiveDependencyBundle ]
+        });
+
+        assert.ok(
+            context.writeFile.getCalls().some(function (call) {
+                return call.args[0] === path.join(
+                    temporaryFolderPath,
+                    'node_modules',
+                    'package-c',
+                    'transitive-dependency.js'
+                );
+            })
+        );
+    });
+
     test('links shared external dependencies once across staged packages', async function () {
         const targetBundle = withPackageJson(bundle(), {
             dependencies: { external: '^2.0.0' }

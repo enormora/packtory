@@ -2,7 +2,10 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfig } from '../../config/config.ts';
 import { packageConfigFixture } from '../../test-libraries/config-fixtures.ts';
-import { resolveBundleDependencies } from './bundle-dependency-resolution.ts';
+import {
+    resolveBundleDependencies,
+    resolveBundleDependencyClosure
+} from './bundle-dependency-resolution.ts';
 
 const packageConfig: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
@@ -41,5 +44,44 @@ suite('bundle-dependency-resolution', function () {
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Dependent bundle "missing" not found');
         }
+    });
+
+    test('resolveBundleDependencyClosure maps direct and transitive dependencies once', function () {
+        const bundleB = { name: 'pkg-b', payload: 'b' };
+        const bundleC = { name: 'pkg-c', payload: 'c' };
+        const packageA = packageConfig({
+            name: 'pkg-a',
+            bundleDependencies: [ 'pkg-b' ],
+            bundlePeerDependencies: [ 'pkg-c' ]
+        });
+        const packageB = packageConfig({ name: 'pkg-b', bundleDependencies: [ 'pkg-c' ] });
+        const packageC = packageConfig({ name: 'pkg-c' });
+
+        const result = resolveBundleDependencyClosure(
+            packageA,
+            { 'pkg-a': packageA, 'pkg-b': packageB, 'pkg-c': packageC },
+            [ bundleB, bundleC ]
+        );
+
+        assert.deepStrictEqual(result, [ bundleB, bundleC ]);
+    });
+
+    test('resolveBundleDependencyClosure throws when a reachable package config is missing', function () {
+        const packageA = packageConfig({ name: 'pkg-a', bundleDependencies: [ 'pkg-b' ] });
+
+        assert.throws(function () {
+            resolveBundleDependencyClosure(packageA, { 'pkg-a': packageA }, [ { name: 'pkg-b' } ]);
+        }, { message: 'Config for package "pkg-b" is missing' });
+    });
+
+    test('resolveBundleDependencyClosure excludes the root package from cyclic input', function () {
+        const bundleB = { name: 'pkg-b' };
+        const packageA = packageConfig({ name: 'pkg-a', bundleDependencies: [ 'pkg-b' ] });
+        const packageB = packageConfig({ name: 'pkg-b', bundleDependencies: [ 'pkg-a' ] });
+
+        assert.deepStrictEqual(
+            resolveBundleDependencyClosure(packageA, { 'pkg-a': packageA, 'pkg-b': packageB }, [ bundleB ]),
+            [ bundleB ]
+        );
     });
 });
