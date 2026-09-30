@@ -68,7 +68,7 @@ function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly Sib
 function publishDependencyBundlesFromOptions(
     buildOptions: BuildAndPublishOptions
 ): readonly PublishedPackageWithManifest[] {
-    return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
+    return buildOptions.bundleDependencyClosure;
 }
 
 function usesVersionProvider(versioning: BuildAndPublishOptions['versioning']): boolean {

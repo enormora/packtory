@@ -55,7 +55,12 @@ function runMapConfig(
         ...options.commonPackageSettings === undefined ? {} : { commonPackageSettings: options.commonPackageSettings },
         packages: [ packageWithFallback, ...additionalPackages ]
     } as unknown as PacktoryConfig;
-    return configToBuildAndPublishOptions(packageName, { [packageName]: packageWithFallback }, baseConfig, {
+    const packageConfigs = Object.fromEntries(
+        [ packageWithFallback, ...additionalPackages ].map(function (configuredPackage) {
+            return [ configuredPackage.name, configuredPackage ];
+        })
+    );
+    return configToBuildAndPublishOptions(packageName, packageConfigs, baseConfig, {
         existingBundles: options.bundleDependencies ?? [],
         resolveVersionSource: options.resolveVersionSource
     });
@@ -320,10 +325,16 @@ function registerDependencyAndFileOptionTests(): void {
         });
         const options = runMapConfig(
             { ...fooPackageConfigFactory.build(), bundleDependencies: [ 'bar' ] },
-            { bundleDependencies: [ bundleDependency ] }
+            {
+                bundleDependencies: [ bundleDependency ],
+                extraPackages: [ { ...fooPackageConfigFactory.build(), name: 'bar' } ]
+            }
         );
 
-        assert.deepStrictEqual(options.bundleDependencies, [ bundleDependency ]);
+        assert.deepStrictEqual([
+            options.bundleDependencies,
+            options.bundleDependencyClosure
+        ], [ [ bundleDependency ], [ bundleDependency ] ]);
     });
 
     test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', function () {
