@@ -37,6 +37,7 @@ type ResolvedPackageOverrides = {
     readonly bundlePeerDependencies?: readonly unknown[];
     readonly externalDependencyNames?: readonly string[];
     readonly bundleDependencyNames?: readonly string[];
+    readonly mainPackageJson?: ResolvedPackage['resolveOptions']['mainPackageJson'];
     readonly sourcesFolder?: string;
     readonly contents?: readonly unknown[];
 };
@@ -107,7 +108,7 @@ export function makeResolvedPackage(overrides: ResolvedPackageOverrides = {}): R
             linkedBundleDependencies
         } as unknown as ResolvedPackage['analyzedBundle'],
         resolveOptions: {
-            mainPackageJson: { type: 'module' },
+            mainPackageJson: valueOrFallback(overrides.mainPackageJson, { type: 'module' }),
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: [],
             bundleDependencies: valueOrFallback(overrides.bundleDependencies, []),
@@ -137,7 +138,8 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
             }),
             isExecutable: false,
             filePath: 'package.json'
-        }
+        },
+        peerDependencies: {}
     };
     const versionManagerAddVersion = fake.returns(versionedBundle);
     const packEmitterPack = fake.resolves(undefined);

@@ -60,10 +60,9 @@ function outputErrorMessage(stdout: string, stderr: string): string | undefined 
     return stdoutOutput.length > 0 ? stdoutOutput : undefined;
 }
 
-function importProbeErrorMessage(error: ExecFileException, stdout: string, stderr: string): string {
-    const outputMessage = outputErrorMessage(stdout, stderr);
-    if (outputMessage !== undefined) {
-        return outputMessage;
+function noOutputImportProbeErrorMessage(error: ExecFileException, timeoutMs: number): string {
+    if (error.killed === true && error.signal === 'SIGTERM') {
+        return `Import probe timed out after ${String(timeoutMs)} ms without output.`;
     }
     if (error.code !== undefined && error.code !== null) {
         return `Import probe exited with code ${String(error.code)} without output.`;
@@ -72,6 +71,10 @@ function importProbeErrorMessage(error: ExecFileException, stdout: string, stder
         return `Import probe exited from signal ${error.signal} without output.`;
     }
     return error.message;
+}
+
+function importProbeErrorMessage(error: ExecFileException, stdout: string, stderr: string, timeoutMs: number): string {
+    return outputErrorMessage(stdout, stderr) ?? noOutputImportProbeErrorMessage(error, timeoutMs);
 }
 
 async function runImportProbe(input: SmokeProbeInput): Promise<void> {
@@ -93,7 +96,7 @@ async function runImportProbe(input: SmokeProbeInput): Promise<void> {
                     resolve();
                     return;
                 }
-                reject(new Error(importProbeErrorMessage(error, stdout, stderr)));
+                reject(new Error(importProbeErrorMessage(error, stdout, stderr, input.timeoutMs)));
             }
         );
     });

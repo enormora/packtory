@@ -83,7 +83,7 @@ suite('published artifact smoke gate', function () {
                     packageName: 'package-a',
                     specifier: 'package-a',
                     targetFilePath: 'index.mjs',
-                    timeoutMs: 3000
+                    timeoutMs: 10_000
                 });
             });
 
@@ -127,7 +127,7 @@ suite('published artifact smoke gate', function () {
                     packageName: 'package-a',
                     specifier: 'package-a',
                     targetFilePath: 'index.js',
-                    timeoutMs: 3000
+                    timeoutMs: 10_000
                 });
             });
 

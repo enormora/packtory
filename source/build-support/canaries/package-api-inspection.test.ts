@@ -248,4 +248,19 @@ suite('package-api-inspection', function () {
             );
         });
     });
+
+    test('runNodeImportProbe rejects when an import exits without output', async function () {
+        await withTemporaryNodeModules(async function (nodeModulesFolder) {
+            await writePackage(nodeModulesFolder, 'runtime', { exports: './index.js', type: 'module' }, {
+                'index.js': 'process.exit(0);\n'
+            });
+
+            await assert.rejects(
+                async function () {
+                    await runNodeImportProbe(nodeModulesFolder, 'runtime');
+                },
+                /Import probe completed without JSON output/u
+            );
+        });
+    });
 });

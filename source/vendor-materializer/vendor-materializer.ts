@@ -76,14 +76,24 @@ export type VendorMaterializer = {
     ) => Promise<Result<MaterializedExternals, VendorMaterializerFailure>>;
 };
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
+const peerDependencyMetaSchema = z.optional(
+    z.record(
+        z.string(),
+        z.object({
+            optional: z.optional(z.boolean())
+        })
+    )
+);
 
 function packageManifestSchema(): z.ZodMiniType<{
     readonly dependencies?: Readonly<Record<string, string>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
+    readonly peerDependenciesMeta?: Readonly<Record<string, { readonly optional?: boolean | undefined; }>> | undefined;
 }> {
     return z.object({
         dependencies: dependencyMapSchema,
-        peerDependencies: dependencyMapSchema
+        peerDependencies: dependencyMapSchema,
+        peerDependenciesMeta: peerDependencyMetaSchema
     });
 }
 
@@ -147,7 +157,9 @@ function parseManifestSummary(
         return Result.ok({ dependencies: [], peers: [] });
     }
     const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
-    const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
+    const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {}).filter(function (peerDependencyName) {
+        return parsed.data.peerDependenciesMeta?.[peerDependencyName]?.optional !== true;
+    });
     const invalidDependencyName = findFirstInvalidDependencyName(dependencyNames.concat(peerDependencyNames));
     if (invalidDependencyName !== undefined) {
         return Result.err({

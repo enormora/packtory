@@ -213,9 +213,14 @@ function buildUnsatisfiedPeers(
 
 function buildVendoredClosureCheck(
     bundleClosure: BundleDepClosure,
+    built: VersionedBundleWithManifest,
+    target: ResolvedPackage,
     materializedExternals: MaterializedExternals
 ): VendoredClosureCheck {
     const closurePackageNames = new Set<string>([
+        built.name,
+        ...Object.keys(built.peerDependencies),
+        ...Object.keys(target.resolveOptions.mainPackageJson.peerDependencies ?? {}),
         ...bundleClosure.packageNames,
         ...materializedExternals.packageNames
     ]);
@@ -303,7 +308,7 @@ async function prepareVendoredArtifact(
     }
 
     const materializedExternals = materializationResult.value;
-    const closureCheck = buildVendoredClosureCheck(bundleClosure, materializedExternals);
+    const closureCheck = buildVendoredClosureCheck(bundleClosure, built, target, materializedExternals);
     if (closureCheck.unsatisfiedPeers.length > 0) {
         return prepareVendoredArtifactFailure(target, closureCheck.unsatisfiedPeers);
     }

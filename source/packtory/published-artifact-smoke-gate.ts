@@ -62,6 +62,8 @@ type SmokeTargets = {
     readonly bins: readonly BinTarget[];
 };
 
+const importProbeTimeoutMs = 10_000;
+
 type StagedPackage = {
     readonly bundle: PublishedPackageWithManifest;
     readonly files: readonly FileDescription[];
@@ -383,7 +385,7 @@ async function collectProbeIssues(
                 specifier: target.specifier,
                 packageName,
                 targetFilePath: target.targetFilePath,
-                timeoutMs: 3000
+                timeoutMs: importProbeTimeoutMs
             });
         } catch (error: unknown) {
             issues.push(

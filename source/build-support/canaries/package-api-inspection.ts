@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, type ExecFileException } from 'node:child_process';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts as typescript } from 'ts-morph';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import {
@@ -59,6 +59,7 @@ type Manifest = {
 };
 
 const successfulImport = '';
+const importProbeTimeoutMs = 10_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype;
@@ -181,6 +182,9 @@ function isStringArray(value: unknown): value is readonly string[] {
 }
 
 function parseImportProbeOutput(output: string): readonly string[] {
+    if (output.trim().length === 0) {
+        throw new Error('Import probe completed without JSON output');
+    }
     const parsed: unknown = JSON.parse(output);
     if (!isStringArray(parsed)) {
         throw new Error('Import probe did not print a string array');
@@ -188,13 +192,24 @@ function parseImportProbeOutput(output: string): readonly string[] {
     return parsed;
 }
 
-function importProbeFailureMessage(error: Error, stdout: string, stderr: string): string {
+function importProbeFailureMessage(
+    error: ExecFileException,
+    stdout: string,
+    stderr: string,
+    timeoutMs: number
+): string {
     const stderrOutput = stderr.trim();
     const stdoutOutput = stdout.trim();
     if (stderrOutput.length > 0) {
         return stderrOutput;
     }
-    return stdoutOutput.length > 0 ? stdoutOutput : error.message;
+    if (stdoutOutput.length > 0) {
+        return stdoutOutput;
+    }
+    if (error.killed === true && error.signal === 'SIGTERM') {
+        return `Import probe timed out after ${String(timeoutMs)} ms without output.`;
+    }
+    return error.message;
 }
 
 function createTypeProject(cwd: string, specifiers: readonly string[]): Project {
@@ -324,13 +339,17 @@ export async function runNodeImportProbe(cwd: string, specifier: string): Promis
         execFile(
             process.execPath,
             [ '--enable-source-maps', '--input-type=module', '-e', script ],
-            { cwd, encoding: 'utf8', timeout: 10_000 },
+            { cwd, encoding: 'utf8', timeout: importProbeTimeoutMs },
             function (error, stdout, stderr) {
                 if (error !== null) {
-                    reject(new Error(importProbeFailureMessage(error, stdout, stderr)));
+                    reject(new Error(importProbeFailureMessage(error, stdout, stderr, importProbeTimeoutMs)));
                     return;
                 }
-                resolve(parseImportProbeOutput(stdout));
+                try {
+                    resolve(parseImportProbeOutput(stdout));
+                } catch (parseError: unknown) {
+                    reject(parseError instanceof Error ? parseError : new Error(String(parseError)));
+                }
             }
         );
     });
