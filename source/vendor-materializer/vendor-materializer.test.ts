@@ -152,6 +152,46 @@ function registerMaterializationTests(): void {
         ]);
     });
 
+    test('does not require peer dependencies marked optional in peerDependenciesMeta', async function () {
+        const result = await runWith(
+            {
+                readabilities: [
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } }
+                ],
+                realPaths: [
+                    { value: '/repo/node_modules/root' },
+                    { value: '/repo/node_modules/required-peer' }
+                ],
+                listings: [
+                    { value: [] },
+                    { value: [] }
+                ],
+                fileReads: [
+                    {
+                        value: JSON.stringify({
+                            peerDependencies: {
+                                'optional-peer': '1.0.0',
+                                'required-peer': '1.0.0'
+                            },
+                            peerDependenciesMeta: {
+                                'optional-peer': { optional: true }
+                            }
+                        })
+                    },
+                    { value: '{}' }
+                ]
+            },
+            { initialDependencyNames: [ 'root' ], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(result.packageNames, [ 'root', 'required-peer' ]);
+        assert.deepStrictEqual(Array.from(result.peerRequirements), [
+            [ 'root', [ 'required-peer' ] ],
+            [ 'required-peer', [] ]
+        ]);
+    });
+
     test('accepts dependency package names whose package or scope starts with a digit', async function () {
         const result = await runWith(
             {

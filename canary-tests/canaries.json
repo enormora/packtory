@@ -1,0 +1,50 @@
+[
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "packtory",
+        "publishCommand": "npx just compile publish-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/enormora/packtory.git"
+    },
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "objectory",
+        "publishCommand": "npx just packtory-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/enormora/objectory.git"
+    },
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "eslint-config",
+        "publishCommand": "npx just packtory-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/enormora/eslint-config.git"
+    },
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "pr-log",
+        "publishCommand": "npx just publish-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/enormora/pr-log.git"
+    },
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "overkill",
+        "publishCommand": "npx just publish-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/enormora/overkill.git"
+    },
+    {
+        "failureMode": "non-blocking",
+        "installCommand": "npm clean-install --ignore-scripts",
+        "name": "eslint-plugin-mocha",
+        "publishCommand": "npx just publish-dry-run",
+        "ref": "main",
+        "repository": "https://github.com/lo1tuma/eslint-plugin-mocha.git"
+    }
+]

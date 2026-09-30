@@ -47,7 +47,7 @@ jobs:
     mutation-testing:
         runs-on: ubuntu-latest
         name: Mutation testing
-        timeout-minutes: 30
+        timeout-minutes: 60
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         steps:
@@ -82,6 +82,72 @@ jobs:
               run: npm rebuild node-pty
             - name: Run benchmarks
               run: npx just benchmark
+
+    canaries:
+        runs-on: ubuntu-latest
+        name: Canary ${{ matrix.canary }}
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        strategy:
+            fail-fast: false
+            matrix:
+                canary:
+                    - packtory
+                    - objectory
+                    - eslint-config
+                    - pr-log
+                    - overkill
+                    - eslint-plugin-mocha
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Detect canary-relevant changes
+              id: changes
+              env:
+                  BEFORE_SHA: ${{ github.event.before }}
+                  BASE_REF: ${{ github.base_ref }}
+                  CANARY_NAME: ${{ matrix.canary }}
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  if [ "$EVENT_NAME" = "pull_request" ]; then
+                    git fetch --no-tags --depth 1 origin "$BASE_REF"
+                    changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+                  elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+                    changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"
+                  else
+                    changed_files="$(git diff --name-only "HEAD^...HEAD")"
+                  fi
+
+                  if printf '%s\n' "$changed_files" | grep -Eq '^(source/|package\.json$|package-lock\.json$|packtory\.config\.js$|tsconfig|justfile$|canary-tests/|\.github/workflows/ci\.yml$)'; then
+                    echo "should_run=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "should_run=false" >> "$GITHUB_OUTPUT"
+                    {
+                      echo "## Packtory canary: $CANARY_NAME"
+                      echo
+                      echo "Skipped because this change does not touch canary-relevant paths."
+                    } >> "$GITHUB_STEP_SUMMARY"
+                  fi
+            - name: Use Node.js
+              if: steps.changes.outputs.should_run == 'true'
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 26.x
+            - name: Install dependencies
+              if: steps.changes.outputs.should_run == 'true'
+              run: npm clean-install --ignore-scripts
+            - name: Run canary
+              if: steps.changes.outputs.should_run == 'true'
+              env:
+                  CANARY_NAME: ${{ matrix.canary }}
+              run: >
+                  node --experimental-strip-types --enable-source-maps
+                  ./source/build-support/canaries/canaries.entry-point.ts
+                  --manifest canary-tests/canaries.json
+                  --name "$CANARY_NAME"
+                  --summary "$GITHUB_STEP_SUMMARY"
 
     workflow-security:
         runs-on: ubuntu-latest

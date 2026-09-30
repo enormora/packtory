@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { execFile } from 'node:child_process';
+import { execFile, type ExecFileException } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { RealFileSystemHost } from '@ts-morph/common';
@@ -51,17 +51,41 @@ async function importPackageJson(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
 }
 
-function importProbeErrorMessage(error: Error, stdout: string, stderr: string): string {
+function outputErrorMessage(stdout: string, stderr: string): string | undefined {
     const stderrOutput = stderr.trim();
     const stdoutOutput = stdout.trim();
     if (stderrOutput.length > 0) {
         return stderrOutput;
     }
-    return stdoutOutput.length > 0 ? stdoutOutput : error.message;
+    return stdoutOutput.length > 0 ? stdoutOutput : undefined;
+}
+
+function noOutputImportProbeErrorMessage(error: ExecFileException, timeoutMs: number): string {
+    if (error.killed === true && error.signal === 'SIGTERM') {
+        return `Import probe timed out after ${String(timeoutMs)} ms without output.`;
+    }
+    if (error.code !== undefined && error.code !== null) {
+        return `Import probe exited with code ${String(error.code)} without output.`;
+    }
+    if (error.signal !== undefined) {
+        return `Import probe exited from signal ${error.signal} without output.`;
+    }
+    return error.message;
+}
+
+function importProbeErrorMessage(error: ExecFileException, stdout: string, stderr: string, timeoutMs: number): string {
+    return outputErrorMessage(stdout, stderr) ?? noOutputImportProbeErrorMessage(error, timeoutMs);
 }
 
 async function runImportProbe(input: SmokeProbeInput): Promise<void> {
-    const script = `await import(${JSON.stringify(input.specifier)});`;
+    const script = `
+        try {
+            await import(${JSON.stringify(input.specifier)});
+        } catch (error) {
+            console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+            process.exitCode = 1;
+        }
+    `;
     return new Promise(function (resolve, reject) {
         execFile(
             process.execPath,
@@ -72,7 +96,7 @@ async function runImportProbe(input: SmokeProbeInput): Promise<void> {
                     resolve();
                     return;
                 }
-                reject(new Error(importProbeErrorMessage(error, stdout, stderr)));
+                reject(new Error(importProbeErrorMessage(error, stdout, stderr, input.timeoutMs)));
             }
         );
     });
