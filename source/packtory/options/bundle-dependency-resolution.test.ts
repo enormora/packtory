@@ -65,4 +65,23 @@ suite('bundle-dependency-resolution', function () {
 
         assert.deepStrictEqual(result, [ bundleB, bundleC ]);
     });
+
+    test('resolveBundleDependencyClosure throws when a reachable package config is missing', function () {
+        const packageA = packageConfig({ name: 'pkg-a', bundleDependencies: [ 'pkg-b' ] });
+
+        assert.throws(function () {
+            resolveBundleDependencyClosure(packageA, { 'pkg-a': packageA }, [ { name: 'pkg-b' } ]);
+        }, { message: 'Config for package "pkg-b" is missing' });
+    });
+
+    test('resolveBundleDependencyClosure excludes the root package from cyclic input', function () {
+        const bundleB = { name: 'pkg-b' };
+        const packageA = packageConfig({ name: 'pkg-a', bundleDependencies: [ 'pkg-b' ] });
+        const packageB = packageConfig({ name: 'pkg-b', bundleDependencies: [ 'pkg-a' ] });
+
+        assert.deepStrictEqual(
+            resolveBundleDependencyClosure(packageA, { 'pkg-a': packageA, 'pkg-b': packageB }, [ bundleB ]),
+            [ bundleB ]
+        );
+    });
 });
