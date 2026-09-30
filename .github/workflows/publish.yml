@@ -3,6 +3,16 @@ name: Publish
 
 on:
     workflow_dispatch:
+        inputs:
+            publish_now:
+                description: Publish immediately without evaluating the release gate.
+                required: true
+                default: false
+                type: boolean
+            confirmation:
+                description: 'Required when publish_now is true: type "publish @packtory packages".'
+                required: false
+                type: string
 
 permissions: {}
 
@@ -18,24 +28,43 @@ jobs:
             issues: read # required by the release gate to inspect open issues for activity
             pull-requests: read # required by the release gate to inspect open PRs for activity
         outputs:
-            should_publish: ${{ steps.release-gate.outputs.should_publish }}
-            reason: ${{ steps.release-gate.outputs.reason }}
-            main_head_sha: ${{ steps.release-gate.outputs.main_head_sha }}
+            should_publish: ${{ steps.force-publish.outputs.should_publish || steps.release-gate.outputs.should_publish }}
+            reason: ${{ steps.force-publish.outputs.reason || steps.release-gate.outputs.reason }}
+            main_head_sha: ${{ steps.main-head.outputs.main_head_sha }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: main
                   persist-credentials: false
+            - name: Resolve main commit
+              id: main-head
+              run: echo "main_head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            - name: Confirm manual publish override
+              id: force-publish
+              if: inputs.publish_now
+              env:
+                  CONFIRMATION: ${{ inputs.confirmation }}
+              run: |
+                  if [ "${CONFIRMATION}" != "publish @packtory packages" ]; then
+                    echo "::error::Manual publish override requires confirmation: publish @packtory packages"
+                    exit 1
+                  fi
+                  echo "should_publish=true" >> "$GITHUB_OUTPUT"
+                  echo "reason=manual publish override confirmed" >> "$GITHUB_OUTPUT"
             - name: Use Node.js
+              if: ${{ !inputs.publish_now }}
               uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
                   node-version: 26.x
             - name: Install dependencies from the lockfile
+              if: ${{ !inputs.publish_now }}
               run: npm clean-install --ignore-scripts
             - name: Compile TypeScript
+              if: ${{ !inputs.publish_now }}
               run: npx just compile
             - name: Evaluate GitHub release gate
               id: release-gate
+              if: ${{ !inputs.publish_now }}
               run: npx github-release-gate
               env:
                   CI_WORKFLOW_FILE: ci.yml
@@ -45,7 +74,7 @@ jobs:
                   MAX_LATENCY_HOURS: "24"
                   QUIET_PERIOD_MINUTES: "45"
             - name: Log gate decision when publish is skipped
-              if: steps.release-gate.outputs.should_publish != 'true'
+              if: ${{ !inputs.publish_now && steps.release-gate.outputs.should_publish != 'true' }}
               env:
                   GATE_REASON: ${{ steps.release-gate.outputs.reason }}
               run: echo "Skipping publish because ${GATE_REASON}."
