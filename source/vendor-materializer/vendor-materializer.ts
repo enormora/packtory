@@ -65,9 +65,13 @@ export type VendorMaterializerDependencies = {
     readonly fileManager: VendorMaterializerFileManager;
 };
 
-type MaterializeExternalsOptions = {
+export type ExternalDependencySource = {
     readonly initialDependencyNames: readonly string[];
     readonly projectFolder: string;
+};
+
+type MaterializeExternalsOptions = {
+    readonly dependencySources: readonly ExternalDependencySource[];
 };
 
 export type VendorMaterializer = {
@@ -441,7 +445,10 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
 
     return {
         async materializeExternals(options) {
-            const invalidInitialName = findFirstInvalidDependencyName(options.initialDependencyNames);
+            const dependencyNames = options.dependencySources.flatMap(function (source) {
+                return source.initialDependencyNames;
+            });
+            const invalidInitialName = findFirstInvalidDependencyName(dependencyNames);
             if (invalidInitialName !== undefined) {
                 return Result.err({
                     type: vendorMaterializerFailureType.invalidDependencyName,
@@ -454,8 +461,10 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                 visited: new Set<string>(),
                 entries,
                 pendingPackages: createWorklist<QueueItem>(
-                    options.initialDependencyNames.map(function (name) {
-                        return queueItem(name, options.projectFolder, undefined, true);
+                    options.dependencySources.flatMap(function (source) {
+                        return source.initialDependencyNames.map(function (name) {
+                            return queueItem(name, source.projectFolder, undefined, true);
+                        });
                     })
                 ),
                 peerRequirements: new Map<string, readonly string[]>()

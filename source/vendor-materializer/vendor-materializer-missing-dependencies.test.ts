@@ -46,8 +46,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
         const materializer = createVendorMaterializer({ fileManager });
 
         const failure = await materializer.materializeExternals({
-            initialDependencyNames: [ 'missing' ],
-            projectFolder: '/some/deep/folder'
+            dependencySources: [ { initialDependencyNames: [ 'missing' ], projectFolder: '/some/deep/folder' } ]
         });
 
         assert.deepStrictEqual(expectErr(failure), {
@@ -79,8 +78,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: [ 'root' ],
-                projectFolder: '/repo'
+                dependencySources: [ { initialDependencyNames: [ 'root' ], projectFolder: '/repo' } ]
             })
         );
 
@@ -105,8 +103,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
         const materializer = createVendorMaterializer({ fileManager });
 
         const failure = await materializer.materializeExternals({
-            initialDependencyNames: [ 'root' ],
-            projectFolder: '/repo'
+            dependencySources: [ { initialDependencyNames: [ 'root' ], projectFolder: '/repo' } ]
         });
 
         assert.deepStrictEqual(expectErr(failure), {

@@ -130,6 +130,7 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
     const versionedBundle = overrides.versionedBundle ?? {
         name: 'pkg-a',
         version: '0.0.0',
+        contents: [],
         manifestFile: {
             content: JSON.stringify({
                 name: 'pkg-a',
