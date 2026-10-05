@@ -128,7 +128,7 @@ function runAnalyzeProjectExpectingArgs(testArgs: AnalyzeProjectExpectation): vo
 }
 
 suite('typescript-project-analyzer', function () {
-    test('creates a project for all js files in the given folder with module resolution', function () {
+    test('creates a project for all runtime JavaScript files in the given folder with module resolution', function () {
         const withVirtualPackageJson = fake.returns('virtualized-filtering-declaration-files');
         runAnalyzeProjectExpectingArgs({
             resolveDeclarationFiles: false,
@@ -138,7 +138,7 @@ suite('typescript-project-analyzer', function () {
             },
             expectedModule: 100,
             expectedFileSystem: 'virtualized-filtering-declaration-files',
-            expectedFilesGlob: '/foo/**/*.js',
+            expectedFilesGlob: '/foo/**/*.{js,mjs,cjs}',
             expectedExtra: { typeRoots: [], types: [] }
         });
     });

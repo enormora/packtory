@@ -42,7 +42,7 @@ export function createTypescriptProjectAnalyzer(
                 )
             });
 
-            const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';
+            const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.{js,mjs,cjs}';
             const filesPattern = path.join(folder, `**/*${fileExtension}`);
             project.addSourceFilesAtPaths([ filesPattern ]);
 
