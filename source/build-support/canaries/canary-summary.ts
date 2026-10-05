@@ -113,7 +113,3 @@ export function warningAnnotationMessages(result: CanaryRunResult): readonly str
         return `${result.name}: ${issueTitle(issue, index)}`;
     });
 }
-
-export function hasCanaryIssues(result: CanaryRunResult): boolean {
-    return result.issues.length > 0;
-}

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { formatCanarySummary, hasCanaryIssues, warningAnnotationMessages } from './canary-summary.ts';
+import { formatCanarySummary, warningAnnotationMessages } from './canary-summary.ts';
 import type { CanaryRunResult } from './canary-runner.ts';
 
 const ansiRed = `${String.fromCodePoint(0x1B)}[31m`;
@@ -149,17 +149,6 @@ suite('canary-summary', function () {
                 `sample: 2. regression: ${'x'.repeat(longTitleLength - 1)}...`,
                 `sample: 3. baseline-rot: ${boundaryTitle}`
             ]
-        );
-    });
-
-    test('hasCanaryIssues reports whether the run has issues', function () {
-        assert.strictEqual(
-            hasCanaryIssues(resultWithIssues([])),
-            false
-        );
-        assert.strictEqual(
-            hasCanaryIssues(resultWithIssues([ { kind: 'regression', message: 'missing api' } ])),
-            true
         );
     });
 });
