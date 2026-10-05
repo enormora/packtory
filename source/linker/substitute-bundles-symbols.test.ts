@@ -118,6 +118,71 @@ function assertSubstituted(
 
 describe('substitute-bundles symbol requirements', function () {
     describe('accepted rewrites', function () {
+        it('ignores unreachable private peer imports after substituting a public entrypoint', function () {
+            const peerContent = 'import { Private } from "./internal.js"; export const value = Private;';
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/entry.js', content: 'import { value } from "./pkg-entry.js";' },
+                    { filePath: '/pkg-entry.js', content: peerContent },
+                    { filePath: '/internal.js', content: 'export const Private = 1;' }
+                ]
+            });
+            const graph = createResolvedGraph({
+                name: 'consumer',
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+                roots: {
+                    main: {
+                        js: {
+                            inputFilePath: '/entry.js',
+                            targetFilePath: 'entry.js',
+                            content: '',
+                            isExecutable: false
+                        }
+                    }
+                },
+                externalDependencies: new Map(),
+                contents: [
+                    {
+                        ...bundleResourceFixture('/entry.js', {
+                            targetFilePath: 'entry.js',
+                            content: 'import { value } from "./pkg-entry.js";',
+                            directDependencies: new Set([ 'pkg-entry.js' ])
+                        }),
+                        project
+                    },
+                    {
+                        ...bundleResourceFixture('/pkg-entry.js', {
+                            targetFilePath: 'pkg-entry.js',
+                            content: peerContent,
+                            directDependencies: new Set([ 'internal.js' ])
+                        }),
+                        project
+                    },
+                    {
+                        ...bundleResourceFixture('/internal.js', {
+                            targetFilePath: 'internal.js',
+                            content: 'export const Private = 1;'
+                        }),
+                        project
+                    }
+                ]
+            });
+            const result = substituteDependencies(graph, [], [ peerBundleWithEntryExport(peerContent) ])
+                .flatten([ '/entry.js' ]);
+
+            assert.deepStrictEqual(
+                result.contents.map(function (content) {
+                    return content.fileDescription.inputFilePath;
+                }),
+                [ '/entry.js' ]
+            );
+            assert.strictEqual(
+                result.contents[0]?.fileDescription.content,
+                'import { value } from "peer-package/pkg-entry.js";'
+            );
+            assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'peer-package' ]);
+        });
+
         it('rewrites named imports exported by peer public entrypoints', function () {
             assertSubstituted(
                 'import { Public } from "./internal.js";',

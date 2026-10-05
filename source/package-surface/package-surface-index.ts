@@ -183,10 +183,10 @@ function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleInd
         specifier: bundle.name
     });
     for (const root of Object.values(bundle.roots)) {
-        if (root.declarationFile !== undefined) {
+        if (root !== defaultRoot) {
             publicModuleIndex.recordFirstIndexedPublicSpecifier({
-                publicInputFilePath: undefined,
-                inputFilePaths: [ root.declarationFile.inputFilePath ],
+                publicInputFilePath: root.js.inputFilePath,
+                inputFilePaths: rootInputFilePaths(root),
                 specifier: toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
             });
         }

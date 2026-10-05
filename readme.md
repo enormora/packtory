@@ -314,6 +314,7 @@ The configuration for `packtory` is an object with the following properties:
 
    - **`bundleDependencies`** (Optional, Array of Strings):
      - An array of package names to mark as dependencies, allowing the bundler to substitute import statements accordingly.
+     - Substitution uses public entrypoints. Shared private authoring files stay local; `noDuplicatedFiles` still applies, including its explicit allowlists.
 
    - **`bundlePeerDependencies`** (Optional, Array of Strings):
      - Similar to `bundleDependencies` but represented as `peerDependencies` in the generated `package.json`.

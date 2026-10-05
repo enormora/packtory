@@ -237,7 +237,7 @@ suite('replacement-lookup', function () {
                 ]
             });
 
-            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [ bundle ], []);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual({
                 replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
@@ -296,7 +296,7 @@ suite('replacement-lookup', function () {
                 ]
             });
 
-            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/types.d.ts') ], [ bundle ], []);
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/types.d.ts') ], [], [ bundle ]);
 
             assert.deepStrictEqual({
                 replacement: result.importPathReplacements.get('/b/types.d.ts'),
@@ -310,23 +310,20 @@ suite('replacement-lookup', function () {
         });
     });
 
-    test('findAllPathReplacements throws when a bundle owns the file but does not expose it', function () {
+    test('findAllPathReplacements retains private files without requesting extra exports', function () {
         const bundle = linkedBundle({
             name: 'pkg-b',
             contents: [ analyzedBundleResource('/b/internal.ts', { targetFilePath: 'internal.ts' }) ],
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
         });
 
-        try {
-            findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.ts') ], [ bundle ], []);
-            assert.fail('expected findAllPathReplacements to throw');
-        } catch (error) {
-            assert.ok(error instanceof Error);
-            assert.strictEqual(
-                error.message,
-                'Package "pkg-b" does not expose "/b/internal.ts" for cross-package substitution'
-            );
-        }
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/internal.ts') ], [ bundle ], []);
+
+        assert.deepStrictEqual(result, {
+            importPathReplacements: new Map(),
+            bundleDependencies: [],
+            substitutedInputFilePathsByPackageName: new Map()
+        });
     });
 
     test('findAllPathReplacements ignores owned source maps that are not exposed', function () {
@@ -336,7 +333,7 @@ suite('replacement-lookup', function () {
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
         });
 
-        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/index.js.map') ], [ bundle ], []);
+        const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/index.js.map') ], [], [ bundle ]);
 
         assert.strictEqual(result.importPathReplacements.has('/b/index.js.map'), false);
     });
@@ -485,6 +482,22 @@ suite('replacement-lookup', function () {
     });
 
     suite('peer dependency hidden internals', function () {
+        test('findAllPathReplacements ignores unrelated files when peer bundles contain private files', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [ analyzedBundleResource('/b/internal.js', { targetFilePath: 'internal.js' }) ],
+                surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
+            });
+
+            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/a/local.js') ], [], [ bundle ]);
+
+            assert.deepStrictEqual(result, {
+                importPathReplacements: new Map(),
+                bundleDependencies: [],
+                substitutedInputFilePathsByPackageName: new Map()
+            });
+        });
+
         test('findAllPathReplacements rejects explicit peer internals when the surface exposes no modules', function () {
             const bundle = linkedBundle({
                 name: 'pkg-b',
