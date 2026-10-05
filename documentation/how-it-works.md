@@ -124,6 +124,15 @@ After every generation the scheduler appends the produced `LinkedBundle`s (or `V
 
 Goal: starting from a package's root files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
 
+Runtime discovery includes `.js`, `.mjs`, and `.cjs` files. Literal `require(...)`
+references in `.cjs` files follow the same dependency graph as ESM imports.
+Unresolved static references fail during scanning. During manifest generation,
+every retained external dependency must have a version in the effective
+`mainPackageJson.dependencies` or `peerDependencies`; `devDependencies` alone
+does not suffice. This checks emitted package dependencies, not unused source or
+arbitrary computed imports. Dependency inspection can report `missing-version`
+without generating a manifest.
+
 ### Algorithm
 
 ```text
