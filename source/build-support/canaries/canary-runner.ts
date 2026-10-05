@@ -132,7 +132,6 @@ async function cloneRepository(
     const revParseResult = await dependencies.runCommand('git rev-parse HEAD', cloneFolder);
     const resolvedRef = revParseResult.stdout.trim();
     await dependencies.runCommand(canary.installCommand, cloneFolder);
-    await writeCanaryConfigOverlay({ cloneFolder, fileManager: dependencies.fileManager });
     await installPacktoryCli(dependencies, cloneFolder, mode);
     return {
         cloneFolder,
@@ -166,6 +165,7 @@ async function runPacktoryInClone(
     const clone = await cloneRepository(dependencies, canary, mode);
     try {
         await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
+        await writeCanaryConfigOverlay({ cloneFolder: clone.cloneFolder, fileManager: dependencies.fileManager });
         await packGeneratedPackages(dependencies, clone);
         return {
             failed: false,
