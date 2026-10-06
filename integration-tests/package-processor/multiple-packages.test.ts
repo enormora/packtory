@@ -6,6 +6,18 @@ import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
+type BuiltPackage = Awaited<ReturnType<typeof packageProcessor.build>>;
+
+function retainedPrivateResource(bundle: BuiltPackage, targetFilePath: string): BuiltPackage['contents'][number] {
+    const resource = bundle.contents.find(function (content) {
+        return content.fileDescription.targetFilePath === targetFilePath;
+    });
+    if (resource === undefined) {
+        assert.fail('Expected private resource to be retained');
+    }
+    return resource;
+}
+
 suite('multiple-packages', function () {
     test('bundles and substitutes multiple packages correctly', async function () {
         const fixture = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
@@ -198,7 +210,6 @@ suite('multiple-packages', function () {
             asImplicitExportsBundle({
                 additionalAttributes: {},
                 packageJson: {
-                    dependencies: { first: '1.2.3' },
                     name: 'second',
                     sideEffects: false,
                     version: '2.3.4',
@@ -226,25 +237,19 @@ suite('multiple-packages', function () {
                         analysis: emptyAnalysis
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/bar.js.map') ]),
+                        directDependencies: new Set([
+                            path.join(fixture, 'src/qux.js'),
+                            path.join(fixture, 'src/bar.js.map')
+                        ]),
                         fileDescription: {
                             isExecutable: false,
                             inputFilePath: path.join(fixture, 'src/bar.js'),
                             targetFilePath: 'bar.js',
                             content:
-                                "import { qux } from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n"
+                                "import { qux } from './qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n"
                         },
                         isExplicitlyIncluded: false,
-                        isSubstituted: true,
-                        moduleReferences: [
-                            {
-                                emittedSpecifier: 'first/qux.js',
-                                packageName: 'first',
-                                sourceSpecifier: './qux.js',
-                                targetFilePath: 'qux.js',
-                                type: 'linked-code'
-                            }
-                        ],
+                        isSubstituted: false,
                         analysis: bindingAnalysis('qux', 'bar')
                     },
                     {
@@ -260,6 +265,7 @@ suite('multiple-packages', function () {
                         isSubstituted: false,
                         analysis: emptyAnalysis
                     },
+                    retainedPrivateResource(firstBundle, 'qux.js'),
                     {
                         directDependencies: new Set(),
                         fileDescription: {
@@ -273,29 +279,23 @@ suite('multiple-packages', function () {
                         isSubstituted: false,
                         analysis: emptyAnalysis
                     },
+                    retainedPrivateResource(firstBundle, 'qux.js.map'),
                     {
-                        directDependencies: new Set(),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
                         fileDescription: {
                             isExecutable: false,
                             inputFilePath: path.join(fixture, 'src/entry2.d.ts'),
                             targetFilePath: 'entry2.d.ts',
-                            content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n"
+                            content: "export type { Foo } from './foo.js';\nexport declare const foo: Foo;\n"
                         },
                         isExplicitlyIncluded: false,
-                        isSubstituted: true,
-                        moduleReferences: [
-                            {
-                                emittedSpecifier: 'first/foo.d.ts',
-                                packageName: 'first',
-                                sourceSpecifier: './foo.js',
-                                targetFilePath: 'foo.d.ts',
-                                type: 'linked-code'
-                            }
-                        ],
+                        isSubstituted: false,
                         analysis: bindingAnalysis('foo')
-                    }
+                    },
+                    retainedPrivateResource(firstBundle, 'foo.d.ts'),
+                    retainedPrivateResource(firstBundle, 'baz.d.ts')
                 ],
-                dependencies: { first: '1.2.3' },
+                dependencies: {},
                 mainFile: {
                     content: "export { bar } from './bar.js';\n//# sourceMappingURL=entry2.js.map\n",
                     isExecutable: false,
@@ -320,7 +320,6 @@ suite('multiple-packages', function () {
             asImplicitExportsBundle({
                 additionalAttributes: {},
                 packageJson: {
-                    dependencies: { first: '1.2.3' },
                     peerDependencies: { second: '2.3.4' },
                     name: 'third',
                     sideEffects: false,
@@ -402,14 +401,14 @@ suite('multiple-packages', function () {
                             isExecutable: false,
                             inputFilePath: path.join(fixture, 'src/entry3.d.ts'),
                             targetFilePath: 'entry3.d.ts',
-                            content: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                            content: "export declare const foo: import('second').Foo;\n"
                         },
                         isExplicitlyIncluded: false,
                         isSubstituted: true,
                         moduleReferences: [
                             {
-                                emittedSpecifier: 'first/foo.d.ts',
-                                packageName: 'first',
+                                emittedSpecifier: 'second',
+                                packageName: 'second',
                                 sourceSpecifier: './foo.js',
                                 targetFilePath: 'foo.d.ts',
                                 type: 'linked-code'
@@ -418,7 +417,7 @@ suite('multiple-packages', function () {
                         analysis: bindingAnalysis('foo')
                     }
                 ],
-                dependencies: { first: '1.2.3' },
+                dependencies: {},
                 mainFile: {
                     content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry3.js.map\n",
                     isExecutable: false,

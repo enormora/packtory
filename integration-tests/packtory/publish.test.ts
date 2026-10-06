@@ -277,17 +277,17 @@ suite('publish', function () {
 
                 assert.partialDeepStrictEqual(publishedPackage, {
                     manifest: {
-                        dependencies: { first: '0.0.1' },
                         peerDependencies: { second: '0.0.1' }
                     }
                 });
+                assert.strictEqual(publishedPackage.manifest.dependencies, undefined);
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/foo.js').content,
                     "import { bar } from 'second';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                 );
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/entry3.d.ts').content,
-                    "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                    "export declare const foo: import('second').Foo;\n"
                 );
             })
         );
@@ -311,7 +311,7 @@ suite('publish', function () {
         );
 
         test(
-            'lists every dependency from the published manifest as an SBOM component',
+            'omits retained private authoring imports from SBOM package dependencies',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
                 const packages = createPackageConfigList(
@@ -340,57 +340,43 @@ suite('publish', function () {
                     readonly dependencies: readonly { readonly ref: string; readonly dependsOn?: readonly string[]; }[];
                 };
 
-                assert.deepStrictEqual(sbom.components, [
-                    {
-                        type: 'library',
-                        name: 'first',
-                        version: '0.0.1',
-                        'bom-ref': 'pkg:npm/first@0.0.1',
-                        scope: 'required',
-                        purl: 'pkg:npm/first@0.0.1'
-                    }
-                ]);
-                const rootDep = sbom.dependencies.find(function (entry) {
-                    return entry.ref === 'pkg:npm/second@0.0.1';
+                assert.partialDeepStrictEqual(sbom, {
+                    metadata: { component: { name: 'second', version: '0.0.1', 'bom-ref': 'pkg:npm/second@0.0.1' } },
+                    components: [],
+                    dependencies: []
                 });
-                assert.deepStrictEqual(rootDep?.dependsOn, [ 'pkg:npm/first@0.0.1' ]);
             })
         );
     });
 
     suite('publish cases 2', function () {
         test(
-            'rejects typed substitution exports without declaration companions',
+            'publishes retained private modules without exposing private package paths',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('substitution-type-check');
                 const packages = createPackageConfigList(
                     createPackageConfig(fixturePathValue, 'pkg-a', 'a-entry'),
                     createPackageConfig(fixturePathValue, 'pkg-b', 'b-entry', { bundleDependencies: [ 'pkg-a' ] })
                 );
-                const result = await publishFixturePackages({
-                    fixturePath: fixturePathValue,
-                    registryDetails,
-                    packages
-                });
-
-                if (result.isOk) {
-                    assert.fail('Expected publish to fail');
-                }
-                if (result.error.type !== 'partial') {
-                    assert.fail(`Expected partial failure, got ${result.error.type}`);
-                }
-                const failureMessages = result.error.failures.map(function (failure) {
-                    return failure.message;
-                });
-                assert.ok(
-                    failureMessages.some(function (message) {
-                        return message.includes('Package "pkg-a"') &&
-                            message.includes('./internal.js') &&
-                            message.includes('internal.d.ts');
-                    }),
-                    `Expected a missing declaration companion failure, got: ${failureMessages.join(' | ')}`
+                assertPublishSucceeded(
+                    await publishFixturePackages({
+                        fixturePath: fixturePathValue,
+                        registryDetails,
+                        packages
+                    })
                 );
-                await assertPackageNotPublished('pkg-a', registryDetails);
+                const publishedProducer = await fetchPublishedPackage('pkg-a', registryDetails);
+                const publishedConsumer = await fetchPublishedPackage('pkg-b', registryDetails);
+                assert.deepStrictEqual(publishedProducer.manifest.exports, {
+                    '.': { import: './a-entry.js', types: './a-entry.d.ts' }
+                });
+                assert.deepStrictEqual(publishedConsumer.manifest.exports, {
+                    '.': { import: './b-entry.js', types: './b-entry.d.ts' }
+                });
+                assert.strictEqual(
+                    getPublishedFile(publishedConsumer, 'package/internal.js').content,
+                    "export const internal = 'internal';\n"
+                );
             })
         );
 

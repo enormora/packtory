@@ -47,7 +47,7 @@ function findEntry(bundle: BuiltPackage, targetFilePath: string): BuiltPackage['
 }
 
 suite('package-json-imports', function () {
-    test('resolves package.json#imports from mainPackageJson and emits only surviving non-substituted entries', async function () {
+    test('preserves package.json#imports for retained private authoring files', async function () {
         const fixture = path.join(process.cwd(), 'integration-tests/fixtures/package-json-imports');
         const sourcesFolder = path.join(fixture, 'src');
         const mainPackageJson = {
@@ -81,19 +81,18 @@ suite('package-json-imports', function () {
         assert.partialDeepStrictEqual(secondBundle, {
             packageJson: {
                 imports: {
+                    '#shared': './shared.js',
                     '#local': './local.js'
-                },
-                dependencies: {
-                    first: '1.2.3'
                 }
             }
         });
+        assert.strictEqual(secondBundle.packageJson.dependencies, undefined);
 
         const rewrittenEntry = findEntry(secondBundle, 'entry-second.js');
 
         assert.strictEqual(
             rewrittenEntry.fileDescription.content,
-            "export { shared } from 'first/shared.js';\nexport { local } from '#local';\n"
+            "export { shared } from '#shared';\nexport { local } from '#local';\n"
         );
     });
 });

@@ -26,15 +26,6 @@ type OutstandingConnectionSink = {
     readonly push: (connection: OutstandingConnection) => unknown;
 };
 
-function isSubstitutionSourcePath(
-    inputFilePath: string,
-    substitutionSources: readonly BundleSubstitutionSource[]
-): boolean {
-    return substitutionSources.some(function (bundle) {
-        return ownsSourcePath(inputFilePath, bundle);
-    });
-}
-
 function recordUnreplacedConnections(
     outstandingConnections: OutstandingConnectionSink,
     fromNodeId: string,
@@ -238,14 +229,17 @@ export function substituteDependencies(
     const substitutedGraph = createSubstitutedResourceGraph();
     const outstandingConnections: OutstandingConnection[] = [];
     const visited = new Set<string>();
-    const substitutionSources = [ ...bundleDependencies, ...bundlePeerDependencies ];
 
     function substituteNode(node: ResourceGraphNode): void {
         if (visited.has(node.id)) {
             return;
         }
         visited.add(node.id);
-        if (!node.data.isExplicitlyIncluded && isSubstitutionSourcePath(node.id, substitutionSources)) {
+        if (
+            !node.data.isExplicitlyIncluded && bundlePeerDependencies.some(function (peer) {
+                return ownsSourcePath(node.id, peer);
+            })
+        ) {
             return;
         }
 

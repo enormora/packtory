@@ -178,7 +178,7 @@ suite('checks', function () {
         assert.strictEqual(result.value.length, 2);
     });
 
-    test('resolveAndLinkAll checks substitution exports in generated package candidates', async function () {
+    test('resolveAndLinkAll retains private imports without adding substitution exports', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/substitution-type-check');
         const config: PacktoryConfigWithoutRegistry = {
             commonPackageSettings: {
@@ -212,23 +212,24 @@ suite('checks', function () {
 
         const { result } = await resolveAndLinkAll(config);
 
-        if (!result.isErr) {
-            assert.fail('Expected resolveAndLinkAll to fail because a substitution export has no types');
-            return;
+        assert.strictEqual(result.isOk, true);
+        const consumer = result.value.find(function (resolvedPackage) {
+            return resolvedPackage.name === 'pkg-b';
+        });
+        if (consumer === undefined) {
+            assert.fail('Expected pkg-b to be resolved');
         }
-
-        if (result.error.type === 'checks') {
-            assert.strictEqual(
-                result.error.issues.some(function (issue) {
-                    return issue.includes('pkg-a') &&
-                        issue.includes('./internal.js') &&
-                        issue.includes('without declaration companion');
-                }),
-                true
-            );
-        } else {
-            assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
-        }
+        assert.partialDeepStrictEqual(consumer.analyzedBundle, {
+            linkedBundleDependencies: new Map(),
+            substitutedInputFilePathsByPackageName: new Map()
+        });
+        assert.strictEqual(
+            consumer.analyzedBundle.contents.some(function (content) {
+                return content.fileDescription.targetFilePath === 'internal.js' &&
+                    content.fileDescription.content === "export const internal = 'internal';\n";
+            }),
+            true
+        );
     });
 
     suite('duplicate consent', function () {

@@ -58,8 +58,7 @@ suite('vendor-materializer dependency names', function () {
 
         const failure = expectErr(
             await materializer.materializeExternals({
-                initialDependencyNames: [ '../escape' ],
-                projectFolder: '/repo'
+                dependencySources: [ { initialDependencyNames: [ '../escape' ], projectFolder: '/repo' } ]
             })
         );
 

@@ -26,7 +26,7 @@ function assertImplicitDuplicateMappings(index: PublicModuleIndex): void {
     assert.strictEqual(index.specifierByInputFilePath.get('/src/helper-second.js'), 'package-a/helper.js');
     assert.strictEqual(index.specifierByInputFilePath.get('/src/feature.js'), 'package-a/feature.js');
     assert.strictEqual(index.inputFilePathBySpecifier.get('package-a'), '/src/index.js');
-    assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/helper.js'), '/src/helper-copy.js');
+    assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/helper.js'), '/src/helper.js');
     assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
     assert.strictEqual(index.inputFilePathBySpecifier.has('package-a/index.js'), false);
 }
@@ -108,6 +108,18 @@ suite('package-surface-index', function () {
             }, /^Error: Package "package-a" explicit surface declares neither modules nor bins$/u);
         });
 
+        test('summarizePackageSurface falls back to bins when the module list is empty', function () {
+            const summary = summarizePackageSurface({
+                ...binsOnlyExplicitBundle,
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: { modules: [] as never, bins: [ { root: 'cli', name: 'package-a' } ] }
+                }
+            });
+
+            assert.deepStrictEqual(summary, { publicRootIds: new Set([ 'cli' ]), representativeRootId: 'cli' });
+        });
+
         test('summarizePackageSurface rejects unsupported surface modes', function () {
             const invalidBundle = {
                 name: 'package-a',
@@ -182,8 +194,8 @@ suite('package-surface-index', function () {
                 name: 'package-a',
                 roots: { main: rootWithSource('/src/index.js', 'index.js') },
                 contents: [
-                    content('/src/feature.js', 'feature.js'),
                     content('/src/feature.d.ts', 'feature.d.ts'),
+                    content('/src/feature.js', 'feature.js'),
                     content('/src/types.d.ts', 'types.d.ts')
                 ],
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' }

@@ -355,13 +355,16 @@ function findReplacement(
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): ReplacementMatch | undefined {
-    const dependencyReplacement = findReplacementInBundles(
-        request,
-        bundleDependencies,
-        function (bundle, replacementRequest) {
-            return getPublicModuleSpecifierForSourcePath(bundle, replacementRequest.inputFilePath);
-        }
-    );
+    const dependencyReplacement = bundleDependencies
+        .flatMap(function (bundle) {
+            const emittedSpecifier = getPublicModuleSpecifierForSourcePath(
+                { ...bundle, contents: [] },
+                request.inputFilePath
+            );
+            return emittedSpecifier === undefined
+                ? []
+                : [ { bundle, replacement: { emittedSpecifier, packageName: bundle.name } } ];
+        })[0];
     if (dependencyReplacement !== undefined) {
         return dependencyReplacement;
     }
