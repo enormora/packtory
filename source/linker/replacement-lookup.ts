@@ -442,14 +442,11 @@ function withSubstitutedSourcePaths(
     return updated;
 }
 
-export function findAllPathReplacements(
+function findPathReplacements(
     requests: readonly ImportPathReplacementRequest[],
-    bundleDependencies: readonly BundleSubstitutionSource[],
+    dependencyModules: readonly DependencyModules[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
-    const dependencyModules = bundleDependencies.map(function indexDependencyModules(bundle) {
-        return { bundle, specifierByInputFilePath: indexPublicModules(bundle).specifierByInputFilePath };
-    });
     const importPathReplacements = new Map<string, ImportPathReplacement>();
     const matchedBundleDependencies: string[] = [];
     let substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
@@ -475,5 +472,17 @@ export function findAllPathReplacements(
         importPathReplacements,
         bundleDependencies: matchedBundleDependencies,
         substitutedInputFilePathsByPackageName
+    };
+}
+
+export function createPathReplacementLookup(
+    bundleDependencies: readonly BundleSubstitutionSource[],
+    bundlePeerDependencies: readonly BundleSubstitutionSource[]
+): (requests: readonly ImportPathReplacementRequest[]) => Replacements {
+    const dependencyModules = bundleDependencies.map(function indexDependencyModules(bundle) {
+        return { bundle, specifierByInputFilePath: indexPublicModules(bundle).specifierByInputFilePath };
+    });
+    return function (requests) {
+        return findPathReplacements(requests, dependencyModules, bundlePeerDependencies);
     };
 }
