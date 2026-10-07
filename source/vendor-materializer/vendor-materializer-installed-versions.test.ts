@@ -223,4 +223,21 @@ suite('vendor-materializer installed versions', function () {
             assert.strictEqual(value, 42);
         });
     });
+
+    test('keeps aliases available alongside their original package', async function () {
+        await withInstalledPackages([
+            { directory: 'node_modules/original', dependencies: {}, source: 'module.exports = 42;' }
+        ], async function (root) {
+            await linkInstalledPackage(root, 'alias', 'node_modules/original');
+            const output = await vendorPackages(root, [ 'original', 'alias' ]);
+            const imported = await import(
+                pathToFileURL(path.join(output, 'node_modules/alias/index.cjs')).href
+            ) as unknown as ValueModule;
+            assert.strictEqual(imported.default, 42);
+            assert.strictEqual(
+                await fileManager.readFile(path.join(output, 'node_modules/original/index.cjs')),
+                'module.exports = 42;'
+            );
+        });
+    });
 });
