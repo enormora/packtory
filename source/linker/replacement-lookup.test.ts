@@ -237,19 +237,25 @@ suite('replacement-lookup', function () {
                 ]
             });
 
-            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [], [ bundle ]);
+            for (const [ dependencies, peers ] of [ [ [ bundle ], [] ], [ [], [ bundle ] ] ] as const) {
+                const result = findAllPathReplacements(
+                    [ pathOnlyReplacementRequest('/b/helpers.d.ts') ],
+                    dependencies,
+                    peers
+                );
 
-            assert.deepStrictEqual({
-                replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
-                bundleDependencies: result.bundleDependencies,
-                substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
-            }, {
-                replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
-                bundleDependencies: [ 'pkg-b' ],
-                substitutedInputFilePathsByPackageName: new Map([
-                    [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
-                ])
-            });
+                assert.deepStrictEqual({
+                    replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
+                    bundleDependencies: result.bundleDependencies,
+                    substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
+                }, {
+                    replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
+                    bundleDependencies: [ 'pkg-b' ],
+                    substitutedInputFilePathsByPackageName: new Map([
+                        [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
+                    ])
+                });
+            }
         });
 
         test('findAllPathReplacements does not record non-code substitutions for promotion', function () {
@@ -296,17 +302,23 @@ suite('replacement-lookup', function () {
                 ]
             });
 
-            const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/types.d.ts') ], [], [ bundle ]);
+            for (const [ dependencies, peers ] of [ [ [ bundle ], [] ], [ [], [ bundle ] ] ] as const) {
+                const result = findAllPathReplacements(
+                    [ pathOnlyReplacementRequest('/b/types.d.ts') ],
+                    dependencies,
+                    peers
+                );
 
-            assert.deepStrictEqual({
-                replacement: result.importPathReplacements.get('/b/types.d.ts'),
-                substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
-            }, {
-                replacement: { emittedSpecifier: 'pkg-b/types.d.ts', packageName: 'pkg-b' },
-                substitutedInputFilePathsByPackageName: new Map([
-                    [ 'pkg-b', new Set([ '/b/types.d.ts' ]) ]
-                ])
-            });
+                assert.deepStrictEqual({
+                    replacement: result.importPathReplacements.get('/b/types.d.ts'),
+                    substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
+                }, {
+                    replacement: { emittedSpecifier: 'pkg-b/types.d.ts', packageName: 'pkg-b' },
+                    substitutedInputFilePathsByPackageName: new Map([
+                        [ 'pkg-b', new Set([ '/b/types.d.ts' ]) ]
+                    ])
+                });
+            }
         });
     });
 

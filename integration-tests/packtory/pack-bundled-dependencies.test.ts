@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { suite, test } from 'mocha';
 import { z } from 'zod/mini';
-import { loadPackageJson } from '../load-package-json.ts';
+import { omit } from 'remeda';
 import { createFileManager } from '../../source/file-manager/file-manager.ts';
 import {
     packPackage,
@@ -46,6 +46,7 @@ async function sharedPrivateConfig(projectFolder: string, allowList: readonly st
         packages: [
             {
                 name: 'pkg-a',
+                packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                 roots: {
                     main: {
                         js: path.join(sourcesFolder, 'a.js'),
@@ -56,6 +57,7 @@ async function sharedPrivateConfig(projectFolder: string, allowList: readonly st
             },
             {
                 name: 'pkg-b',
+                packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                 roots: {
                     main: {
                         js: path.join(sourcesFolder, 'b.js'),
@@ -130,6 +132,29 @@ async function verifyDuplicationConsent(projectFolder: string): Promise<void> {
     await verifySharedPrivateArtifact(config, projectFolder);
 }
 
+async function verifyImplicitSharingArtifact(projectFolder: string): Promise<void> {
+    const explicitConfig = await sharedPrivateConfig(projectFolder, []);
+    const outputPath = path.join(projectFolder, 'artifact');
+    const outcome = await packPackage({
+        ...explicitConfig,
+        packages: explicitConfig.packages.map(function useImplicitSurface(packageConfig) {
+            return omit(packageConfig, [ 'packageInterface' ]);
+        })
+    }, { packageName: 'pkg-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
+    assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
+    assert.strictEqual(
+        await readArtifactText(path.join(outputPath, 'a.js')),
+        'export { answer } from "pkg-b/shared.js";\nexport { marker } from "pkg-b";\n'
+    );
+    assert.deepStrictEqual(await fileManager.checkReadability(path.join(outputPath, 'shared.js')), {
+        isReadable: false
+    });
+    assert.partialDeepStrictEqual(await readManifest(path.join(outputPath, 'node_modules/pkg-b')), {
+        exports: { './shared.js': { types: './shared.d.ts', import: './shared.js' } }
+    });
+    assert.strictEqual(await importConsumerArtifact(outputPath), '[42,"bundled"]');
+}
+
 async function transitiveBundleConfig(projectFolder: string): Promise<PacktoryConfig> {
     const sourcesFolder = path.join(projectFolder, 'source');
     await fileManager.writeFile(path.join(sourcesFolder, 'a.js'), 'export { answer, marker } from "./b.js";\n');
@@ -201,9 +226,9 @@ async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<
         vendorDependencies: true
     });
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
-    const targetManifest = await loadPackageJson(outputPath);
+    const targetManifest = await readManifest(outputPath);
     assert.strictEqual(targetManifest.dependencies, undefined);
-    const internalManifest = await loadPackageJson(path.join(outputPath, 'node_modules/pkg-d'));
+    const internalManifest = await readManifest(path.join(outputPath, 'node_modules/pkg-d'));
     assert.deepStrictEqual(internalManifest.dependencies, { 'external-c': '^3.0.0' });
     const externalManifest = await readManifest(path.join(outputPath, 'node_modules/external-c'));
     assert.strictEqual(externalManifest.version, '3.4.5');
@@ -211,6 +236,15 @@ async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<
 }
 
 suite('pack bundled dependencies', function () {
+    test('promotes implicit shared modules without duplicating them in the consumer', async function () {
+        const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-implicit-sharing-'));
+        try {
+            await verifyImplicitSharingArtifact(projectFolder);
+        } finally {
+            await fs.promises.rm(projectFolder, { recursive: true, force: true });
+        }
+    });
+
     test('retains shared private authoring files and honors duplication consent', async function () {
         const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-authoring-'));
         try {

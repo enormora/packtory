@@ -358,7 +358,7 @@ function findReplacement(
     const dependencyReplacement = bundleDependencies
         .flatMap(function (bundle) {
             const emittedSpecifier = getPublicModuleSpecifierForSourcePath(
-                { ...bundle, contents: [] },
+                bundle,
                 request.inputFilePath
             );
             return emittedSpecifier === undefined
