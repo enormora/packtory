@@ -3,6 +3,7 @@ import { Result } from 'true-myth';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
+import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import { packageNameMap } from '../common/package-name-map.ts';
 import { serializeStableJson } from '../common/stable-json.ts';
 import { createWorklist } from '../common/worklist.ts';
@@ -80,7 +81,8 @@ function versionedDependenciesForPack(
 function buildVersionedBundle(
     versionManager: VersionManager,
     target: ResolvedPackage,
-    version: string
+    version: string,
+    resolvedPackages: readonly ResolvedPackage[]
 ): VersionedBundleWithManifest {
     return versionManager.addVersion({
         bundle: target.analyzedBundle,
@@ -89,7 +91,11 @@ function buildVersionedBundle(
         bundleDependencies: versionedDependenciesForPack(target.resolveOptions.bundleDependencies, version),
         bundlePeerDependencies: versionedDependenciesForPack(target.resolveOptions.bundlePeerDependencies, version),
         additionalPackageJsonAttributes: target.resolveOptions.additionalPackageJsonAttributes,
-        allowMutableSpecifiers: target.resolveOptions.allowMutableSpecifiers
+        allowMutableSpecifiers: target.resolveOptions.allowMutableSpecifiers,
+        substitutionPublicModuleSourcePaths: collectPublicModuleUsage(resolvedPackages.map(function (entry) {
+            return entry.analyzedBundle;
+        }))
+            .get(target.name)
     });
 }
 
@@ -114,7 +120,7 @@ function collectBundleDependencies(
     };
 
     function appendBundleDependency(resolvedPackage: ResolvedPackage): void {
-        const versioned = buildVersionedBundle(versionManager, resolvedPackage, fallbackVersion);
+        const versioned = buildVersionedBundle(versionManager, resolvedPackage, fallbackVersion, resolvedPackages);
         closure.packageNames.add(resolvedPackage.name);
         closure.extraFiles.push({
             filePath: bundledInstalledDependencyPath(versioned.name, versioned.manifestFile.filePath),
@@ -333,7 +339,7 @@ async function prepareArtifact(
     resolved: readonly ResolvedPackage[],
     options: PrepareArtifactOptions
 ): Promise<Result<PreparedArtifact, PackPackageFailure>> {
-    const built = buildVersionedBundle(dependencies.versionManager, target, options.version);
+    const built = buildVersionedBundle(dependencies.versionManager, target, options.version, resolved);
 
     if (options.vendorDependencies) {
         return await prepareVendoredArtifact(dependencies, {

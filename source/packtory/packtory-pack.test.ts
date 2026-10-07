@@ -139,7 +139,8 @@ suite('packtory-pack', function () {
                 bundleDependencies: [],
                 bundlePeerDependencies: [ { ...bundlePeerDependency, version: '0.0.0' } ],
                 additionalPackageJsonAttributes: {},
-                allowMutableSpecifiers: []
+                allowMutableSpecifiers: [],
+                substitutionPublicModuleSourcePaths: undefined
             });
             const versionedBundle = fakes.versionManagerAddVersion.firstCall.returnValue as unknown;
             assert.deepStrictEqual(fakes.packEmitterPack.firstCall.args[0], {
@@ -209,7 +210,8 @@ suite('packtory-pack', function () {
                 bundleDependencies: [],
                 bundlePeerDependencies: [],
                 additionalPackageJsonAttributes: {},
-                allowMutableSpecifiers: []
+                allowMutableSpecifiers: [],
+                substitutionPublicModuleSourcePaths: undefined
             });
             assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/pkg-a', '/out/pkg-b' ]);
             const emitterInputs: readonly PackEmitterInput[] = fakes.packEmitterPack.args.map(function (call) {
