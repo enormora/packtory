@@ -6,6 +6,7 @@ import {
     binTargetsFromBinField,
     runtimeExportsFromExportsField
 } from '../../packtory/published-artifact-smoke-gate.ts';
+import { typedExportSpecifiers } from './package-type-surface.ts';
 
 type PackageFolder = {
     readonly name: string;
@@ -39,6 +40,7 @@ export type PackageApiInspection = {
 type InspectPackagesInput = {
     readonly fileManager: Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
     readonly nodeModulesFolder: string;
+    readonly nodeTypeDefinitionsFolder: string;
     readonly runImportProbe: (cwd: string, specifier: string) => Promise<readonly string[]>;
 };
 
@@ -56,6 +58,7 @@ type Manifest = {
     readonly bin: unknown;
     readonly exports: unknown;
     readonly name: string;
+    readonly types: unknown;
 };
 
 const successfulImport = '';
@@ -73,7 +76,8 @@ function parseManifest(content: string, manifestPath: string): Manifest {
     return {
         bin: parsed.bin,
         exports: parsed.exports,
-        name: parsed.name
+        name: parsed.name,
+        types: parsed.types
     };
 }
 
@@ -212,25 +216,28 @@ function importProbeFailureMessage(
     return error.message;
 }
 
-function createTypeProject(cwd: string, specifiers: readonly string[]): Project {
+function createTypeProject(cwd: string, specifiers: readonly string[], nodeTypeDefinitionsFolder: string): Project {
     const project = new Project({
         skipAddingFilesFromTsConfig: true,
         compilerOptions: {
+            lib: [ 'lib.esnext.d.ts' ],
             module: ModuleKind.Node16,
             moduleResolution: ModuleResolutionKind.Node16,
             noEmit: true,
             resolveJsonModule: true,
             skipLibCheck: false,
             strict: true,
-            target: ScriptTarget.ESNext
+            target: ScriptTarget.ESNext,
+            types: [ 'node' ],
+            typeRoots: [ nodeTypeDefinitionsFolder ]
         }
     });
-    project.createSourceFile(path.join(cwd, 'packtory-canary-type-probe.ts'), typeSourceFor(specifiers));
+    project.createSourceFile(path.join(path.dirname(cwd), 'packtory-canary-type-probe.mts'), typeSourceFor(specifiers));
     return project;
 }
 
 function moduleSymbolExports(project: Project, specifier: string): TypeExportNames {
-    const sourceFile = project.getSourceFileOrThrow('packtory-canary-type-probe.ts');
+    const sourceFile = project.getSourceFileOrThrow('packtory-canary-type-probe.mts');
     const declaration = sourceFile.getImportDeclarations().find(function (candidate) {
         return candidate.getModuleSpecifierValue() === specifier;
     });
@@ -242,11 +249,11 @@ function moduleSymbolExports(project: Project, specifier: string): TypeExportNam
         : typeExportNames(project.getTypeChecker().compilerObject.getExportsOfModule(symbol));
 }
 
-function inspectTypes(cwd: string, specifiers: readonly string[]): TypeInspection {
+function inspectTypes(cwd: string, specifiers: readonly string[], nodeTypeDefinitionsFolder: string): TypeInspection {
     if (specifiers.length === 0) {
         return { diagnostics: [], exportsBySpecifier: new Map() };
     }
-    const project = createTypeProject(cwd, specifiers);
+    const project = createTypeProject(cwd, specifiers, nodeTypeDefinitionsFolder);
     const diagnostics = project
         .getPreEmitDiagnostics()
         .map(function (diagnostic) {
@@ -283,9 +290,13 @@ async function inspectPackage(
     const targets = runtimeExportsFromExportsField(manifest.name, manifest.exports);
     const typeInspection = inspectTypes(
         input.nodeModulesFolder,
-        targets.map(function (target) {
-            return target.specifier;
-        })
+        await typedExportSpecifiers({
+            ...manifest,
+            fileManager: input.fileManager,
+            packageFolder: packageFolder.folderPath,
+            targets
+        }),
+        input.nodeTypeDefinitionsFolder
     );
     const publicExports = await Promise.all(targets.map(async function (target): Promise<PublicExportApi> {
         const runtime = await runtimeNamesForTarget(input, target.specifier);
@@ -318,11 +329,11 @@ export async function inspectPackageApis(input: InspectPackagesInput): Promise<P
         throw new Error(`Generated package folder "${input.nodeModulesFolder}" is not readable`);
     }
     const folders = await packageFolders(input);
-    return {
-        packages: await Promise.all(folders.map(async function (packageFolder) {
-            return await inspectPackage(input, packageFolder);
-        }))
-    };
+    const packages: PackageApi[] = [];
+    for (const packageFolder of folders) {
+        packages.push(await inspectPackage(input, packageFolder));
+    }
+    return { packages };
 }
 
 export async function runNodeImportProbe(cwd: string, specifier: string): Promise<readonly string[]> {

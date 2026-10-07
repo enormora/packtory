@@ -172,6 +172,7 @@ async function runPacktoryInClone(
             inspection: await inspectPackageApis({
                 fileManager: dependencies.fileManager,
                 nodeModulesFolder: clone.nodeModulesFolder,
+                nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
                 runImportProbe: runNodeImportProbe
             }),
             resolvedRef: clone.resolvedRef
