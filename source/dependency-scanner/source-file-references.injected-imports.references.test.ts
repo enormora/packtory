@@ -49,4 +49,24 @@ suite('source-file-references injected loader references', function () {
         project.createSourceFile('caller.ts', 'import { foo } from "./a"; foo(path => import(path));');
         expectFooReference(project);
     });
+
+    test('ignores another function receiving both an import loader and a declaration reference', function () {
+        expectNoReferences(createProject({
+            withFiles: [
+                { filePath: 'main.ts', content: 'import { foo } from "./a"; consume(path => import(path), foo);' },
+                { filePath: 'a.ts', content: 'export function foo(load) { return load("./foo"); }' },
+                { filePath: 'foo.ts', content: '' }
+            ]
+        }));
+    });
+
+    test('ignores an unresolved identifier supplied as the loader', function () {
+        expectNoReferences(createProject({
+            withFiles: [
+                { filePath: 'main.ts', content: 'import { foo } from "./a"; foo(missingLoader);' },
+                { filePath: 'a.ts', content: 'export function foo(load) { return load("./foo"); }' },
+                { filePath: 'foo.ts', content: '' }
+            ]
+        }));
+    });
 });
