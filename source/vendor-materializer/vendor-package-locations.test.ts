@@ -2,7 +2,12 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createVendorPackageLocations, type VendorPackageLocations } from './vendor-package-locations.ts';
 
-function locatePackage(locations: VendorPackageLocations, name: string, realPath: string, targetFolder: string) {
+function locatePackage(
+    locations: VendorPackageLocations,
+    name: string,
+    realPath: string,
+    targetFolder: string
+): ReturnType<VendorPackageLocations['locate']> {
     return locations.locate({ name, realPath, targetFolder });
 }
 
