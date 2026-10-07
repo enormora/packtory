@@ -330,16 +330,19 @@ function registerMaterializationTests(): void {
         ]);
     });
 
-    test('deduplicates the same installed package referenced from multiple dependencies', async function () {
+    test('deduplicates shared dependencies and terminates installed package cycles', async function () {
         const truthyReadability = { value: { isReadable: true } } as const;
         const result = await runWith(
             {
-                readabilities: [ truthyReadability, truthyReadability, truthyReadability, truthyReadability ],
+                readabilities: Array.from({ length: 5 }, function () {
+                    return truthyReadability;
+                }),
                 realPaths: [
                     { value: '/repo/node_modules/a' },
                     { value: '/repo/node_modules/b' },
                     { value: '/repo/node_modules/shared' },
-                    { value: '/repo/node_modules/shared' }
+                    { value: '/repo/node_modules/shared' },
+                    { value: '/repo/node_modules/a' }
                 ],
                 listings: [
                     { value: [ { name: 'a.js', isDirectory: false, isSymbolicLink: false } ] },
@@ -349,7 +352,7 @@ function registerMaterializationTests(): void {
                 fileReads: [
                     { value: JSON.stringify({ dependencies: { shared: '1.0.0' } }) },
                     { value: JSON.stringify({ dependencies: { shared: '1.0.0' } }) },
-                    { value: '{}' }
+                    { value: JSON.stringify({ dependencies: { a: '1.0.0' } }) }
                 ]
             },
             { initialDependencyNames: [ 'a', 'b' ], projectFolder: '/repo' }

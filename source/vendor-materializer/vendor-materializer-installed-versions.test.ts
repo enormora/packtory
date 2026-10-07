@@ -203,7 +203,7 @@ suite('vendor-materializer installed versions', function () {
         });
     });
 
-    test('preserves shared hoisted dependencies and terminates cycles', async function () {
+    test('preserves shared hoisted dependencies across multiple entries', async function () {
         await withInstalledPackages([
             {
                 directory: 'node_modules/parent',
@@ -212,7 +212,7 @@ suite('vendor-materializer installed versions', function () {
             },
             {
                 directory: 'node_modules/shared',
-                dependencies: { parent: '1.0.0' },
+                dependencies: {},
                 source: 'module.exports = 42;'
             }
         ], async function (root) {
