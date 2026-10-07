@@ -49,7 +49,7 @@ function hasEntry(bundle: BuiltPackage, targetFilePath: string): boolean {
 }
 
 suite('dynamic-import-substitution', function () {
-    test('rewrites static dynamic imports when substituting bundle dependencies', async function () {
+    test('rewrites public dynamic imports and retains private imports', async function () {
         const fixture = path.join(process.cwd(), 'integration-tests/fixtures/dynamic-import-substitution');
         const interpolationMarker = '$';
         const producer = await buildPackage({
@@ -76,7 +76,7 @@ suite('dynamic-import-substitution', function () {
             [
                 'export async function load() {',
                 "    const producer = await import('producer');",
-                '    const feature = await import(`producer/feature.js`);',
+                '    const feature = await import(`../producer/feature.js`);',
                 `    return \`${interpolationMarker}{producer.value}-${interpolationMarker}{feature.feature}\`;`,
                 '}',
                 ''
@@ -85,7 +85,7 @@ suite('dynamic-import-substitution', function () {
         );
         assert.deepStrictEqual(consumer.packageJson.dependencies, { producer: '1.2.3' });
         assert.strictEqual(hasEntry(consumer, 'producer/index.js'), false);
-        assert.strictEqual(hasEntry(consumer, 'producer/feature.js'), false);
+        assert.strictEqual(hasEntry(consumer, 'producer/feature.js'), true);
     });
 
     test('rewrites injected dynamic import literals when substituting bundle dependencies', async function () {

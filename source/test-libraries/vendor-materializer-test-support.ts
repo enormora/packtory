@@ -4,7 +4,8 @@ import {
     createVendorMaterializer,
     type MaterializedExternals,
     type VendorMaterializer,
-    type VendorMaterializerFailure
+    type VendorMaterializerFailure,
+    type ExternalDependencySource
 } from '../vendor-materializer/vendor-materializer.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
@@ -27,11 +28,6 @@ export type FakeSetup = {
     readonly listings: readonly DirectoryEntriesResponse[];
     readonly fileReads: readonly StringResponse[];
     readonly transferableFileDescriptions?: readonly TransferableFileDescriptionResponse[];
-};
-
-export type MaterializeRequest = {
-    readonly initialDependencyNames: readonly string[];
-    readonly projectFolder: string;
 };
 
 export function setupFileManager(setup: FakeSetup): FakeFileManager {
@@ -64,19 +60,19 @@ export function expectErr(
     return result.error;
 }
 
-export async function runWith(setup: FakeSetup, request: MaterializeRequest): Promise<MaterializedExternals> {
+export async function runWith(setup: FakeSetup, source: ExternalDependencySource): Promise<MaterializedExternals> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
-    return expectOk(await materializer.materializeExternals(request));
+    return expectOk(await materializer.materializeExternals({ dependencySources: [ source ] }));
 }
 
 export async function runExpectingFailure(
     setup: FakeSetup,
-    request: MaterializeRequest
+    source: ExternalDependencySource
 ): Promise<VendorMaterializerFailure> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
-    return expectErr(await materializer.materializeExternals(request));
+    return expectErr(await materializer.materializeExternals({ dependencySources: [ source ] }));
 }
 
 export function targetRelativePaths(result: MaterializedExternals): readonly string[] {

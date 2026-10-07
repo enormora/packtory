@@ -3,7 +3,6 @@ import { declarationCompanionCandidates } from '../common/declaration-companion-
 import { substituteDependencies } from './substitute-bundles.ts';
 import type { BundleSubstitutionSource, LinkedBundle } from './linked-bundle.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
-import { ownsSourcePath } from './replacement-lookup.ts';
 
 type LinkBundleOptions = {
     readonly bundle: ResolvedBundle;
@@ -24,49 +23,51 @@ function flattenRoots(roots: ResolvedBundle['roots']): string[] {
     });
 }
 
-function isSubstitutedBundleSourcePath(
-    inputFilePath: string,
-    bundleDependencies: readonly BundleSubstitutionSource[]
-): boolean {
-    return bundleDependencies.some(function (bundleDependency) {
-        return ownsSourcePath(inputFilePath, bundleDependency);
-    });
-}
-
 function declarationCompanionRoots(
     contents: ResolvedBundle['contents'],
-    bundleDependencies: readonly BundleSubstitutionSource[]
+    retainedInputFilePaths: ReadonlySet<string>,
+    substitutedInputFilePaths: ReadonlySet<string>
 ): readonly string[] {
     const inputFilePaths = new Set(contents.map(function (content) {
         return content.fileDescription.inputFilePath;
     }));
     return contents.flatMap(function (content) {
-        if (isSubstitutedBundleSourcePath(content.fileDescription.inputFilePath, bundleDependencies)) {
+        if (!retainedInputFilePaths.has(content.fileDescription.inputFilePath)) {
             return [];
         }
         return declarationCompanionCandidates(content.fileDescription.inputFilePath).filter(function (candidate) {
-            return inputFilePaths.has(candidate) && !isSubstitutedBundleSourcePath(candidate, bundleDependencies);
+            return inputFilePaths.has(candidate) && !substitutedInputFilePaths.has(candidate);
         });
     });
-}
-
-function flattenRootFilePaths(
-    bundle: ResolvedBundle,
-    bundleDependencies: readonly BundleSubstitutionSource[]
-): readonly string[] {
-    return [ ...flattenRoots(bundle.roots), ...declarationCompanionRoots(bundle.contents, bundleDependencies) ];
 }
 
 export function createBundleLinker(): BundleLinker {
     return {
         async linkBundle(options) {
             const { bundle, bundleDependencies, bundlePeerDependencies } = options;
-            const substitutionSources = [ ...bundleDependencies, ...bundlePeerDependencies ];
             const resourceGraph = createGraphFromResolvedBundle(bundle);
             const substitutedGraph = substituteDependencies(resourceGraph, bundleDependencies, bundlePeerDependencies);
 
+            const rootFilePaths = flattenRoots(bundle.roots);
+            const retained = substitutedGraph.flatten(rootFilePaths);
+            const retainedInputFilePaths = new Set(
+                retained.contents.map(function (content) {
+                    return content.fileDescription.inputFilePath;
+                })
+            );
+            const substitutedInputFilePaths = new Set(
+                Array.from(retained.substitutedInputFilePathsByPackageName.values()).flatMap(function (inputFilePaths) {
+                    return Array.from(inputFilePaths);
+                })
+            );
+            const companionRoots = declarationCompanionRoots(
+                bundle.contents,
+                retainedInputFilePaths,
+                substitutedInputFilePaths
+            );
+
             return {
-                ...substitutedGraph.flatten(flattenRootFilePaths(bundle, substitutionSources)),
+                ...substitutedGraph.flatten([ ...rootFilePaths, ...companionRoots ]),
                 name: bundle.name,
                 exportPackageJson: bundle.exportPackageJson,
                 roots: bundle.roots,

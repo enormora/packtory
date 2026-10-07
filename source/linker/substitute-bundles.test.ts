@@ -253,7 +253,12 @@ function assertPreservesOwnedLicense(
     const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies, bundlePeerDependencies);
     const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-    assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
+    assert.strictEqual(
+        result.contents.some(function (content) {
+            return content.fileDescription.inputFilePath === '/foo.js';
+        }),
+        false
+    );
     assert.strictEqual(substitutedGraph.isKnown('/LICENSE'), true);
     assert.partialDeepStrictEqual(result, entryWithLicenseResult(packageName));
     assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
@@ -290,49 +295,48 @@ suite('substitute-bundles', function () {
         });
     });
 
-    test('throws when a dependency owns a referenced file but does not expose it publicly', function () {
+    test('retains a referenced private file owned by a dependency', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
 
-        assert.throws(function () {
-            substituteDependencies(inputGraph, [
-                versionedBundleWithManifest({
-                    name: 'hidden-package',
-                    version: '1.0.0',
-                    roots: {
-                        main: {
-                            js: {
-                                inputFilePath: '/bar.js',
-                                targetFilePath: 'bar.js',
-                                content: '',
-                                isExecutable: false
-                            }
+        const substitutedGraph = substituteDependencies(inputGraph, [
+            versionedBundleWithManifest({
+                name: 'hidden-package',
+                version: '1.0.0',
+                roots: {
+                    main: {
+                        js: {
+                            inputFilePath: '/bar.js',
+                            targetFilePath: 'bar.js',
+                            content: '',
+                            isExecutable: false
                         }
+                    }
+                },
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: {
+                        modules: [ { root: 'main', export: '.' } ]
+                    }
+                },
+                contents: [
+                    {
+                        ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
+                        isSubstituted: false,
+                        analysis: emptySubstitutionAnalysis()
                     },
-                    surface: {
-                        mode: 'explicit',
-                        packageInterface: {
-                            modules: [ { root: 'main', export: '.' } ]
-                        }
-                    },
-                    contents: [
-                        {
-                            ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
-                            isSubstituted: false,
-                            analysis: emptySubstitutionAnalysis()
-                        },
-                        {
-                            ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
-                            isSubstituted: false,
-                            analysis: emptySubstitutionAnalysis()
-                        }
-                    ],
-                    packageJson: { name: 'hidden-package', version: '1.0.0' },
-                    exportsField: { '.': { import: './bar.js' } },
-                    mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
-                    manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
-                })
-            ], []);
-        }, /^Error: Package "hidden-package" does not expose "\/foo\.js" for cross-package substitution$/u);
+                    {
+                        ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
+                        isSubstituted: false,
+                        analysis: emptySubstitutionAnalysis()
+                    }
+                ],
+                packageJson: { name: 'hidden-package', version: '1.0.0' },
+                exportsField: { '.': { import: './bar.js' } },
+                mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
+                manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+            })
+        ], []);
+        assert.deepStrictEqual(substitutedGraph.flatten([ '/entry.js' ]), passthroughResult);
     });
 
     suite('dependency references', function () {
@@ -379,7 +383,12 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [], [ bundleSource('peer-package', '/foo.js') ]);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
+        assert.strictEqual(
+            result.contents.some(function (content) {
+                return content.fileDescription.inputFilePath === '/foo.js';
+            }),
+            false
+        );
         assert.partialDeepStrictEqual(result, substitutedEntryResult('peer-package'));
         assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
     });

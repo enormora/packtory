@@ -64,9 +64,13 @@ export type VendorMaterializerDependencies = {
     readonly fileManager: VendorMaterializerFileManager;
 };
 
-type MaterializeExternalsOptions = {
+export type ExternalDependencySource = {
     readonly initialDependencyNames: readonly string[];
     readonly projectFolder: string;
+};
+
+type MaterializeExternalsOptions = {
+    readonly dependencySources: readonly ExternalDependencySource[];
 };
 
 export type VendorMaterializer = {
@@ -461,7 +465,10 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
 
     return {
         async materializeExternals(options) {
-            const invalidInitialName = findFirstInvalidDependencyName(options.initialDependencyNames);
+            const dependencyNames = options.dependencySources.flatMap(function (source) {
+                return source.initialDependencyNames;
+            });
+            const invalidInitialName = findFirstInvalidDependencyName(dependencyNames);
             if (invalidInitialName !== undefined) {
                 return Result.err({
                     type: vendorMaterializerFailureType.invalidDependencyName,
@@ -472,15 +479,17 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             const entries: VendorEntry[] = [];
             const closure: Closure = {
                 packageNames: new Set<string>(),
-                packageLocations: createVendorPackageLocations(options.projectFolder),
+                packageLocations: createVendorPackageLocations(),
                 entries,
                 pendingPackages: createWorklist<QueueItem>(
-                    options.initialDependencyNames.map(function (name) {
-                        return queueItem(name, {
-                            fromFolder: options.projectFolder,
-                            targetFolder: '',
-                            sourcePackageName: undefined
-                        }, true);
+                    options.dependencySources.flatMap(function (source) {
+                        return source.initialDependencyNames.map(function (name) {
+                            return queueItem(name, {
+                                fromFolder: source.projectFolder,
+                                targetFolder: '',
+                                sourcePackageName: undefined
+                            }, true);
+                        });
                     })
                 ),
                 peerRequirements: new Map<string, readonly string[]>()

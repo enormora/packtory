@@ -47,7 +47,10 @@ function testBundleDependency(
         name: 'bundle-dependency',
         roots: {
             main: {
-                js: testFileDescription(rootInputFilePath, rootTargetFilePath, '')
+                js: testFileDescription(rootInputFilePath, rootTargetFilePath, ''),
+                declarationFile: inputFilePaths.includes('/src/dep.d.ts')
+                    ? testFileDescription('/src/dep.d.ts', 'dep.d.ts', '')
+                    : undefined
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -331,6 +334,67 @@ suite('linker', function () {
             inputFilePathsOf(result.contents),
             [ '/src/index.js', '/src/public.js', '/src/index.d.ts', '/src/public.d.ts' ]
         );
+    });
+
+    test('linkBundle() keeps private runtime files without retaining their substituted declaration companions', async function () {
+        const runtimeProject = createProject({
+            withFiles: [
+                { filePath: '/src/index.js', content: 'import "./local.js";' },
+                { filePath: '/src/local.js', content: 'export const local = 1;' }
+            ]
+        });
+        const declarationProject = createProject({
+            withFiles: [
+                { filePath: '/src/index.d.ts', content: 'export type { Local } from "./local.d.ts";' },
+                { filePath: '/src/local.d.ts', content: 'export interface Local {}' }
+            ]
+        });
+        const result = await createBundleLinker().linkBundle({
+            bundle: {
+                name: 'package-a',
+                roots: { main: testRootWithDeclaration() },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+                externalDependencies: new Map(),
+                contents: [
+                    {
+                        ...testResource('/src/index.js', 'index.js', 'import "./local.js";', [ '/src/local.js' ]),
+                        project: runtimeProject
+                    },
+                    {
+                        ...testResource('/src/index.d.ts', 'index.d.ts', 'export type { Local } from "./local.d.ts";', [
+                            '/src/local.d.ts'
+                        ]),
+                        project: declarationProject
+                    },
+                    testResource('/src/local.js', 'local.js', 'export const local = 1;', []),
+                    testResource('/src/local.d.ts', 'local.d.ts', 'export interface Local {}', [])
+                ]
+            },
+            bundleDependencies: [ {
+                name: 'package-b',
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+                roots: {
+                    main: {
+                        js: testFileDescription('/dependency.js', 'dependency.js', ''),
+                        declarationFile: testFileDescription(
+                            '/src/local.d.ts',
+                            'local.d.ts',
+                            'export interface Local {}'
+                        )
+                    }
+                },
+                contents: [ testSubstitutionResource('/src/local.d.ts') ]
+            } ],
+            bundlePeerDependencies: []
+        });
+
+        assert.deepStrictEqual(inputFilePathsOf(result.contents), [
+            '/src/index.js',
+            '/src/local.js',
+            '/src/index.d.ts'
+        ]);
+        assert.strictEqual(result.contents[0]?.fileDescription.content, 'import "./local.js";');
+        assert.strictEqual(result.contents[2]?.fileDescription.content, 'export type { Local } from "package-b";');
     });
 
     test('linkBundle() keeps declaration roots that are not js companions', async function () {

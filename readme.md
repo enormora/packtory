@@ -188,6 +188,7 @@ This source uses the same pull request attribution files as changelog generation
 - **Output path**: where to write the archive or, for `folder`, the directory to populate.
 - **Version**: stamped into the generated manifest. Defaults to `0.0.0` - `pack` is intentionally decoupled from the registry-driven automatic versioning, so the caller decides the version (often the CI build's release tag).
 - **Vendor dependencies**: an opt-in `--vendor-dependencies` (CLI) / `vendorDependencies: true` (API) flag materializes every transitive runtime dependency from the local `node_modules` directly into `node_modules/` inside the artifact. This is what makes the output self-contained for runtimes that cannot run `npm install` (AWS Lambda, distroless containers). Nested dependency versions and symlink layouts created by npm, yarn-classic, and pnpm are preserved. Packages declared in `bundleDependencies` are materialized too, with their original cross-package import paths preserved.
+  External dependencies used by any package in the internal bundle dependency tree are included, using that package's source folder to resolve installed dependencies.
 
 Use `pack --all --format folder --out <path>` to build every configured package into child folders below one output root. The layout follows npm package names: `pkg-a` writes to `<path>/pkg-a`, and `@scope/pkg-a` writes to `<path>/@scope/pkg-a`. The output root may already exist when it is a directory, but each package child folder must not already exist.
 
@@ -314,6 +315,7 @@ The configuration for `packtory` is an object with the following properties:
 
    - **`bundleDependencies`** (Optional, Array of Strings):
      - An array of package names to mark as dependencies, allowing the bundler to substitute import statements accordingly.
+     - Substitution uses public entrypoints. Shared private authoring files stay local; `noDuplicatedFiles` still applies, including its explicit allowlists.
 
    - **`bundlePeerDependencies`** (Optional, Array of Strings):
      - Similar to `bundleDependencies` but represented as `peerDependencies` in the generated `package.json`.

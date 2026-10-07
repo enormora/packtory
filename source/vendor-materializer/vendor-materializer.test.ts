@@ -50,8 +50,7 @@ function registerMaterializationTests(): void {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: [],
-                projectFolder: '/repo'
+                dependencySources: [ { initialDependencyNames: [], projectFolder: '/repo' } ]
             })
         );
 
@@ -79,8 +78,7 @@ function registerMaterializationTests(): void {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: [ 'leaf' ],
-                projectFolder: '/repo'
+                dependencySources: [ { initialDependencyNames: [ 'leaf' ], projectFolder: '/repo' } ]
             })
         );
 
@@ -139,8 +137,7 @@ function registerMaterializationTests(): void {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: [ 'root' ],
-                projectFolder: '/repo'
+                dependencySources: [ { initialDependencyNames: [ 'root' ], projectFolder: '/repo' } ]
             })
         );
 
@@ -310,8 +307,10 @@ function registerMaterializationTests(): void {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: [ 'hoisted' ],
-                projectFolder: '/workspace/packages/inner'
+                dependencySources: [ {
+                    initialDependencyNames: [ 'hoisted' ],
+                    projectFolder: '/workspace/packages/inner'
+                } ]
             })
         );
 

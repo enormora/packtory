@@ -1,5 +1,6 @@
 /* eslint-disable import/max-dependencies -- the pack orchestrator wires resolve+link, version manager, vendor materializer, file checks, and pack emitter */
 import { Result } from 'true-myth';
+import { groupBy } from 'remeda';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
@@ -17,6 +18,7 @@ import {
     vendorMaterializerFailureType,
     type VendorMaterializer,
     type VendorMaterializerFailure,
+    type ExternalDependencySource,
     type MaterializedExternals
 } from '../vendor-materializer/vendor-materializer.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
@@ -103,7 +105,20 @@ type BundleDepClosure = {
     readonly extraFiles: readonly FileDescription[];
     readonly packageNames: ReadonlySet<string>;
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
+    readonly externalDependencySources: readonly ExternalDependencySource[];
 };
+
+function externalDependencySourcesFor(packages: readonly ResolvedPackage[]): readonly ExternalDependencySource[] {
+    const packagesBySourcesFolder = groupBy(packages, function (resolvedPackage) {
+        return resolvedPackage.resolveOptions.sourcesFolder;
+    });
+    return Object.entries(packagesBySourcesFolder).map(function ([ projectFolder, sourcePackages ]) {
+        const dependencyNames = sourcePackages.flatMap(function (resolvedPackage) {
+            return Array.from(resolvedPackage.analyzedBundle.externalDependencies.keys());
+        });
+        return { projectFolder, initialDependencyNames: Array.from(new Set(dependencyNames)) };
+    });
+}
 
 function collectBundleDependencies(
     target: ResolvedPackage,
@@ -116,6 +131,7 @@ function collectBundleDependencies(
         extraFiles: [] as FileDescription[],
         packageNames: new Set<string>(),
         peerRequirements: new Map<string, readonly string[]>(),
+        packages: [ target ],
         pendingDependencyNames: createWorklist(target.analyzedBundle.linkedBundleDependencies.keys())
     };
 
@@ -137,6 +153,7 @@ function collectBundleDependencies(
             }
         }
         closure.peerRequirements.set(resolvedPackage.name, Object.keys(versioned.peerDependencies));
+        closure.packages.push(resolvedPackage);
         closure.pendingDependencyNames.scheduleAll(resolvedPackage.analyzedBundle.linkedBundleDependencies.keys());
     }
 
@@ -156,7 +173,8 @@ function collectBundleDependencies(
     return {
         extraFiles: closure.extraFiles,
         packageNames: closure.packageNames,
-        peerRequirements: closure.peerRequirements
+        peerRequirements: closure.peerRequirements,
+        externalDependencySources: externalDependencySourcesFor(closure.packages)
     };
 }
 
@@ -306,8 +324,7 @@ async function prepareVendoredArtifact(
     const { target, resolved, built, version } = inputs;
     const bundleClosure = collectBundleDependencies(target, resolved, dependencies.versionManager, version);
     const materializationResult = await dependencies.vendorMaterializer.materializeExternals({
-        initialDependencyNames: Array.from(target.analyzedBundle.externalDependencies.keys()),
-        projectFolder: target.resolveOptions.sourcesFolder
+        dependencySources: bundleClosure.externalDependencySources
     });
     if (materializationResult.isErr) {
         return Result.err(mapMaterializerFailure(target.name, materializationResult.error));

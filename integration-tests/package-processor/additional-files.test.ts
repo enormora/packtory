@@ -168,14 +168,14 @@ suite('additional-files', function () {
         );
     });
 
-    test('keeps shared additional files when another package substitutes bundle dependency sources', async function () {
+    test('keeps shared additional files and private bundle dependency sources', async function () {
         const fixture = await loadSharedAdditionalFileSubstitutionFixture();
         const producerBundle = await buildSharedLicensePackage(fixture, 'producer', 'producer.js', []);
         const consumerBundle = await buildSharedLicensePackage(fixture, 'consumer', 'consumer.js', [ producerBundle ]);
         const consumerLicense = consumerBundle.contents.find(function (content) {
             return content.fileDescription.targetFilePath === 'LICENSE';
         });
-        const substitutedSharedSource = consumerBundle.contents.find(function (content) {
+        const retainedSharedSource = consumerBundle.contents.find(function (content) {
             return content.fileDescription.inputFilePath === path.join(fixture.sourcesFolder, 'shared.js');
         });
 
@@ -189,6 +189,12 @@ suite('additional-files', function () {
             },
             isExplicitlyIncluded: true
         });
-        assert.strictEqual(substitutedSharedSource, undefined);
+        assert.partialDeepStrictEqual(retainedSharedSource, {
+            fileDescription: {
+                content: "export const sharedValue = 'shared';\n",
+                targetFilePath: 'shared.js'
+            },
+            isSubstituted: false
+        });
     });
 });

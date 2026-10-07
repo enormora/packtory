@@ -504,8 +504,10 @@ suite('packtory-pack', function () {
 
             assert.deepStrictEqual(result.isOk ? result.value : 'errored', undefined);
             assert.deepStrictEqual(materializerSpy.firstCall.args[0], {
-                initialDependencyNames: [ 'react', 'react-dom' ],
-                projectFolder: '/repo/packages/pkg-a'
+                dependencySources: [ {
+                    initialDependencyNames: [ 'react', 'react-dom' ],
+                    projectFolder: '/repo/packages/pkg-a'
+                } ]
             });
         });
 

@@ -51,8 +51,7 @@ async function withInstalledPackages(
 async function vendorPackages(root: string, names: readonly string[]): Promise<string> {
     const result = expectOk(
         await createVendorMaterializer({ fileManager }).materializeExternals({
-            projectFolder: root,
-            initialDependencyNames: names
+            dependencySources: [ { projectFolder: root, initialDependencyNames: names } ]
         })
     );
     const output = path.join(root, 'artifact');
@@ -181,8 +180,10 @@ suite('vendor-materializer installed versions', function () {
             );
             const result = expectOk(
                 await createVendorMaterializer({ fileManager }).materializeExternals({
-                    projectFolder: root,
-                    initialDependencyNames: [ 'versioned-stream', 'flush' ]
+                    dependencySources: [ {
+                        projectFolder: root,
+                        initialDependencyNames: [ 'versioned-stream', 'flush' ]
+                    } ]
                 })
             );
             assert.deepStrictEqual(result.peerRequirements.get('versioned-stream'), [ 'host-a', 'host-b' ]);
