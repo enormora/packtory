@@ -277,17 +277,17 @@ suite('publish', function () {
 
                 assert.partialDeepStrictEqual(publishedPackage, {
                     manifest: {
+                        dependencies: { first: '0.0.1' },
                         peerDependencies: { second: '0.0.1' }
                     }
                 });
-                assert.strictEqual(publishedPackage.manifest.dependencies, undefined);
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/foo.js').content,
                     "import { bar } from 'second';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                 );
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/entry3.d.ts').content,
-                    "export declare const foo: import('second').Foo;\n"
+                    "export declare const foo: import('first/foo.d.ts').Foo;\n"
                 );
             })
         );
@@ -316,6 +316,7 @@ suite('publish', function () {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
                 const packages = createPackageConfigList(
                     createPackageConfig(fixturePathValue, 'first', 'entry1', {
+                        packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                         publishSettings: { access: 'public', sbom: { enabled: true } }
                     }),
                     createPackageConfig(fixturePathValue, 'second', 'entry2', {
@@ -355,7 +356,9 @@ suite('publish', function () {
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('substitution-type-check');
                 const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'pkg-a', 'a-entry'),
+                    createPackageConfig(fixturePathValue, 'pkg-a', 'a-entry', {
+                        packageInterface: { modules: [ { export: '.', root: 'main' } ] }
+                    }),
                     createPackageConfig(fixturePathValue, 'pkg-b', 'b-entry', { bundleDependencies: [ 'pkg-a' ] })
                 );
                 assertPublishSucceeded(
