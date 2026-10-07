@@ -118,12 +118,12 @@ async function installPacktoryCli(
     }
 }
 
-async function cloneRepository(
+async function prepareCanaryClone(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
-    mode: PacktoryMode
+    mode: PacktoryMode,
+    cloneFolder: string
 ): Promise<PreparedClone> {
-    const cloneFolder = await dependencies.createTemporaryFolder(`packtory-canary-${canary.name}-${mode}-`);
     await dependencies.runCommand(
         `git clone --depth 1 --branch ${JSON.stringify(canary.ref)} ${JSON.stringify(canary.repository)} .`,
         cloneFolder
@@ -138,6 +138,47 @@ async function cloneRepository(
         nodeModulesFolder: path.join(cloneFolder, packOutputFolderName, 'node_modules'),
         resolvedRef
     };
+}
+
+function canaryPreparationFailures(results: readonly PromiseSettledResult<unknown>[]): readonly unknown[] {
+    return results.flatMap(function (result): readonly unknown[] {
+        return result.status === 'rejected' ? [ result.reason as unknown ] : [];
+    });
+}
+
+async function cloneRepository(
+    dependencies: CanaryRunnerDependencies,
+    canary: Canary,
+    mode: PacktoryMode
+): Promise<PreparedClone> {
+    const cloneFolder = await dependencies.createTemporaryFolder(`packtory-canary-${canary.name}-${mode}-`);
+    const [ preparation ] = await Promise.allSettled([
+        prepareCanaryClone(dependencies, canary, mode, cloneFolder)
+    ]);
+    if (preparation.status === 'fulfilled') {
+        return preparation.value;
+    }
+    const cleanup = await Promise.allSettled([ dependencies.removeFolder(cloneFolder) ]);
+    const errors = [ ...canaryPreparationFailures([ preparation ]), ...canaryPreparationFailures(cleanup) ];
+    throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
+}
+
+async function prepareCanaryClones(
+    dependencies: CanaryRunnerDependencies,
+    canary: Canary
+): Promise<readonly [PreparedClone, PreparedClone]> {
+    const [ baseline, candidate ] = await Promise.allSettled([
+        cloneRepository(dependencies, canary, 'baseline'),
+        cloneRepository(dependencies, canary, 'candidate')
+    ]);
+    if (baseline.status === 'fulfilled' && candidate.status === 'fulfilled') {
+        return [ baseline.value, candidate.value ];
+    }
+    const cleanup = await Promise.allSettled([ baseline, candidate ].flatMap(function (result) {
+        return result.status === 'fulfilled' ? [ dependencies.removeFolder(result.value.cloneFolder) ] : [];
+    }));
+    const errors = [ ...canaryPreparationFailures([ baseline, candidate ]), ...canaryPreparationFailures(cleanup) ];
+    throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
 }
 
 async function packGeneratedPackages(
@@ -160,9 +201,8 @@ async function packGeneratedPackages(
 async function runPacktoryInClone(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
-    mode: PacktoryMode
+    clone: PreparedClone
 ): Promise<PacktoryRunResult> {
-    const clone = await cloneRepository(dependencies, canary, mode);
     try {
         await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
         await writeCanaryConfigOverlay({ cloneFolder: clone.cloneFolder, fileManager: dependencies.fileManager });
@@ -246,10 +286,9 @@ async function runCanary(
     canary: Canary,
     dependencies: CanaryRunnerDependencies
 ): Promise<CanaryRunResult> {
-    const [ baseline, candidate ] = await Promise.all([
-        runPacktoryInClone(dependencies, canary, 'baseline'),
-        runPacktoryInClone(dependencies, canary, 'candidate')
-    ]);
+    const [ baselineClone, candidateClone ] = await prepareCanaryClones(dependencies, canary);
+    const baseline = await runPacktoryInClone(dependencies, canary, baselineClone);
+    const candidate = await runPacktoryInClone(dependencies, canary, candidateClone);
     return {
         baselineResolvedRef: baseline.resolvedRef,
         candidateResolvedRef: candidate.resolvedRef,

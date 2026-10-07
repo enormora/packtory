@@ -182,6 +182,30 @@ suite('canary-runner', function () {
         );
     });
 
+    test('cleans up both clones when preparing one fails', async function () {
+        const dependencies = createRunnerDependencies('publish-dry-run', new Set());
+        await assert.rejects(async function () {
+            await runSelectedCanary('canaries.json', 'sample', {
+                ...dependencies,
+                async runCommand(command, cwd) {
+                    if (command.startsWith('npm install ') && cloneMode(cwd) === 'baseline') {
+                        throw new Error('baseline install failed');
+                    }
+                    return await dependencies.runCommand(command, cwd);
+                }
+            });
+        }, /baseline install failed/u);
+        assert.deepStrictEqual(
+            dependencies.removedFolders.toSorted(function (left, right) {
+                return left.localeCompare(right);
+            }),
+            [
+                '/workspace/packtory-canary-sample-baseline-clone',
+                '/workspace/packtory-canary-sample-candidate-clone'
+            ]
+        );
+    });
+
     test('runSelectedCanary reports shared downstream failures as baseline rot', async function () {
         const dependencies = createRunnerDependencies(
             'npx just publish-dry-run',

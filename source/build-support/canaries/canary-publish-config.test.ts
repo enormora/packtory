@@ -114,16 +114,12 @@ suite('canary-publish-config', function () {
                 name: 'sample'
             });
             assert.deepStrictEqual(
-                observations.toSorted(function (left, right) {
-                    return left.mode === right.mode
-                        ? left.phase.localeCompare(right.phase)
-                        : left.mode.localeCompare(right.mode);
-                }),
+                observations,
                 [
-                    { mode: 'baseline', phase: 'pack', config: packedConfig },
                     { mode: 'baseline', phase: 'publish', config: originalConfig },
-                    { mode: 'candidate', phase: 'pack', config: packedConfig },
-                    { mode: 'candidate', phase: 'publish', config: originalConfig }
+                    { mode: 'baseline', phase: 'pack', config: packedConfig },
+                    { mode: 'candidate', phase: 'publish', config: originalConfig },
+                    { mode: 'candidate', phase: 'pack', config: packedConfig }
                 ]
             );
         } finally {
