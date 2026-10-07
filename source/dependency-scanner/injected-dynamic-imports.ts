@@ -329,18 +329,16 @@ function callSiteImportsArgument(
         objectLiteralPropertyImportsArgument(objectLiteral, input.propertyName, input.importArgumentIndex);
 }
 
-function sourceFileHasImportingCallSite(
-    sourceFile: Readonly<SourceFile>,
-    input: Readonly<InjectedImportCall>
-): boolean {
-    return sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression).some(function (callExpression) {
-        return callSiteImportsArgument(callExpression, input);
-    });
-}
-
 function projectHasImportingCallSite(input: Readonly<InjectedImportCall>): boolean {
-    return input.functionDeclaration.getProject().getSourceFiles().some(function (sourceFile) {
-        return sourceFileHasImportingCallSite(sourceFile, input);
+    return input.functionDeclaration.findReferencesAsNodes().some(function (reference) {
+        const containingCall = reference.asKind(SyntaxKind.CallExpression) ??
+            reference.getFirstAncestorByKind(SyntaxKind.CallExpression);
+        const calls = containingCall === undefined
+            ? reference.getDescendantsOfKind(SyntaxKind.CallExpression)
+            : [ containingCall ];
+        return calls.some(function (callExpression) {
+            return callSiteImportsArgument(callExpression, input);
+        });
     });
 }
 
