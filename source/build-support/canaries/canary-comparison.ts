@@ -112,7 +112,12 @@ function compareExport(
             message: runtimeFailureMessage(packageName, baseline.specifier, '', candidate.runtimeImportError)
         });
     }
-    const exportIssues = missingValues(baseline.runtimeExportNames, candidate.runtimeExportNames)
+    const exportIssues = missingValues(
+        baseline.runtimeImportError.length === 0 && candidate.runtimeImportError.length === 0
+            ? baseline.runtimeExportNames
+            : [],
+        candidate.runtimeExportNames
+    )
         .map(function (name) {
             return {
                 kind: 'regression' as const,
