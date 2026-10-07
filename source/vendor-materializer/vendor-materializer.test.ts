@@ -331,14 +331,15 @@ function registerMaterializationTests(): void {
         ]);
     });
 
-    test('deduplicates packages so the same name is materialized at most once even when referenced from multiple dependencies', async function () {
+    test('deduplicates the same installed package referenced from multiple dependencies', async function () {
         const truthyReadability = { value: { isReadable: true } } as const;
         const result = await runWith(
             {
-                readabilities: [ truthyReadability, truthyReadability, truthyReadability ],
+                readabilities: [ truthyReadability, truthyReadability, truthyReadability, truthyReadability ],
                 realPaths: [
                     { value: '/repo/node_modules/a' },
                     { value: '/repo/node_modules/b' },
+                    { value: '/repo/node_modules/shared' },
                     { value: '/repo/node_modules/shared' }
                 ],
                 listings: [
