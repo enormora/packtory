@@ -24,6 +24,7 @@ async function buildPackage(input: BuildPackageInput): Promise<BuiltPackage> {
         name: input.name,
         version: input.version,
         sourcesFolder: input.sourcesFolder,
+        surface: { mode: 'explicit', packageInterface: { modules: [ { export: '.', root: 'main' } ] } },
         roots: { main: { js: path.join(input.sourcesFolder, input.entryFileName) } },
         mainPackageJson: input.mainPackageJson,
         includeSourceMapFiles: false,

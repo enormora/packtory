@@ -6,7 +6,7 @@ import {
     linkedBundle as linkedBundleFixture
 } from '../test-libraries/bundle-fixtures.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
-import { findAllPathReplacements, type ImportPathReplacementRequest } from './replacement-lookup.ts';
+import { type ImportPathReplacementRequest, createPathReplacementLookup } from './replacement-lookup.ts';
 
 function rootFile(inputFilePath: string, targetFilePath: string): BundleSubstitutionSource['roots'][string]['js'] {
     return {
@@ -76,7 +76,7 @@ function namespaceRequest(inputFilePath: string): ImportPathReplacementRequest {
 }
 
 function assertReplacement(requests: readonly ImportPathReplacementRequest[], bundle: BundleSubstitutionSource): void {
-    const result = findAllPathReplacements(requests, [], [ bundle ]);
+    const result = createPathReplacementLookup([], [ bundle ])(requests);
 
     assert.deepStrictEqual(
         result.importPathReplacements.get('/b/internal.d.ts') ?? result.importPathReplacements.get('/b/internal.js'),
@@ -86,7 +86,7 @@ function assertReplacement(requests: readonly ImportPathReplacementRequest[], bu
 
 function assertRejected(requests: readonly ImportPathReplacementRequest[], bundle: BundleSubstitutionSource): void {
     assert.throws(function () {
-        findAllPathReplacements(requests, [], [ bundle ]);
+        createPathReplacementLookup([], [ bundle ])(requests);
     }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.(?:d\.ts|js)" for cross-package substitution$/u);
 }
 

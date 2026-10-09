@@ -32,6 +32,7 @@ async function buildSharedLicensePackage(
         name: packageName,
         version: '1.0.0',
         sourcesFolder: fixture.sourcesFolder,
+        surface: { mode: 'explicit', packageInterface: { modules: [ { export: '.', root: 'main' } ] } },
         roots: { main: { js: path.join(fixture.sourcesFolder, rootFileName) } },
         mainPackageJson: fixture.mainPackageJson,
         includeSourceMapFiles: false,

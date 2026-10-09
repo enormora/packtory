@@ -1,18 +1,17 @@
 import path from 'node:path';
 import parsePackageArgument from 'npm-package-arg';
-import { Result } from 'true-myth';
-import { tryOr } from 'true-myth/result';
+import { Result, tryOr } from 'true-myth/result';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import {
     ancestorInstalledDependencyPathCandidates,
-    bundledInstalledDependencyPath,
     installedDependenciesFolderName,
     packageManifestPathIn
 } from '../common/package-layout.ts';
 import { createWorklist, type Worklist } from '../common/worklist.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VendorEntry } from './vendor-entry.ts';
+import { createVendorPackageLocations, type VendorPackageLocations } from './vendor-package-locations.ts';
 
 export const vendorMaterializerFailureType = {
     dependencyNotFound: 'dependency-not-found',
@@ -101,16 +100,19 @@ function packageManifestSchema(): z.ZodMiniType<{
     });
 }
 
-type QueueItem = {
-    readonly name: string;
+type DependencySource = {
     readonly fromFolder: string;
-    readonly required: boolean;
+    readonly targetFolder: string;
     readonly sourcePackageName: string | undefined;
 };
 
-type VisitedPackageRegistry = {
+type QueueItem = DependencySource & {
+    readonly name: string;
+    readonly required: boolean;
+};
+
+type MaterializedPackageNames = {
     readonly add: (name: string) => unknown;
-    readonly has: (name: string) => boolean;
     readonly [Symbol.iterator]: () => IterableIterator<string>;
 };
 
@@ -120,12 +122,14 @@ type VendorEntryCollection = {
 };
 
 type PeerRequirementRegistry = {
+    readonly get: (packageName: string) => readonly string[] | undefined;
     readonly set: (packageName: string, peerDependencyNames: readonly string[]) => unknown;
     readonly [Symbol.iterator]: () => IterableIterator<readonly [string, readonly string[]]>;
 };
 
 type Closure = {
-    readonly visited: VisitedPackageRegistry;
+    readonly packageNames: MaterializedPackageNames;
+    readonly packageLocations: VendorPackageLocations;
     readonly entries: VendorEntryCollection;
     readonly pendingPackages: Worklist<QueueItem>;
     readonly peerRequirements: PeerRequirementRegistry;
@@ -187,6 +191,7 @@ type PackageDirectoryEntry = Awaited<ReturnType<FileWalkerDependencies['listDire
 type PackageDirectoryWalk = {
     readonly rootDirectory: string;
     readonly packageName: string;
+    readonly targetDirectory: string;
 };
 type PackageDirectoryState = {
     readonly packageDirectory: PackageDirectoryWalk;
@@ -199,7 +204,10 @@ async function collectPackageFileEntry(
     relativeEntryPath: string
 ): Promise<void> {
     const sourceAbsolutePath = path.join(state.packageDirectory.rootDirectory, relativeEntryPath);
-    const targetRelativePath = bundledInstalledDependencyPath(state.packageDirectory.packageName, relativeEntryPath);
+    const targetRelativePath = path.posix.join(
+        state.packageDirectory.targetDirectory,
+        relativeEntryPath.split(path.sep).join('/')
+    );
     const fileDescription = await walker.getTransferableFileDescriptionFromPath(
         sourceAbsolutePath,
         targetRelativePath
@@ -326,35 +334,34 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
 
     function queueItem(
         name: string,
-        fromFolder: string,
-        sourcePackageName: string | undefined,
+        source: DependencySource,
         required: boolean
     ): QueueItem {
-        return { name, fromFolder, required, sourcePackageName };
+        return { name, ...source, required };
     }
 
     function scheduleManifestDependencies(
         closure: Closure,
-        name: string,
-        realPath: string,
+        source: DependencySource,
         summary: ParsedManifestSummary
     ): void {
         closure.pendingPackages.scheduleAll(summary.dependencies.map(function (dependencyName) {
-            return queueItem(dependencyName, realPath, name, true);
+            return queueItem(dependencyName, source, true);
         }));
         closure.pendingPackages.scheduleAll(summary.peers.map(function (dependencyName) {
-            return queueItem(dependencyName, realPath, name, false);
+            return queueItem(dependencyName, source, false);
         }));
     }
 
     async function collectVendorEntries(
         packageName: string,
-        realPath: string
+        realPath: string,
+        targetDirectory: string
     ): Promise<Result<readonly VendorEntry[], SymlinkTargetOutsidePackageFailure>> {
         const collected: VendorEntry[] = [];
         const walkResult = await walkPackageDirectory(
             fileManager,
-            { packageDirectory: { rootDirectory: realPath, packageName }, collected },
+            { packageDirectory: { rootDirectory: realPath, packageName, targetDirectory }, collected },
             ''
         );
         if (walkResult.isErr) {
@@ -386,16 +393,29 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
     async function ingestResolvedPackage(
         closure: Closure,
         name: string,
-        realPath: string
+        realPath: string,
+        targetDirectory: string
     ): Promise<Result<undefined, VendorMaterializerFailure>> {
         const summaryResult = await readManifestSummary(name, realPath);
         if (summaryResult.isErr) {
             return Result.err(summaryResult.error);
         }
 
-        scheduleManifestDependencies(closure, name, realPath, summaryResult.value);
-        closure.peerRequirements.set(name, summaryResult.value.peers);
-        const collectedResult = await collectVendorEntries(name, realPath);
+        scheduleManifestDependencies(closure, {
+            fromFolder: realPath,
+            targetFolder: targetDirectory,
+            sourcePackageName: name
+        }, summaryResult.value);
+        closure.peerRequirements.set(
+            name,
+            Array.from(
+                new Set([
+                    ...closure.peerRequirements.get(name) ?? [],
+                    ...summaryResult.value.peers
+                ])
+            )
+        );
+        const collectedResult = await collectVendorEntries(name, realPath, targetDirectory);
         if (collectedResult.isErr) {
             return Result.err(collectedResult.error);
         }
@@ -408,10 +428,6 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         closure: Closure,
         item: QueueItem
     ): Promise<Result<undefined, VendorMaterializerFailure>> {
-        if (closure.visited.has(item.name)) {
-            return Result.ok(undefined);
-        }
-
         const realPath = await findPackageRealPath(item.name, item.fromFolder);
         if (realPath === undefined) {
             if (item.required) {
@@ -424,8 +440,12 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             return Result.ok(undefined);
         }
 
-        closure.visited.add(item.name);
-        return ingestResolvedPackage(closure, item.name, realPath);
+        const location = closure.packageLocations.locate({ ...item, realPath });
+        if (location.alreadyCollected) {
+            return Result.ok(undefined);
+        }
+        closure.packageNames.add(item.name);
+        return ingestResolvedPackage(closure, item.name, realPath, location.directory);
     }
 
     async function drainPendingPackages(closure: Closure): Promise<Result<undefined, VendorMaterializerFailure>> {
@@ -458,12 +478,17 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             }
             const entries: VendorEntry[] = [];
             const closure: Closure = {
-                visited: new Set<string>(),
+                packageNames: new Set<string>(),
+                packageLocations: createVendorPackageLocations(),
                 entries,
                 pendingPackages: createWorklist<QueueItem>(
                     options.dependencySources.flatMap(function (source) {
                         return source.initialDependencyNames.map(function (name) {
-                            return queueItem(name, source.projectFolder, undefined, true);
+                            return queueItem(name, {
+                                fromFolder: source.projectFolder,
+                                targetFolder: '',
+                                sourcePackageName: undefined
+                            }, true);
                         });
                     })
                 ),
@@ -475,7 +500,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             }
             return Result.ok({
                 entries: Array.from(closure.entries),
-                packageNames: Array.from(closure.visited),
+                packageNames: Array.from(closure.packageNames),
                 peerRequirements: new Map(closure.peerRequirements)
             });
         }

@@ -2,7 +2,7 @@ import type { ExportDeclaration, ImportDeclaration, SourceFile } from 'ts-morph'
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import {
-    findAllPathReplacements,
+    createPathReplacementLookup,
     ownsSourcePath,
     type ImportPathReplacementRequest,
     type Replacements
@@ -226,6 +226,7 @@ export function substituteDependencies(
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): SubstitutedResourceGraph {
+    const findPathReplacements = createPathReplacementLookup(bundleDependencies, bundlePeerDependencies);
     const substitutedGraph = createSubstitutedResourceGraph();
     const outstandingConnections: OutstandingConnection[] = [];
     const visited = new Set<string>();
@@ -244,11 +245,7 @@ export function substituteDependencies(
         }
 
         const directDependencies = Array.from(node.adjacentNodeIds);
-        const replacements = findAllPathReplacements(
-            collectImportRequirements(node),
-            bundleDependencies,
-            bundlePeerDependencies
-        );
+        const replacements = findPathReplacements(collectImportRequirements(node));
         recordUnreplacedConnections(
             outstandingConnections,
             node.id,

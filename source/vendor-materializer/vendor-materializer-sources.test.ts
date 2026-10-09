@@ -6,8 +6,14 @@ import { createVendorMaterializer } from './vendor-materializer.ts';
 suite('vendor-materializer dependency sources', function () {
     test('resolves installed dependencies from each source folder in one deduplicated closure', async function () {
         const fileManager = setupFileManager({
-            readabilities: [ { value: { isReadable: true } }, { value: { isReadable: true } } ],
-            realPaths: [ { value: '/repo/a/node_modules/first' }, { value: '/repo/b/node_modules/second' } ],
+            readabilities: Array.from({ length: 3 }, function () {
+                return { value: { isReadable: true } };
+            }),
+            realPaths: [
+                { value: '/repo/a/node_modules/first' },
+                { value: '/repo/b/node_modules/second' },
+                { value: '/repo/a/node_modules/first' }
+            ],
             listings: [
                 { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
                 { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] }

@@ -10,6 +10,13 @@ export const expectedFirstPackageVersion = {
                     '.': {
                         import: './entry1.js',
                         types: './entry1.d.ts'
+                    },
+                    './foo.d.ts': {
+                        types: './foo.d.ts'
+                    },
+                    './qux.js': {
+                        import: './qux.js',
+                        types: './qux.d.ts'
                     }
                 },
                 name: 'first',
@@ -43,6 +50,11 @@ export const expectedFirstPackageVersion = {
             isExecutable: false,
             content: 'export type Baz = number;\n',
             filePath: 'package/baz.d.ts'
+        },
+        {
+            isExecutable: false,
+            content: 'export declare const qux: string;\n',
+            filePath: 'package/qux.d.ts'
         }
     ]
 } as const;
@@ -53,6 +65,9 @@ export const expectedSecondPackageFirstRunVersion = {
         {
             isExecutable: false,
             content: serializePackageJson({
+                dependencies: {
+                    first: '0.0.1'
+                },
                 exports: {
                     '.': {
                         import: './entry2.js',
@@ -73,16 +88,15 @@ export const expectedSecondPackageFirstRunVersion = {
         },
         {
             isExecutable: false,
-            content: "import { qux } from './qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n",
+            content:
+                "import { qux } from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n",
             filePath: 'package/bar.js'
         },
-        expectedFirstPackageVersion.files[2],
         {
             isExecutable: false,
-            content: "export type { Foo } from './foo.js';\nexport declare const foo: Foo;\n",
+            content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n",
             filePath: 'package/entry2.d.ts'
-        },
-        ...expectedFirstPackageVersion.files.slice(4)
+        }
     ]
 } as const;
 
@@ -92,6 +106,9 @@ export const expectedSecondPackageSecondRunVersion = {
         {
             isExecutable: false,
             content: serializePackageJson({
+                dependencies: {
+                    first: '0.0.1'
+                },
                 exports: {
                     '.': {
                         import: './entry2.js',
@@ -113,15 +130,13 @@ export const expectedSecondPackageSecondRunVersion = {
         {
             isExecutable: false,
             content:
-                "import { qux } from './qux.js';\nexport const bar = 'bar-changed';\n//# sourceMappingURL=bar.js.map\n",
+                "import { qux } from 'first/qux.js';\nexport const bar = 'bar-changed';\n//# sourceMappingURL=bar.js.map\n",
             filePath: 'package/bar.js'
         },
-        expectedFirstPackageVersion.files[2],
         {
             isExecutable: false,
-            content: "export type { Foo } from './foo.js';\nexport declare const foo: Foo;\n",
+            content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n",
             filePath: 'package/entry2.d.ts'
-        },
-        ...expectedFirstPackageVersion.files.slice(4)
+        }
     ]
 } as const;

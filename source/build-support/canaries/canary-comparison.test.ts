@@ -83,6 +83,34 @@ suite('canary-comparison', function () {
         ]);
     });
 
+    test('reports failed imports without inventing runtime export removals', function () {
+        const result = compareCanaryApis(
+            inspection({
+                publicExports: [ {
+                    runtimeExportNames: [ 'api' ],
+                    runtimeImportError: '',
+                    specifier: 'pkg',
+                    typeExportNames: { namespace: [], type: [ 'Options' ], value: [] }
+                } ]
+            }),
+            inspection({
+                publicExports: [ {
+                    runtimeExportNames: [],
+                    runtimeImportError: 'source stack',
+                    specifier: 'pkg',
+                    typeExportNames: emptyTypeExports
+                } ]
+            })
+        );
+        assert.deepStrictEqual(result.issues, [
+            {
+                kind: 'regression',
+                message: 'Package "pkg" export "pkg" fails runtime import checks.\n\nsource error:\nsource stack'
+            },
+            { kind: 'regression', message: 'Package "pkg" export "pkg" is missing type export "Options"' }
+        ]);
+    });
+
     test('compareCanaryApis reports missing bin targets', function () {
         const result = compareCanaryApis(
             inspection({ binTargets: [ 'pkg -> ./cli.js' ] }),

@@ -6,7 +6,7 @@ import {
 } from '../common/declaration-companion-paths.ts';
 import { bfsClosure, type BfsClosureDependencies } from '../dead-code-eliminator/reachability/bfs-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
-import { rootInputFilePaths } from '../package-surface/package-surface-index.ts';
+import { indexPublicModules, rootInputFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
 import { getRoot } from '../package-surface/root-registry.ts';
 import { toPackageSpecifier } from '../package-surface/specifier-syntax.ts';
@@ -32,6 +32,11 @@ export type Replacements = {
 type ReplacementMatch = {
     readonly bundle: BundleSubstitutionSource;
     readonly replacement: ImportPathReplacement;
+};
+
+type DependencyModules = {
+    readonly bundle: BundleSubstitutionSource;
+    readonly specifierByInputFilePath: ReadonlyMap<string, string>;
 };
 
 export function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
@@ -352,15 +357,12 @@ function findReplacementInBundles(
 
 function findReplacement(
     request: ImportPathReplacementRequest,
-    bundleDependencies: readonly BundleSubstitutionSource[],
+    dependencyModules: readonly DependencyModules[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): ReplacementMatch | undefined {
-    const dependencyReplacement = bundleDependencies
-        .flatMap(function (bundle) {
-            const emittedSpecifier = getPublicModuleSpecifierForSourcePath(
-                { ...bundle, contents: [] },
-                request.inputFilePath
-            );
+    const dependencyReplacement = dependencyModules
+        .flatMap(function ({ bundle, specifierByInputFilePath }) {
+            const emittedSpecifier = specifierByInputFilePath.get(request.inputFilePath);
             return emittedSpecifier === undefined
                 ? []
                 : [ { bundle, replacement: { emittedSpecifier, packageName: bundle.name } } ];
@@ -440,9 +442,9 @@ function withSubstitutedSourcePaths(
     return updated;
 }
 
-export function findAllPathReplacements(
+function findPathReplacements(
     requests: readonly ImportPathReplacementRequest[],
-    bundleDependencies: readonly BundleSubstitutionSource[],
+    dependencyModules: readonly DependencyModules[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
     const importPathReplacements = new Map<string, ImportPathReplacement>();
@@ -460,7 +462,7 @@ export function findAllPathReplacements(
     }
 
     for (const request of requests) {
-        const replacement = findReplacement(request, bundleDependencies, bundlePeerDependencies);
+        const replacement = findReplacement(request, dependencyModules, bundlePeerDependencies);
         if (replacement !== undefined) {
             recordReplacement(replacement, request);
         }
@@ -470,5 +472,17 @@ export function findAllPathReplacements(
         importPathReplacements,
         bundleDependencies: matchedBundleDependencies,
         substitutedInputFilePathsByPackageName
+    };
+}
+
+export function createPathReplacementLookup(
+    bundleDependencies: readonly BundleSubstitutionSource[],
+    bundlePeerDependencies: readonly BundleSubstitutionSource[]
+): (requests: readonly ImportPathReplacementRequest[]) => Replacements {
+    const dependencyModules = bundleDependencies.map(function indexDependencyModules(bundle) {
+        return { bundle, specifierByInputFilePath: indexPublicModules(bundle).specifierByInputFilePath };
+    });
+    return function (requests) {
+        return findPathReplacements(requests, dependencyModules, bundlePeerDependencies);
     };
 }

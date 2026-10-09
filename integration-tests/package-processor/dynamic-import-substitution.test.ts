@@ -20,6 +20,7 @@ async function buildPackage(input: BuildPackageInput): Promise<BuiltPackage> {
         name: input.name,
         version: input.version,
         sourcesFolder: input.sourcesFolder,
+        surface: { mode: 'explicit', packageInterface: { modules: [ { export: '.', root: 'main' } ] } },
         roots: { main: { js: input.rootInputFilePath } },
         mainPackageJson: await loadPackageJson(input.fixture),
         includeSourceMapFiles: false,

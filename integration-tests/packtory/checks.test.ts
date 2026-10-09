@@ -190,6 +190,7 @@ suite('checks', function () {
             packages: [
                 {
                     name: 'pkg-a',
+                    packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                     roots: {
                         main: {
                             js: path.join(fixturePath, 'src/a-entry.js'),
