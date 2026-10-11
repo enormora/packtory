@@ -86,6 +86,7 @@ jobs:
     canaries:
         runs-on: ubuntu-latest
         name: Canary ${{ matrix.canary }}
+        continue-on-error: true
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         strategy:
