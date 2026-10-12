@@ -186,6 +186,32 @@ set). The protocol and port are part of the comparison, so an `https` to
 `http` downgrade or a port change is rejected. The error names both
 origins so the mismatch is immediately diagnosable.
 
+The same origin check applies to every HTTP redirect before another request is
+sent. Redirects within the registry origin are supported, including relative
+locations. Cross-origin redirects, protocol downgrades, port changes, missing
+redirect locations, and chains longer than 20 redirects fail the download.
+
+Tarball downloads use the platform `fetch` implementation with the configured
+metadata authentication strategy. Anonymous access and automatic fallback to
+configured bearer or basic authentication remain supported. A 30-second deadline
+covers the request, redirects, authentication fallback, and response body.
+
+The download limit is 256 MiB. A larger declared `Content-Length` is rejected
+before reading the body; streamed bytes are also counted and the body is
+cancelled as soon as it exceeds the limit. Missing or understated length headers
+cannot bypass the limit.
+
+## Registry request protection
+
+Metadata, staged-version listings, and publishing reject HTTP redirects outside
+the configured registry origin before opening another connection. This includes
+protocol downgrades and port changes. Same-origin redirects remain supported.
+These requests retain npm's retry behavior and use the proxy environment variables,
+including `NO_PROXY`. Each registry request has a five-minute deadline, including
+npm retries and response reading.
+Successful metadata and staged-version listing responses are limited to 32 MiB of decompressed
+bytes, even without a length header.
+
 ## Tarball digest verification
 
 **Threat:** an attacker or broken registry serves tarball bytes that do
@@ -266,3 +292,17 @@ compliance mapping (NTIA Minimum Elements, EU CRA Annex I, SLSA, etc.)
 - When `provenance: { type: 'auto' }` is enabled, a coherence guarantee
   that `package.json#repository` matches the CI-detected source
   repository, enforced before signing.
+
+## Repository release controls
+
+Packtory's own CI rejects known npm advisories in its runtime dependency graph.
+The publish workflow installs from the lockfile without lifecycle scripts,
+verifies dependency signatures, and publishes with npm OIDC and provenance.
+Automatic release gating requires the checked-out commit to match the main HEAD
+whose CI status was checked; a mismatch fails before release analysis or output.
+
+Development dependencies use focused overrides where their owners still pin
+vulnerable versions, preserving the existing Mocha and Stryker integration.
+The remaining [`braces` advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+has no patched release; it is confined to
+Verdaccio's development storage dependency graph.
