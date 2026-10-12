@@ -48,7 +48,7 @@ const configuration = {
 async function startServer(server: Server, port: number): Promise<void> {
     return new Promise(function (resolve, reject) {
         server.once('error', reject);
-        server.listen(port, resolve);
+        server.listen(port, '127.0.0.1', resolve);
     });
 }
 
@@ -95,7 +95,7 @@ export type RegistryDetails = {
 
 async function startRegistry(server: Server, storageDirectory: string): Promise<RegistryDetails> {
     const port = await getPort();
-    const registryUrl = `http://localhost:${port}`;
+    const registryUrl = `http://127.0.0.1:${port}`;
     const credentials = `${username}:${password}`;
 
     await startServer(server, port);
