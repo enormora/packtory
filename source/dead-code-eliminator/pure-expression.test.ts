@@ -24,7 +24,9 @@ function initializerFromRealProject(content: string): Expression {
             esModuleInterop: true,
             module: ModuleKind.Node16,
             moduleResolution: ModuleResolutionKind.Node16,
-            target: ScriptTarget.ES2022
+            target: ScriptTarget.ES2022,
+            noLib: true,
+            types: []
         },
         skipLoadingLibFiles: true
     });

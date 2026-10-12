@@ -90,7 +90,9 @@ function createInvariantProject(): Project {
             module: ModuleKind.Node16,
             target: ScriptTarget.ES2022,
             moduleResolution: ModuleResolutionKind.Node16
-        }
+        },
+        skipLoadingLibFiles: true,
+        useInMemoryFileSystem: true
     });
 }
 
