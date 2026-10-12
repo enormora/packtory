@@ -11,6 +11,7 @@ import {
     type SmokeProbeInput
 } from '../packtory/published-artifact-smoke-gate.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { createProject } from './typescript-project.ts';
 import {
     analyzedBundle,
     analyzedBundleResource,
@@ -47,6 +48,7 @@ export function createContext(
     overrides: Partial<PublishedArtifactSmokeGateDependencies> = {}
 ): SmokeGateContext {
     const defaultDependencies: PublishedArtifactSmokeGateDependencies = {
+        createProject,
         collectContents,
         fileManager: {
             checkReadability: fake.resolves({ isReadable: true }),

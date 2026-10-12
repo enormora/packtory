@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { execFile, type ExecFileException } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { RealFileSystemHost } from '@ts-morph/common';
+import { InMemoryFileSystemHost, RealFileSystemHost, type FileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { getProxyForUrl } from 'proxy-from-env';
@@ -202,22 +202,27 @@ function buildBundleEmitter(
     });
 }
 
+function createDeadCodeEliminationProject(fileSystem: FileSystemHost): Project {
+    return new Project({
+        compilerOptions: {
+            allowJs: true,
+            module: ModuleKind.Node16,
+            esModuleInterop: true,
+            noLib: true,
+            target: ScriptTarget.ES2022,
+            moduleResolution: ModuleResolutionKind.Node16
+        },
+        skipLoadingLibFiles: true,
+        fileSystem
+    });
+}
+
 function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
         trace: undefined,
         createProject() {
-            return new Project({
-                compilerOptions: {
-                    allowJs: true,
-                    module: ModuleKind.Node16,
-                    esModuleInterop: true,
-                    noLib: true,
-                    target: ScriptTarget.ES2022,
-                    moduleResolution: ModuleResolutionKind.Node16
-                },
-                skipLoadingLibFiles: true
-            });
+            return createDeadCodeEliminationProject(new RealFileSystemHost());
         }
     });
 }
@@ -278,6 +283,9 @@ export function buildPackageProcessorComposition(
         deadCodeEliminator: parts.deadCodeEliminator,
         fileManager: parts.fileManager,
         publishedArtifactSmokeGate: createPublishedArtifactSmokeGate({
+            createProject() {
+                return createDeadCodeEliminationProject(new InMemoryFileSystemHost());
+            },
             collectContents: parts.artifactsBuilder.collectContents,
             fileManager: parts.fileManager,
             createTemporaryFolder,
