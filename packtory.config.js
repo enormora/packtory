@@ -186,7 +186,8 @@ export async function buildConfig() {
                         sourceFilePath: bootstrapNpmPackageReadmePath,
                         targetFilePath: 'readme.md'
                     }
-                ]
+                ],
+                bundleDependencies: [ 'packtory' ]
             }
         ]
     };
