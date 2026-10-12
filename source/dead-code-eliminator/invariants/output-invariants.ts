@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {
+    InMemoryFileSystemHost,
     ModuleKind,
     ModuleResolutionKind,
     Node as TsMorphNode,
@@ -87,12 +88,13 @@ function createInvariantProject(): Project {
     return new Project({
         compilerOptions: {
             allowJs: true,
+            lib: [],
+            types: [],
             module: ModuleKind.Node16,
             target: ScriptTarget.ES2022,
             moduleResolution: ModuleResolutionKind.Node16
         },
-        skipLoadingLibFiles: true,
-        useInMemoryFileSystem: true
+        fileSystem: new InMemoryFileSystemHost()
     });
 }
 
