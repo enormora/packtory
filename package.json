@@ -107,6 +107,23 @@
     },
     "overrides": {
         "@schema-hub/zod-error-formatter": "0.0.19",
+        "eslint-plugin-functional": {
+            "deepmerge-ts": "8.0.0"
+        },
+        "micromark-extension-math": {
+            "katex": "0.18.2"
+        },
+        "mocha": {
+            "diff": "8.0.3",
+            "serialize-javascript": "7.1.1"
+        },
+        "typed-rest-client": {
+            "qs": "6.16.0"
+        },
+        "verdaccio": {
+            "@verdaccio/hooks": "8.1.7",
+            "compression": "1.8.2"
+        },
         "yargs": "18.2.0"
     }
 }
