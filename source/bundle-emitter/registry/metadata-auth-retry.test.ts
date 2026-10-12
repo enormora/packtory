@@ -8,6 +8,7 @@ const tokenAuth = { type: 'bearer-token', token: 'abc' } as const;
 
 function authResolution(overrides: Partial<AuthResolution> = {}): AuthResolution {
     return {
+        authorization: undefined,
         allowsAutomaticRetry: false,
         registry: undefined,
         options: { alwaysAuth: true, registry: undefined },
@@ -38,7 +39,7 @@ suite('metadata-auth-retry', function () {
     test('retryWithFallbackAuth returns the run() result when it succeeds on the first attempt', async function () {
         const callOptions: NpmFetchOptions[] = [];
 
-        const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async function (options) {
+        const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async function ({ options }) {
             callOptions.push(options);
             return 'ok' as const;
         });
@@ -92,7 +93,7 @@ suite('metadata-auth-retry', function () {
         const result = await retryWithFallbackAuth(
             settings,
             authResolution({ allowsAutomaticRetry: true }),
-            async function (options) {
+            async function ({ options }) {
                 callOptions.push(options);
                 attempts += 1;
                 if (attempts === 1) {

@@ -31,6 +31,7 @@ const stagedVersionLookupRequiresTokenAuthMessage =
 
 function expectedBasicAuthOptionsResult(): AuthResolution {
     return {
+        authorization: `Basic ${basicEncoded}`,
         allowsAutomaticRetry: false,
         registry: undefined,
         options: {
@@ -78,6 +79,7 @@ suite('registry-auth-config', function () {
     suite('auth option building', function () {
         test('buildAuthOptions forces a bearer token when the strategy is bearer-token', function () {
             assert.deepStrictEqual(buildAuthOptions(tokenAuth, settings()), {
+                authorization: 'Bearer abc',
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }
@@ -86,6 +88,7 @@ suite('registry-auth-config', function () {
 
         test('buildAuthOptions encodes user:password as base64 when the strategy is basic', function () {
             assert.deepStrictEqual(buildAuthOptions(basicAuth, settings({ auth: basicAuth })), {
+                authorization: `Basic ${basicEncoded}`,
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: {
@@ -99,6 +102,7 @@ suite('registry-auth-config', function () {
 
         test('buildAuthOptions omits the email field when the basic auth strategy has no email', function () {
             assert.deepStrictEqual(buildAuthOptions({ type: 'basic', username: 'u', password: 'p' }, settings()), {
+                authorization: `Basic ${Buffer.from('u:p').toString('base64')}`,
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: {
@@ -121,6 +125,7 @@ suite('registry-auth-config', function () {
 
         test('resolveMetadataAuthOptions falls back to publish auth when no metadata mode is configured', function () {
             assert.deepStrictEqual(resolveMetadataAuthOptions(settings()), {
+                authorization: 'Bearer abc',
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }
@@ -129,6 +134,7 @@ suite('registry-auth-config', function () {
 
         test('resolveMetadataAuthOptions returns anonymous options with retry enabled when metadata mode is auto', function () {
             assert.deepStrictEqual(resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: 'auto' } }), {
+                authorization: undefined,
                 allowsAutomaticRetry: true,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined }
@@ -137,6 +143,7 @@ suite('registry-auth-config', function () {
 
         test('resolveMetadataAuthOptions returns anonymous options when publish auth is npm-oidc', function () {
             assert.deepStrictEqual(resolveMetadataAuthOptions({ auth: { type: 'npm-oidc' } }), {
+                authorization: undefined,
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined }
@@ -147,6 +154,7 @@ suite('registry-auth-config', function () {
             assert.deepStrictEqual(
                 resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: 'inherit-publish-auth' } }),
                 {
+                    authorization: 'Bearer abc',
                     allowsAutomaticRetry: false,
                     registry: undefined,
                     options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }
@@ -163,6 +171,7 @@ suite('registry-auth-config', function () {
 
         test('resolveMetadataAuthOptions returns anonymous options when auth is undefined', function () {
             assert.deepStrictEqual(resolveMetadataAuthOptions({}), {
+                authorization: undefined,
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined }
@@ -187,6 +196,7 @@ suite('registry-auth-config', function () {
                     auth: { publish: { type: 'npm-oidc' }, metadata: 'inherit-publish-auth' }
                 }),
                 {
+                    authorization: undefined,
                     allowsAutomaticRetry: false,
                     registry: undefined,
                     options: { alwaysAuth: true, registry: undefined }
@@ -210,6 +220,7 @@ suite('registry-auth-config', function () {
 
         test('resolveStageListingAuthOptions uses shorthand publish auth when it is token-based', function () {
             assert.deepStrictEqual(resolveStageListingAuthOptions({ auth: tokenAuth }), {
+                authorization: 'Bearer abc',
                 allowsAutomaticRetry: false,
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }

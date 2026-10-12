@@ -5,6 +5,7 @@ import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { binary, command, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
+import { getProxyForUrl } from 'proxy-from-env';
 import { loginWeb, webAuthOpener } from 'npm-profile';
 import open from 'open';
 import tar from 'tar-stream';
@@ -17,6 +18,8 @@ import {
 import { createPackagePublication, type WebOtpUrls } from '../../bootstrap-npm-package/package-publication.ts';
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
+import { createClock } from '../../common/clock.ts';
+import { withRegistryTransport } from '../../bundle-emitter/registry/registry-transport.ts';
 
 type WebAuthOpenerOptions = {
     readonly registry: string;
@@ -86,7 +89,17 @@ function createDependencies(): BootstrapRunnerDependencies {
             createPack: tar.pack
         }),
         webLogin: createWebLogin({ loginWeb, openInBrowser }),
-        packagePublication: createPackagePublication({ publish: libnpmpublishPublish }),
+        packagePublication: createPackagePublication({
+            async publish(manifest, tarball, options) {
+                return withRegistryTransport(
+                    { resolveProxy: getProxyForUrl, clock: createClock() },
+                    options,
+                    async function (requestOptions) {
+                        return libnpmpublishPublish(manifest, tarball, requestOptions);
+                    }
+                );
+            }
+        }),
         promptForOneTimePassword,
         log(message) {
             process.stdout.write(`${message}\n`);

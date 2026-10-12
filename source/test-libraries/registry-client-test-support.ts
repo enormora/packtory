@@ -25,7 +25,7 @@ type FetchSpyAssertions = {
     readonly secondCall: FetchSpyCall;
 };
 
-export type FakeNpmFetch = FetchSpyAssertions & {
+type FakeNpmFetch = FetchSpyAssertions & {
     (url: string, options?: unknown): Promise<{ readonly buffer: Readonly<SinonSpy>; }>;
     readonly json: Readonly<SinonSpy> & { readonly stream: Readonly<SinonSpy>; };
     readonly pickRegistry: Readonly<SinonSpy>;

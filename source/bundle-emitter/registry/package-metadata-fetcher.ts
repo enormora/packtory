@@ -1,4 +1,3 @@
-import type _npmFetch from 'npm-registry-fetch';
 import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
@@ -15,12 +14,10 @@ import {
     type AbbreviatedPackageResponse,
     type FullPackageResponse
 } from './registry-response-schemas.ts';
-import { assertTarballIntegrity, type TarballIntegrity } from './tarball-integrity.ts';
-import { assertTarballOriginMatchesRegistry } from './validate-tarball-host.ts';
+import type { TarballIntegrity } from './tarball-integrity.ts';
 
 const notFoundStatusCode = 404;
 const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
-const maxDownloadedTarballBytes = 268_435_456;
 
 export type PackageVersionDetails = {
     readonly version: string;
@@ -43,21 +40,6 @@ export type PackageVersionReleaseMetadata = PackageReleaseMetadata & {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value instanceof Object;
-}
-
-type BufferedRegistryResponse = {
-    readonly buffer: () => Promise<Buffer>;
-    readonly headers: { readonly get: (name: string) => string | null; } | undefined;
-};
-
-function assertDownloadedTarballSize(size: number): void {
-    if (size > maxDownloadedTarballBytes) {
-        throw new Error(`Refusing to download tarball larger than ${maxDownloadedTarballBytes} bytes`);
-    }
-}
-
-function assertContentLengthWithinDownloadLimit(response: BufferedRegistryResponse): void {
-    assertDownloadedTarballSize(Number(response.headers?.get('content-length')));
 }
 
 function isMissingPackageError(error: unknown): boolean {
@@ -136,10 +118,8 @@ type StagedPackageListResponse = {
 const stageListPageSize = 100;
 const maximumStageListPages = 1000;
 
-type NpmFetchResponse = Awaited<ReturnType<typeof _npmFetch>>;
 export type NpmFetch = {
-    (url: string, options?: NpmFetchOptions): Promise<NpmFetchResponse>;
-    readonly json: typeof _npmFetch.json;
+    readonly json: (url: string, options: NpmFetchOptions) => Promise<unknown>;
 };
 
 async function fetchPackageMetadataResponse<TPackageResponse extends Record<string, unknown>>(
@@ -149,7 +129,7 @@ async function fetchPackageMetadataResponse<TPackageResponse extends Record<stri
     request: PackageMetadataRequest<TPackageResponse>
 ): Promise<unknown> {
     const auth = resolveMetadataAuthOptions(registrySettings);
-    return retryWithFallbackAuth(registrySettings, auth, async function (options) {
+    return retryWithFallbackAuth(registrySettings, auth, async function ({ options }) {
         return npmFetch.json(`/${toRegistryPackagePath(packageName)}`, {
             ...options,
             headers: request.headers
@@ -370,22 +350,4 @@ export async function fetchStagedPackageVersions(
     }
 
     throw new Error(`Staged package listing exceeded ${maximumStageListPages} pages`);
-}
-
-export async function fetchPackageTarball(
-    npmFetch: NpmFetch,
-    tarballUrl: string,
-    tarballIntegrity: TarballIntegrity,
-    registrySettings: Readonly<RegistrySettings>
-): Promise<Buffer> {
-    assertTarballOriginMatchesRegistry(tarballUrl, registrySettings);
-    const auth = resolveMetadataAuthOptions(registrySettings);
-    const response = await retryWithFallbackAuth(registrySettings, auth, async function (options) {
-        return npmFetch(tarballUrl, options);
-    });
-    assertContentLengthWithinDownloadLimit(response);
-    const tarball = await response.buffer();
-    assertDownloadedTarballSize(tarball.length);
-    assertTarballIntegrity(tarball, tarballIntegrity);
-    return tarball;
 }
