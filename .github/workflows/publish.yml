@@ -67,6 +67,7 @@ jobs:
               if: ${{ !inputs.publish_now }}
               run: npx github-release-gate
               env:
+                  CHECKED_OUT_HEAD_SHA: ${{ steps.main-head.outputs.main_head_sha }}
                   CI_WORKFLOW_FILE: ci.yml
                   DEFAULT_BRANCH: main
                   DEPENDENCY_ONLY_MIN_AGE_DAYS: "7"
