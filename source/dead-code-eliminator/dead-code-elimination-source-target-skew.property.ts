@@ -15,7 +15,7 @@ import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 const sourceTargetSkewRuns = 25;
-const sourceTargetSkewChunks = 5;
+const sourceTargetSkewChunks = sourceTargetSkewRuns;
 const sourceTargetSkewRunsPerChunk = sourceTargetSkewRuns / sourceTargetSkewChunks;
 
 function sourceTargetSkewFailure(program: GeneratedDeadCodeEliminationProgram, error: unknown): Error {
