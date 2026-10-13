@@ -13,9 +13,7 @@ export function parsePackageManifest(manifestContent: string): Readonly<Record<s
 
 function packagePathsIn(value: unknown): readonly string[] {
     if (typeof value === 'string') {
-        return value.startsWith('./')
-            ? [ value.slice('./'.length) ]
-            : [ value ];
+        return [ value.startsWith('./') ? value.slice('./'.length) : value ];
     }
 
     if (typeof value === 'object' && value !== null) {

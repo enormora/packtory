@@ -26,29 +26,30 @@ export type ImportPathReplacementResult = {
 };
 
 function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacements): readonly LiteralEdit[] {
-    const edits: LiteralEdit[] = [];
     const literals = getModuleReferenceLiterals(sourceFile);
-    for (const literal of literals) {
+    const edits = literals.flatMap<LiteralEdit>(function replacementEdits(literal) {
         const resolvedFilePath = resolveTypescriptModuleFilePath({
             moduleSpecifier: literal.getLiteralValue(),
             containingSourceFile: sourceFile,
             resolutionMode: 'type'
         });
-        if (resolvedFilePath !== undefined) {
-            const replacement = replacements.get(resolvedFilePath);
-            if (replacement !== undefined) {
-                edits.push({
-                    start: literal.getStart() + 1,
-                    end: literal.getEnd() - 1,
-                    reference: {
-                        name: replacement.packageName,
-                        sourceSpecifier: literal.getLiteralValue(),
-                        emittedSpecifier: replacement.emittedSpecifier
-                    }
-                });
-            }
+        if (resolvedFilePath === undefined) {
+            return [];
         }
-    }
+        const replacement = replacements.get(resolvedFilePath);
+        if (replacement === undefined) {
+            return [];
+        }
+        return [ {
+            start: literal.getStart() + 1,
+            end: literal.getEnd() - 1,
+            reference: {
+                name: replacement.packageName,
+                sourceSpecifier: literal.getLiteralValue(),
+                emittedSpecifier: replacement.emittedSpecifier
+            }
+        } ];
+    });
     return edits.toSorted(function (left, right) {
         return left.start - right.start;
     });

@@ -1,4 +1,4 @@
-import { unique } from 'remeda';
+import { unique, uniqueBy } from 'remeda';
 
 export type DependencyReference = {
     readonly targetFilePath: string;
@@ -26,18 +26,9 @@ export type ExternalDependencies = ReadonlyMap<string, ExternalDependency>;
 function uniqueReferences(
     references: readonly DependencyReference[]
 ): readonly [DependencyReference, ...(readonly DependencyReference[])] | undefined {
-    const keys = new Set<string>();
-    const result: DependencyReference[] = [];
-
-    for (const reference of references) {
-        const key = `${reference.targetFilePath}\0${reference.sourceSpecifier}\0${reference.emittedSpecifier}`;
-        if (!keys.has(key)) {
-            keys.add(key);
-            result.push(reference);
-        }
-    }
-
-    const [ first, ...rest ] = result;
+    const [ first, ...rest ] = uniqueBy(references, function dependencyReferenceIdentity(reference) {
+        return `${reference.targetFilePath}\0${reference.sourceSpecifier}\0${reference.emittedSpecifier}`;
+    });
     return first === undefined ? undefined : [ first, ...rest ];
 }
 

@@ -61,7 +61,7 @@ suite('type-script-declaration-reachability', function () {
             rootPaths: new Set([ 'index.d.ts' ]),
             moduleSpecifiersOf(declarationPath) {
                 visited.push(declarationPath);
-                return declarationPath === 'index.d.ts' ? [ './leaf.js' ] : [ './index.js' ];
+                return [ declarationPath === 'index.d.ts' ? './leaf.js' : './index.js' ];
             }
         });
 

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isDefined } from 'remeda';
 import { packageManifestFilePath } from './package-layout.ts';
 
 export const pathTreeNodeType = {
@@ -95,14 +96,11 @@ function toNestedDirectoryEntry<T>(entry: PathEntry<T>): readonly [string, PathE
 function toDirectoryGroups<T>(entries: readonly PathEntry<T>[]): readonly MutableDirectory<T>[] {
     const groups = new Map<string, PathEntry<T>[]>();
 
-    for (const entry of entries) {
-        const nestedEntry = toNestedDirectoryEntry(entry);
-        if (nestedEntry !== undefined) {
-            const [ name, groupedEntry ] = nestedEntry;
-            const groupedEntries = groups.get(name) ?? [];
-            groupedEntries.push(groupedEntry);
-            groups.set(name, groupedEntries);
-        }
+    const nestedEntries = entries.map(toNestedDirectoryEntry).filter(isDefined);
+    for (const [ name, groupedEntry ] of nestedEntries) {
+        const groupedEntries = groups.get(name) ?? [];
+        groupedEntries.push(groupedEntry);
+        groups.set(name, groupedEntries);
     }
 
     return Array.from(groups, function ([ name, groupedEntries ]) {
