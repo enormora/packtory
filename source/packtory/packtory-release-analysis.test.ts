@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import vm from 'node:vm';
+import virtualMachine from 'node:vm';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
@@ -10,7 +10,7 @@ import {
     packageProcessorWithFailure,
     previousReleaseArtifactsFor,
     resolvedPackagesFor,
-    validatedReleaseConfigFor,
+    validatedReleaseConfigurationFor,
     type ReleaseFileCollection
 } from '../test-libraries/release-orchestrator-fixtures.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
@@ -29,13 +29,13 @@ import type { ResolvedPackage } from './resolved-package.ts';
 type PackageProcessor = ReleaseAnalysisOrchestratorDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
 type ReleaseAnalyzer = ReturnType<typeof createAnalyzeReleaseAgainstLatestPublishedValidated>;
-type AnalyzerSpec = {
+type AnalyzerSpecification = {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder']['collectContents'];
     readonly packageProcessor?: PackageProcessor;
 };
-type AnalyzePublishedBuildResultSpec = {
+type AnalyzePublishedBuildResultSpecification = {
     readonly collectContents: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder']['collectContents'];
     readonly status?: BuildAndPublishResult['status'];
 };
@@ -49,7 +49,7 @@ type PartialFailureMarker = {
 };
 type ReleaseAnalysisPartialFailure = Extract<ReleaseAnalysisFailure, PartialFailureMarker>;
 
-function createAnalyzer(input: AnalyzerSpec): ReleaseAnalyzer {
+function createAnalyzer(input: AnalyzerSpecification): ReleaseAnalyzer {
     return createAnalyzeReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(input));
 }
 
@@ -64,22 +64,28 @@ function expectPartialFailure(result: ReleaseAnalysisResult): ReleaseAnalysisPar
 function publishedBuildResultFor(status: BuildAndPublishResult['status'] = 'new-version'): BuildAndPublishResult {
     return buildResultFor({
         status,
-        packageName: 'pkg-a',
+        packageName: 'package-a',
         previousReleaseArtifacts: previousReleaseArtifactsFor({
             version: '1.0.0',
             publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-            files: [ { filePath: 'package.json', content: '{"name":"pkg-a","version":"1.0.0"}', isExecutable: false } ]
+            files: [ {
+                filePath: 'package.json',
+                content: '{"name":"package-a","version":"1.0.0"}',
+                isExecutable: false
+            } ]
         })
     });
 }
 
-async function analyzePublishedBuildResult(input: AnalyzePublishedBuildResultSpec): Promise<ReleaseAnalysisResult> {
+async function analyzePublishedBuildResult(
+    input: AnalyzePublishedBuildResultSpecification
+): Promise<ReleaseAnalysisResult> {
     const analyze = createAnalyzer({
-        packageNames: [ 'pkg-a' ],
+        packageNames: [ 'package-a' ],
         buildResults: [ publishedBuildResultFor(input.status) ],
         collectContents: input.collectContents
     });
-    const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+    const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
 
     return analyze(validated, async function () {
         return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
@@ -89,9 +95,9 @@ async function analyzePublishedBuildResult(input: AnalyzePublishedBuildResultSpe
 async function analyzePartialPublishFailure(
     collectContents: FileCollection
 ): Promise<ReleaseAnalysisPartialFailure> {
-    const validated = validatedReleaseConfigFor([ 'pkg-a', 'pkg-b' ]);
+    const validated = validatedReleaseConfigurationFor([ 'package-a', 'package-b' ]);
     const analyze = createAnalyzer({
-        packageNames: [ 'pkg-a', 'pkg-b' ],
+        packageNames: [ 'package-a', 'package-b' ],
         packageProcessor: packageProcessorWithFailure([ publishedBuildResultFor() ], new Error('publish failed')),
         collectContents
     });
@@ -104,14 +110,18 @@ async function analyzePartialPublishFailure(
 }
 
 function dependencyOnlyFiles(version: string): readonly DependencyOnlyFile[] {
-    return [ { filePath: 'package.json', content: `{"name":"pkg-a","version":"${version}"}`, isExecutable: false } ];
+    return [ {
+        filePath: 'package.json',
+        content: `{"name":"package-a","version":"${version}"}`,
+        isExecutable: false
+    } ];
 }
 
 suite('packtory-release-analysis', function () {
     test('runs dry-run publish analysis with staged publishing disabled', async function () {
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
         const analyze = createAnalyzer({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             packageProcessor: packageProcessorCheckingStage(false)
         });
 
@@ -124,11 +134,11 @@ suite('packtory-release-analysis', function () {
 
     test('passes non-partial resolve failures through unchanged', async function () {
         const analyze = createAnalyzer({ packageNames: [] });
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
 
         const result = await analyze(validated, async function () {
             return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
-                type: 'config',
+                type: 'configuration',
                 issues: [ 'bad' ]
             });
         });
@@ -137,13 +147,13 @@ suite('packtory-release-analysis', function () {
             assert.fail('Expected an error result');
         }
 
-        assert.strictEqual(result.error.type, 'config');
+        assert.strictEqual(result.error.type, 'configuration');
     });
 
     test('maps partial resolve failures to release-analysis partial failures with empty succeeded entries', async function () {
         const analyze = createAnalyzer({ packageNames: [] });
         const failure = new Error('resolve failed');
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
 
         const result = await analyze(validated, async function () {
             const resolvedPackages: readonly ResolvedPackage[] = [];
@@ -195,18 +205,18 @@ suite('packtory-release-analysis', function () {
 
     test('treats already-published packages without stored artifacts as unchanged', async function () {
         const analyze = createAnalyzer({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultFor({
                     status: 'already-published',
-                    packageName: 'pkg-a'
+                    packageName: 'package-a'
                 })
             ],
             collectContents() {
                 throw new Error('collectContents() should not be called');
             }
         });
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
 
         const result = await analyze(validated, async function () {
             return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
@@ -242,7 +252,7 @@ suite('packtory-release-analysis', function () {
         const partial = expectPartialFailure(
             await analyzePublishedBuildResult({
                 collectContents() {
-                    return vm.runInNewContext("throw 'collect failed'") as readonly {
+                    return virtualMachine.runInNewContext("throw 'collect failed'") as readonly {
                         readonly content: string;
                         readonly filePath: string;
                         readonly isExecutable: false;

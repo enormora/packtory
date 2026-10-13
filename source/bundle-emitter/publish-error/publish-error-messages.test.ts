@@ -5,8 +5,8 @@ import {
     buildMissingProvenanceFileMessage,
     buildProvenanceDigestMismatchMessage,
     buildUnsupportedProviderMessage,
-    githubActionsIdTokenMessage,
-    gitlabSigstoreIdTokenMessage,
+    githubActionsIdentifierTokenMessage,
+    gitlabSigstoreIdentifierTokenMessage,
     unsupportedProviderMarker
 } from './publish-error-messages.ts';
 
@@ -15,12 +15,12 @@ suite('publish-error-messages', function () {
         assert.strictEqual(unsupportedProviderMarker, 'not supported for provider:');
     });
 
-    test('githubActionsIdTokenMessage references the id-token write permission', function () {
-        assert.ok(githubActionsIdTokenMessage.includes('permissions: id-token: write'));
+    test('githubActionsIdentifierTokenMessage references the id-token write permission', function () {
+        assert.ok(githubActionsIdentifierTokenMessage.includes('permissions: id-token: write'));
     });
 
-    test('gitlabSigstoreIdTokenMessage references the sigstore audience', function () {
-        assert.ok(gitlabSigstoreIdTokenMessage.includes('sigstore'));
+    test('gitlabSigstoreIdentifierTokenMessage references the sigstore audience', function () {
+        assert.ok(gitlabSigstoreIdentifierTokenMessage.includes('sigstore'));
     });
 
     test('buildUnsupportedProviderMessage embeds the detected CI name in the message', function () {

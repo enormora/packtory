@@ -8,7 +8,7 @@ import {
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedModules } from './source-file-references.ts';
 
-const packageJsonPath = '/package.json';
+const packageManifestPath = '/package.json';
 
 type SourceFileFixture = {
     readonly filePath: string;
@@ -21,7 +21,7 @@ type ResolutionOptions = {
 
 function expectReferencesToThrow(project: Project, filePath: string, expectedError: RegExp): void {
     assert.throws(function () {
-        getReferencedModules(project.getSourceFileOrThrow(filePath), packageJsonPath);
+        getReferencedModules(project.getSourceFileOrThrow(filePath), packageManifestPath);
     }, expectedError);
 }
 
@@ -31,7 +31,7 @@ suite('source-file-references', function () {
             const files = [ { filePath: 'main.ts', content: '' } ];
             const project = createProject({ withFiles: files });
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), []);
         });
@@ -40,7 +40,7 @@ suite('source-file-references', function () {
             const files = [ { filePath: 'main.ts', content: 'import fs from "fs";' } ];
             const project = createProject({ withFiles: files });
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), []);
         });
@@ -49,7 +49,7 @@ suite('source-file-references', function () {
             const files = [ { filePath: 'main.ts', content: 'import fs from "node:fs/promises";' } ];
             const project = createProject({ withFiles: files });
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), []);
         });
@@ -83,7 +83,7 @@ suite('source-file-references', function () {
         const project = createProject({ withFiles: files, ...options });
         const mainPath = files[0]?.filePath ?? '';
         const fooPath = files[1]?.filePath ?? '';
-        const result = getReferencedModules(project.getSourceFileOrThrow(mainPath), packageJsonPath);
+        const result = getReferencedModules(project.getSourceFileOrThrow(mainPath), packageManifestPath);
 
         assert.deepStrictEqual(moduleReferenceShapes(result), [
             { kind: 'local-code', filePath: project.getSourceFileOrThrow(fooPath).getFilePath() }
@@ -98,7 +98,7 @@ suite('source-file-references', function () {
             ]
         });
 
-        const result = getReferencedModules(project.getSourceFileOrThrow(importerPath), packageJsonPath);
+        const result = getReferencedModules(project.getSourceFileOrThrow(importerPath), packageManifestPath);
 
         assert.deepStrictEqual(moduleReferenceShapes(result), [ {
             kind: 'local-asset',
@@ -166,7 +166,7 @@ suite('source-file-references', function () {
 
         test('returns array with the resolved source file using a parent-relative import statement', function () {
             expectMainResolvesToFoo([
-                { filePath: '/src/main.ts', content: 'import { foo } from "../foo";' },
+                { filePath: '/source/main.ts', content: 'import { foo } from "../foo";' },
                 { filePath: '/foo.ts', content: 'export const foo = "";' }
             ]);
         });
@@ -210,7 +210,7 @@ suite('source-file-references', function () {
             ];
             const project = createProject({ withFiles: files });
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), [
                 { kind: 'local-code', filePath: project.getSourceFileOrThrow('foo.ts').getFilePath() },
@@ -243,7 +243,7 @@ suite('source-file-references', function () {
                 ]
             });
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                 kind: 'local-asset',
@@ -256,11 +256,11 @@ suite('source-file-references', function () {
         });
 
         test('returns local asset references for parent-relative wasm imports', function () {
-            expectLocalWasmReference('/src/main.ts', '../module.wasm');
+            expectLocalWasmReference('/source/main.ts', '../module.wasm');
         });
 
         test('returns local asset references for absolute wasm imports', function () {
-            expectLocalWasmReference('/src/main.ts', '/module.wasm');
+            expectLocalWasmReference('/source/main.ts', '/module.wasm');
         });
     });
 
@@ -277,7 +277,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/node_modules/foo/package.json', '{"name":"foo"}');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -291,7 +291,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/node_modules/foo/module.wasm', 'wasm');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -310,7 +310,7 @@ suite('source-file-references', function () {
                     'declare const foo: string; export default foo;'
                 );
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                     kind: 'external-package',
@@ -329,7 +329,7 @@ suite('source-file-references', function () {
                 project.createDirectory('/node_modules/@types/foo');
                 project.createSourceFile('/node_modules/@types/foo/index.d.ts', 'export type Foo = string;');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -350,7 +350,7 @@ suite('source-file-references', function () {
                     'declare const foo: string; export default foo;'
                 );
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                     kind: 'external-package',
@@ -367,7 +367,7 @@ suite('source-file-references', function () {
                 project.createDirectory('/node_modules/foo');
                 project.createSourceFile('/node_modules/foo/index.d.ts', 'export type Foo = string;');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                     kind: 'external-package',
@@ -384,7 +384,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/node_modules/foo.wasm', 'wasm');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -394,11 +394,14 @@ suite('source-file-references', function () {
 
             test('resolves package-owned wasm imports by walking up node_modules ancestors', function () {
                 const project = createProject({
-                    withFiles: [ { filePath: '/src/main.ts', content: 'import module from "foo/module.wasm";' } ]
+                    withFiles: [ { filePath: '/source/main.ts', content: 'import module from "foo/module.wasm";' } ]
                 });
                 project.createSourceFile('/node_modules/foo/module.wasm', 'wasm');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('/src/main.ts'), packageJsonPath);
+                const result = getReferencedModules(
+                    project.getSourceFileOrThrow('/source/main.ts'),
+                    packageManifestPath
+                );
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -412,7 +415,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/node_modules/@scope/foo/module.wasm', 'wasm');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -431,7 +434,7 @@ suite('source-file-references', function () {
                     'declare const foo: string; export default foo;'
                 );
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -450,13 +453,13 @@ suite('source-file-references', function () {
 
             test('throws when nested package-owned wasm imports cannot be found in any node_modules ancestor', function () {
                 const project = createProject({
-                    withFiles: [ { filePath: '/src/main.ts', content: 'import module from "foo/module.wasm";' } ]
+                    withFiles: [ { filePath: '/source/main.ts', content: 'import module from "foo/module.wasm";' } ]
                 });
 
                 expectReferencesToThrow(
                     project,
-                    '/src/main.ts',
-                    /^Error: Failed to resolve import "foo\/module\.wasm" in file "\/src\/main\.ts"$/u
+                    '/source/main.ts',
+                    /^Error: Failed to resolve import "foo\/module\.wasm" in file "\/source\/main\.ts"$/u
                 );
             });
 
@@ -480,7 +483,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/node_modules/@scope/foo/package.json', '{"name":"@scope/foo"}');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(
                     moduleReferenceShapes(result),
@@ -502,7 +505,7 @@ suite('source-file-references', function () {
                 });
                 project.createSourceFile('/package.json', '{"name":"fixture"}');
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                     kind: 'generated-manifest',
@@ -525,7 +528,7 @@ suite('source-file-references', function () {
                     }
                 ]);
 
-                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
                 assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                     kind: 'local-code',

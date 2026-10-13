@@ -10,7 +10,7 @@ function diffableArtifact(overrides: Partial<ArtifactEntry> = {}): ArtifactEntry
         path: 'a.js',
         sizeBytes: 0,
         kind: 'source',
-        sourcePath: '/src/a.js',
+        sourcePath: '/source/a.js',
         status: 'changed',
         badges: [ 'import-path-rewrite' ],
         ...overrides
@@ -33,7 +33,7 @@ async function alwaysRead(originalContent: string): Promise<(filePath: string) =
 suite('artifact-diff-builder', function () {
     test('buildDiffForArtifact returns undefined when the artifact is not diffable', async function () {
         const nonDiffable = diffableArtifact({ status: 'unchanged', badges: [] });
-        const result = await buildDiffForArtifact('pkg-a', nonDiffable, new Map(), async function () {
+        const result = await buildDiffForArtifact('package-a', nonDiffable, new Map(), async function () {
             return '';
         });
 
@@ -41,8 +41,11 @@ suite('artifact-diff-builder', function () {
     });
 
     test('buildDiffForArtifact returns undefined when the source path no longer matches the indexed artifact', async function () {
-        const index = bundleIndex('pkg-a', new Map([ [ 'a.js', { content: 'final', sourcePath: '/src/other.js' } ] ]));
-        const result = await buildDiffForArtifact('pkg-a', diffableArtifact(), index, async function () {
+        const index = bundleIndex(
+            'package-a',
+            new Map([ [ 'a.js', { content: 'final', sourcePath: '/source/other.js' } ] ])
+        );
+        const result = await buildDiffForArtifact('package-a', diffableArtifact(), index, async function () {
             return 'final';
         });
 
@@ -50,19 +53,27 @@ suite('artifact-diff-builder', function () {
     });
 
     test('buildDiffForArtifact returns undefined when the original and final content match exactly', async function () {
-        const index = bundleIndex('pkg-a', new Map([ [ 'a.js', { content: 'same-bytes', sourcePath: '/src/a.js' } ] ]));
-        const result = await buildDiffForArtifact('pkg-a', diffableArtifact(), index, await alwaysRead('same-bytes'));
+        const index = bundleIndex(
+            'package-a',
+            new Map([ [ 'a.js', { content: 'same-bytes', sourcePath: '/source/a.js' } ] ])
+        );
+        const result = await buildDiffForArtifact(
+            'package-a',
+            diffableArtifact(),
+            index,
+            await alwaysRead('same-bytes')
+        );
 
         assert.strictEqual(result, undefined);
     });
 
     test('buildDiffForArtifact returns hunks when the original and final content differ', async function () {
         const index = bundleIndex(
-            'pkg-a',
-            new Map([ [ 'a.js', { content: 'export const kept = 1;', sourcePath: '/src/a.js' } ] ])
+            'package-a',
+            new Map([ [ 'a.js', { content: 'export const kept = 1;', sourcePath: '/source/a.js' } ] ])
         );
         const result = await buildDiffForArtifact(
-            'pkg-a',
+            'package-a',
             diffableArtifact(),
             index,
             await alwaysRead('export const removed = 1;')

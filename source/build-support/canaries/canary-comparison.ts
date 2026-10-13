@@ -1,4 +1,8 @@
-import type { PackageApiInspection, PublicExportApi, TypeExportNames } from './package-api-inspection.ts';
+import type {
+    PackageApplicationProgrammingInterfaceInspection,
+    PublicExportApplicationProgrammingInterface,
+    TypeExportNames
+} from './package-application-programming-interface-inspection.ts';
 
 export type CanaryIssue = {
     readonly kind: 'baseline-rot' | 'regression' | 'warning';
@@ -9,16 +13,16 @@ export type CanaryComparison = {
     readonly issues: readonly CanaryIssue[];
 };
 
-type PackageLookup = ReadonlyMap<string, PackageApiInspection['packages'][number]>;
-type ExportLookup = ReadonlyMap<string, PublicExportApi>;
+type PackageLookup = ReadonlyMap<string, PackageApplicationProgrammingInterfaceInspection['packages'][number]>;
+type ExportLookup = ReadonlyMap<string, PublicExportApplicationProgrammingInterface>;
 
-function packageLookup(inspection: PackageApiInspection): PackageLookup {
+function packageLookup(inspection: PackageApplicationProgrammingInterfaceInspection): PackageLookup {
     return new Map(inspection.packages.map(function (entry) {
         return [ entry.name, entry ];
     }));
 }
 
-function exportLookup(exports: readonly PublicExportApi[]): ExportLookup {
+function exportLookup(exports: readonly PublicExportApplicationProgrammingInterface[]): ExportLookup {
     return new Map(exports.map(function (entry) {
         return [ entry.specifier, entry ];
     }));
@@ -78,11 +82,11 @@ function compareTypeNames(
     });
 }
 
-function compareBinTargets(
-    baselinePackage: PackageApiInspection['packages'][number],
-    candidatePackage: PackageApiInspection['packages'][number]
+function compareExecutableTargets(
+    baselinePackage: PackageApplicationProgrammingInterfaceInspection['packages'][number],
+    candidatePackage: PackageApplicationProgrammingInterfaceInspection['packages'][number]
 ): readonly CanaryIssue[] {
-    return missingValues(baselinePackage.binTargets, candidatePackage.binTargets).map(function (target) {
+    return missingValues(baselinePackage.executableTargets, candidatePackage.executableTargets).map(function (target) {
         return {
             kind: 'regression',
             message: `Package "${baselinePackage.name}" is missing bin target "${target}"`
@@ -92,8 +96,8 @@ function compareBinTargets(
 
 function compareExport(
     packageName: string,
-    baseline: PublicExportApi,
-    candidate: PublicExportApi
+    baseline: PublicExportApplicationProgrammingInterface,
+    candidate: PublicExportApplicationProgrammingInterface
 ): readonly CanaryIssue[] {
     const issues: CanaryIssue[] = [];
     if (baseline.runtimeImportError.length > 0) {
@@ -159,8 +163,8 @@ function baselineDiagnosticIssues(packageName: string, diagnostics: readonly str
 }
 
 function comparePackage(
-    baselinePackage: PackageApiInspection['packages'][number],
-    candidatePackage: PackageApiInspection['packages'][number] | undefined
+    baselinePackage: PackageApplicationProgrammingInterfaceInspection['packages'][number],
+    candidatePackage: PackageApplicationProgrammingInterfaceInspection['packages'][number] | undefined
 ): readonly CanaryIssue[] {
     if (candidatePackage === undefined) {
         return [
@@ -172,7 +176,7 @@ function comparePackage(
     }
     const candidateExports = exportLookup(candidatePackage.publicExports);
     const issues: CanaryIssue[] = [
-        ...compareBinTargets(baselinePackage, candidatePackage),
+        ...compareExecutableTargets(baselinePackage, candidatePackage),
         ...baselineDiagnosticIssues(baselinePackage.name, baselinePackage.typeDiagnostics),
         ...diagnosticIssues(
             baselinePackage.name,
@@ -197,9 +201,9 @@ function comparePackage(
     return issues;
 }
 
-export function compareCanaryApis(
-    baseline: PackageApiInspection,
-    candidate: PackageApiInspection
+export function compareCanaryApplicationProgrammingInterfaces(
+    baseline: PackageApplicationProgrammingInterfaceInspection,
+    candidate: PackageApplicationProgrammingInterfaceInspection
 ): CanaryComparison {
     const candidatePackages = packageLookup(candidate);
     return {

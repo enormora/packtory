@@ -12,9 +12,9 @@ type ExtractTarDependencies = {
 };
 
 type ExtractTarLimits = {
-    readonly maxEntryCount: number;
-    readonly maxEntryPathLength: number;
-    readonly maxExtractedBytes: number;
+    readonly maximumEntryCount: number;
+    readonly maximumEntryPathLength: number;
+    readonly maximumExtractedBytes: number;
 };
 
 type EntryContent = {
@@ -31,9 +31,9 @@ type ExtractionStreams = {
 
 function defaultExtractTarLimits(): ExtractTarLimits {
     return {
-        maxEntryCount: 50_000,
-        maxEntryPathLength: 4096,
-        maxExtractedBytes: 1_073_741_824
+        maximumEntryCount: 50_000,
+        maximumEntryPathLength: 4096,
+        maximumExtractedBytes: 1_073_741_824
     };
 }
 
@@ -60,22 +60,22 @@ type ErrorEmitter = {
 };
 
 function assertWithinEntryCountLimit(entries: readonly TarEntry[], limits: ExtractTarLimits): void {
-    if (entries.length >= limits.maxEntryCount) {
-        throw new Error(`Refusing to extract tarball with more than ${limits.maxEntryCount} entries`);
+    if (entries.length >= limits.maximumEntryCount) {
+        throw new Error(`Refusing to extract tarball with more than ${limits.maximumEntryCount} entries`);
     }
 }
 
 function assertWithinEntryPathLimit(entry: TarStreamEntry, limits: ExtractTarLimits): void {
-    if (entry.header.name.length > limits.maxEntryPathLength) {
+    if (entry.header.name.length > limits.maximumEntryPathLength) {
         throw new Error(
-            `Refusing to extract tarball entry with path longer than ${limits.maxEntryPathLength} characters`
+            `Refusing to extract tarball entry with path longer than ${limits.maximumEntryPathLength} characters`
         );
     }
 }
 
 function assertWithinExtractedSizeLimit(extractedBytes: number, limits: ExtractTarLimits): void {
-    if (extractedBytes > limits.maxExtractedBytes) {
-        throw new Error(`Refusing to extract tarball larger than ${limits.maxExtractedBytes} bytes`);
+    if (extractedBytes > limits.maximumExtractedBytes) {
+        throw new Error(`Refusing to extract tarball larger than ${limits.maximumExtractedBytes} bytes`);
     }
 }
 

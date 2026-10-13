@@ -1,14 +1,14 @@
-import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
-import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../../config/package-json.ts';
+import type { PackageConfiguration, PacktoryConfigurationWithoutRegistry } from '../../configuration/configuration.ts';
+import type { AdditionalPackageManifestAttributes, MainPackageManifest } from '../../configuration/package-manifest.ts';
 import {
     resolveDeadCodeEliminationSettings,
     type DeadCodeEliminationSettings
-} from '../../config/dead-code-elimination-settings.ts';
+} from '../../configuration/dead-code-elimination-settings.ts';
 import type { ResourceResolveOptions } from '../../resource-resolver/resource-resolve-options.ts';
 import { normalizeAdditionalFile } from '../normalize-paths.ts';
 import { getRequiredValue } from './required-value-helpers.ts';
 
-export type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
+export type PublishSettings = NonNullable<PackageConfiguration['publishSettings']>;
 
 type AdditionalFileDescription = Extract<
     ResourceResolveOptions['additionalFiles'][number],
@@ -16,40 +16,41 @@ type AdditionalFileDescription = Extract<
 >;
 
 export function resolveSourcesFolder(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): string {
     return getRequiredValue(
-        packageConfig.sourcesFolder ?? packtoryConfig.commonPackageSettings?.sourcesFolder,
-        `Config for package "${packageConfig.name}" is missing the sources folder`
+        packageConfiguration.sourcesFolder ?? packtoryConfiguration.commonPackageSettings?.sourcesFolder,
+        `Config for package "${packageConfiguration.name}" is missing the sources folder`
     );
 }
 
-export function resolveMainPackageJson(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): MainPackageJson {
+export function resolveMainPackageManifest(
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
+): MainPackageManifest {
     return getRequiredValue(
-        packageConfig.mainPackageJson ?? packtoryConfig.commonPackageSettings?.mainPackageJson,
-        `Config for package "${packageConfig.name}" is missing the main package.json settings`
+        packageConfiguration.mainPackageManifest ?? packtoryConfiguration.commonPackageSettings?.mainPackageManifest,
+        `Config for package "${packageConfiguration.name}" is missing the main package.json settings`
     );
 }
 
 export function resolvePublishSettings(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): PublishSettings {
     return getRequiredValue(
-        packageConfig.publishSettings ?? packtoryConfig.commonPackageSettings?.publishSettings,
-        `Config for package "${packageConfig.name}" is missing publish settings`
+        packageConfiguration.publishSettings ?? packtoryConfiguration.commonPackageSettings?.publishSettings,
+        `Config for package "${packageConfiguration.name}" is missing publish settings`
     );
 }
 
 export function resolveAllowMutableSpecifiers(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): readonly string[] {
-    const dependencyPolicy = packageConfig.dependencyPolicy ?? packtoryConfig.commonPackageSettings?.dependencyPolicy;
+    const dependencyPolicy = packageConfiguration.dependencyPolicy ??
+        packtoryConfiguration.commonPackageSettings?.dependencyPolicy;
     return dependencyPolicy?.allowMutableSpecifiers ?? [];
 }
 
@@ -59,30 +60,33 @@ export type AdditionalChangelogSourceFiles = {
 };
 
 export function resolveAdditionalChangelogSourceFiles(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): AdditionalChangelogSourceFiles {
     return {
-        packageFiles: packageConfig.additionalChangelogSourceFiles ?? [],
-        sharedFiles: packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []
+        packageFiles: packageConfiguration.additionalChangelogSourceFiles ?? [],
+        sharedFiles: packtoryConfiguration.commonPackageSettings?.additionalChangelogSourceFiles ?? []
     };
 }
 
-export function buildAdditionalPackageJsonAttributes(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): AdditionalPackageJsonAttributes {
+export function buildAdditionalPackageManifestAttributes(
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
+): AdditionalPackageManifestAttributes {
     return {
-        ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
-        ...packageConfig.additionalPackageJsonAttributes
+        ...packtoryConfiguration.commonPackageSettings?.additionalPackageManifestAttributes,
+        ...packageConfiguration.additionalPackageManifestAttributes
     };
 }
 
 export function resolveIncludeSourceMapFiles(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): boolean {
-    return packageConfig.includeSourceMapFiles ?? packtoryConfig.commonPackageSettings?.includeSourceMapFiles ?? false;
+    return packageConfiguration.includeSourceMapFiles ?? packtoryConfiguration
+        .commonPackageSettings
+        ?.includeSourceMapFiles ??
+        false;
 }
 
 function mergeAdditionalFilesByTarget(
@@ -97,13 +101,13 @@ function mergeAdditionalFilesByTarget(
 }
 
 export function resolveAdditionalFiles(
-    packageConfig: PackageConfig,
+    packageConfiguration: PackageConfiguration,
     sourcesFolder: string,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): readonly AdditionalFileDescription[] {
     const merged: readonly AdditionalFileDescription[] = mergeAdditionalFilesByTarget(
-        packtoryConfig.commonPackageSettings?.additionalFiles,
-        packageConfig.additionalFiles
+        packtoryConfiguration.commonPackageSettings?.additionalFiles,
+        packageConfiguration.additionalFiles
     );
     return merged.map(function (additionalFile) {
         return normalizeAdditionalFile(additionalFile, sourcesFolder);
@@ -111,11 +115,11 @@ export function resolveAdditionalFiles(
 }
 
 export function resolveDeadCodeElimination(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry
 ): DeadCodeEliminationSettings | undefined {
     return resolveDeadCodeEliminationSettings(
-        packageConfig.deadCodeElimination,
-        packtoryConfig.commonPackageSettings?.deadCodeElimination
+        packageConfiguration.deadCodeElimination,
+        packtoryConfiguration.commonPackageSettings?.deadCodeElimination
     );
 }

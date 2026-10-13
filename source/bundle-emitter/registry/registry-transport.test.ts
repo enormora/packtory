@@ -5,7 +5,7 @@ import { suite, test } from 'mocha';
 import { ProxyAgent } from 'proxy-agent';
 import { createStubInstance } from 'sinon';
 import { createFakeClock } from '../../test-libraries/fake-clock.ts';
-import { createRegistryJsonFetch, withRegistryTransport } from './registry-transport.ts';
+import { createRegistryJavaScriptObjectNotationFetch, withRegistryTransport } from './registry-transport.ts';
 
 const maximumMetadataBytes = 33_554_432;
 
@@ -21,8 +21,8 @@ suite('registry transport', function () {
         await withRegistryTransport(
             {
                 clock: createFakeClock(),
-                resolveProxy(url) {
-                    proxyRequests.push(url);
+                resolveProxy(address) {
+                    proxyRequests.push(address);
                     return '';
                 }
             },
@@ -73,16 +73,16 @@ suite('registry transport', function () {
 
     test('aborts the transport when reading metadata fails', async function () {
         const signals: AbortSignal[] = [];
-        const transport = createRegistryJsonFetch({
+        const transport = createRegistryJavaScriptObjectNotationFetch({
             clock: createFakeClock(),
             resolveProxy,
-            async npmFetch(_url, options) {
+            async npmFetch(_address, options) {
                 assert.ok(options.signal instanceof AbortSignal);
                 signals.push(options.signal);
                 return { body: Readable.from([ 'invalid chunk' ]) };
             }
         });
-        await assert.rejects(transport.json('/package', {}), /invalid body chunk/u);
+        await assert.rejects(transport.javaScriptObjectNotation('/package', {}), /invalid body chunk/u);
         assert.strictEqual(signals[0]?.aborted, true);
     });
 
@@ -95,28 +95,28 @@ suite('registry transport', function () {
         ]
     ) {
         test(`rejects an unreadable response body: ${description}`, async function () {
-            const transport = createRegistryJsonFetch({
+            const transport = createRegistryJavaScriptObjectNotationFetch({
                 clock: createFakeClock(),
                 resolveProxy,
                 async npmFetch() {
                     return { body };
                 }
             });
-            await assert.rejects(transport.json('/package', {}), /missing a readable body/u);
+            await assert.rejects(transport.javaScriptObjectNotation('/package', {}), /missing a readable body/u);
         });
     }
 
     test('accepts metadata at the byte limit and rejects the next byte', async function () {
         const bytes = Buffer.alloc(maximumMetadataBytes, ' ');
         bytes.write('{}');
-        const transport = createRegistryJsonFetch({
+        const transport = createRegistryJavaScriptObjectNotationFetch({
             clock: createFakeClock(),
             resolveProxy,
-            async npmFetch(url) {
-                return { body: Readable.from(url === '/at-limit' ? [ bytes ] : [ bytes, Buffer.from(' ') ]) };
+            async npmFetch(address) {
+                return { body: Readable.from(address === '/at-limit' ? [ bytes ] : [ bytes, Buffer.from(' ') ]) };
             }
         });
-        assert.deepStrictEqual(await transport.json('/at-limit', {}), {});
-        await assert.rejects(transport.json('/over-limit', {}), /Registry metadata exceeds/u);
+        assert.deepStrictEqual(await transport.javaScriptObjectNotation('/at-limit', {}), {});
+        await assert.rejects(transport.javaScriptObjectNotation('/over-limit', {}), /Registry metadata exceeds/u);
     });
 });

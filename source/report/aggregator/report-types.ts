@@ -9,7 +9,7 @@ import type {
     FileDecision,
     ImportRewrite,
     IncludedFile,
-    RedactedConfig,
+    RedactedConfiguration,
     StageName,
     VersionTrigger
 } from '../../progress/progress-broadcaster.ts';
@@ -28,7 +28,7 @@ type CrossBundleLink = {
 export type PackageReport = {
     readonly inputs?: {
         readonly roots: Readonly<Record<string, string>>;
-        readonly effectiveConfig?: RedactedConfig;
+        readonly effectiveConfiguration?: RedactedConfiguration;
         readonly siblingVersions: Readonly<Record<string, string>>;
         readonly sourceFileCount: number;
     };
@@ -44,7 +44,7 @@ export type PackageReport = {
         };
         readonly linker?: { readonly rewrites: readonly ImportRewrite[]; };
         readonly version?: VersionDecision;
-        readonly packageJson?: Readonly<Record<string, FieldProvenance>>;
+        readonly packageManifest?: Readonly<Record<string, FieldProvenance>>;
     };
     readonly outputs?: {
         readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number; };
@@ -71,13 +71,13 @@ export type MutablePackageReport = {
     readonly roots?: Inputs['roots'];
     readonly siblingVersions?: Inputs['siblingVersions'];
     readonly sourceFileCount?: Inputs['sourceFileCount'];
-    readonly effectiveConfig?: RedactedConfig;
+    readonly effectiveConfiguration?: RedactedConfiguration;
     readonly decisions: {
         readonly dependencyScan?: Required<PackageReport['decisions']['dependencyScan']>;
         readonly deadCodeElimination?: Required<PackageReport['decisions']['deadCodeElimination']>;
         readonly linker?: Required<PackageReport['decisions']['linker']>;
         readonly version?: Required<PackageReport['decisions']['version']>;
-        readonly packageJson?: Required<PackageReport['decisions']['packageJson']>;
+        readonly packageManifest?: Required<PackageReport['decisions']['packageManifest']>;
     };
     readonly outputs?: Required<PackageReport['outputs']>;
     readonly publication?: Required<PackageReport['publication']>;

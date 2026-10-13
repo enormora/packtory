@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import path from 'node:path';
-import fs from 'node:fs';
-import { tmpdir } from 'node:os';
-import { execFile } from 'node:child_process';
+import fileSystem from 'node:fs';
+import { tmpdir as temporaryDirectory } from 'node:os';
+import { execFile as executeFile } from 'node:child_process';
 import { suite, test } from 'mocha';
 import { z } from 'zod/mini';
 import { omit } from 'remeda';
@@ -10,10 +10,10 @@ import { createFileManager } from '../../source/file-manager/file-manager.ts';
 import {
     packPackage,
     resolveAndLinkAll,
-    type PacktoryConfig
+    type PacktoryConfiguration
 } from '../../source/packages/packtory/packtory.entry-point.ts';
 
-const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 const readArtifactText = fileManager.readFile;
 
 async function readManifest(packageFolder: string): Promise<Record<string, unknown>> {
@@ -21,7 +21,10 @@ async function readManifest(packageFolder: string): Promise<Record<string, unkno
     return z.record(z.string(), z.unknown()).parse(JSON.parse(content));
 }
 
-async function sharedPrivateConfig(projectFolder: string, allowList: readonly string[]): Promise<PacktoryConfig> {
+async function sharedPrivateConfiguration(
+    projectFolder: string,
+    allowList: readonly string[]
+): Promise<PacktoryConfiguration> {
     const sourcesFolder = path.join(projectFolder, 'source');
     await fileManager.writeFile(
         path.join(sourcesFolder, 'a.js'),
@@ -38,29 +41,29 @@ async function sharedPrivateConfig(projectFolder: string, allowList: readonly st
     return {
         commonPackageSettings: {
             sourcesFolder,
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' },
             deadCodeElimination: { enabled: false }
         },
         checks: { noDuplicatedFiles: { enabled: true, allowList } },
         packages: [
             {
-                name: 'pkg-a',
+                name: 'package-a',
                 packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                 roots: {
                     main: {
-                        js: path.join(sourcesFolder, 'a.js'),
+                        javaScript: path.join(sourcesFolder, 'a.js'),
                         declarationFile: path.join(sourcesFolder, 'a.d.ts')
                     }
                 },
-                bundleDependencies: [ 'pkg-b' ]
+                bundleDependencies: [ 'package-b' ]
             },
             {
-                name: 'pkg-b',
+                name: 'package-b',
                 packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                 roots: {
                     main: {
-                        js: path.join(sourcesFolder, 'b.js'),
+                        javaScript: path.join(sourcesFolder, 'b.js'),
                         declarationFile: path.join(sourcesFolder, 'b.d.ts')
                     }
                 }
@@ -70,36 +73,38 @@ async function sharedPrivateConfig(projectFolder: string, allowList: readonly st
 }
 
 async function importConsumerArtifact(artifactFolder: string): Promise<string> {
-    const consumerFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-consumer-'));
+    const consumerFolder = await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), 'packtory-consumer-'));
     try {
-        await fs.promises.cp(artifactFolder, path.join(consumerFolder, 'node_modules/pkg-a'), { recursive: true });
+        await fileSystem.promises.cp(artifactFolder, path.join(consumerFolder, 'node_modules/package-a'), {
+            recursive: true
+        });
         return await new Promise<string>(function (resolve, reject) {
-            execFile(
+            executeFile(
                 process.execPath,
                 [
                     '--input-type=module',
                     '-e',
-                    'const { answer, marker } = await import("pkg-a"); console.log(JSON.stringify([answer(), marker]));'
+                    'const { answer, marker } = await import("package-a"); console.log(JSON.stringify([answer(), marker]));'
                 ],
                 { cwd: consumerFolder, env: { NODE_PATH: '' }, timeout: 10_000 },
-                function (error, stdout) {
+                function (error, standardOutput) {
                     if (error instanceof Error) {
                         reject(error);
                         return;
                     }
-                    resolve(stdout.trim());
+                    resolve(standardOutput.trim());
                 }
             );
         });
     } finally {
-        await fs.promises.rm(consumerFolder, { recursive: true, force: true });
+        await fileSystem.promises.rm(consumerFolder, { recursive: true, force: true });
     }
 }
 
-async function verifySharedPrivateArtifact(config: PacktoryConfig, projectFolder: string): Promise<void> {
+async function verifySharedPrivateArtifact(configuration: PacktoryConfiguration, projectFolder: string): Promise<void> {
     const outputPath = path.join(projectFolder, 'artifact');
     const outcome = await packPackage({
-        ...config,
+        ...configuration,
         checks: {
             noDuplicatedFiles: {
                 enabled: true,
@@ -109,53 +114,53 @@ async function verifySharedPrivateArtifact(config: PacktoryConfig, projectFolder
                 ]
             }
         }
-    }, { packageName: 'pkg-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
+    }, { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     assert.strictEqual(
         await readArtifactText(path.join(outputPath, 'a.js')),
-        'export { answer } from "./shared.js";\nexport { marker } from "pkg-b";\n'
+        'export { answer } from "./shared.js";\nexport { marker } from "package-b";\n'
     );
     assert.strictEqual(
         await readArtifactText(path.join(outputPath, 'shared.d.ts')),
         'export declare function answer(): number;\n'
     );
-    const manifest = await readManifest(path.join(outputPath, 'node_modules/pkg-b'));
+    const manifest = await readManifest(path.join(outputPath, 'node_modules/package-b'));
     assert.deepStrictEqual(manifest.exports, { '.': { import: './b.js', types: './b.d.ts' } });
     assert.strictEqual(await importConsumerArtifact(outputPath), '[42,"bundled"]');
 }
 
 async function verifyDuplicationConsent(projectFolder: string): Promise<void> {
-    const config = await sharedPrivateConfig(projectFolder, []);
-    const rejected = await resolveAndLinkAll(config);
+    const configuration = await sharedPrivateConfiguration(projectFolder, []);
+    const rejected = await resolveAndLinkAll(configuration);
     assert.strictEqual(rejected.result.isErr, true);
     assert.partialDeepStrictEqual(rejected.result.error, { type: 'checks' });
-    await verifySharedPrivateArtifact(config, projectFolder);
+    await verifySharedPrivateArtifact(configuration, projectFolder);
 }
 
 async function verifyImplicitSharingArtifact(projectFolder: string): Promise<void> {
-    const explicitConfig = await sharedPrivateConfig(projectFolder, []);
+    const explicitConfiguration = await sharedPrivateConfiguration(projectFolder, []);
     const outputPath = path.join(projectFolder, 'artifact');
     const outcome = await packPackage({
-        ...explicitConfig,
-        packages: explicitConfig.packages.map(function useImplicitSurface(packageConfig) {
-            return omit(packageConfig, [ 'packageInterface' ]);
+        ...explicitConfiguration,
+        packages: explicitConfiguration.packages.map(function useImplicitSurface(packageConfiguration) {
+            return omit(packageConfiguration, [ 'packageInterface' ]);
         })
-    }, { packageName: 'pkg-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
+    }, { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     assert.strictEqual(
         await readArtifactText(path.join(outputPath, 'a.js')),
-        'export { answer } from "pkg-b/shared.js";\nexport { marker } from "pkg-b";\n'
+        'export { answer } from "package-b/shared.js";\nexport { marker } from "package-b";\n'
     );
     assert.deepStrictEqual(await fileManager.checkReadability(path.join(outputPath, 'shared.js')), {
         isReadable: false
     });
-    assert.partialDeepStrictEqual(await readManifest(path.join(outputPath, 'node_modules/pkg-b')), {
+    assert.partialDeepStrictEqual(await readManifest(path.join(outputPath, 'node_modules/package-b')), {
         exports: { './shared.js': { types: './shared.d.ts', import: './shared.js' } }
     });
     assert.strictEqual(await importConsumerArtifact(outputPath), '[42,"bundled"]');
 }
 
-async function transitiveBundleConfig(projectFolder: string): Promise<PacktoryConfig> {
+async function transitiveBundleConfiguration(projectFolder: string): Promise<PacktoryConfiguration> {
     const sourcesFolder = path.join(projectFolder, 'source');
     await fileManager.writeFile(path.join(sourcesFolder, 'a.js'), 'export { answer, marker } from "./b.js";\n');
     await fileManager.writeFile(path.join(sourcesFolder, 'b.js'), 'export { answer, marker } from "./nested/d.js";\n');
@@ -192,25 +197,25 @@ async function transitiveBundleConfig(projectFolder: string): Promise<PacktoryCo
     return {
         commonPackageSettings: {
             sourcesFolder,
-            mainPackageJson: { type: 'module', dependencies: { 'external-c': '^3.0.0' } },
+            mainPackageManifest: { type: 'module', dependencies: { 'external-c': '^3.0.0' } },
             publishSettings: { access: 'public' },
             deadCodeElimination: { enabled: false }
         },
         packages: [
             {
-                name: 'pkg-a',
-                roots: { main: { js: path.join(sourcesFolder, 'a.js') } },
-                bundleDependencies: [ 'pkg-b' ]
+                name: 'package-a',
+                roots: { main: { javaScript: path.join(sourcesFolder, 'a.js') } },
+                bundleDependencies: [ 'package-b' ]
             },
             {
-                name: 'pkg-b',
-                roots: { main: { js: path.join(sourcesFolder, 'b.js') } },
-                bundleDependencies: [ 'pkg-d' ]
+                name: 'package-b',
+                roots: { main: { javaScript: path.join(sourcesFolder, 'b.js') } },
+                bundleDependencies: [ 'package-d' ]
             },
             {
-                name: 'pkg-d',
+                name: 'package-d',
                 sourcesFolder: path.join(sourcesFolder, 'nested'),
-                roots: { main: { js: path.join(sourcesFolder, 'nested/d.js') } }
+                roots: { main: { javaScript: path.join(sourcesFolder, 'nested/d.js') } }
             }
         ]
     };
@@ -218,8 +223,8 @@ async function transitiveBundleConfig(projectFolder: string): Promise<PacktoryCo
 
 async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<void> {
     const outputPath = path.join(projectFolder, 'artifact');
-    const outcome = await packPackage(await transitiveBundleConfig(projectFolder), {
-        packageName: 'pkg-a',
+    const outcome = await packPackage(await transitiveBundleConfiguration(projectFolder), {
+        packageName: 'package-a',
         format: 'folder',
         outputPath,
         version: '1.2.3',
@@ -228,7 +233,7 @@ async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     const targetManifest = await readManifest(outputPath);
     assert.strictEqual(targetManifest.dependencies, undefined);
-    const internalManifest = await readManifest(path.join(outputPath, 'node_modules/pkg-d'));
+    const internalManifest = await readManifest(path.join(outputPath, 'node_modules/package-d'));
     assert.deepStrictEqual(internalManifest.dependencies, { 'external-c': '^3.0.0' });
     const externalManifest = await readManifest(path.join(outputPath, 'node_modules/external-c'));
     assert.strictEqual(externalManifest.version, '3.4.5');
@@ -237,29 +242,31 @@ async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<
 
 suite('pack bundled dependencies', function () {
     test('promotes implicit shared modules without duplicating them in the consumer', async function () {
-        const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-implicit-sharing-'));
+        const projectFolder = await fileSystem.promises.mkdtemp(
+            path.join(temporaryDirectory(), 'packtory-implicit-sharing-')
+        );
         try {
             await verifyImplicitSharingArtifact(projectFolder);
         } finally {
-            await fs.promises.rm(projectFolder, { recursive: true, force: true });
+            await fileSystem.promises.rm(projectFolder, { recursive: true, force: true });
         }
     });
 
     test('retains shared private authoring files and honors duplication consent', async function () {
-        const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-authoring-'));
+        const projectFolder = await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), 'packtory-authoring-'));
         try {
             await verifyDuplicationConsent(projectFolder);
         } finally {
-            await fs.promises.rm(projectFolder, { recursive: true, force: true });
+            await fileSystem.promises.rm(projectFolder, { recursive: true, force: true });
         }
     });
 
     test('vendors external dependencies of transitively bundled internal packages', async function () {
-        const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-authoring-'));
+        const projectFolder = await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), 'packtory-authoring-'));
         try {
             await verifyTransitiveVendoredArtifact(projectFolder);
         } finally {
-            await fs.promises.rm(projectFolder, { recursive: true, force: true });
+            await fileSystem.promises.rm(projectFolder, { recursive: true, force: true });
         }
     });
 });

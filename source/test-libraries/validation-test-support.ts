@@ -1,16 +1,16 @@
 import assert from 'node:assert';
 import { Result } from 'true-myth';
-import { validateConfig } from '../config/validation.ts';
-import { minimalPackageConfigFactory } from './config-fixtures.ts';
+import { validateConfiguration } from '../configuration/validation.ts';
+import { minimalPackageConfigurationFactory } from './configuration-fixtures.ts';
 
-export type ConfigInput = Readonly<Record<string, unknown>>;
+export type ConfigurationInput = Readonly<Record<string, unknown>>;
 
-export function withRegistry(extra: ConfigInput): ConfigInput {
+export function withRegistry(extra: ConfigurationInput): ConfigurationInput {
     return {
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
         commonPackageSettings: {
             sourcesFolder: 'foo',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         ...extra
@@ -23,20 +23,20 @@ export function packageWithDependencies(
     name: string,
     kind: CycleDependencyKind,
     dependencies: readonly string[]
-): ConfigInput {
-    return { ...minimalPackageConfigFactory.build({ name }), [kind]: dependencies };
+): ConfigurationInput {
+    return { ...minimalPackageConfigurationFactory.build({ name }), [kind]: dependencies };
 }
 
-export function expectCyclicError(packages: readonly ConfigInput[], expectedPath: string): void {
-    const result = validateConfig(withRegistry({ packages }));
+export function expectCyclicError(packages: readonly ConfigurationInput[], expectedPath: string): void {
+    const result = validateConfiguration(withRegistry({ packages }));
     assert.deepStrictEqual(result, Result.err([ `Unexpected cyclic dependency path: [${expectedPath}]` ]));
 }
 
-export function fooPackage(name = 'foo'): ConfigInput {
-    return minimalPackageConfigFactory.build({ name });
+export function fooPackage(name = 'foo'): ConfigurationInput {
+    return minimalPackageConfigurationFactory.build({ name });
 }
 
-export const duplicateCAndMissingBPackages: readonly ConfigInput[] = [
+export const duplicateCAndMissingBPackages: readonly ConfigurationInput[] = [
     packageWithDependencies('a', 'bundlePeerDependencies', [ 'b' ]),
     fooPackage('c'),
     fooPackage('c')
@@ -47,37 +47,40 @@ export const duplicateCAndMissingBErrors: readonly string[] = [
     'Bundle peer dependency "b" referenced in "a" does not exist'
 ];
 
-export function withCustomCommon(commonExtras: ConfigInput, packages: readonly ConfigInput[]): ConfigInput {
+export function withCustomCommon(
+    commonExtras: ConfigurationInput,
+    packages: readonly ConfigurationInput[]
+): ConfigurationInput {
     return {
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: { type: 'module' }, ...commonExtras },
+        registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageManifest: { type: 'module' }, ...commonExtras },
         packages
     };
 }
 
-export function withCommonWithoutPublishSettings(packages: readonly ConfigInput[]): ConfigInput {
+export function withCommonWithoutPublishSettings(packages: readonly ConfigurationInput[]): ConfigurationInput {
     return withCustomCommon({}, packages);
 }
 
 export const placementErrorMessage = 'publishSettings must be set in commonPackageSettings or in every package';
 
-export const packageSpecificPublishSettings: readonly ConfigInput[] = [
-    { name: 'foo', roots: { main: { js: 'foo' } }, publishSettings: { access: 'public' } },
-    { name: 'bar', roots: { main: { js: 'bar' } }, publishSettings: { access: 'restricted' } }
+export const packageSpecificPublishSettings: readonly ConfigurationInput[] = [
+    { name: 'foo', roots: { main: { javaScript: 'foo' } }, publishSettings: { access: 'public' } },
+    { name: 'bar', roots: { main: { javaScript: 'bar' } }, publishSettings: { access: 'restricted' } }
 ];
 
 export function allowScriptsErrorFor(packageName: string): string {
     return (
-        `Package "${packageName}": "scripts" in additionalPackageJsonAttributes` +
+        `Package "${packageName}": "scripts" in additionalPackageManifestAttributes` +
         ' requires "publishSettings.allowScripts: true"'
     );
 }
 
 export const postinstallScripts = { postinstall: 'echo hi' };
 export const publicWithAllowScripts = { publishSettings: { access: 'public', allowScripts: true } };
-export const commonScriptsAttribute = { additionalPackageJsonAttributes: { scripts: postinstallScripts } };
-export const fooPackageWithScripts: ConfigInput = {
+export const commonScriptsAttribute = { additionalPackageManifestAttributes: { scripts: postinstallScripts } };
+export const fooPackageWithScripts: ConfigurationInput = {
     name: 'foo',
-    roots: { main: { js: 'foo' } },
-    additionalPackageJsonAttributes: { scripts: postinstallScripts }
+    roots: { main: { javaScript: 'foo' } },
+    additionalPackageManifestAttributes: { scripts: postinstallScripts }
 };

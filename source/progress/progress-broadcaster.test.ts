@@ -6,8 +6,13 @@ const eliminationCompletedPayload = {
     perBundle: [
         {
             packageName: 'package-a',
-            files: [ { path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 } ],
-            droppedSymbols: [ { file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' } ],
+            files: [ { path: 'source/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 } ],
+            droppedSymbols: [ {
+                file: 'source/index.ts',
+                symbolName: 'unused',
+                kind: 'function',
+                reason: 'unreachable'
+            } ],
             seeds: []
         }
     ]

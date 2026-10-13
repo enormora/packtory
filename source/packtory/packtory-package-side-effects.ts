@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { isRuntimeCodeTargetPath } from '../dead-code-eliminator/liveness/runtime-code.ts';
 import type { PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
@@ -37,9 +37,9 @@ function generatedSideEffectsDecision(bundle: AnalyzedBundle): GeneratedPackageS
     return { type: 'side-effects-omitted', reason: 'every-runtime-file-has-side-effects' };
 }
 
-function sideEffectsDecision(target: ResolvedPackage): PackageSideEffectsInspection['packageJsonDecision'] {
+function sideEffectsDecision(target: ResolvedPackage): PackageSideEffectsInspection['packageManifestDecision'] {
     const generated = generatedSideEffectsDecision(target.analyzedBundle);
-    const additionalAttributes = target.resolveOptions.additionalPackageJsonAttributes;
+    const additionalAttributes = target.resolveOptions.additionalPackageManifestAttributes;
     if (!Object.hasOwn(additionalAttributes, 'sideEffects')) {
         return generated;
     }
@@ -80,7 +80,7 @@ function inspectResolvedPackage(
 ): PackageSideEffectsInspection {
     return {
         packageName: target.name,
-        packageJsonDecision: sideEffectsDecision(target),
+        packageManifestDecision: sideEffectsDecision(target),
         impureFiles: impureFiles(target, dependencies.repositoryFolder)
     };
 }
@@ -88,7 +88,7 @@ function inspectResolvedPackage(
 export function createInspectPackageSideEffectsValidated(
     dependencies: PackageSideEffectsInspectionDependencies
 ): (
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     packageName: string
 ) => Promise<PackageSideEffectsInspectionResult> {
     return async function inspectPackageSideEffectsValidated(validated, packageName) {

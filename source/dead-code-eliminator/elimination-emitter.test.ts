@@ -65,8 +65,8 @@ suite('elimination-emitter', function () {
 
         maybeEmitElimination(
             wrapped.provider,
-            [ originalBundle('pkg-a', [ resource('/src/a.ts', 'abc') ]) ],
-            [ bundle('pkg-a', [ resource('/src/a.ts', 'abc') ]) ]
+            [ originalBundle('package-a', [ resource('/source/a.ts', 'abc') ]) ],
+            [ bundle('package-a', [ resource('/source/a.ts', 'abc') ]) ]
         );
 
         assert.strictEqual(wrapped.emitSpy.callCount, 0);
@@ -92,12 +92,12 @@ suite('elimination-emitter', function () {
         maybeEmitElimination(
             broadcaster.provider,
             [
-                originalBundle('pkg-a', [ resource('/src/a.ts', 'abcde'), resource('/src/b.ts', 'xy') ]),
-                originalBundle('pkg-b', [ resource('/src/c.ts', 'hi') ])
+                originalBundle('package-a', [ resource('/source/a.ts', 'abcde'), resource('/source/b.ts', 'xy') ]),
+                originalBundle('package-b', [ resource('/source/c.ts', 'hi') ])
             ],
             [
-                bundle('pkg-a', [ resource('/src/a.ts', 'abcde'), resource('/src/b.ts', 'xy') ]),
-                bundle('pkg-b', [ resource('/src/c.ts', 'hi') ])
+                bundle('package-a', [ resource('/source/a.ts', 'abcde'), resource('/source/b.ts', 'xy') ]),
+                bundle('package-b', [ resource('/source/c.ts', 'hi') ])
             ]
         );
 
@@ -105,15 +105,15 @@ suite('elimination-emitter', function () {
             {
                 perBundle: [
                     {
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         files: [
-                            { path: '/src/a.ts', sourceBytes: 5 },
-                            { path: '/src/b.ts', sourceBytes: 2 }
+                            { path: '/source/a.ts', sourceBytes: 5 },
+                            { path: '/source/b.ts', sourceBytes: 2 }
                         ]
                     },
                     {
-                        packageName: 'pkg-b',
-                        files: [ { path: '/src/c.ts', sourceBytes: 2 } ]
+                        packageName: 'package-b',
+                        files: [ { path: '/source/c.ts', sourceBytes: 2 } ]
                     }
                 ]
             }
@@ -133,8 +133,8 @@ suite('elimination-emitter', function () {
 
         maybeEmitElimination(
             broadcaster.provider,
-            [ originalBundle('pkg-a', [ resource('/src/a.ts', 'x') ]) ],
-            [ bundle('pkg-a', [ resource('/src/a.ts', 'x') ]) ]
+            [ originalBundle('package-a', [ resource('/source/a.ts', 'x') ]) ],
+            [ bundle('package-a', [ resource('/source/a.ts', 'x') ]) ]
         );
 
         assert.deepStrictEqual(received, [ { decision: 'kept', reason: 'reachable' } ]);
@@ -154,8 +154,8 @@ suite('elimination-emitter', function () {
 
         maybeEmitElimination(
             broadcaster.provider,
-            [ originalBundle('pkg-a', [ resource('/src/a.ts', 'x') ]) ],
-            [ bundle('pkg-a', [ resource('/src/a.ts', 'x') ]) ]
+            [ originalBundle('package-a', [ resource('/source/a.ts', 'x') ]) ],
+            [ bundle('package-a', [ resource('/source/a.ts', 'x') ]) ]
         );
 
         assert.deepStrictEqual(received, [ { droppedSymbols: [], seeds: [] } ]);
@@ -190,8 +190,8 @@ suite('elimination-emitter', function () {
 
         maybeEmitElimination(
             broadcaster.provider,
-            [ originalBundle('pkg-a', [ resource('/src/a.ts', 'const unused = 1;\n') ]) ],
-            [ bundle('pkg-a', [ resource('/src/a.ts', 'const kept = 1;\n') ]) ]
+            [ originalBundle('package-a', [ resource('/source/a.ts', 'const unused = 1;\n') ]) ],
+            [ bundle('package-a', [ resource('/source/a.ts', 'const kept = 1;\n') ]) ]
         );
 
         assert.deepStrictEqual(received, [
@@ -212,12 +212,12 @@ suite('elimination-emitter', function () {
 
         maybeEmitElimination(
             broadcaster.provider,
-            [ originalBundle('pkg-a', [ resource('/src/a.ts', 'const unused = 1;\n') ]) ],
-            [ bundle('pkg-a', []) ]
+            [ originalBundle('package-a', [ resource('/source/a.ts', 'const unused = 1;\n') ]) ],
+            [ bundle('package-a', []) ]
         );
 
         assert.deepStrictEqual(received, [
-            { decision: 'eliminated', path: '/src/a.ts', reason: 'not-emitted-after-analysis' }
+            { decision: 'eliminated', path: '/source/a.ts', reason: 'not-emitted-after-analysis' }
         ]);
     });
 
@@ -228,7 +228,7 @@ suite('elimination-emitter', function () {
         });
 
         assert.throws(function () {
-            maybeEmitElimination(broadcaster.provider, [], [ bundle('pkg-a', [ resource('/src/a.ts', 'x') ]) ]);
+            maybeEmitElimination(broadcaster.provider, [], [ bundle('package-a', [ resource('/source/a.ts', 'x') ]) ]);
         }, /Original bundle missing/);
     });
 });

@@ -1,19 +1,19 @@
 import path from 'node:path';
-import type { ChangelogOutput } from '../config/changelog-settings.ts';
+import type { ChangelogOutput } from '../configuration/changelog-settings.ts';
 
-type PackagePathConfig = {
+type PackagePathConfiguration = {
     readonly name: string;
     readonly sourcesFolder?: string | undefined;
 };
 
-type ChangelogSettingsConfig = {
+type ChangelogSettingsConfiguration = {
     readonly outputs?: readonly ChangelogOutput[] | undefined;
 };
 
-export type GeneratedAttributionPathConfig = {
-    readonly changelog?: ChangelogSettingsConfig | undefined;
+export type GeneratedAttributionPathConfiguration = {
+    readonly changelog?: ChangelogSettingsConfiguration | undefined;
     readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined; } | undefined;
-    readonly packages: readonly PackagePathConfig[];
+    readonly packages: readonly PackagePathConfiguration[];
 };
 
 type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file'; }>;
@@ -30,23 +30,26 @@ function resolveRepositoryPath(repositoryFolder: string, filePath: string): stri
     return path.resolve(repositoryFolder, normalizeConfiguredPath(filePath));
 }
 
-function resolvePackageSourcesFolder(packageConfig: PackagePathConfig, config: GeneratedAttributionPathConfig): string {
-    const sourcesFolder = packageConfig.sourcesFolder ?? config.commonPackageSettings?.sourcesFolder;
+function resolvePackageSourcesFolder(
+    packageConfiguration: PackagePathConfiguration,
+    configuration: GeneratedAttributionPathConfiguration
+): string {
+    const sourcesFolder = packageConfiguration.sourcesFolder ?? configuration.commonPackageSettings?.sourcesFolder;
     if (sourcesFolder === undefined) {
-        throw new Error(`Config for package "${packageConfig.name}" is missing the sources folder`);
+        throw new Error(`Config for package "${packageConfiguration.name}" is missing the sources folder`);
     }
     return sourcesFolder;
 }
 
 function resolvePackageFilePath(
     repositoryFolder: string,
-    config: GeneratedAttributionPathConfig,
-    packageConfig: PackagePathConfig,
+    configuration: GeneratedAttributionPathConfiguration,
+    packageConfiguration: PackagePathConfiguration,
     outputPath: string
 ): string {
     return path.resolve(
         repositoryFolder,
-        normalizeConfiguredPath(resolvePackageSourcesFolder(packageConfig, config)),
+        normalizeConfiguredPath(resolvePackageSourcesFolder(packageConfiguration, configuration)),
         normalizeConfiguredPath(outputPath)
     );
 }
@@ -65,13 +68,13 @@ function resolveRepositoryRelativePath(repositoryFolder: string, filePath: strin
 
 export function collectGeneratedAttributionPaths(
     repositoryFolder: string,
-    config: GeneratedAttributionPathConfig
+    configuration: GeneratedAttributionPathConfiguration
 ): readonly string[] {
-    if (config.changelog?.outputs === undefined) {
+    if (configuration.changelog?.outputs === undefined) {
         return [];
     }
 
-    const paths = config
+    const paths = configuration
         .changelog
         .outputs
         .filter(function (output): output is FileChangelogOutput {
@@ -86,8 +89,8 @@ export function collectGeneratedAttributionPaths(
                     return resolveRepositoryPath(repositoryFolder, outputPath);
                 });
             }
-            return config.packages.map(function (packageConfig) {
-                return resolvePackageFilePath(repositoryFolder, config, packageConfig, output.path);
+            return configuration.packages.map(function (packageConfiguration) {
+                return resolvePackageFilePath(repositoryFolder, configuration, packageConfiguration, output.path);
             });
         });
     return Array.from(

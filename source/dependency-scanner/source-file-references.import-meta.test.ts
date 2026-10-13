@@ -10,14 +10,14 @@ import { getReferencedModules } from './source-file-references.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
 import { resolveTypescriptModuleFilePath } from './typescript-module-resolution.ts';
 
-const packageJsonPath = '/package.json';
+const packageManifestPath = '/package.json';
 
 type SourceFileFixture = {
     readonly filePath: string;
     readonly content: string;
 };
 
-type ImportMetaResolveExpectation = {
+type ImportMetadataResolveExpectation = {
     readonly mainContent: string;
     readonly extraFiles?: readonly SourceFileFixture[];
     readonly expected: readonly ModuleReferenceShape[];
@@ -35,7 +35,7 @@ suite('source-file-references import.meta and package assets', function () {
 
             const result = findPackageOwnedAssetFilePath(
                 'foo/module.wasm',
-                '/workspace/src/feature',
+                '/workspace/source/feature',
                 function (candidatePath) {
                     checkedPaths.push(candidatePath);
                     return candidatePath === '/node_modules/foo/module.wasm';
@@ -44,15 +44,15 @@ suite('source-file-references import.meta and package assets', function () {
 
             assert.strictEqual(result, '/node_modules/foo/module.wasm');
             assert.deepStrictEqual(checkedPaths, [
-                '/workspace/src/feature/node_modules/foo/module.wasm',
-                '/workspace/src/node_modules/foo/module.wasm',
+                '/workspace/source/feature/node_modules/foo/module.wasm',
+                '/workspace/source/node_modules/foo/module.wasm',
                 '/workspace/node_modules/foo/module.wasm',
                 '/node_modules/foo/module.wasm'
             ]);
         });
 
         test('findPackageOwnedAssetFilePath() returns undefined when no ancestor contains the asset', function () {
-            const result = findPackageOwnedAssetFilePath('foo/module.wasm', '/workspace/src/feature', function () {
+            const result = findPackageOwnedAssetFilePath('foo/module.wasm', '/workspace/source/feature', function () {
                 return false;
             });
 
@@ -85,7 +85,7 @@ suite('source-file-references import.meta and package assets', function () {
             project.createSourceFile('/module.bin', 'binary');
 
             assert.throws(function () {
-                getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+                getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
             }, /^Error: Failed to resolve import "\.\/module\.bin" in file "\/main\.ts"$/u);
         });
 
@@ -95,7 +95,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
             project.createSourceFile('/value.js', 'export default 1;');
 
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
 
             assert.deepStrictEqual(moduleReferenceShapes(result), [ {
                 kind: 'local-code',
@@ -105,7 +105,7 @@ suite('source-file-references import.meta and package assets', function () {
     });
 
     suite('import.meta.resolve references', function () {
-        function expectImportMetaResolveReferences(expectation: ImportMetaResolveExpectation): void {
+        function expectImportMetadataResolveReferences(expectation: ImportMetadataResolveExpectation): void {
             const project = createProject({
                 withFiles: [ { filePath: 'main.ts', content: expectation.mainContent } ]
             });
@@ -113,13 +113,13 @@ suite('source-file-references import.meta and package assets', function () {
             for (const file of extraFiles) {
                 project.createSourceFile(file.filePath, file.content);
             }
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
             assert.deepStrictEqual(moduleReferenceShapes(result), expectation.expected);
         }
 
         suite('resolved references', function () {
             test('returns local code references for import.meta.resolve() pointing at a sibling source file', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("./foo");',
                     extraFiles: [ { filePath: 'foo.ts', content: 'export const foo = "";' } ],
                     expected: [ { kind: 'local-code', filePath: '/foo.ts' } ]
@@ -127,7 +127,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
 
             test('returns local asset references for import.meta.resolve() pointing at a json file', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("./data.json");',
                     extraFiles: [ { filePath: 'data.json', content: '{"ok":true}' } ],
                     expected: [ { kind: 'local-asset', filePath: '/data.json' } ]
@@ -135,7 +135,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
 
             test('returns local asset references for import.meta.resolve() pointing at a relative wasm file', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("./module.wasm");',
                     extraFiles: [ { filePath: '/module.wasm', content: 'wasm' } ],
                     expected: [ { kind: 'local-asset', filePath: '/module.wasm' } ]
@@ -143,7 +143,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
 
             test('returns external package references for import.meta.resolve() pointing at a bare specifier', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("foo");',
                     extraFiles: [
                         {
@@ -156,7 +156,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
 
             test('returns external package references for import.meta.resolve() pointing at a package-owned asset', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("foo/module.wasm");',
                     extraFiles: [ { filePath: '/node_modules/foo/module.wasm', content: 'wasm' } ],
                     expected: [ { kind: 'external-package', packageName: 'foo', specifier: 'foo/module.wasm' } ]
@@ -164,7 +164,7 @@ suite('source-file-references import.meta and package assets', function () {
             });
 
             test('ignores import.meta.resolve() pointing at a node-builtin module', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const url = import.meta.resolve("node:fs");',
                     expected: []
                 });
@@ -210,28 +210,28 @@ suite('source-file-references import.meta and package assets', function () {
 
         suite('ignored receivers', function () {
             test('does not pick up unrelated import.meta member accesses', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'const here = import.meta.url;',
                     expected: []
                 });
             });
 
             test('does not pick up call expressions on import.meta members other than resolve', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'function callOther() { return import.meta.foo("./bar"); }',
                     expected: []
                 });
             });
 
             test('does not pick up resolve() calls on non-import meta properties', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: 'class Subject { constructor() { new.target?.resolve("./bar"); } } void Subject;',
                     expected: []
                 });
             });
 
             test('does not pick up resolve() calls whose receiver is not a meta property', function () {
-                expectImportMetaResolveReferences({
+                expectImportMetadataResolveReferences({
                     mainContent: [
                         'const helper = { resolve(specifier: string) { return specifier; } };',
                         'helper.resolve("./bar");'
@@ -243,7 +243,7 @@ suite('source-file-references import.meta and package assets', function () {
         });
 
         test('collects references from regular imports and import.meta.resolve() calls in the same file', function () {
-            expectImportMetaResolveReferences({
+            expectImportMetadataResolveReferences({
                 mainContent: [
                     'import { foo } from "./foo";',
                     'const url = import.meta.resolve("./bar");',

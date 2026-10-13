@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { pullRequestChangedFileFactory, type PullRequestChangedFileShape } from '../test-libraries/pr-log-fixtures.ts';
+import {
+    pullRequestChangedFileFactory,
+    type PullRequestChangedFileShape
+} from '../test-libraries/pull-request-log-fixtures.ts';
 import { expandChangelogSourceFilesForHistory } from './changelog-source-file-history.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
@@ -9,7 +12,7 @@ function packagePlan(
     releaseClassification: ReleasePlanPackage['releaseClassification'] = 'substantive'
 ): ReleasePlanPackage {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
@@ -334,13 +337,13 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    changedFile('packages/pkg-a/rules/removed-rule.ts', 'removed')
+                    changedFile('packages/package-a/rules/removed-rule.ts', 'removed')
                 ]
             ]),
-            [ 'source/rules', 'packages/pkg-a/rules' ]
+            [ 'source/rules', 'packages/package-a/rules' ]
         );
 
-        assert.deepStrictEqual(result, [ 'packages/pkg-a/rules/removed-rule.ts' ]);
+        assert.deepStrictEqual(result, [ 'packages/package-a/rules/removed-rule.ts' ]);
     });
 
     test('matches pure deleted source files when the package source root is the repository root', function () {

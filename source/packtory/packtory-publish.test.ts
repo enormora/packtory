@@ -24,7 +24,7 @@ suite('packtory-publish', function () {
         const run = createRunBuildAndPublishValidated(happyDependencies());
 
         const result = await run(
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
+            { packageConfigurations: {}, packtoryConfiguration: { packages: [] } } as never,
             { dryRun: false, stage: false },
             async function () {
                 return Result.ok([]);
@@ -38,17 +38,17 @@ suite('packtory-publish', function () {
         const run = createRunBuildAndPublishValidated(happyDependencies());
 
         const result = await run(
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
+            { packageConfigurations: {}, packtoryConfiguration: { packages: [] } } as never,
             { dryRun: false, stage: false },
             async function () {
-                return Result.err({ type: 'config', issues: [ 'bad' ] });
+                return Result.err({ type: 'configuration', issues: [ 'bad' ] });
             }
         );
 
         if (!result.isErr) {
             assert.fail('expected the result to be an error');
         }
-        assert.deepStrictEqual(result.error, { type: 'config', issues: [ 'bad' ] });
+        assert.deepStrictEqual(result.error, { type: 'configuration', issues: [ 'bad' ] });
     });
 
     test('createRunBuildAndPublishValidated wraps publish-stage partial failures into the publish-partial variant', async function () {
@@ -60,7 +60,7 @@ suite('packtory-publish', function () {
         const run = createRunBuildAndPublishValidated(dependencies);
 
         const result = await run(
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
+            { packageConfigurations: {}, packtoryConfiguration: { packages: [] } } as never,
             { dryRun: false, stage: false },
             async function () {
                 return Result.ok([]);

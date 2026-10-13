@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createNodeEngineCompatibilityRule } from '../checks/rules/node-engine-compatibility.ts';
 import { analyzedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { validConfigWithoutRegistryFixture } from '../test-libraries/config-fixtures.ts';
+import { validConfigurationWithoutRegistryFixture } from '../test-libraries/configuration-fixtures.ts';
 import { engineFileManager } from '../test-libraries/node-engine-fixtures.ts';
 import { createResolveOptions } from '../test-libraries/package-processor-test-support.ts';
 import { buildChecksResult } from './resolved-package.ts';
@@ -25,7 +25,7 @@ suite('Node engine check preparation', function () {
                     addVersion(options) {
                         return {
                             ...versionedBundleWithManifest({ name: options.bundle.name }),
-                            packageJson: {
+                            packageManifest: {
                                 name: options.bundle.name,
                                 version: options.version,
                                 engines: { node: '>=22' },
@@ -35,14 +35,14 @@ suite('Node engine check preparation', function () {
                     }
                 }
             },
-            validConfigWithoutRegistryFixture({
+            validConfigurationWithoutRegistryFixture({
                 checks: { nodeEngineCompatibility: { enabled: true } },
                 packages: [ { name: 'root', roots: {} } ]
             }),
             [ {
                 name: 'root',
                 analyzedBundle: analyzedBundle({ name: 'root' }),
-                resolveOptions: { ...createResolveOptions(), sourcesFolder: '/workspace/src' }
+                resolveOptions: { ...createResolveOptions(), sourcesFolder: '/workspace/source' }
             } ]
         );
         if (result.isOk) {

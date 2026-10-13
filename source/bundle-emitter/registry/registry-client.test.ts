@@ -11,7 +11,7 @@ suite('registry-client publish auth', function () {
             registryClient.publishPackage(
                 { name: 'the-name', version: 'the-version' },
                 Buffer.from([]),
-                { auth: { type: 'bearer-token', token: 'the-token' } },
+                { authentication: { type: 'bearer-token', token: 'the-token' } },
                 { access: 'public' },
                 true
             ),
@@ -29,7 +29,7 @@ suite('registry-client publish auth', function () {
             { name: 'the-name', version: 'the-version' },
             tarData,
             {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             },
             { access: 'public' },
             false
@@ -57,8 +57,8 @@ suite('registry-client publish auth', function () {
             { name: 'the-name', version: 'the-version' },
             Buffer.from([]),
             {
-                registryUrl: 'https://registry.example.test',
-                auth: {
+                registryAddress: 'https://registry.example.test',
+                authentication: {
                     type: 'basic',
                     username: 'user',
                     password: 'secret'

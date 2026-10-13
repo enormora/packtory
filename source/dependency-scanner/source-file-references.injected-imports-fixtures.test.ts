@@ -4,7 +4,7 @@ import { moduleReferenceShapes } from '../test-libraries/module-reference-shapes
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedModules } from './source-file-references.ts';
 
-const packageJsonPath = '/package.json';
+const packageManifestPath = '/package.json';
 
 type DirectInjectedLoaderProjectInput = {
     readonly callSiteLoaderExpression: string;
@@ -32,13 +32,13 @@ export function createDirectInjectedLoaderProject(input: DirectInjectedLoaderPro
 }
 
 export function expectFooReference(project: Project): void {
-    const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageJsonPath);
+    const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageManifestPath);
     assert.deepStrictEqual(moduleReferenceShapes(result), [
         { kind: 'local-code', filePath: project.getSourceFileOrThrow('foo.ts').getFilePath() }
     ]);
 }
 
 export function expectNoReferences(project: Project): void {
-    const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageJsonPath);
+    const result = getReferencedModules(project.getSourceFileOrThrow('a.ts'), packageManifestPath);
     assert.deepStrictEqual(moduleReferenceShapes(result), []);
 }

@@ -33,8 +33,8 @@ function recomposeSourceMap(input: LegacyRecomposeInput): string {
     );
 }
 
-function listMappings(mapJson: string): readonly Mapping[] {
-    const traceMap = new TraceMap(mapJson);
+function listMappings(mapJavaScriptObjectNotation: string): readonly Mapping[] {
+    const traceMap = new TraceMap(mapJavaScriptObjectNotation);
     const result: Mapping[] = [];
     eachMapping(traceMap, function (mapping) {
         result.push({
@@ -48,8 +48,8 @@ function listMappings(mapJson: string): readonly Mapping[] {
     return result;
 }
 
-function mappingNames(mapJson: string): readonly string[] {
-    const traceMap = new TraceMap(mapJson);
+function mappingNames(mapJavaScriptObjectNotation: string): readonly string[] {
+    const traceMap = new TraceMap(mapJavaScriptObjectNotation);
     const result: string[] = [];
     eachMapping(traceMap, function (mapping) {
         if (mapping.name !== null) {
@@ -303,7 +303,7 @@ suite('source-map-composer', function () {
             const mapWithSourceRoot = JSON.stringify({
                 version: 3,
                 file: 'index.ts',
-                sourceRoot: 'src',
+                sourceRoot: 'source',
                 sources: [ 'index.ts' ],
                 sourcesContent: [ originalCode ],
                 names: [],
@@ -316,7 +316,7 @@ suite('source-map-composer', function () {
                 atoms: removeFunctionDeadAtoms
             });
             const parsed = JSON.parse(result) as { readonly sourceRoot?: string; };
-            assert.strictEqual(parsed.sourceRoot, 'src');
+            assert.strictEqual(parsed.sourceRoot, 'source');
         });
 
         test('recomposeSourceMap omits the file field for an input map that explicitly has null file', function () {
@@ -446,7 +446,7 @@ suite('source-map-composer', function () {
 
         test('recomposeSourceMap translates mappings through multiple transforms in order', function () {
             const firstOriginalCode = 'import "./dep.js";\nexport const live = 1;\n';
-            const firstTransformedCode = 'import "pkg";\nexport const live = 1;\n';
+            const firstTransformedCode = 'import "package";\nexport const live = 1;\n';
             const secondTransformedCode = 'export const live = 1;\n';
             const originalLiveColumn = firstOriginalCode.indexOf('live');
             const transformedLiveColumn = secondTransformedCode.indexOf('live');

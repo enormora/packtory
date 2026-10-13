@@ -3,23 +3,23 @@ import { suite, test } from 'mocha';
 import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { safeParse } from '../../common/schema-validation.ts';
-import type { PackageChecksSettings } from '../../config/config.ts';
+import type { PackageChecksSettings } from '../../configuration/configuration.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import type { RuleRunInput } from '../rule.ts';
 import { noSideEffectsRule } from './no-side-effects.ts';
 
-type NoSideEffectsGlobalConfig = {
+type NoSideEffectsGlobalConfiguration = {
     readonly allowList: readonly string[];
     readonly enabled: boolean;
 };
-type NoSideEffectsPerPackageConfig = {
+type NoSideEffectsPerPackageConfiguration = {
     readonly allowList?: readonly string[] | undefined;
 };
 type NoSideEffectsRunInput = RuleRunInput<
     'noSideEffects',
-    NoSideEffectsGlobalConfig,
-    NoSideEffectsPerPackageConfig
+    NoSideEffectsGlobalConfiguration,
+    NoSideEffectsPerPackageConfiguration
 >;
 
 type SideEffectStatement = {
@@ -52,7 +52,7 @@ function consentMap(
     );
 }
 
-async function runWithInitSideEffect(
+async function runWithInitializationSideEffect(
     settings: NoSideEffectsRunInput['settings'],
     perPackageSettings: ReadonlyMap<string, PackageChecksSettings>
 ): Promise<readonly string[]> {
@@ -143,7 +143,7 @@ suite('no-side-effects', function () {
 
     suite('allow lists', function () {
         test('skips a resource that is on the global allowList', async function () {
-            const result = await runWithInitSideEffect(
+            const result = await runWithInitializationSideEffect(
                 { noSideEffects: { enabled: true, allowList: [ '/init.ts' ] } },
                 new Map()
             );
@@ -152,7 +152,7 @@ suite('no-side-effects', function () {
         });
 
         test('skips a resource that is on the per-package allowList', async function () {
-            const result = await runWithInitSideEffect(
+            const result = await runWithInitializationSideEffect(
                 { noSideEffects: { enabled: true, allowList: [] } },
                 consentMap([ [ 'a', [ '/init.ts' ] ] ])
             );
@@ -227,7 +227,7 @@ suite('no-side-effects', function () {
         });
 
         test('reports a side effect when the per-package settings entry exists for the bundle but does not include noSideEffects', async function () {
-            const result = await runWithInitSideEffect(
+            const result = await runWithInitializationSideEffect(
                 { noSideEffects: { enabled: true, allowList: [] } },
                 new Map<string, PackageChecksSettings>([ [ 'a', {} ] ])
             );

@@ -24,7 +24,7 @@ function releaseAnalysis(overrides: Partial<ReleaseAnalysis> = {}): ReleaseAnaly
                 classification: 'substantive',
                 latestPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             }
         ],
         ...overrides
@@ -40,7 +40,7 @@ function dependencyOnlyReleaseAnalysis(mostRecentPublishedAt: Date): ReleaseAnal
                 classification: 'dependency-only',
                 latestPublishedAt: mostRecentPublishedAt,
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             }
         ]
     });
@@ -50,7 +50,7 @@ suite('github-release-gate-release-policy', function () {
     test('keeps the GitHub time-gate decision for substantive releases', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision(),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-20T00:00:00.000Z'),
             releaseAnalysis: releaseAnalysis()
         });
@@ -62,7 +62,7 @@ suite('github-release-gate-release-policy', function () {
                 'Publishing is allowed by the release gate.',
                 'release classification: substantive',
                 'most recent published package timestamp: 2026-05-01T00:00:00.000Z',
-                'package pkg-a: substantive latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
+                'package package-a: substantive latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
                 'Publishing is allowed by the Packtory release policy.'
             ]
         });
@@ -71,7 +71,7 @@ suite('github-release-gate-release-policy', function () {
     test('blocks unchanged releases even when the GitHub time gate is open', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision(),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-20T00:00:00.000Z'),
             releaseAnalysis: releaseAnalysis({
                 classification: 'unchanged',
@@ -81,7 +81,7 @@ suite('github-release-gate-release-policy', function () {
                         classification: 'unchanged',
                         latestPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
                         latestPublishedVersion: '1.0.0',
-                        name: 'pkg-a'
+                        name: 'package-a'
                     }
                 ]
             })
@@ -94,7 +94,7 @@ suite('github-release-gate-release-policy', function () {
                 'Publishing is allowed by the release gate.',
                 'release classification: unchanged',
                 'most recent published package timestamp: (unknown)',
-                'package pkg-a: unchanged latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
+                'package package-a: unchanged latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
                 'Skipping publish: the next Packtory release would be unchanged versus npm latest.'
             ]
         });
@@ -103,14 +103,14 @@ suite('github-release-gate-release-policy', function () {
     test('blocks dependency-only releases until the minimum age elapses', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision({ reason: 'max_latency_elapsed' }),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-05T00:00:00.000Z'),
             releaseAnalysis: dependencyOnlyReleaseAnalysis(new Date('2026-05-01T00:00:00.000Z'))
         });
 
         assert.partialDeepStrictEqual(decision, {
             shouldPublish: false,
-            reason: 'dependency_only_min_age_not_elapsed'
+            reason: 'dependency_only_minimum_age_not_elapsed'
         });
         assert.strictEqual(
             decision.logs.at(-1),
@@ -121,14 +121,14 @@ suite('github-release-gate-release-policy', function () {
     test('allows dependency-only releases once the minimum age elapses exactly at the threshold', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision(),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-08T00:00:00.000Z'),
             releaseAnalysis: dependencyOnlyReleaseAnalysis(new Date('2026-05-01T00:00:00.000Z'))
         });
 
         assert.partialDeepStrictEqual(decision, {
             shouldPublish: true,
-            reason: 'dependency_only_min_age_elapsed'
+            reason: 'dependency_only_minimum_age_elapsed'
         });
         assert.strictEqual(
             decision.logs.at(-1),
@@ -139,7 +139,7 @@ suite('github-release-gate-release-policy', function () {
     test('allows dependency-only releases immediately when npm does not expose a publish timestamp baseline', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision(),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-20T00:00:00.000Z'),
             releaseAnalysis: releaseAnalysis({
                 classification: 'dependency-only',
@@ -149,7 +149,7 @@ suite('github-release-gate-release-policy', function () {
                         classification: 'dependency-only',
                         latestPublishedAt: undefined,
                         latestPublishedVersion: '1.0.0',
-                        name: 'pkg-a'
+                        name: 'package-a'
                     }
                 ]
             })
@@ -168,7 +168,7 @@ suite('github-release-gate-release-policy', function () {
     test('logs unpublished package versions as "(unpublished)" when the latest version label is unknown', function () {
         const decision = applyPacktoryReleasePolicy({
             baseDecision: baseDecision(),
-            dependencyOnlyMinAgeDays: 7,
+            dependencyOnlyMinimumAgeDays: 7,
             now: new Date('2026-05-20T00:00:00.000Z'),
             releaseAnalysis: releaseAnalysis({
                 packageAnalyses: [
@@ -176,7 +176,7 @@ suite('github-release-gate-release-policy', function () {
                         classification: 'substantive',
                         latestPublishedAt: undefined,
                         latestPublishedVersion: undefined,
-                        name: 'pkg-a'
+                        name: 'package-a'
                     }
                 ]
             })
@@ -186,7 +186,7 @@ suite('github-release-gate-release-policy', function () {
             'Publishing is allowed by the release gate.',
             'release classification: substantive',
             'most recent published package timestamp: 2026-05-01T00:00:00.000Z',
-            'package pkg-a: substantive latest=(unpublished) publishedAt=(unknown)',
+            'package package-a: substantive latest=(unpublished) publishedAt=(unknown)',
             'Publishing is allowed by the Packtory release policy.'
         ]);
     });

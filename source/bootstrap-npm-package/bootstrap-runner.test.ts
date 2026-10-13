@@ -129,7 +129,7 @@ function assertPublicationInput(publication: PublicationInput | undefined): void
     assertDefined(publication);
     assert.partialDeepStrictEqual(publication, {
         distTag: 'bootstrap',
-        registryUrl: 'https://registry.npmjs.org/',
+        registryAddress: 'https://registry.npmjs.org/',
         token: 'session-token',
         manifest: {
             name: '@scope/example'
@@ -158,7 +158,7 @@ suite('bootstrap-runner', function () {
             await runner.run(buildBootstrapInput({ hostname: 'desktop-1' }));
 
             assert.deepStrictEqual(scenario.recordings.loginInputs, [
-                { registryUrl: 'https://registry.npmjs.org/', hostname: 'desktop-1' }
+                { registryAddress: 'https://registry.npmjs.org/', hostname: 'desktop-1' }
             ]);
         });
 

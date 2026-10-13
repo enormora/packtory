@@ -30,7 +30,7 @@ export type ResourceResolver = {
     ) => Promise<ResolvedBundle>;
 };
 
-const packageJsonIndentationSpaces = 4;
+const packageManifestIndentationSpaces = 4;
 
 type BundleFileDescriptionInput = {
     readonly isGeneratedManifest?: true | undefined;
@@ -38,8 +38,8 @@ type BundleFileDescriptionInput = {
     readonly targetFilePath: string;
 };
 
-function serializeVirtualManifest(mainPackageJson: ResourceResolveOptions['mainPackageJson']): string {
-    return `${JSON.stringify(mainPackageJson, null, packageJsonIndentationSpaces)}\n`;
+function serializeVirtualManifest(mainPackageManifest: ResourceResolveOptions['mainPackageManifest']): string {
+    return `${JSON.stringify(mainPackageManifest, null, packageManifestIndentationSpaces)}\n`;
 }
 
 function hasDeclarationRoots(options: ResourceResolveOptions): boolean {
@@ -79,11 +79,11 @@ async function findReadableDeclarationCompanions(
 async function resolveFileDescription(
     fileManager: FileManager,
     bundleFile: BundleFileDescriptionInput,
-    mainPackageJson: ResourceResolveOptions['mainPackageJson']
+    mainPackageManifest: ResourceResolveOptions['mainPackageManifest']
 ): Promise<ResolvedContent['fileDescription']> {
     if (bundleFile.isGeneratedManifest) {
         return {
-            content: serializeVirtualManifest(mainPackageJson),
+            content: serializeVirtualManifest(mainPackageManifest),
             isExecutable: false,
             inputFilePath: bundleFile.inputFilePath,
             targetFilePath: bundleFile.targetFilePath
@@ -184,7 +184,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                 const fileDescription = await resolveFileDescription(
                     fileManager,
                     bundleFile,
-                    options.mainPackageJson
+                    options.mainPackageManifest
                 );
 
                 return {
@@ -202,7 +202,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
         return {
             contents,
             name: options.name,
-            exportPackageJson: options.exportPackageJson,
+            exportPackageManifest: options.exportPackageManifest,
             surface: normalized.surface,
             externalDependencies: externalDependenciesWithTargetPaths(
                 resolvedDependencies.externalDependencies,

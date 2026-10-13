@@ -1,47 +1,53 @@
-import { Node as TsMorphNode, type ClassDeclaration } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import { Node as TypeScriptMorphNode, type ClassDeclaration } from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { isPureExpression } from './pure-expression.ts';
 
-function memberHasDecorators(member: TsMorphNode): boolean {
+function memberHasDecorators(member: TypeScriptMorphNode): boolean {
     if (
-        TsMorphNode.isMethodDeclaration(member) ||
-        TsMorphNode.isPropertyDeclaration(member) ||
-        TsMorphNode.isGetAccessorDeclaration(member) ||
-        TsMorphNode.isSetAccessorDeclaration(member)
+        TypeScriptMorphNode.isMethodDeclaration(member) ||
+        TypeScriptMorphNode.isPropertyDeclaration(member) ||
+        TypeScriptMorphNode.isGetAccessorDeclaration(member) ||
+        TypeScriptMorphNode.isSetAccessorDeclaration(member)
     ) {
         return member.getDecorators().length > 0;
     }
     return false;
 }
 
-function memberHasImpureStaticInit(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
-    if (!TsMorphNode.isPropertyDeclaration(member) || !member.isStatic()) {
+function memberHasImpureStaticInitialization(
+    member: TypeScriptMorphNode,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
+    if (!TypeScriptMorphNode.isPropertyDeclaration(member) || !member.isStatic()) {
         return false;
     }
     const initializer = member.getInitializer();
     return initializer !== undefined && !isPureExpression(initializer, settings);
 }
 
-function memberHasImpureComputedName(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
+function memberHasImpureComputedName(
+    member: TypeScriptMorphNode,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
     if (
-        !TsMorphNode.isMethodDeclaration(member) &&
-        !TsMorphNode.isPropertyDeclaration(member) &&
-        !TsMorphNode.isGetAccessorDeclaration(member) &&
-        !TsMorphNode.isSetAccessorDeclaration(member)
+        !TypeScriptMorphNode.isMethodDeclaration(member) &&
+        !TypeScriptMorphNode.isPropertyDeclaration(member) &&
+        !TypeScriptMorphNode.isGetAccessorDeclaration(member) &&
+        !TypeScriptMorphNode.isSetAccessorDeclaration(member)
     ) {
         return false;
     }
     const name = member.getNameNode();
-    return TsMorphNode.isComputedPropertyName(name) && !isPureExpression(name.getExpression(), settings);
+    return TypeScriptMorphNode.isComputedPropertyName(name) && !isPureExpression(name.getExpression(), settings);
 }
 
-function classMemberIsImpure(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
-    if (TsMorphNode.isClassStaticBlockDeclaration(member)) {
+function classMemberIsImpure(member: TypeScriptMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
+    if (TypeScriptMorphNode.isClassStaticBlockDeclaration(member)) {
         return true;
     }
     return memberHasDecorators(member) ||
         memberHasImpureComputedName(member, settings) ||
-        memberHasImpureStaticInit(member, settings);
+        memberHasImpureStaticInitialization(member, settings);
 }
 
 export function hasClassImpurity(

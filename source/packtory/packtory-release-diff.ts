@@ -1,5 +1,5 @@
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.ts';
+import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
 import {
     releaseDiffPartialFailure,
@@ -22,7 +22,7 @@ import {
 } from './stages/release-diff-stage.ts';
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigResult
+    configuration: ValidConfigurationResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 export type ReleaseDiffOrchestratorDependencies = PublishStageDependencies & ReleaseDiffStageDependencies;
@@ -68,7 +68,7 @@ function toFinalReleaseDiffResult(
 export function createDiffAgainstLatestPublishedValidated(
     dependencies: ReleaseDiffOrchestratorDependencies
 ): (
-    validated: ValidConfigResult,
+    validated: ValidConfigurationResult,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<ReleaseDiffAllResult> {
     return async function diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated) {

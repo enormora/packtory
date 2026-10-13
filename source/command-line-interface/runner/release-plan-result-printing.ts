@@ -1,7 +1,7 @@
 import type { ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import {
     checksErrorType,
-    configErrorType,
+    configurationErrorType,
     partialFailureType,
     type ReleasePlanFailure
 } from '../../packtory/packtory-results.ts';
@@ -14,7 +14,7 @@ function printIssueFailure(log: Logger, title: string, issues: readonly string[]
 }
 
 export function printReleasePlanFailure(log: Logger, error: ReleasePlanFailure, trace: boolean): void {
-    if (error.type === configErrorType) {
+    if (error.type === configurationErrorType) {
         printIssueFailure(log, 'Configuration issues', error.issues);
         return;
     }

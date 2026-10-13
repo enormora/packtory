@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
@@ -25,7 +25,7 @@ function commandIndex(
     });
 }
 
-function assertTagsFetchedBeforeRef(commandCalls: readonly CommandCall[]): void {
+function assertTagsFetchedBeforeReference(commandCalls: readonly CommandCall[]): void {
     for (
         const folderPath of [
             '/workspace/packtory-canary-sample-baseline-clone',
@@ -33,15 +33,15 @@ function assertTagsFetchedBeforeRef(commandCalls: readonly CommandCall[]): void 
         ]
     ) {
         const fetchIndex = commandIndex(commandCalls, folderPath, 'git fetch --tags --force');
-        const refIndex = commandIndex(commandCalls, folderPath, 'git rev-parse HEAD');
+        const referenceIndex = commandIndex(commandCalls, folderPath, 'git rev-parse HEAD');
         assert.ok(fetchIndex >= 0);
-        assert.ok(refIndex >= 0);
-        assert.ok(fetchIndex < refIndex);
+        assert.ok(referenceIndex >= 0);
+        assert.ok(fetchIndex < referenceIndex);
     }
 }
 
 async function withTemporaryShellPackage<T>(action: (folderPath: string) => Promise<T>): Promise<T> {
-    const folderPath = await mkdtemp(path.join(tmpdir(), 'packtory-canary-runner-'));
+    const folderPath = await mkdtemp(path.join(temporaryDirectory(), 'packtory-canary-runner-'));
     try {
         await mkdir(path.join(folderPath, 'node_modules', '.bin'), { recursive: true });
         return await action(folderPath);
@@ -57,7 +57,7 @@ function manifestContent(publishCommand: string): string {
             installCommand: 'npm clean-install --ignore-scripts',
             name: 'sample',
             publishCommand,
-            ref: 'main',
+            reference: 'main',
             repository: 'https://github.com/enormora/sample.git'
         }
     ]);
@@ -94,12 +94,12 @@ function createRunnerDependencies(
         async runCommand(command, cwd) {
             commandCalls.push({ command, cwd });
             if (command === 'git rev-parse HEAD') {
-                return { stderr: '', stdout: `${cloneMode(cwd)}-ref\n` };
+                return { standardError: '', standardOutput: `${cloneMode(cwd)}-ref\n` };
             }
             if (command === publishCommand && failingModes.has(cloneMode(cwd))) {
                 throw new Error(`${cloneMode(cwd)} failed`);
             }
-            return { stderr: '', stdout: '' };
+            return { standardError: '', standardOutput: '' };
         }
     };
 }
@@ -112,8 +112,8 @@ suite('canary-runner', function () {
             await chmod(executablePath, 0o755);
 
             assert.deepStrictEqual(await runShellCommand('print-token', folderPath), {
-                stderr: '',
-                stdout: 'dry-run'
+                standardError: '',
+                standardOutput: 'dry-run'
             });
         });
     });
@@ -124,8 +124,8 @@ suite('canary-runner', function () {
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
 
         assert.deepStrictEqual(result, {
-            baselineResolvedRef: 'baseline-ref',
-            candidateResolvedRef: 'candidate-ref',
+            baselineResolvedReference: 'baseline-ref',
+            candidateResolvedReference: 'candidate-ref',
             issues: [
                 {
                     kind: 'regression',
@@ -144,7 +144,7 @@ suite('canary-runner', function () {
             }),
             true
         );
-        assertTagsFetchedBeforeRef(dependencies.commandCalls);
+        assertTagsFetchedBeforeReference(dependencies.commandCalls);
         assert.deepStrictEqual(
             dependencies.removedFolders.toSorted(function (left, right) {
                 return left.localeCompare(right);

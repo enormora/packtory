@@ -8,7 +8,10 @@ import {
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import { type ImportPathReplacementRequest, createPathReplacementLookup } from './replacement-lookup.ts';
 
-function rootFile(inputFilePath: string, targetFilePath: string): BundleSubstitutionSource['roots'][string]['js'] {
+function rootFile(
+    inputFilePath: string,
+    targetFilePath: string
+): BundleSubstitutionSource['roots'][string]['javaScript'] {
     return {
         content: '',
         isExecutable: false,
@@ -19,7 +22,7 @@ function rootFile(inputFilePath: string, targetFilePath: string): BundleSubstitu
 
 function entryRoot(): BundleSubstitutionSource['roots'][string] {
     return {
-        js: rootFile('/b/entry.js', 'entry.js'),
+        javaScript: rootFile('/b/entry.js', 'entry.js'),
         declarationFile: rootFile('/b/entry.d.ts', 'entry.d.ts')
     };
 }
@@ -36,7 +39,7 @@ function testResource(inputFilePath: string, targetFilePath: string, content: st
 
 function peerBundle(resources: readonly TestResource[]): BundleSubstitutionSource {
     return linkedBundleFixture({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: resources.map(function (resource) {
             return bundleResourceFixture(resource.inputFilePath, {
                 targetFilePath: resource.targetFilePath,
@@ -80,14 +83,14 @@ function assertReplacement(requests: readonly ImportPathReplacementRequest[], bu
 
     assert.deepStrictEqual(
         result.importPathReplacements.get('/b/internal.d.ts') ?? result.importPathReplacements.get('/b/internal.js'),
-        { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+        { emittedSpecifier: 'package-b/entry.js', packageName: 'package-b' }
     );
 }
 
 function assertRejected(requests: readonly ImportPathReplacementRequest[], bundle: BundleSubstitutionSource): void {
     assert.throws(function () {
         createPathReplacementLookup([], [ bundle ])(requests);
-    }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.(?:d\.ts|js)" for cross-package substitution$/u);
+    }, /^Error: Package "package-b" does not expose "\/b\/internal\.(?:d\.ts|js)" for cross-package substitution$/u);
 }
 
 describe('replacement-lookup symbol reachability', function () {

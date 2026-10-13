@@ -2,10 +2,13 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import { configError } from '../../packtory/packtory-results.ts';
+import { configurationError } from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { createConfigLoaderStub, createSpinnerRendererStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import {
+    createConfigurationLoaderStub,
+    createSpinnerRendererStub
+} from '../../test-libraries/handler-stub-fixtures.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 
 type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
@@ -39,7 +42,7 @@ suite('preview-handler', function () {
             },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
-            configLoader: createConfigLoaderStub(),
+            configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: false }
         });
@@ -60,11 +63,11 @@ suite('preview-handler', function () {
             },
             packtory: packtoryStub(
                 emptyOutcome({
-                    result: Result.err(configError([]))
+                    result: Result.err(configurationError([]))
                 })
             ),
             spinnerRenderer: createSpinnerRendererStub(),
-            configLoader: createConfigLoaderStub(),
+            configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: false }
         });
@@ -87,7 +90,7 @@ suite('preview-handler', function () {
             },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
-            configLoader: createConfigLoaderStub(),
+            configurationLoader: createConfigurationLoaderStub(),
             fileManager,
             flags: { open: true }
         });
@@ -111,7 +114,7 @@ suite('preview-handler', function () {
             },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
-            configLoader: createConfigLoaderStub(),
+            configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: true }
         });

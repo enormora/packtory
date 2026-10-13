@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import { validateConfig, type ValidConfigResult } from '../config/validation.ts';
+import { validateConfiguration, type ValidConfigurationResult } from '../configuration/validation.ts';
 import type { ProgressBroadcaster } from '../packtory/packtory-results.ts';
 import type { BuildAndPublishResult, PackageProcessor } from '../packtory/package-processor.ts';
 import type { ResolvedPackage } from '../packtory/resolved-package.ts';
@@ -24,7 +24,7 @@ type ReleasePlanFileReader = {
 
 type ReleaseCurrentGitHeadReader = () => Promise<string | undefined>;
 
-type PreviousReleaseArtifactsSpec = {
+type PreviousReleaseArtifactsSpecification = {
     readonly version: string;
     readonly publishedAt: Date;
     readonly gitHead?: string | undefined;
@@ -36,7 +36,7 @@ type ResolvedPackagesOptions = {
     readonly defaultContents?: (packageName: string) => ResolvedPackage['analyzedBundle']['contents'];
 };
 
-type ReleasePackageConfig = ValidConfigResult['packtoryConfig']['packages'][number];
+type ReleasePackageConfiguration = ValidConfigurationResult['packtoryConfiguration']['packages'][number];
 
 export type ReleaseTestDependencies = {
     readonly artifactsBuilder: { readonly collectContents: ReleaseFileCollection; };
@@ -48,7 +48,7 @@ export type ReleaseTestDependencies = {
     readonly scheduler: PackageScheduler;
 };
 
-type ReleaseTestDependencySpec = {
+type ReleaseTestDependencySpecification = {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: ReleaseFileCollection;
@@ -114,15 +114,15 @@ const releasePackageProcessorOperations: ReleasePackageProcessorOperations = {
     }
 };
 
-export function validatedReleaseConfigFor(packageNames: readonly string[]): ValidConfigResult {
-    const result = validateConfig({
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+export function validatedReleaseConfigurationFor(packageNames: readonly string[]): ValidConfigurationResult {
+    const result = validateConfiguration({
+        registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
         packages: packageNames.map(function (name) {
             return {
-                mainPackageJson: { type: 'module' },
+                mainPackageManifest: { type: 'module' },
                 name,
                 publishSettings: { access: 'public' },
-                roots: { main: { js: `source/${name}.js` } },
+                roots: { main: { javaScript: `source/${name}.js` } },
                 sourcesFolder: 'source'
             };
         })
@@ -171,7 +171,7 @@ export function packageProcessorWithFailure(
 }
 
 export function buildResultFor(overrides: BuildResultOverrides = {}): BuildAndPublishResult {
-    const packageName = overrides.packageName ?? 'pkg-a';
+    const packageName = overrides.packageName ?? 'package-a';
     const version = overrides.version ?? '1.0.1';
 
     return {
@@ -180,7 +180,7 @@ export function buildResultFor(overrides: BuildResultOverrides = {}): BuildAndPu
         bundle: versionedBundleWithManifest({
             name: packageName,
             version,
-            packageJson: { name: packageName, version }
+            packageManifest: { name: packageName, version }
         }),
         extraFiles: [],
         previousReleaseArtifacts: Maybe.nothing(),
@@ -199,7 +199,7 @@ export function packageProcessorCheckingStage(expectedStage: boolean): PackagePr
 }
 
 export function previousReleaseArtifactsFor(
-    input: PreviousReleaseArtifactsSpec
+    input: PreviousReleaseArtifactsSpecification
 ): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
         version: input.version,
@@ -209,7 +209,7 @@ export function previousReleaseArtifactsFor(
     });
 }
 
-export function createReleaseTestDependencies(input: ReleaseTestDependencySpec): ReleaseTestDependencies {
+export function createReleaseTestDependencies(input: ReleaseTestDependencySpecification): ReleaseTestDependencies {
     return {
         artifactsBuilder: {
             collectContents: input.collectContents ??
@@ -235,70 +235,73 @@ function resolvePackageContents(
     return options.bundleContents?.[packageName] ?? options.defaultContents?.(packageName) ?? [];
 }
 
-function releasePackageSourcesFolder(packageConfig: ReleasePackageConfig): string {
-    return packageConfig.sourcesFolder ?? 'source';
+function releasePackageSourcesFolder(packageConfiguration: ReleasePackageConfiguration): string {
+    return packageConfiguration.sourcesFolder ?? 'source';
 }
 
-function releasePackageMainPackageJson(
-    validated: ValidConfigResult,
-    packageConfig: ReleasePackageConfig
-): ResolvedPackage['resolveOptions']['mainPackageJson'] {
-    return packageConfig.mainPackageJson ??
-        validated.packtoryConfig.commonPackageSettings?.mainPackageJson ?? { type: 'module' };
+function releasePackageMainPackageManifest(
+    validated: ValidConfigurationResult,
+    packageConfiguration: ReleasePackageConfiguration
+): ResolvedPackage['resolveOptions']['mainPackageManifest'] {
+    return packageConfiguration.mainPackageManifest ??
+        validated.packtoryConfiguration.commonPackageSettings?.mainPackageManifest ?? { type: 'module' };
 }
 
 function releasePackageAdditionalChangelogSourceFiles(
-    validated: ValidConfigResult,
-    packageConfig: ReleasePackageConfig
+    validated: ValidConfigurationResult,
+    packageConfiguration: ReleasePackageConfiguration
 ): ResolvedPackage['resolveOptions']['additionalChangelogSourceFiles'] {
     return {
-        packageFiles: packageConfig.additionalChangelogSourceFiles ?? [],
-        sharedFiles: validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []
+        packageFiles: packageConfiguration.additionalChangelogSourceFiles ?? [],
+        sharedFiles: validated.packtoryConfiguration.commonPackageSettings?.additionalChangelogSourceFiles ?? []
     };
 }
 
-function releasePackageAdditionalPackageJsonAttributes(
-    validated: ValidConfigResult,
-    packageConfig: ReleasePackageConfig
-): ResolvedPackage['resolveOptions']['additionalPackageJsonAttributes'] {
+function releasePackageAdditionalPackageManifestAttributes(
+    validated: ValidConfigurationResult,
+    packageConfiguration: ReleasePackageConfiguration
+): ResolvedPackage['resolveOptions']['additionalPackageManifestAttributes'] {
     return {
-        ...validated.packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
-        ...packageConfig.additionalPackageJsonAttributes
+        ...validated.packtoryConfiguration.commonPackageSettings?.additionalPackageManifestAttributes,
+        ...packageConfiguration.additionalPackageManifestAttributes
     };
 }
 
 function releasePackageResolveOptions(
-    validated: ValidConfigResult,
-    packageConfig: ReleasePackageConfig
+    validated: ValidConfigurationResult,
+    packageConfiguration: ReleasePackageConfiguration
 ): ResolvedPackage['resolveOptions'] {
     return {
-        name: packageConfig.name,
-        exportPackageJson: packageConfig.exportPackageJson,
-        roots: packageConfig.roots,
+        name: packageConfiguration.name,
+        exportPackageManifest: packageConfiguration.exportPackageManifest,
+        roots: packageConfiguration.roots,
         surface: undefined,
-        sourcesFolder: releasePackageSourcesFolder(packageConfig),
-        includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
-        additionalFiles: packageConfig.additionalFiles ?? [],
-        mainPackageJson: releasePackageMainPackageJson(validated, packageConfig),
-        additionalChangelogSourceFiles: releasePackageAdditionalChangelogSourceFiles(validated, packageConfig),
-        additionalPackageJsonAttributes: releasePackageAdditionalPackageJsonAttributes(validated, packageConfig),
+        sourcesFolder: releasePackageSourcesFolder(packageConfiguration),
+        includeSourceMapFiles: packageConfiguration.includeSourceMapFiles ?? false,
+        additionalFiles: packageConfiguration.additionalFiles ?? [],
+        mainPackageManifest: releasePackageMainPackageManifest(validated, packageConfiguration),
+        additionalChangelogSourceFiles: releasePackageAdditionalChangelogSourceFiles(validated, packageConfiguration),
+        additionalPackageManifestAttributes: releasePackageAdditionalPackageManifestAttributes(
+            validated,
+            packageConfiguration
+        ),
         allowMutableSpecifiers: [],
-        deadCodeElimination: packageConfig.deadCodeElimination,
+        deadCodeElimination: packageConfiguration.deadCodeElimination,
         bundleDependencies: [],
         bundlePeerDependencies: []
     };
 }
 
 export function resolvedPackagesFor(
-    validated: ValidConfigResult,
+    validated: ValidConfigurationResult,
     options: ResolvedPackagesOptions = {}
 ): readonly ResolvedPackage[] {
-    return validated.packtoryConfig.packages.map(function (packageConfig) {
-        const contents = resolvePackageContents(packageConfig.name, options);
+    return validated.packtoryConfiguration.packages.map(function (packageConfiguration) {
+        const contents = resolvePackageContents(packageConfiguration.name, options);
         return {
-            name: packageConfig.name,
-            analyzedBundle: analyzedBundle({ name: packageConfig.name, contents }),
-            resolveOptions: releasePackageResolveOptions(validated, packageConfig)
+            name: packageConfiguration.name,
+            analyzedBundle: analyzedBundle({ name: packageConfiguration.name, contents }),
+            resolveOptions: releasePackageResolveOptions(validated, packageConfiguration)
         };
     });
 }

@@ -15,7 +15,7 @@ type PackEmitterFixture = {
 function makeBundle(): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         contents: [],
-        packageJson: { name: 'the-pkg', version: '1.0.0' },
+        packageManifest: { name: 'the-pkg', version: '1.0.0' },
         name: 'the-pkg',
         manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
     });
@@ -47,7 +47,7 @@ suite('pack-emitter', function () {
         assertDeepSubset(buildZip, {
             callCount: 1,
             firstCall: {
-                args: [ bundle, [], [] ]
+                arguments: [ bundle, [], [] ]
             }
         });
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
@@ -69,7 +69,7 @@ suite('pack-emitter', function () {
         assertDeepSubset(buildTarball, {
             callCount: 1,
             firstCall: {
-                args: [ bundle, [], [] ]
+                arguments: [ bundle, [], [] ]
             }
         });
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
@@ -96,7 +96,7 @@ suite('pack-emitter', function () {
         assertDeepSubset(buildFolder, {
             callCount: 1,
             firstCall: {
-                args: [ bundle, '/out/extracted', [], [] ]
+                arguments: [ bundle, '/out/extracted', [], [] ]
             }
         });
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 0);

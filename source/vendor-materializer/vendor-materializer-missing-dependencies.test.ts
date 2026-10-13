@@ -1,6 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { expectErr, expectOk, runWith, setupFileManager } from '../test-libraries/vendor-materializer-test-support.ts';
+import {
+    expectError,
+    expectOk,
+    runWith,
+    setupFileManager
+} from '../test-libraries/vendor-materializer-test-support.ts';
 import { createVendorMaterializer } from './vendor-materializer.ts';
 
 suite('vendor-materializer missing dependencies and modes', function () {
@@ -49,7 +54,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
             dependencySources: [ { initialDependencyNames: [ 'missing' ], projectFolder: '/some/deep/folder' } ]
         });
 
-        assert.deepStrictEqual(expectErr(failure), {
+        assert.deepStrictEqual(expectError(failure), {
             type: 'dependency-not-found',
             sourcePackageName: undefined,
             dependencyName: 'missing'
@@ -106,7 +111,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
             dependencySources: [ { initialDependencyNames: [ 'root' ], projectFolder: '/repo' } ]
         });
 
-        assert.deepStrictEqual(expectErr(failure), {
+        assert.deepStrictEqual(expectError(failure), {
             type: 'dependency-not-found',
             sourcePackageName: 'root',
             dependencyName: 'missing'

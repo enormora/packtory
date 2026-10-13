@@ -1,13 +1,13 @@
-import type { PullRequestDetails } from './release-pr-github-client.ts';
+import type { PullRequestDetails } from './release-pull-request-github-client.ts';
 import {
     validateReleasePullRequestPublishPolicy,
-    type ReleasePullRequestPolicyConfig,
+    type ReleasePullRequestPolicyConfiguration,
     type ReleasePullRequestPublishInput
 } from './release-pull-request-policy.ts';
 
 type AuthorizedReleasePublish = {
-    readonly publishCommitSha: string;
-    readonly releaseCommitSha: string;
+    readonly publishCommitHash: string;
+    readonly releaseCommitHash: string;
     readonly releasePullRequestNumber: number;
     readonly shouldPublish: true;
 };
@@ -15,31 +15,31 @@ type AuthorizedReleasePublish = {
 export type ReleasePublishAuthorization = AuthorizedReleasePublish | { readonly shouldPublish: false; };
 
 type PullRequestAuthorizationInput = {
-    readonly config: ReleasePullRequestPolicyConfig;
-    readonly expectedMergeCommitSha: string;
+    readonly configuration: ReleasePullRequestPolicyConfiguration;
+    readonly expectedMergeCommitHash: string;
     readonly pullRequest: PullRequestDetails;
     readonly repository: string;
 };
 type CommitAuthorizationInput = {
-    readonly config: ReleasePullRequestPolicyConfig;
-    readonly commitSha: string;
+    readonly configuration: ReleasePullRequestPolicyConfiguration;
+    readonly commitHash: string;
     readonly pullRequests: readonly PullRequestDetails[];
     readonly repository: string;
 };
 type PullRequestPublishAuthorizationInput = {
-    readonly config: ReleasePullRequestPolicyConfig;
+    readonly configuration: ReleasePullRequestPolicyConfiguration;
     readonly pullRequest: PullRequestDetails;
     readonly repository: string;
 };
 
 function selectSingleReleasePullRequest(
     pullRequests: readonly PullRequestDetails[],
-    commitSha: string
+    commitHash: string
 ): PullRequestDetails | undefined {
     const pullRequest = pullRequests.at(0);
     const secondPullRequest = pullRequests.at(1);
     if (secondPullRequest !== undefined) {
-        throw new Error(`Commit ${commitSha} is associated with multiple release PRs`);
+        throw new Error(`Commit ${commitHash} is associated with multiple release PRs`);
     }
     return pullRequest;
 }
@@ -47,12 +47,12 @@ function selectSingleReleasePullRequest(
 function toPublishInput(pullRequest: PullRequestDetails, repository: string): ReleasePullRequestPublishInput {
     return {
         author: pullRequest.author,
-        baseRef: pullRequest.baseRef,
+        baseReference: pullRequest.baseReference,
         changedFiles: pullRequest.changedFiles,
-        headRef: pullRequest.headRef,
+        headReference: pullRequest.headReference,
         headRepository: pullRequest.headRepository,
         labels: pullRequest.labels,
-        mergeCommitSha: pullRequest.mergeCommitSha,
+        mergeCommitHash: pullRequest.mergeCommitHash,
         merged: pullRequest.merged,
         repository,
         subject: pullRequest.subject,
@@ -65,8 +65,8 @@ function isAuthorizedPullRequest(input: PullRequestAuthorizationInput): boolean 
     try {
         validateReleasePullRequestPublishPolicy(
             toPublishInput(input.pullRequest, input.repository),
-            input.config,
-            input.expectedMergeCommitSha
+            input.configuration,
+            input.expectedMergeCommitHash
         );
     } catch {
         authorized = false;
@@ -77,21 +77,21 @@ function isAuthorizedPullRequest(input: PullRequestAuthorizationInput): boolean 
 export function authorizeReleasePublishFromCommit(input: CommitAuthorizationInput): ReleasePublishAuthorization {
     const releasePullRequests = input.pullRequests.filter(function (pullRequest) {
         return isAuthorizedPullRequest({
-            config: input.config,
-            expectedMergeCommitSha: input.commitSha,
+            configuration: input.configuration,
+            expectedMergeCommitHash: input.commitHash,
             pullRequest,
             repository: input.repository
         });
     });
 
-    const releasePullRequest = selectSingleReleasePullRequest(releasePullRequests, input.commitSha);
+    const releasePullRequest = selectSingleReleasePullRequest(releasePullRequests, input.commitHash);
     if (releasePullRequest === undefined) {
         return { shouldPublish: false };
     }
 
     return {
-        publishCommitSha: input.commitSha,
-        releaseCommitSha: input.commitSha,
+        publishCommitHash: input.commitHash,
+        releaseCommitHash: input.commitHash,
         releasePullRequestNumber: releasePullRequest.number,
         shouldPublish: true
     };
@@ -100,19 +100,19 @@ export function authorizeReleasePublishFromCommit(input: CommitAuthorizationInpu
 export function authorizeReleasePublishFromPullRequest(
     input: PullRequestPublishAuthorizationInput
 ): ReleasePublishAuthorization {
-    if (input.pullRequest.mergeCommitSha === undefined) {
+    if (input.pullRequest.mergeCommitHash === undefined) {
         throw new Error(`Pull request #${input.pullRequest.number} is not a merged release PR`);
     }
 
     validateReleasePullRequestPublishPolicy(
         toPublishInput(input.pullRequest, input.repository),
-        input.config,
-        input.pullRequest.mergeCommitSha
+        input.configuration,
+        input.pullRequest.mergeCommitHash
     );
 
     return {
-        publishCommitSha: input.pullRequest.mergeCommitSha,
-        releaseCommitSha: input.pullRequest.mergeCommitSha,
+        publishCommitHash: input.pullRequest.mergeCommitHash,
+        releaseCommitHash: input.pullRequest.mergeCommitHash,
         releasePullRequestNumber: input.pullRequest.number,
         shouldPublish: true
     };

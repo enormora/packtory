@@ -1,0 +1,38 @@
+import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-document.ts';
+import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
+import { escapeHypertextMarkupLanguage } from './hypertext-markup-language-escaping.ts';
+
+function renderDiffLine(line: PreviewDiffLine): string {
+    return `<div class="diff-line ${line.type}">${escapeHypertextMarkupLanguage(line.text)}</div>`;
+}
+
+function renderDiffHunk(header: string, lines: readonly PreviewDiffLine[]): string {
+    let renderedLines = '';
+    for (const line of lines) {
+        renderedLines += renderDiffLine(line);
+    }
+    return `<div class="diff-hunk"><div class="diff-header">${
+        escapeHypertextMarkupLanguage(header)
+    }</div>${renderedLines}</div>`;
+}
+
+function renderArtifactDiff(artifact: ChangedPreviewArtifact): string {
+    let hunks = '';
+    for (const hunk of artifact.diff) {
+        hunks += renderDiffHunk(hunk.header, hunk.lines);
+    }
+    return `<details class="diff" open><summary>${
+        escapeHypertextMarkupLanguage(artifact.path)
+    }</summary>${hunks}</details>`;
+}
+
+export function renderPackageDiffs(previewPackage: PreviewPackage): string {
+    if (previewPackage.changedArtifacts.length === 0) {
+        return '';
+    }
+    let sections = '';
+    for (const artifact of previewPackage.changedArtifacts) {
+        sections += renderArtifactDiff(artifact);
+    }
+    return `<section class="package-block"><h3>Changed files</h3>${sections}</section>`;
+}

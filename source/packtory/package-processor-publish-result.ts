@@ -1,5 +1,5 @@
 import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
-import type { BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishOptions } from './map-configuration.ts';
 import type { PublishDependencies } from './package-processor-publish-dependencies.ts';
 import type { PublishedReleaseStatus } from './published-release-state.ts';
 
@@ -12,8 +12,13 @@ export type CurrentHeadPublishedVersion = Awaited<
     ReturnType<PublishDependencies['bundleEmitter']['findCurrentHeadPublishedVersion']>
 >;
 export type PreviousReleaseArtifacts = Readonly<PublishedCheckResult['previousReleaseArtifacts']>;
-export type ExtraFiles = Exclude<Awaited<ReturnType<PublishDependencies['sbomFileBuilder']['generate']>>, undefined>;
-export type SiblingPackage = Parameters<PublishDependencies['sbomFileBuilder']['generate']>[1][number];
+export type ExtraFiles = Exclude<
+    Awaited<ReturnType<PublishDependencies['softwareBillOfMaterialsFileBuilder']['generate']>>,
+    undefined
+>;
+export type SiblingPackage = Parameters<
+    PublishDependencies['softwareBillOfMaterialsFileBuilder']['generate']
+>[1][number];
 export type AnalyzedBundle = Parameters<PublishDependencies['versionManager']['addVersion']>[0]['bundle'];
 
 export type BuildAndPublishResult = {

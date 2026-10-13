@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import { explicitBinTargetPaths, type ArtifactSourcePackage } from '../published-package/published-package.ts';
+import { explicitExecutableTargetPaths, type ArtifactSourcePackage } from '../published-package/published-package.ts';
 
 function applyPrefix(filePath: string, prefix: string | undefined): string {
     return prefix === undefined ? filePath : path.join(prefix, filePath);
@@ -19,7 +19,7 @@ export function collectArtifactContents(
     prefix: string | undefined,
     extraFiles: readonly FileDescription[]
 ): readonly FileDescription[] {
-    const binTargets = explicitBinTargetPaths(bundle);
+    const executableTargets = explicitExecutableTargetPaths(bundle);
     const artifactContents: FileDescription[] = [
         {
             ...bundle.manifestFile,
@@ -32,7 +32,8 @@ export function collectArtifactContents(
             artifactContents.push({
                 filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
                 content: entry.fileDescription.content,
-                isExecutable: entry.fileDescription.isExecutable || binTargets.has(entry.fileDescription.targetFilePath)
+                isExecutable: entry.fileDescription.isExecutable ||
+                    executableTargets.has(entry.fileDescription.targetFilePath)
             });
         }
     }

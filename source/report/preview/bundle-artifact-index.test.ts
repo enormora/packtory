@@ -36,28 +36,31 @@ suite('bundle-artifact-index', function () {
     });
 
     test('buildBundleArtifactIndex always seeds an entry for package.json from the manifest content', function () {
-        const index = buildBundleArtifactIndex([ buildResult('pkg-a', '{"name":"pkg-a"}') ]);
+        const index = buildBundleArtifactIndex([ buildResult('package-a', '{"name":"package-a"}') ]);
 
-        assert.deepStrictEqual(index.get('pkg-a')?.get('package.json'), { content: '{"name":"pkg-a"}' });
+        assert.deepStrictEqual(index.get('package-a')?.get('package.json'), { content: '{"name":"package-a"}' });
     });
 
     test('buildBundleArtifactIndex includes each bundle content entry keyed by target file path', function () {
         const index = buildBundleArtifactIndex([
-            buildResult('pkg-a', '{}', [ {
-                inputFilePath: '/src/a.ts',
+            buildResult('package-a', '{}', [ {
+                inputFilePath: '/source/a.ts',
                 targetFilePath: 'a.js',
                 content: 'content-a'
             } ])
         ]);
 
-        assert.deepStrictEqual(index.get('pkg-a')?.get('a.js'), { content: 'content-a', sourcePath: '/src/a.ts' });
+        assert.deepStrictEqual(index.get('package-a')?.get('a.js'), {
+            content: 'content-a',
+            sourcePath: '/source/a.ts'
+        });
     });
 
     test('buildBundleArtifactIndex maps each bundle to its own inner index by package name', function () {
-        const index = buildBundleArtifactIndex([ buildResult('pkg-a', '{}'), buildResult('pkg-b', '{}') ]);
+        const index = buildBundleArtifactIndex([ buildResult('package-a', '{}'), buildResult('package-b', '{}') ]);
 
-        assert.notStrictEqual(index.get('pkg-a'), index.get('pkg-b'));
-        assert.strictEqual(index.has('pkg-a'), true);
-        assert.strictEqual(index.has('pkg-b'), true);
+        assert.notStrictEqual(index.get('package-a'), index.get('package-b'));
+        assert.strictEqual(index.has('package-a'), true);
+        assert.strictEqual(index.has('package-b'), true);
     });
 });

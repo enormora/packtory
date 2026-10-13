@@ -1,6 +1,6 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { printDryRunNote, printPublishFailure, printSuccessSummary } from './failure-printing.ts';
 import { writeReports, type ReportFlags } from './report-persistence.ts';
@@ -12,7 +12,7 @@ export type PublishHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean; readonly trace: boolean; };
 };
@@ -41,11 +41,11 @@ async function reportOutcome(
 }
 
 async function publish(dependencies: PublishHandlerDependencies): Promise<number> {
-    const { log, packtory, spinnerRenderer, configLoader, fileManager, flags } = dependencies;
-    const outcome = await packtory.buildAndPublishAll(await configLoader.load(), {
+    const { log, packtory, spinnerRenderer, configurationLoader, fileManager, flags } = dependencies;
+    const outcome = await packtory.buildAndPublishAll(await configurationLoader.load(), {
         dryRun: !flags.noDryRun,
         stage: flags.stage,
-        collectReport: flags.reportJson || flags.reportHtml
+        collectReport: flags.reportJavaScriptObjectNotation || flags.reportHypertextMarkupLanguage
     });
     spinnerRenderer.stopAll();
     return reportOutcome(log, fileManager, outcome, flags);

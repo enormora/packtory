@@ -19,13 +19,13 @@ function freshState(): AggregatorState {
     return { packages: new Map(), disposers };
 }
 
-function emitEliminationForPkgA(files: readonly EliminationFileInput[]): AggregatorState {
+function emitEliminationForPackageA(files: readonly EliminationFileInput[]): AggregatorState {
     const state = freshState();
     const broadcaster = createProgressBroadcaster();
     registerSubscribers(state, broadcaster.consumer);
 
     broadcaster.provider.emit('eliminationCompleted', {
-        perBundle: [ { packageName: 'pkg-a', files, droppedSymbols: [], seeds: [] } ]
+        perBundle: [ { packageName: 'package-a', files, droppedSymbols: [], seeds: [] } ]
     });
     return state;
 }
@@ -45,16 +45,16 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('inputsResolved', {
-            packageName: 'pkg-a',
-            roots: { main: 'src/index.js' },
-            siblingVersions: { 'pkg-b': '1.0.0' },
+            packageName: 'package-a',
+            roots: { main: 'source/index.js' },
+            siblingVersions: { 'package-b': '1.0.0' },
             sourceFileCount: 3
         });
 
-        const entry = expectPackageEntry(state, 'pkg-a');
+        const entry = expectPackageEntry(state, 'package-a');
         assertDeepSubset(entry, {
-            roots: { main: 'src/index.js' },
-            siblingVersions: { 'pkg-b': '1.0.0' },
+            roots: { main: 'source/index.js' },
+            siblingVersions: { 'package-b': '1.0.0' },
             sourceFileCount: 3
         });
     });
@@ -64,13 +64,13 @@ function registerPackageEventTests(): void {
         const broadcaster = createProgressBroadcaster();
         registerSubscribers(state, broadcaster.consumer);
 
-        broadcaster.provider.emit('packageJsonAssembled', {
-            packageName: 'pkg-a',
-            fields: { name: { source: 'mainPackageJson' }, version: { source: 'derived' } }
+        broadcaster.provider.emit('packageManifestAssembled', {
+            packageName: 'package-a',
+            fields: { name: { source: 'mainPackageManifest' }, version: { source: 'derived' } }
         });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.packageJson, {
-            name: { source: 'mainPackageJson' },
+        assert.deepStrictEqual(state.packages.get('package-a')?.decisions.packageManifest, {
+            name: { source: 'mainPackageManifest' },
             version: { source: 'derived' }
         });
     });
@@ -80,9 +80,12 @@ function registerPackageEventTests(): void {
         const broadcaster = createProgressBroadcaster();
         registerSubscribers(state, broadcaster.consumer);
 
-        broadcaster.provider.emit('effectiveConfigResolved', { packageName: 'pkg-a', config: { feature: true } });
+        broadcaster.provider.emit('effectiveConfigurationResolved', {
+            packageName: 'package-a',
+            configuration: { feature: true }
+        });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.effectiveConfig, { feature: true });
+        assert.deepStrictEqual(state.packages.get('package-a')?.effectiveConfiguration, { feature: true });
     });
 
     test('registerSubscribers records the version decision on the package entry', function () {
@@ -91,13 +94,13 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('versionDetermined', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             previousVersion: '1.0.0',
             chosenVersion: '1.0.1',
             trigger: 'auto-patch-bump'
         });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.version, {
+        assert.deepStrictEqual(state.packages.get('package-a')?.decisions.version, {
             previousVersion: '1.0.0',
             chosenVersion: '1.0.1',
             trigger: 'auto-patch-bump'
@@ -110,12 +113,12 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('linkingCompleted', {
-            packageName: 'pkg-a',
-            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' } ]
+            packageName: 'package-a',
+            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'package-b' } ]
         });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.linker, {
-            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' } ]
+        assert.deepStrictEqual(state.packages.get('package-a')?.decisions.linker, {
+            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'package-b' } ]
         });
     });
 
@@ -124,9 +127,9 @@ function registerPackageEventTests(): void {
         const broadcaster = createProgressBroadcaster();
         registerSubscribers(state, broadcaster.consumer);
 
-        broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'build', durationMs: 42 });
+        broadcaster.provider.emit('stageTimed', { packageName: 'package-a', stage: 'build', durationMilliseconds: 42 });
 
-        assert.strictEqual(state.packages.get('pkg-a')?.timings.build, 42);
+        assert.strictEqual(state.packages.get('package-a')?.timings.build, 42);
     });
 
     test('registerSubscribers records publication outcomes from done events', function () {
@@ -135,13 +138,13 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('done', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             version: '1.2.3',
             status: 'new-version',
             publication: stagedForApproval('stage-123')
         });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.publication, stagedForApproval('stage-123'));
+        assert.deepStrictEqual(state.packages.get('package-a')?.publication, stagedForApproval('stage-123'));
     });
 
     test('registerSubscribers records package failures', function () {
@@ -149,9 +152,9 @@ function registerPackageEventTests(): void {
         const broadcaster = createProgressBroadcaster();
         registerSubscribers(state, broadcaster.consumer);
 
-        broadcaster.provider.emit('packageFailed', { packageName: 'pkg-a', stage: 'publish', message: 'boom' });
+        broadcaster.provider.emit('packageFailed', { packageName: 'package-a', stage: 'publish', message: 'boom' });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.failure, { stage: 'publish', message: 'boom' });
+        assert.deepStrictEqual(state.packages.get('package-a')?.failure, { stage: 'publish', message: 'boom' });
     });
 
     test('registerSubscribers aggregates artifact size and entries on artifactsCollected', function () {
@@ -160,13 +163,13 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('artifactsCollected', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             entries: [
                 {
                     path: 'a.js',
                     sizeBytes: 10,
                     kind: 'source',
-                    sourcePath: '/src/a.js',
+                    sourcePath: '/source/a.js',
                     status: 'generated',
                     badges: []
                 },
@@ -174,15 +177,15 @@ function registerPackageEventTests(): void {
                     path: 'b.js',
                     sizeBytes: 20,
                     kind: 'source',
-                    sourcePath: '/src/b.js',
+                    sourcePath: '/source/b.js',
                     status: 'generated',
                     badges: []
                 }
             ]
         });
 
-        assert.strictEqual(state.packages.get('pkg-a')?.outputs?.tarball.totalBytes, 30);
-        assert.strictEqual(state.packages.get('pkg-a')?.outputs?.tarball.entries.length, 2);
+        assert.strictEqual(state.packages.get('package-a')?.outputs?.tarball.totalBytes, 30);
+        assert.strictEqual(state.packages.get('package-a')?.outputs?.tarball.entries.length, 2);
     });
 
     test('registerSubscribers records scanCompleted entries under decisions.dependencyScan', function () {
@@ -191,13 +194,13 @@ function registerPackageEventTests(): void {
         registerSubscribers(state, broadcaster.consumer);
 
         broadcaster.provider.emit('scanCompleted', {
-            packageName: 'pkg-a',
-            included: [ { path: '/src/a.ts', reason: 'reachable-from-entry' } ],
+            packageName: 'package-a',
+            included: [ { path: '/source/a.ts', reason: 'reachable-from-entry' } ],
             excluded: [ { specifier: 'lodash', reason: 'external-module' } ]
         });
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.dependencyScan, {
-            included: [ { path: '/src/a.ts', reason: 'reachable-from-entry' } ],
+        assert.deepStrictEqual(state.packages.get('package-a')?.decisions.dependencyScan, {
+            included: [ { path: '/source/a.ts', reason: 'reachable-from-entry' } ],
             excluded: [ { specifier: 'lodash', reason: 'external-module' } ]
         });
     });
@@ -205,18 +208,18 @@ function registerPackageEventTests(): void {
 
 function registerEliminationTests(): void {
     test('registerSubscribers omits eliminatedSourceFiles when no files were eliminated', function () {
-        const state = emitEliminationForPkgA([
-            { path: '/src/a.js', decision: 'kept', reason: 'reachable', sourceBytes: 1 }
+        const state = emitEliminationForPackageA([
+            { path: '/source/a.js', decision: 'kept', reason: 'reachable', sourceBytes: 1 }
         ]);
 
-        const entry = expectPackageEntry(state, 'pkg-a');
+        const entry = expectPackageEntry(state, 'package-a');
         assert.strictEqual(Object.hasOwn(entry, 'eliminatedSourceFiles'), false);
     });
 
     test('registerSubscribers preserves outputBytes on eliminated files when it is provided', function () {
-        const state = emitEliminationForPkgA([
+        const state = emitEliminationForPackageA([
             {
-                path: '/src/a.js',
+                path: '/source/a.js',
                 decision: 'eliminated',
                 reason: 'not-emitted-after-analysis',
                 sourceBytes: 5,
@@ -224,18 +227,18 @@ function registerEliminationTests(): void {
             }
         ]);
 
-        assert.deepStrictEqual(state.packages.get('pkg-a')?.eliminatedSourceFiles, [
-            { path: '/src/a.js', reason: 'not-emitted-after-analysis', sourceBytes: 5, outputBytes: 1 }
+        assert.deepStrictEqual(state.packages.get('package-a')?.eliminatedSourceFiles, [
+            { path: '/source/a.js', reason: 'not-emitted-after-analysis', sourceBytes: 5, outputBytes: 1 }
         ]);
     });
 
     test('registerSubscribers separates eliminated source files from kept files when elimination completes', function () {
-        const state = emitEliminationForPkgA([
+        const state = emitEliminationForPackageA([
             { path: 'a.js', decision: 'kept', reason: 'kept', sourceBytes: 10 },
             { path: 'b.js', decision: 'eliminated', reason: 'no-uses', sourceBytes: 5 }
         ]);
 
-        const entry = expectPackageEntry(state, 'pkg-a');
+        const entry = expectPackageEntry(state, 'package-a');
         const { decisions: { deadCodeElimination }, eliminatedSourceFiles } = entry;
         if (deadCodeElimination === undefined || eliminatedSourceFiles === undefined) {
             assert.fail('expected dead-code-elimination report data');
@@ -266,13 +269,13 @@ function registerDisposerTests(): void {
         }
 
         broadcaster.provider.emit('inputsResolved', {
-            packageName: 'pkg-a',
-            roots: { main: 'src/index.js' },
+            packageName: 'package-a',
+            roots: { main: 'source/index.js' },
             siblingVersions: {},
             sourceFileCount: 0
         });
 
-        assert.strictEqual(state.packages.has('pkg-a'), false);
+        assert.strictEqual(state.packages.has('package-a'), false);
     });
 }
 

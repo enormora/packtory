@@ -1,14 +1,14 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { tmpdir as temporaryDirectory } from 'node:os';
+import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { createFileManager } from '../file-manager/file-manager.ts';
 import { expectOk } from '../test-libraries/vendor-materializer-test-support.ts';
 import { createVendorMaterializer } from './vendor-materializer.ts';
 
-const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 
 type FlushModule = { readonly default: new () => FlushInstance; };
 type FlushInstance = { readonly value: number; };
@@ -37,14 +37,14 @@ async function withInstalledPackages(
     packages: readonly InstalledPackage[],
     action: (root: string) => Promise<void>
 ): Promise<void> {
-    const root = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-installed-versions-'));
+    const root = await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), 'packtory-installed-versions-'));
     for (const installed of packages) {
         await writeInstalledPackage(root, installed);
     }
     try {
         await action(root);
     } finally {
-        await fs.promises.rm(root, { recursive: true, force: true });
+        await fileSystem.promises.rm(root, { recursive: true, force: true });
     }
 }
 
@@ -63,13 +63,13 @@ async function vendorPackages(root: string, names: readonly string[]): Promise<s
 
 async function linkInstalledPackage(root: string, name: string, sourceDirectory: string): Promise<void> {
     const linkPath = path.join(root, 'node_modules', name);
-    await fs.promises.mkdir(path.dirname(linkPath), { recursive: true });
-    await fs.promises.symlink(path.join(root, sourceDirectory), linkPath, 'dir');
+    await fileSystem.promises.mkdir(path.dirname(linkPath), { recursive: true });
+    await fileSystem.promises.symlink(path.join(root, sourceDirectory), linkPath, 'dir');
 }
 
 async function assertFlushValue(output: string, name: string): Promise<void> {
     const { default: Flush } = await import(
-        pathToFileURL(path.join(output, 'node_modules', name, 'index.cjs')).href
+        pathToFileAddress(path.join(output, 'node_modules', name, 'index.cjs')).href
     ) as unknown as FlushModule;
     const flush = new Flush();
     assert.strictEqual(flush.value, 42);
@@ -101,7 +101,7 @@ suite('vendor-materializer installed versions', function () {
         ], async function (root) {
             const output = await vendorPackages(root, [ 'versioned-stream', 'flush' ]);
             const { default: Flush } = await import(
-                pathToFileURL(path.join(output, 'node_modules/flush/index.cjs')).href
+                pathToFileAddress(path.join(output, 'node_modules/flush/index.cjs')).href
             ) as unknown as FlushModule;
             const flush = new Flush();
             assert.strictEqual(flush.value, 42);
@@ -197,7 +197,7 @@ suite('vendor-materializer installed versions', function () {
             await linkInstalledPackage(root, 'alias', 'node_modules/physical');
             const output = await vendorPackages(root, [ 'alias' ]);
             const imported = await import(
-                pathToFileURL(path.join(output, 'node_modules/alias/index.cjs')).href
+                pathToFileAddress(path.join(output, 'node_modules/alias/index.cjs')).href
             ) as unknown as ValueModule;
             assert.strictEqual(imported.default, 42);
         });
@@ -218,7 +218,7 @@ suite('vendor-materializer installed versions', function () {
         ], async function (root) {
             const output = await vendorPackages(root, [ 'parent', 'shared' ]);
             const { default: value }: { readonly default: number; } = await import(
-                pathToFileURL(path.join(output, 'node_modules/parent/index.cjs')).href
+                pathToFileAddress(path.join(output, 'node_modules/parent/index.cjs')).href
             ) as unknown as ValueModule;
             assert.strictEqual(value, 42);
         });
@@ -231,7 +231,7 @@ suite('vendor-materializer installed versions', function () {
             await linkInstalledPackage(root, 'alias', 'node_modules/original');
             const output = await vendorPackages(root, [ 'original', 'alias' ]);
             const imported = await import(
-                pathToFileURL(path.join(output, 'node_modules/alias/index.cjs')).href
+                pathToFileAddress(path.join(output, 'node_modules/alias/index.cjs')).href
             ) as unknown as ValueModule;
             assert.strictEqual(imported.default, 42);
             assert.strictEqual(

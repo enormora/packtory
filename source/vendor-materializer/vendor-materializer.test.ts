@@ -149,7 +149,7 @@ function registerMaterializationTests(): void {
         ]);
     });
 
-    test('does not require peer dependencies marked optional in peerDependenciesMeta', async function () {
+    test('does not require peer dependencies marked optional in peerDependenciesMetadata', async function () {
         const result = await runWith(
             {
                 readabilities: [
@@ -202,7 +202,7 @@ function registerMaterializationTests(): void {
                 realPaths: [
                     { value: '/repo/node_modules/root' },
                     { value: '/repo/node_modules/1dep' },
-                    { value: '/repo/node_modules/a1dep' },
+                    { value: '/repo/node_modules/a1dependency' },
                     { value: '/repo/node_modules/@a1scope/dependency' },
                     { value: '/repo/node_modules/@1scope/dependency' }
                 ],
@@ -218,7 +218,7 @@ function registerMaterializationTests(): void {
                         value: JSON.stringify({
                             dependencies: {
                                 '1dep': '1.0.0',
-                                a1dep: '1.0.0',
+                                a1dependency: '1.0.0',
                                 '@a1scope/dependency': '1.0.0',
                                 '@1scope/dependency': '1.0.0'
                             }
@@ -236,7 +236,7 @@ function registerMaterializationTests(): void {
         assert.deepStrictEqual(result.packageNames, [
             'root',
             '1dep',
-            'a1dep',
+            'a1dependency',
             '@a1scope/dependency',
             '@1scope/dependency'
         ]);
@@ -248,7 +248,7 @@ function registerMaterializationTests(): void {
         const result = await runWith(
             {
                 readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: '/repo/node_modules/pkg' } ],
+                realPaths: [ { value: '/repo/node_modules/package' } ],
                 listings: [
                     {
                         value: [
@@ -262,31 +262,31 @@ function registerMaterializationTests(): void {
                 ],
                 fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'package' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/pkg/index.js' ]);
+        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/package/index.js' ]);
     });
 
     test('recurses into non-node_modules subdirectories and preserves the relative path under the package root', async function () {
         const result = await runWith(
             {
                 readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: '/repo/node_modules/pkg' } ],
+                realPaths: [ { value: '/repo/node_modules/package' } ],
                 listings: [
-                    { value: [ { name: 'src', isDirectory: true, isSymbolicLink: false } ] },
+                    { value: [ { name: 'source', isDirectory: true, isSymbolicLink: false } ] },
                     { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] }
                 ],
                 fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'package' ], projectFolder: '/repo' }
         );
 
         assert.deepStrictEqual(result.entries, [
             {
-                sourceAbsolutePath: '/repo/node_modules/pkg/src/index.js',
-                sourcePackageRootPath: '/repo/node_modules/pkg',
-                targetRelativePath: 'node_modules/pkg/src/index.js',
+                sourceAbsolutePath: '/repo/node_modules/package/source/index.js',
+                sourcePackageRootPath: '/repo/node_modules/package',
+                targetRelativePath: 'node_modules/package/source/index.js',
                 isExecutable: false
             }
         ]);
@@ -374,7 +374,9 @@ function registerSymlinkTests(): void {
         const result = await runWith(
             {
                 readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg/dist/index.js' } ],
+                realPaths: [ { value: '/repo/node_modules/package' }, {
+                    value: '/repo/node_modules/package/dist/index.js'
+                } ],
                 listings: [
                     {
                         value: [
@@ -388,12 +390,12 @@ function registerSymlinkTests(): void {
                 ],
                 fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'package' ], projectFolder: '/repo' }
         );
 
         assert.deepStrictEqual(targetRelativePaths(result), [
-            'node_modules/pkg/dist/index.js',
-            'node_modules/pkg/bin.js'
+            'node_modules/package/dist/index.js',
+            'node_modules/package/bin.js'
         ]);
     });
 
@@ -401,7 +403,7 @@ function registerSymlinkTests(): void {
         const result = await runWith(
             {
                 readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg' } ],
+                realPaths: [ { value: '/repo/node_modules/package' }, { value: '/repo/node_modules/package' } ],
                 listings: [
                     {
                         value: [ { name: 'self-link', isDirectory: false, isSymbolicLink: true } ]
@@ -409,10 +411,10 @@ function registerSymlinkTests(): void {
                 ],
                 fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'package' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/pkg/self-link' ]);
+        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/package/self-link' ]);
     });
 
     test('rejects a symlink whose resolved target escapes the package directory', async function () {
@@ -454,15 +456,15 @@ function registerSymlinkTests(): void {
 
     test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
         const failure = await runSinglePackageSymlinkScenario({
-            initialName: 'pkg',
-            packageRealPath: '/repo/node_modules/pkg',
+            initialName: 'package',
+            packageRealPath: '/repo/node_modules/package',
             listings: [ { value: [ { name: 'parent-link', isDirectory: false, isSymbolicLink: true } ] } ],
             targetRealPath: { value: '/repo/node_modules' }
         });
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
-            packageName: 'pkg',
+            packageName: 'package',
             entryRelativePath: 'parent-link',
             resolvedTargetPath: '/repo/node_modules'
         });
@@ -470,10 +472,10 @@ function registerSymlinkTests(): void {
 
     test('reports a nested symlink-entry path with forward slashes regardless of platform separators', async function () {
         const failure = await runSinglePackageSymlinkScenario({
-            initialName: 'pkg',
-            packageRealPath: '/repo/node_modules/pkg',
+            initialName: 'package',
+            packageRealPath: '/repo/node_modules/package',
             listings: [
-                { value: [ { name: 'config', isDirectory: true, isSymbolicLink: false } ] },
+                { value: [ { name: 'configuration', isDirectory: true, isSymbolicLink: false } ] },
                 { value: [ { name: 'secret-link', isDirectory: false, isSymbolicLink: true } ] }
             ],
             targetRealPath: { value: '/Users/victim/.ssh/id_rsa' }
@@ -481,25 +483,25 @@ function registerSymlinkTests(): void {
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
-            packageName: 'pkg',
-            entryRelativePath: 'config/secret-link',
+            packageName: 'package',
+            entryRelativePath: 'configuration/secret-link',
             resolvedTargetPath: '/Users/victim/.ssh/id_rsa'
         });
     });
 
     test('rejects a symlink whose target cannot be resolved (broken symlink) so packtory never blindly trusts it', async function () {
         const failure = await runSinglePackageSymlinkScenario({
-            initialName: 'pkg',
-            packageRealPath: '/repo/node_modules/pkg',
+            initialName: 'package',
+            packageRealPath: '/repo/node_modules/package',
             listings: [ { value: [ { name: 'broken.json', isDirectory: false, isSymbolicLink: true } ] } ],
             targetRealPath: { error: new Error('ENOENT: no such file or directory') }
         });
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
-            packageName: 'pkg',
+            packageName: 'package',
             entryRelativePath: 'broken.json',
-            resolvedTargetPath: '/repo/node_modules/pkg/broken.json'
+            resolvedTargetPath: '/repo/node_modules/package/broken.json'
         });
     });
 }

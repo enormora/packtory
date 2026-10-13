@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { PackageConfiguration, PacktoryConfigurationWithoutRegistry } from '../configuration/configuration.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import { checkBundle, fakeCheckRunner } from '../test-libraries/check-fixtures.ts';
 import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { validConfigWithoutRegistryFixture } from '../test-libraries/config-fixtures.ts';
+import { validConfigurationWithoutRegistryFixture } from '../test-libraries/configuration-fixtures.ts';
 import { createLinkedBundle, createResolveOptions } from '../test-libraries/package-processor-test-support.ts';
 import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import {
@@ -14,8 +14,9 @@ import {
     type ResolvedPackage
 } from './resolved-package.ts';
 
-const validated: (config: Partial<PacktoryConfigWithoutRegistry>) => ValidConfigWithoutRegistryResult =
-    validConfigWithoutRegistryFixture;
+const validated: (
+    configuration: Partial<PacktoryConfigurationWithoutRegistry>
+) => ValidConfigurationWithoutRegistryResult = validConfigurationWithoutRegistryFixture;
 
 const unusedCheckDependencies = {
     runChecks: fakeCheckRunner(),
@@ -26,10 +27,10 @@ const unusedCheckDependencies = {
     }
 };
 
-function packageConfig(
+function packageConfiguration(
     name: string,
-    overrides: Partial<PackageConfig> = {}
-): PacktoryConfigWithoutRegistry['packages'][number] {
+    overrides: Partial<PackageConfiguration> = {}
+): PacktoryConfigurationWithoutRegistry['packages'][number] {
     return { name, roots: {}, ...overrides };
 }
 
@@ -39,8 +40,8 @@ function resolvedPackage(name: string, analyzedBundle: ResolvedPackage['analyzed
 
 function duplicateResolvedPackages(): readonly ResolvedPackage[] {
     return [
-        resolvedPackage('pkg-a', checkBundle('pkg-a', [ 'shared.ts' ])),
-        resolvedPackage('pkg-b', checkBundle('pkg-b', [ 'shared.ts' ]))
+        resolvedPackage('package-a', checkBundle('package-a', [ 'shared.ts' ])),
+        resolvedPackage('package-b', checkBundle('package-b', [ 'shared.ts' ]))
     ];
 }
 
@@ -52,11 +53,11 @@ function bundleWithExternal(packageName: string, dependencyName: string): Resolv
 }
 
 async function runSinglePackageChecks(
-    config: Partial<PacktoryConfigWithoutRegistry>,
+    configuration: Partial<PacktoryConfigurationWithoutRegistry>,
     analyzedBundle: ResolvedPackage['analyzedBundle']
 ): Promise<Awaited<ReturnType<typeof buildChecksResult>>> {
-    return await buildChecksResult(unusedCheckDependencies, validated(config), [
-        resolvedPackage('pkg-a', analyzedBundle)
+    return await buildChecksResult(unusedCheckDependencies, validated(configuration), [
+        resolvedPackage('package-a', analyzedBundle)
     ]);
 }
 
@@ -99,7 +100,7 @@ function createPublishedPackageWithManifest(packageName: string): VersionedBundl
             }),
             isExecutable: false
         },
-        packageJson: {
+        packageManifest: {
             name: packageName,
             version: '0.0.0'
         }
@@ -129,11 +130,11 @@ function recordPublishedPackageInputs(packageName: string): RecordedPublishedPac
 
 suite('resolved-package', function () {
     test('createResolvedPackage assembles the three fields into a ResolvedPackage', function () {
-        const analyzedBundle = checkBundle('pkg-a', []);
+        const analyzedBundle = checkBundle('package-a', []);
         const resolveOptions = createResolveOptions();
 
-        assert.deepStrictEqual(createResolvedPackage('pkg-a', analyzedBundle, resolveOptions), {
-            name: 'pkg-a',
+        assert.deepStrictEqual(createResolvedPackage('package-a', analyzedBundle, resolveOptions), {
+            name: 'package-a',
             analyzedBundle,
             resolveOptions
         });
@@ -155,7 +156,7 @@ suite('resolved-package', function () {
             unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [ packageConfig('pkg-a'), packageConfig('pkg-b') ]
+                packages: [ packageConfiguration('package-a'), packageConfiguration('package-b') ]
             }),
             duplicateResolvedPackages()
         );
@@ -165,7 +166,7 @@ suite('resolved-package', function () {
         }
         assert.deepStrictEqual(result.error, {
             type: 'checks',
-            issues: [ 'File "shared.ts" is included in multiple packages: pkg-a, pkg-b' ]
+            issues: [ 'File "shared.ts" is included in multiple packages: package-a, package-b' ]
         });
     });
 
@@ -176,7 +177,10 @@ suite('resolved-package', function () {
             unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [ packageConfig('pkg-a', { checks: consent }), packageConfig('pkg-b', { checks: consent }) ]
+                packages: [
+                    packageConfiguration('package-a', { checks: consent }),
+                    packageConfiguration('package-b', { checks: consent })
+                ]
             }),
             duplicateResolvedPackages()
         );
@@ -184,31 +188,31 @@ suite('resolved-package', function () {
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult falls back to commonPackageSettings.mainPackageJson when the package does not override it', async function () {
+    test('buildChecksResult falls back to commonPackageSettings.mainPackageManifest when the package does not override it', async function () {
         const result = await runSinglePackageChecks(
             {
                 commonPackageSettings: {
-                    mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
+                    mainPackageManifest: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
                 },
-                checks: { noDevDependencyImports: { enabled: true } },
-                packages: [ packageConfig('pkg-a') ]
+                checks: { noDevelopmentDependencyImports: { enabled: true } },
+                packages: [ packageConfiguration('package-a') ]
             },
-            bundleWithExternal('pkg-a', 'runtime-dep')
+            bundleWithExternal('package-a', 'runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult flags a dev-only import detected through the common mainPackageJson fallback', async function () {
+    test('buildChecksResult flags a dev-only import detected through the common mainPackageManifest fallback', async function () {
         const result = await runSinglePackageChecks(
             {
                 commonPackageSettings: {
-                    mainPackageJson: { type: 'module', devDependencies: { 'dev-dep': '1.0.0' } }
+                    mainPackageManifest: { type: 'module', devDependencies: { 'dev-dep': '1.0.0' } }
                 },
-                checks: { noDevDependencyImports: { enabled: true } },
-                packages: [ packageConfig('pkg-a') ]
+                checks: { noDevelopmentDependencyImports: { enabled: true } },
+                packages: [ packageConfiguration('package-a') ]
             },
-            bundleWithExternal('pkg-a', 'dev-dep')
+            bundleWithExternal('package-a', 'dev-dep')
         );
 
         if (!result.isErr) {
@@ -217,25 +221,25 @@ suite('resolved-package', function () {
         assert.deepStrictEqual(result.error, {
             type: 'checks',
             issues: [
-                'Package "pkg-a" imports "dev-dep" which is only declared in devDependencies of the main package.json'
+                'Package "package-a" imports "dev-dep" which is only declared in devDependencies of the main package.json'
             ]
         });
     });
 
-    test('buildChecksResult prefers the package-level mainPackageJson over commonPackageSettings.mainPackageJson', async function () {
+    test('buildChecksResult prefers the package-level mainPackageManifest over commonPackageSettings.mainPackageManifest', async function () {
         const result = await runSinglePackageChecks(
             {
                 commonPackageSettings: {
-                    mainPackageJson: { type: 'module', devDependencies: { 'runtime-dep': '1.0.0' } }
+                    mainPackageManifest: { type: 'module', devDependencies: { 'runtime-dep': '1.0.0' } }
                 },
-                checks: { noDevDependencyImports: { enabled: true } },
+                checks: { noDevelopmentDependencyImports: { enabled: true } },
                 packages: [
-                    packageConfig('pkg-a', {
-                        mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
+                    packageConfiguration('package-a', {
+                        mainPackageManifest: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
                     })
                 ]
             },
-            bundleWithExternal('pkg-a', 'runtime-dep')
+            bundleWithExternal('package-a', 'runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
@@ -243,24 +247,24 @@ suite('resolved-package', function () {
 
     suite('generated check packages', function () {
         test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
-            const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
-            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+            const analyzedBundle = checkBundle('package-a', [ 'index.js' ]);
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
             const result = await buildChecksResult(
                 dependencies,
                 validated({
                     checks: { typeScriptIntegrity: { enabled: true } },
-                    packages: [ packageConfig('pkg-a') ]
+                    packages: [ packageConfiguration('package-a') ]
                 }),
                 [
                     {
-                        name: 'pkg-a',
+                        name: 'package-a',
                         analyzedBundle,
                         resolveOptions: {
                             ...createResolveOptions(),
-                            mainPackageJson: { type: 'module' },
+                            mainPackageManifest: { type: 'module' },
                             bundleDependencies: [ createLinkedBundle('bundle-dependency') ],
                             bundlePeerDependencies: [ createLinkedBundle('bundle-peer-dependency') ],
-                            additionalPackageJsonAttributes: {},
+                            additionalPackageManifestAttributes: {},
                             allowMutableSpecifiers: []
                         }
                     }
@@ -272,33 +276,33 @@ suite('resolved-package', function () {
             assert.deepStrictEqual(addVersionCalls[0], {
                 bundle: analyzedBundle,
                 version: '0.0.0',
-                mainPackageJson: { type: 'module' },
+                mainPackageManifest: { type: 'module' },
                 bundleDependencies: [ { name: 'bundle-dependency', version: '0.0.0' } ],
                 bundlePeerDependencies: [ { name: 'bundle-peer-dependency', version: '0.0.0' } ],
-                additionalPackageJsonAttributes: {},
+                additionalPackageManifestAttributes: {},
                 allowMutableSpecifiers: []
             });
         });
 
         test('buildChecksResult materializes generated packages when noUnexposedExecutables is enabled', async function () {
-            const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
-            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+            const analyzedBundle = checkBundle('package-a', [ 'index.js' ]);
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
             const result = await buildChecksResult(
                 dependencies,
                 validated({
                     checks: { noUnexposedExecutables: { enabled: true } },
-                    packages: [ packageConfig('pkg-a') ]
+                    packages: [ packageConfiguration('package-a') ]
                 }),
                 [
                     {
-                        name: 'pkg-a',
+                        name: 'package-a',
                         analyzedBundle,
                         resolveOptions: {
                             ...createResolveOptions(),
-                            mainPackageJson: { type: 'module' },
+                            mainPackageManifest: { type: 'module' },
                             bundleDependencies: [],
                             bundlePeerDependencies: [],
-                            additionalPackageJsonAttributes: {},
+                            additionalPackageManifestAttributes: {},
                             allowMutableSpecifiers: []
                         }
                     }
@@ -316,15 +320,15 @@ suite('resolved-package', function () {
                 runChecks: fakeCheckRunner(),
                 versionManager: {
                     addVersion() {
-                        throw new Error('Package "pkg-a" exposes substituted module "./internal.js"');
+                        throw new Error('Package "package-a" exposes substituted module "./internal.js"');
                     }
                 }
             },
             validated({
                 checks: { typeScriptIntegrity: { enabled: true } },
-                packages: [ packageConfig('pkg-a') ]
+                packages: [ packageConfiguration('package-a') ]
             }),
-            [ resolvedPackage('pkg-a', checkBundle('pkg-a', [ 'index.js' ])) ]
+            [ resolvedPackage('package-a', checkBundle('package-a', [ 'index.js' ])) ]
         );
 
         if (!result.isErr) {
@@ -332,38 +336,38 @@ suite('resolved-package', function () {
         }
         assert.deepStrictEqual(result.error, {
             type: 'checks',
-            issues: [ 'Package "pkg-a" exposes substituted module "./internal.js"' ]
+            issues: [ 'Package "package-a" exposes substituted module "./internal.js"' ]
         });
     });
 
     test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
-        const packageBundle = checkBundle('pkg-a', [ 'index.js', 'lib/internal.js' ]);
-        const consumerBundle = checkBundle('pkg-b', [ 'index.js' ]);
-        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+        const packageBundle = checkBundle('package-a', [ 'index.js', 'lib/internal.js' ]);
+        const consumerBundle = checkBundle('package-b', [ 'index.js' ]);
+        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
         const result = await buildChecksResult(
             dependencies,
             validated({
                 checks: { typeScriptIntegrity: { enabled: true } },
-                packages: [ packageConfig('pkg-a'), packageConfig('pkg-b') ]
+                packages: [ packageConfiguration('package-a'), packageConfiguration('package-b') ]
             }),
             [
                 {
-                    name: 'pkg-a',
+                    name: 'package-a',
                     analyzedBundle: packageBundle,
                     resolveOptions: {
                         ...createResolveOptions(),
-                        mainPackageJson: { type: 'module' },
+                        mainPackageManifest: { type: 'module' },
                         bundleDependencies: [],
                         bundlePeerDependencies: [],
-                        additionalPackageJsonAttributes: {},
+                        additionalPackageManifestAttributes: {},
                         allowMutableSpecifiers: []
                     }
                 },
-                resolvedPackage('pkg-b', {
+                resolvedPackage('package-b', {
                     ...consumerBundle,
                     contents: [
                         analyzedBundleResource('index.js', {
-                            content: 'import "pkg-a/lib/internal.js";\n',
+                            content: 'import "package-a/lib/internal.js";\n',
                             targetFilePath: 'index.js'
                         })
                     ]
@@ -376,10 +380,10 @@ suite('resolved-package', function () {
         assert.deepStrictEqual(addVersionCalls[0], {
             bundle: packageBundle,
             version: '0.0.0',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             substitutionPublicModuleSourcePaths: new Set([ 'lib/internal.js' ])
         });

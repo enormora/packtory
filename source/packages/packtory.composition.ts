@@ -2,7 +2,7 @@ import { checkPackage, Package } from '@arethetypeswrong/core';
 import {
     problemAffectsEntrypointResolution,
     problemAffectsResolutionKind,
-    problemKindInfo
+    problemKindInfo as problemKindInformation
 } from '@arethetypeswrong/core/problems';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { Project } from 'ts-morph';
@@ -33,7 +33,7 @@ function buildCheckRunner(repositoryFolder: string, fileManager: FileManager): C
         analyzePackageResolution: createPackageResolutionAnalyzer({
             Package,
             checkPackage,
-            problemKindInfo,
+            problemKindInformation,
             problemAffectsResolutionKind,
             problemAffectsEntrypointResolution
         }),

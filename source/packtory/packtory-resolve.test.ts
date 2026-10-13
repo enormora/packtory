@@ -33,7 +33,7 @@ suite('packtory-resolve', function () {
     test('createResolveAndLinkAllValidated returns Ok([]) when no packages are configured', async function () {
         const resolve = createResolveAndLinkAllValidated(happyDependencies());
 
-        const result = await resolve({ packageConfigs: {}, packtoryConfig: { packages: [] } } as never);
+        const result = await resolve({ packageConfigurations: {}, packtoryConfiguration: { packages: [] } } as never);
 
         assert.strictEqual(result.isOk, true);
     });
@@ -45,7 +45,7 @@ suite('packtory-resolve', function () {
         };
         const resolve = createResolveAndLinkAllValidated(dependencies);
 
-        const result = await resolve({ packageConfigs: {}, packtoryConfig: { packages: [] } } as never);
+        const result = await resolve({ packageConfigurations: {}, packtoryConfiguration: { packages: [] } } as never);
 
         if (!result.isErr || result.error.type !== 'partial') {
             assert.fail('expected a partial failure');

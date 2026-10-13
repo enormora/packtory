@@ -62,7 +62,7 @@ const contentChangeFactory = createUnionFactory([
 
 export function createPackageReleaseDiff(overrides: Partial<PackageReleaseDiff> = {}): PackageReleaseDiff {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         state: 'changed',
         versionTransition: '1.0.0 -> 1.0.1',
         previousVersionLabel: '1.0.0',

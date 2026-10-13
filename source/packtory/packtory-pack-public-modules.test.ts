@@ -7,7 +7,7 @@ import {
     createDependencies,
     makeResolvedPackage,
     packEmitterInput,
-    validatedConfig,
+    validatedConfiguration,
     type PackEmitterInput
 } from '../test-libraries/packtory-pack-test-support.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
@@ -21,9 +21,9 @@ function basePackage(): ResolvedPackage {
         analyzedBundle: analyzedBundle({
             name: 'base',
             contents: [
-                analyzedBundleResource('/src/index.js', { targetFilePath: 'index.js' }),
-                analyzedBundleResource('/src/rules.js', { targetFilePath: 'rules.js' }),
-                analyzedBundleResource('/src/rules.d.ts', { targetFilePath: 'rules.d.ts' })
+                analyzedBundleResource('/source/index.js', { targetFilePath: 'index.js' }),
+                analyzedBundleResource('/source/rules.js', { targetFilePath: 'rules.js' }),
+                analyzedBundleResource('/source/rules.d.ts', { targetFilePath: 'rules.d.ts' })
             ]
         })
     };
@@ -40,7 +40,7 @@ function consumerPackage(): ResolvedPackage {
         analyzedBundle: analyzedBundle({
             name: 'consumer',
             linkedBundleDependencies: consumer.analyzedBundle.linkedBundleDependencies,
-            contents: [ analyzedBundleResource('/src/index.js', { content: 'import "base/rules.js";' }) ]
+            contents: [ analyzedBundleResource('/source/index.js', { content: 'import "base/rules.js";' }) ]
         })
     };
 }
@@ -54,7 +54,7 @@ async function packPublicModuleFixture(packageName: string, vendorDependencies: 
         versionManager: createVersionManager({ progressBroadcaster: createProgressBroadcaster().provider })
     });
     const result = await runPack(
-        validatedConfig,
+        validatedConfiguration,
         { ...baseOptions, packageName, vendorDependencies },
         fakes.resolveAndLinkAll
     );

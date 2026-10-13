@@ -5,7 +5,7 @@ export type TarballIntegrity = {
     readonly shasum: string | undefined;
 };
 
-const sha1HexPattern = /^[a-f0-9]{40}$/u;
+const hash1HexPattern = /^[a-f0-9]{40}$/u;
 
 function assertIntegrityMetadataMatches(tarball: Buffer, integrity: string): void {
     try {
@@ -17,7 +17,7 @@ function assertIntegrityMetadataMatches(tarball: Buffer, integrity: string): voi
 }
 
 function assertShasumMetadataMatches(tarball: Buffer, shasum: string): void {
-    if (!sha1HexPattern.test(shasum)) {
+    if (!hash1HexPattern.test(shasum)) {
         throw new Error(`Registry returned invalid dist.shasum "${shasum}"`);
     }
 

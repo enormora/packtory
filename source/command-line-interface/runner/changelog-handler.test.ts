@@ -1,256 +1,24 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
-import { Result } from 'true-myth';
-import type {
-    CollectMergedPullRequestsOptions,
-    PrLogEngine,
-    PrLogEngineOptions,
-    PullRequest,
-    PullRequestChangedFile,
-    PullRequestWithLabel
-} from '@pr-log/core';
-import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
-import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
-import { runChangelogHandler, type ChangelogHandlerDependencies } from './changelog-handler.ts';
-
-function releasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
-    return {
-        name: 'pkg-a',
-        previousVersion: '1.0.0',
-        nextVersion: '1.0.1',
-        artifactState: 'changed',
-        releaseClassification: 'substantive',
-        changed: true,
-        previousGitHead: 'old-head',
-        currentGitHead: 'new-head',
-        latestRegistryMetadata: undefined,
-        artifactFiles: [ 'index.js' ],
-        changedArtifactFiles: [ 'index.js' ],
-        sourceFiles: [ 'source/pkg-a.ts' ],
-        changelogSourceFiles: [ 'source/pkg-a.ts' ],
-        changelogDependencyNames: [],
-        changelogDependencyUpdates: [],
-        ...overrides
-    };
-}
-
-const validConfig = {
-    packages: [
-        {
-            sourcesFolder: 'src/pkg-a',
-            mainPackageJson: { type: 'module' },
-            name: 'pkg-a',
-            roots: { main: { js: 'index.js' } },
-            publishSettings: { access: 'public' }
-        }
-    ]
-} as const;
-
-function releasePlanOutcomeFrom(result: ReleasePlanResult): ReleasePlanOutcome {
-    return {
-        result,
-        getReport() {
-            return {
-                schemaVersion: 1 as const,
-                generatedAt: '2026-06-13T00:00:00.000Z',
-                packages: {},
-                aggregate: { crossBundleLinks: [] }
-            };
-        }
-    };
-}
-
-function outcome(packages: readonly ReleasePlanPackage[]): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(Result.ok({ packages }));
-}
-
-function configFailureOutcome(issues: readonly string[]): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(Result.err({ type: 'config', issues }));
-}
-
-function checkFailureOutcome(issues: readonly string[]): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(Result.err({ type: 'checks', issues }));
-}
-
-type PartialFailureOutcomeSpec = {
-    readonly succeeded: readonly ReleasePlanPackage[];
-    readonly failures: readonly Error[];
-};
-
-function partialFailureOutcome(input: PartialFailureOutcomeSpec): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(
-        Result.err({ type: 'partial', succeeded: input.succeeded, failures: input.failures })
-    );
-}
-
-type PullRequestFilterInput = {
-    readonly pullRequests: readonly PullRequest[];
-};
-type TargetChangelogInput = {
-    readonly targetName: string;
-};
-type ChangelogUpdateInput = {
-    readonly generatedChangelogMarkdown: string;
-};
-type ChangelogLabelInput = {
-    readonly targetScopedLabelPattern: string;
-    readonly config: { readonly validLabels: ReadonlyMap<string, string>; };
-};
-
-type EngineOverrides = {
-    readonly resolveChangelogBaseRef?: SinonSpy;
-    readonly resolvePullRequestLabels?: SinonSpy;
-    readonly readPullRequestChangedFiles?: SinonSpy;
-};
-
-function changedFile(path: string): PullRequestChangedFile {
-    return { path, previousPath: undefined, status: 'modified', additions: 1, deletions: 0, changes: 1 };
-}
-
-function createEngine(overrides: EngineOverrides = {}): PrLogEngine {
-    const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Fix package' } ];
-    const labeledPullRequests: readonly PullRequestWithLabel[] = [ { id: 1, title: 'Fix package', label: 'bug' } ];
-
-    return {
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
-        resolveChangelogBaseRef: overrides.resolveChangelogBaseRef ?? fake.resolves({ ref: 'old-head' }),
-        collectMergedPullRequests: fake.resolves(pullRequests),
-        readPullRequestChangedFiles: overrides.readPullRequestChangedFiles ??
-            fake.resolves(new Map([ [ 1, [ changedFile('source/pkg-a.ts') ] ] ])),
-        readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
-        filterPullRequestsByTargetFiles: fake(function (input: PullRequestFilterInput) {
-            return input.pullRequests;
-        }),
-        resolvePullRequestLabels: overrides.resolvePullRequestLabels ?? fake.resolves(labeledPullRequests),
-        resolveVersionNumber: fake.returns('1.0.1'),
-        extractChangelogReleaseSection: fake(function (): never {
-            throw new Error('unexpected changelog section extraction');
-        }),
-        renderGroupedTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
-        renderTargetChangelog: fake(function (input: TargetChangelogInput) {
-            return `## ${input.targetName} 1.0.1\n`;
-        }),
-        updateChangelog: fake(function (input: ChangelogUpdateInput) {
-            return `merged:\n${input.generatedChangelogMarkdown}`;
-        }),
-        renderChangelog: fake.returns('')
-    };
-}
-
-type Spies = {
-    readonly createPrLogEngine: SinonSpy;
-    readonly log: SinonSpy;
-    readonly pageOutput: SinonSpy;
-    readonly planReleaseAgainstLatestPublished: SinonSpy;
-    readonly stopAll: SinonSpy;
-};
-
-function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
-    return { stopAll } as unknown as TerminalSpinnerRenderer;
-}
-
-function configLoaderReturning(config: unknown): ConfigLoader {
-    return { load: fake.resolves(config) };
-}
-
-type ChangelogHandlerDependenciesSpec = {
-    readonly spies: Spies;
-    readonly configLoader?: ConfigLoader;
-    readonly fileManager?: FakeFileManager;
-    readonly readPackageInfo?: () => Promise<Readonly<Record<string, unknown>>>;
-    readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
-    readonly trace?: boolean;
-};
-
-function dependenciesWith(input: ChangelogHandlerDependenciesSpec): ChangelogHandlerDependencies {
-    return {
-        log(message) {
-            input.spies.log(message);
-        },
-        pageOutput: input.spies.pageOutput,
-        packtory: {
-            planReleaseAgainstLatestPublished: input.spies.planReleaseAgainstLatestPublished
-        } as unknown as Packtory,
-        fileManager: input.fileManager ?? createFakeFileManager(),
-        spinnerRenderer: spinnerRendererCapturing(input.spies.stopAll),
-        configLoader: input.configLoader ?? configLoaderReturning(validConfig),
-        createPrLogEngine: input.spies.createPrLogEngine,
-        currentDate() {
-            return new Date('2026-06-13T00:00:00.000Z');
-        },
-        readEnvironmentVariable: input.readEnvironmentVariable ??
-            function (name) {
-                return name === 'GH_TOKEN' ? 'gh-token' : undefined;
-            },
-        readPackageInfo: input.readPackageInfo ??
-            async function () {
-                return { repository: { url: 'git+https://github.com/Owner/Repo.git' } };
-            },
-        trace: input.trace ?? false,
-        workingDirectory: '/repo'
-    };
-}
-
-function assertMissingGitHubRepositoryLog(spies: Spies): void {
-    assert.deepStrictEqual(spies.log.firstCall.args, [ 'package.json repository must point to a GitHub repository' ]);
-}
-
-function makeSpies(
-    engine: PrLogEngine = createEngine(),
-    releasePlanOutcome: ReleasePlanOutcome = outcome([ releasePackage() ])
-): Spies {
-    return {
-        createPrLogEngine: fake(function (options: Readonly<PrLogEngineOptions>) {
-            assert.partialDeepStrictEqual(options, {
-                githubToken: 'gh-token',
-                workingDirectory: '/repo'
-            });
-            assert.strictEqual(options.config.maximumRateLimitRetryCount, 3);
-            return engine;
-        }),
-        log: fake(),
-        pageOutput: fake.resolves(undefined),
-        planReleaseAgainstLatestPublished: fake.resolves(releasePlanOutcome),
-        stopAll: fake()
-    };
-}
-
-type ReleasePlanFailureLogSpec = {
-    readonly releasePlanOutcome: ReleasePlanOutcome;
-    readonly expectedLog: string;
-};
-
-async function assertReleasePlanFailureLogged(input: ReleasePlanFailureLogSpec): Promise<void> {
-    const spies = makeSpies(createEngine(), input.releasePlanOutcome);
-
-    const code = await runChangelogHandler(dependenciesWith({ spies }));
-
-    assert.strictEqual(code, 1);
-    assert.deepStrictEqual(
-        { createPrLogEngine: spies.createPrLogEngine.callCount, logArgs: spies.log.firstCall.args },
-        { createPrLogEngine: 0, logArgs: [ input.expectedLog ] }
-    );
-}
-
-function assertConfiguredChangelogInputs(
-    resolveChangelogBaseRef: SinonSpy,
-    resolvePullRequestLabels: SinonSpy
-): void {
-    assert.deepStrictEqual(resolveChangelogBaseRef.firstCall.args[0], {
-        packageName: 'pkg-a',
-        previousVersion: '1.0.0',
-        previousGitHead: 'old-head',
-        packageTagFormat: 'pkg/{packageName}/v{version}',
-        explicitBaseRef: 'main'
-    });
-    const labelInput = resolvePullRequestLabels.firstCall.args[0] as ChangelogLabelInput;
-    assert.strictEqual(labelInput.targetScopedLabelPattern, 'scope:{targetName}:{label}');
-    assert.strictEqual(labelInput.config.validLabels.get('bug'), 'Bug Fixes');
-    assert.strictEqual(labelInput.config.validLabels.get('operations'), 'Operations');
-}
+import { fake } from 'sinon';
+import type { PullRequestLogEngineOptions } from '../../changelog/pull-request-log.ts';
+import {
+    type CollectMergedPullRequestsOptions,
+    assertConfiguredChangelogInputs,
+    assertMissingGitHubRepositoryLog,
+    assertReleasePlanFailureLogged,
+    checkFailureOutcome,
+    configurationFailureOutcome,
+    configurationLoaderReturning,
+    createEngine,
+    dependenciesWith,
+    makeSpies,
+    partialFailureOutcome,
+    releasePackage,
+    validConfiguration,
+    type Spies
+} from '../../test-libraries/changelog-handler-fixtures.ts';
+import { runChangelogHandler } from './changelog-handler.ts';
 
 suite('changelog-handler', function () {
     suite('release output', function () {
@@ -262,15 +30,15 @@ suite('changelog-handler', function () {
             assert.strictEqual(code, 0);
             assert.deepStrictEqual(
                 {
-                    planReleaseArgs: spies.planReleaseAgainstLatestPublished.firstCall.args,
-                    createPrLogEngine: spies.createPrLogEngine.callCount,
-                    pageOutputArgs: spies.pageOutput.firstCall.args,
+                    planReleaseArguments: spies.planReleaseAgainstLatestPublished.firstCall.args,
+                    createPullRequestLogEngine: spies.createPullRequestLogEngine.callCount,
+                    pageOutputArguments: spies.pageOutput.firstCall.args,
                     stopAll: spies.stopAll.callCount
                 },
                 {
-                    planReleaseArgs: [ validConfig ],
-                    createPrLogEngine: 1,
-                    pageOutputArgs: [ '## pkg-a 1.0.1\n' ],
+                    planReleaseArguments: [ validConfiguration ],
+                    createPullRequestLogEngine: 1,
+                    pageOutputArguments: [ '## package-a 1.0.1\n' ],
                     stopAll: 2
                 }
             );
@@ -278,7 +46,7 @@ suite('changelog-handler', function () {
 
         test('returns 1 and logs release-plan config failures without creating pr-log', async function () {
             await assertReleasePlanFailureLogged({
-                releasePlanOutcome: configFailureOutcome([ 'bad config', 'worse config' ]),
+                releasePlanOutcome: configurationFailureOutcome([ 'bad config', 'worse config' ]),
                 expectedLog: 'Configuration issues, there are 2 issue(s)\n\n- bad config\n- worse config'
             });
         });
@@ -296,14 +64,17 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    configLoader: configLoaderReturning({ packages: [] })
+                    configurationLoader: configurationLoaderReturning({ packages: [] })
                 })
             );
 
             assert.strictEqual(code, 0);
             assert.deepStrictEqual(
-                { createPrLogEngine: spies.createPrLogEngine.callCount, pageOutput: spies.pageOutput.callCount },
-                { createPrLogEngine: 0, pageOutput: 0 }
+                {
+                    createPullRequestLogEngine: spies.createPullRequestLogEngine.callCount,
+                    pageOutput: spies.pageOutput.callCount
+                },
+                { createPullRequestLogEngine: 0, pageOutput: 0 }
             );
         });
 
@@ -311,8 +82,8 @@ suite('changelog-handler', function () {
             const releasePlanOutcome = partialFailureOutcome({
                 succeeded: [ releasePackage() ],
                 failures: [
-                    new Error('pkg-b failed', { cause: new Error('source map failed') }),
-                    new Error('pkg-c failed')
+                    new Error('package-b failed', { cause: new Error('source map failed') }),
+                    new Error('package-c failed')
                 ]
             });
             const spies = makeSpies(createEngine(), releasePlanOutcome);
@@ -321,8 +92,11 @@ suite('changelog-handler', function () {
 
             assert.strictEqual(code, 1);
             assert.deepStrictEqual(
-                { pageOutput: spies.pageOutput.callCount, logArgs: spies.log.firstCall.args },
-                { pageOutput: 1, logArgs: [ '- pkg-b failed\n  Caused by: source map failed\n- pkg-c failed' ] }
+                { pageOutput: spies.pageOutput.callCount, logArguments: spies.log.firstCall.args },
+                {
+                    pageOutput: 1,
+                    logArguments: [ '- package-b failed\n  Caused by: source map failed\n- package-c failed' ]
+                }
             );
         });
     });
@@ -330,13 +104,13 @@ suite('changelog-handler', function () {
     suite('github inputs', function () {
         test('uses GITHUB_TOKEN when GH_TOKEN is not set', async function () {
             const engine = createEngine();
-            const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
+            const createPullRequestLogEngine = fake(function (options: Readonly<PullRequestLogEngineOptions>) {
                 assert.strictEqual(options.githubToken, 'github-token');
                 return engine;
             });
             const spies: Spies = {
                 ...makeSpies(engine),
-                createPrLogEngine
+                createPullRequestLogEngine
             };
 
             const code = await runChangelogHandler(
@@ -349,12 +123,12 @@ suite('changelog-handler', function () {
             );
 
             assert.strictEqual(code, 0);
-            assert.strictEqual(createPrLogEngine.callCount, 1);
+            assert.strictEqual(createPullRequestLogEngine.callCount, 1);
         });
 
         test('passes the GitHub repo from package metadata into pr-log', async function () {
             const collectMergedPullRequests = fake(async function (input: CollectMergedPullRequestsOptions) {
-                assert.strictEqual(input.githubRepo, 'owner/repo');
+                assert.strictEqual(input.githubRepository, 'owner/repo');
                 return [];
             });
             const engine = {
@@ -370,19 +144,23 @@ suite('changelog-handler', function () {
         });
 
         test('passes configured changelog label and base-ref settings into pr-log', async function () {
-            const resolveChangelogBaseRef = fake.resolves({ ref: 'configured-base' });
-            const resolvePullRequestLabels = fake.resolves([ { id: 1, title: 'Fix package', label: 'operations' } ]);
-            const engine = createEngine({ resolveChangelogBaseRef, resolvePullRequestLabels });
+            const resolveChangelogBaseReference = fake.resolves({ reference: 'configured-base' });
+            const resolvePullRequestLabels = fake.resolves([ {
+                identifier: 1,
+                title: 'Fix package',
+                label: 'operations'
+            } ]);
+            const engine = createEngine({ resolveChangelogBaseReference, resolvePullRequestLabels });
             const spies = makeSpies(engine);
 
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    configLoader: configLoaderReturning({
-                        ...validConfig,
+                    configurationLoader: configurationLoaderReturning({
+                        ...validConfiguration,
                         changelog: {
-                            explicitBaseRef: 'main',
-                            prLog: { validLabels: { operations: 'Operations' } },
+                            explicitBaseReference: 'main',
+                            pullRequestLog: { validLabels: { operations: 'Operations' } },
                             packageTagFormat: 'pkg/{packageName}/v{version}',
                             targetScopedLabelPattern: 'scope:{targetName}:{label}'
                         }
@@ -391,7 +169,7 @@ suite('changelog-handler', function () {
             );
 
             assert.strictEqual(code, 0);
-            assertConfiguredChangelogInputs(resolveChangelogBaseRef, resolvePullRequestLabels);
+            assertConfiguredChangelogInputs(resolveChangelogBaseReference, resolvePullRequestLabels);
         });
     });
 
@@ -402,7 +180,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    async readPackageInfo() {
+                    async readPackageInformation() {
                         return { repository: { url: 'https://example.com/owner/repo' } };
                     }
                 })
@@ -410,9 +188,9 @@ suite('changelog-handler', function () {
 
             assert.strictEqual(code, 1);
             assert.deepStrictEqual(
-                { logArgs: spies.log.firstCall.args, pageOutput: spies.pageOutput.callCount },
+                { logArguments: spies.log.firstCall.args, pageOutput: spies.pageOutput.callCount },
                 {
-                    logArgs: [ 'package.json repository must point to a GitHub repository' ],
+                    logArguments: [ 'package.json repository must point to a GitHub repository' ],
                     pageOutput: 0
                 }
             );
@@ -424,7 +202,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    async readPackageInfo() {
+                    async readPackageInformation() {
                         return {};
                     }
                 })
@@ -440,7 +218,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    async readPackageInfo() {
+                    async readPackageInformation() {
                         return { repository: { url: 'https://github.com/owner' } };
                     }
                 })
@@ -456,7 +234,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    async readPackageInfo() {
+                    async readPackageInformation() {
                         return { repository: { url: 'https://example.com/https://github.com/owner/repo' } };
                     }
                 })
@@ -472,7 +250,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    async readPackageInfo() {
+                    async readPackageInformation() {
                         return { repository: { url: 'https://github.com/owner/repo/extra' } };
                     }
                 })
@@ -503,7 +281,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    configLoader: {
+                    configurationLoader: {
                         load: fake.rejects(new TypeError('bad config'))
                     }
                 })
@@ -519,7 +297,7 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    configLoader: {
+                    configurationLoader: {
                         async load() {
                             throw new Error('prefix Error: bad config');
                         }
@@ -538,7 +316,7 @@ suite('changelog-handler', function () {
                     return 'prefix Error: bad config';
                 }
             };
-            const rejectedConfigLoad = {
+            const rejectedConfigurationLoad = {
                 then(_resolve: (value: unknown) => void, reject: (reason: unknown) => void) {
                     reject(rejection);
                 }
@@ -547,9 +325,9 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(
                 dependenciesWith({
                     spies,
-                    configLoader: {
+                    configurationLoader: {
                         async load() {
-                            return await rejectedConfigLoad;
+                            return await rejectedConfigurationLoad;
                         }
                     }
                 })

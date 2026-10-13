@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
-    configError,
+    configurationError,
     createPublishAllOutcome,
     createReleaseAnalysisOutcome,
     createReleasePlanOutcome,
@@ -35,8 +35,8 @@ function assertTaggedPartialFailure(failure: PublishFailure | ReleaseAnalysisFai
 }
 
 suite('packtory-results', function () {
-    test('configError wraps the given issues in a discriminated config-failure variant', function () {
-        assert.deepStrictEqual(configError([ 'a', 'b' ]), { type: 'config', issues: [ 'a', 'b' ] });
+    test('configurationError wraps the given issues in a discriminated config-failure variant', function () {
+        assert.deepStrictEqual(configurationError([ 'a', 'b' ]), { type: 'configuration', issues: [ 'a', 'b' ] });
     });
 
     test('publishPartialFailure tags a PartialError as a publish-partial failure', function () {
@@ -79,7 +79,7 @@ suite('packtory-results', function () {
     });
 
     test('createPublishAllOutcome captures the result and the report getter', function () {
-        const result = Result.err({ type: 'config', issues: [] }) as PublishAllResult;
+        const result = Result.err({ type: 'configuration', issues: [] }) as PublishAllResult;
         const report: BuildReport = {
             schemaVersion: 1,
             generatedAt: 'x',
@@ -95,7 +95,7 @@ suite('packtory-results', function () {
     });
 
     test('createResolveAndLinkAllOutcome captures the result and the report getter', function () {
-        const result = Result.err({ type: 'config', issues: [] }) as ResolveAndLinkAllResult;
+        const result = Result.err({ type: 'configuration', issues: [] }) as ResolveAndLinkAllResult;
         const outcome = createResolveAndLinkAllOutcome(result, function () {
             return undefined;
         });
@@ -105,7 +105,7 @@ suite('packtory-results', function () {
     });
 
     test('createReleaseAnalysisOutcome captures the result and the report getter', function () {
-        const result = Result.err({ type: 'config', issues: [] }) as ReleaseAnalysisResult;
+        const result = Result.err({ type: 'configuration', issues: [] }) as ReleaseAnalysisResult;
         const outcome = createReleaseAnalysisOutcome(result, function () {
             return undefined as never;
         });
@@ -115,7 +115,7 @@ suite('packtory-results', function () {
     });
 
     test('createReleasePlanOutcome captures the result and the report getter', function () {
-        const result = Result.err({ type: 'config', issues: [] }) as ReleasePlanResult;
+        const result = Result.err({ type: 'configuration', issues: [] }) as ReleasePlanResult;
         const outcome = createReleasePlanOutcome(result, function () {
             return undefined as never;
         });

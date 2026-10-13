@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import {
+    validateConfigurationWithoutRegistry,
+    type ValidConfigurationWithoutRegistryResult
+} from '../configuration/validation.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
@@ -20,7 +23,7 @@ function linkedBundleFor(packageName: string): LinkedBundle {
         name: packageName,
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath: `/repo/${packageName}/index.js`,
@@ -75,20 +78,20 @@ function deadCodeEliminator(state: AnalyzedBundleState): DeadCodeEliminator {
     };
 }
 
-function validatedConfig(
-    additionalPackageJsonAttributes: Readonly<Record<string, unknown>> = {}
-): ValidConfigWithoutRegistryResult {
-    const validation = validateConfigWithoutRegistry({
+function validatedConfiguration(
+    additionalPackageManifestAttributes: Readonly<Record<string, unknown>> = {}
+): ValidConfigurationWithoutRegistryResult {
+    const validation = validateConfigurationWithoutRegistry({
         commonPackageSettings: {
             sourcesFolder: '/repo',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages: [
             {
-                name: 'pkg-a',
-                roots: { main: { js: 'pkg-a/index.js' } },
-                additionalPackageJsonAttributes
+                name: 'package-a',
+                roots: { main: { javaScript: 'package-a/index.js' } },
+                additionalPackageManifestAttributes
             }
         ]
     });
@@ -100,8 +103,8 @@ function validatedConfig(
 
 async function inspectSideEffects(
     state: AnalyzedBundleState,
-    packageName = 'pkg-a',
-    config = validatedConfig()
+    packageName = 'package-a',
+    configuration = validatedConfiguration()
 ): ReturnType<ReturnType<typeof createInspectPackageSideEffectsValidated>> {
     const broadcaster = createProgressBroadcaster();
     const inspectPackageSideEffects = createInspectPackageSideEffectsValidated({
@@ -112,7 +115,7 @@ async function inspectSideEffects(
         deadCodeEliminator: deadCodeEliminator(state)
     });
 
-    return await inspectPackageSideEffects(config, packageName);
+    return await inspectPackageSideEffects(configuration, packageName);
 }
 
 function impureRuntimeFileAt(inputFilePath: string, targetFilePath: string): AnalyzedBundle['contents'][number] {
@@ -128,7 +131,7 @@ function impureRuntimeFileAt(inputFilePath: string, targetFilePath: string): Ana
 }
 
 function impureRuntimeFile(): AnalyzedBundle['contents'][number] {
-    return impureRuntimeFileAt('/repo/pkg-a/setup.ts', 'setup.js');
+    return impureRuntimeFileAt('/repo/package-a/setup.ts', 'setup.js');
 }
 
 suite('packtory-package-side-effects', function () {
@@ -136,13 +139,13 @@ suite('packtory-package-side-effects', function () {
         const result = await inspectSideEffects({
             sideEffectsField: false,
             contents: [
-                analyzedBundleResource('/repo/pkg-a/index.ts', { targetFilePath: 'index.js' })
+                analyzedBundleResource('/repo/package-a/index.ts', { targetFilePath: 'index.js' })
             ]
         });
 
         assert.deepStrictEqual(result.isOk ? result.value : undefined, {
-            packageName: 'pkg-a',
-            packageJsonDecision: { type: 'side-effects-false' },
+            packageName: 'package-a',
+            packageManifestDecision: { type: 'side-effects-false' },
             impureFiles: []
         });
     });
@@ -151,9 +154,9 @@ suite('packtory-package-side-effects', function () {
         const result = await inspectSideEffects({
             sideEffectsField: [ './setup.js' ],
             contents: [
-                analyzedBundleResource('/repo/pkg-a/index.ts', { targetFilePath: 'index.js' }),
+                analyzedBundleResource('/repo/package-a/index.ts', { targetFilePath: 'index.js' }),
                 impureRuntimeFile(),
-                analyzedBundleResource('/repo/pkg-a/index.d.ts', {
+                analyzedBundleResource('/repo/package-a/index.d.ts', {
                     targetFilePath: 'index.d.ts',
                     analysis: { sideEffectStatements: [ { line: 1, kind: 'expression statement' } ] }
                 })
@@ -164,7 +167,7 @@ suite('packtory-package-side-effects', function () {
             assert.fail('expected side effects inspection to succeed');
         }
         const [ file ] = result.value.impureFiles;
-        assert.deepStrictEqual(result.value.packageJsonDecision, {
+        assert.deepStrictEqual(result.value.packageManifestDecision, {
             type: 'side-effects-list',
             paths: [ './setup.js' ]
         });
@@ -172,7 +175,7 @@ suite('packtory-package-side-effects', function () {
             assert.fail('expected an impure file');
         }
         assert.partialDeepStrictEqual(file, {
-            sourcePath: 'pkg-a/setup.ts',
+            sourcePath: 'package-a/setup.ts',
             packagePath: './setup.js'
         });
         assert.deepStrictEqual(
@@ -187,8 +190,8 @@ suite('packtory-package-side-effects', function () {
         const result = await inspectSideEffects({
             sideEffectsField: [ './first.js', './second.js' ],
             contents: [
-                impureRuntimeFileAt('/repo/pkg-a/second.ts', 'second.js'),
-                impureRuntimeFileAt('/repo/pkg-a/first.ts', 'first.js')
+                impureRuntimeFileAt('/repo/package-a/second.ts', 'second.js'),
+                impureRuntimeFileAt('/repo/package-a/first.ts', 'first.js')
             ]
         });
 
@@ -209,7 +212,7 @@ suite('packtory-package-side-effects', function () {
             contents: [ impureRuntimeFile() ]
         });
 
-        assert.deepStrictEqual(result.isOk ? result.value.packageJsonDecision : undefined, {
+        assert.deepStrictEqual(result.isOk ? result.value.packageManifestDecision : undefined, {
             type: 'side-effects-omitted',
             reason: 'every-runtime-file-has-side-effects'
         });
@@ -218,11 +221,11 @@ suite('packtory-package-side-effects', function () {
     test('reports user-provided sideEffects with the generated decision', async function () {
         const result = await inspectSideEffects(
             { sideEffectsField: false, contents: [] },
-            'pkg-a',
-            validatedConfig({ sideEffects: true })
+            'package-a',
+            validatedConfiguration({ sideEffects: true })
         );
 
-        assert.deepStrictEqual(result.isOk ? result.value.packageJsonDecision : undefined, {
+        assert.deepStrictEqual(result.isOk ? result.value.packageManifestDecision : undefined, {
             type: 'user-provided-side-effects',
             providedValue: true,
             generated: { type: 'side-effects-false' }
@@ -248,7 +251,7 @@ suite('packtory-package-side-effects', function () {
             deadCodeEliminator: deadCodeEliminator({ sideEffectsField: false, contents: [] })
         });
 
-        const result = await inspectPackageSideEffects(validatedConfig(), 'pkg-a');
+        const result = await inspectPackageSideEffects(validatedConfiguration(), 'package-a');
 
         assert.strictEqual(result.isErr && result.error.type === 'partial', true);
     });

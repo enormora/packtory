@@ -3,7 +3,7 @@ import { bold, dim, green, red } from 'yoctocolors';
 import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import {
     checksErrorType,
-    configErrorType,
+    configurationErrorType,
     partialFailureType,
     type PublishFailure
 } from '../../packtory/packtory-results.ts';
@@ -25,7 +25,7 @@ type PublishSuccessFlags = {
     readonly stage: boolean;
 };
 const issueTitleByType = {
-    [configErrorType]: 'The provided config is invalid',
+    [configurationErrorType]: 'The provided config is invalid',
     [checksErrorType]: 'Checks failed'
 } as const;
 
@@ -47,7 +47,7 @@ export function printDryRunNote(log: Logger, flags: DryRunFlags): void {
 }
 
 function formatStageReceipt(result: StagedResult): string {
-    return `- ${result.bundle.name}@${result.bundle.version}: ${result.publication.stageId}`;
+    return `- ${result.bundle.name}@${result.bundle.version}: ${result.publication.stageIdentifier}`;
 }
 
 function isStagedResult(result: BuildAndPublishResult): result is StagedResult {

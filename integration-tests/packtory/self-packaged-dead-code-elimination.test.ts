@@ -1,15 +1,18 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { createFileManager } from '../../source/file-manager/file-manager.ts';
 import {
     resolveAndLinkAll,
-    type PacktoryConfig as PublicPacktoryConfig,
+    type PacktoryConfiguration as PublicPacktoryConfiguration,
     type ResolvedPackage
 } from '../../source/packages/packtory/packtory.entry-point.ts';
-import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
+import type {
+    PackageConfiguration,
+    PacktoryConfigurationWithoutRegistry
+} from '../../source/configuration/configuration.ts';
 import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { importEmittedPackageEntryWithProjectDependencies } from './emitted-package-probe.ts';
 
@@ -26,43 +29,45 @@ const selfPackageImportTargets = [
     'dead-code-eliminator/imported-expression-origin.js'
 ];
 
-type BuildSelfConfig = () => Promise<PublicPacktoryConfig>;
+type BuildSelfConfiguration = () => Promise<PublicPacktoryConfiguration>;
 
-type SelfConfigModule = {
-    readonly buildConfig: BuildSelfConfig;
+type SelfConfigurationModule = {
+    readonly buildConfiguration: BuildSelfConfiguration;
 };
 
-function isBuildSelfConfig(value: unknown): value is BuildSelfConfig {
+function isBuildSelfConfiguration(value: unknown): value is BuildSelfConfiguration {
     return typeof value === 'function';
 }
 
-function isSelfConfigModule(value: unknown): value is SelfConfigModule {
-    if (value === null || typeof value !== 'object' || !Object.hasOwn(value, 'buildConfig')) {
+function isSelfConfigurationModule(value: unknown): value is SelfConfigurationModule {
+    if (value === null || typeof value !== 'object' || !Object.hasOwn(value, 'buildConfiguration')) {
         return false;
     }
     const candidate = value as Readonly<Record<PropertyKey, unknown>>;
-    return isBuildSelfConfig(candidate.buildConfig);
+    return isBuildSelfConfiguration(candidate.buildConfiguration);
 }
 
-async function loadSelfConfig(): Promise<PublicPacktoryConfig> {
-    const modulePath = pathToFileURL(path.join(process.cwd(), 'packtory.config.js')).href;
-    const configModule: unknown = await import(modulePath);
-    if (!isSelfConfigModule(configModule)) {
-        assert.fail('Expected packtory.config.js to export buildConfig()');
+async function loadSelfConfiguration(): Promise<PublicPacktoryConfiguration> {
+    const modulePath = pathToFileAddress(path.join(process.cwd(), 'packtory.config.js')).href;
+    const configurationModule: unknown = await import(modulePath);
+    if (!isSelfConfigurationModule(configurationModule)) {
+        assert.fail('Expected packtory.config.js to export buildConfiguration()');
     }
-    return configModule.buildConfig();
+    return configurationModule.buildConfiguration();
 }
 
-function packageWithoutChecks(packageConfig: PackageConfig): PackageConfig {
-    const projectedPackageConfig = { ...packageConfig };
-    delete projectedPackageConfig.checks;
-    return projectedPackageConfig;
+function packageWithoutChecks(packageConfiguration: PackageConfiguration): PackageConfiguration {
+    const projectedPackageConfiguration = { ...packageConfiguration };
+    delete projectedPackageConfiguration.checks;
+    return projectedPackageConfiguration;
 }
 
-function selfDeadCodeEliminationConfig(config: PublicPacktoryConfig): PacktoryConfigWithoutRegistry {
+function selfDeadCodeEliminationConfiguration(
+    configuration: PublicPacktoryConfiguration
+): PacktoryConfigurationWithoutRegistry {
     return {
-        commonPackageSettings: config.commonPackageSettings,
-        packages: config.packages.map(packageWithoutChecks)
+        commonPackageSettings: configuration.commonPackageSettings,
+        packages: configuration.packages.map(packageWithoutChecks)
     };
 }
 
@@ -96,13 +101,13 @@ function findResource(
     return match;
 }
 
-async function assertCompiledSourcesAvailable(config: PacktoryConfigWithoutRegistry): Promise<void> {
-    const sourcesFolder = config.commonPackageSettings?.sourcesFolder;
+async function assertCompiledSourcesAvailable(configuration: PacktoryConfigurationWithoutRegistry): Promise<void> {
+    const sourcesFolder = configuration.commonPackageSettings?.sourcesFolder;
     if (sourcesFolder === undefined) {
         assert.fail('Expected self-package config to declare commonPackageSettings.sourcesFolder');
     }
 
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
     const status = await fileManager.checkDirectory(sourcesFolder);
     assert.deepStrictEqual(
         status,
@@ -161,10 +166,10 @@ async function assertSafePacktoryEntriesImport(packtory: ResolvedPackage): Promi
 
 suite('self-packaged dead code elimination', function () {
     test('keeps Packtory self-package output internally valid', async function () {
-        const config = selfDeadCodeEliminationConfig(await loadSelfConfig());
-        await assertCompiledSourcesAvailable(config);
+        const configuration = selfDeadCodeEliminationConfiguration(await loadSelfConfiguration());
+        await assertCompiledSourcesAvailable(configuration);
 
-        const packages = expectOk(await resolveAndLinkAll(config));
+        const packages = expectOk(await resolveAndLinkAll(configuration));
         const packtory = findPackage(packages, 'packtory');
 
         assertSelfPackageNames(packages);

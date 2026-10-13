@@ -1,32 +1,36 @@
-import type { PackageConfig, PackageConfigsByName, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
-import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../../config/package-json.ts';
-import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import type {
+    PackageConfiguration,
+    PackageConfigurationsByName,
+    PacktoryConfigurationWithoutRegistry
+} from '../../configuration/configuration.ts';
+import type { AdditionalPackageManifestAttributes, MainPackageManifest } from '../../configuration/package-manifest.ts';
+import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { ResourceResolveOptions } from '../../resource-resolver/resource-resolve-options.ts';
 import { normalizeRoot } from '../normalize-paths.ts';
 import { resolveBundleDependencies } from './bundle-dependency-resolution.ts';
 import { getRequiredArrayValue, mapRequiredArrayValue } from './required-value-helpers.ts';
 import {
-    buildAdditionalPackageJsonAttributes,
+    buildAdditionalPackageManifestAttributes,
     resolveAdditionalFiles,
     resolveAdditionalChangelogSourceFiles,
     resolveAllowMutableSpecifiers,
     resolveDeadCodeElimination,
     resolveIncludeSourceMapFiles,
-    resolveMainPackageJson,
+    resolveMainPackageManifest,
     resolveSourcesFolder,
     type AdditionalChangelogSourceFiles
 } from './setting-resolvers.ts';
 import { resolveSurface } from './surface-resolution.ts';
 
-export type VersioningSettings = NonNullable<PackageConfig['versioning']>;
+export type VersioningSettings = NonNullable<PackageConfiguration['versioning']>;
 
 export type SharedPackageOptions<TBundle extends { readonly name: string; }> = {
-    readonly additionalPackageJsonAttributes: AdditionalPackageJsonAttributes;
+    readonly additionalPackageManifestAttributes: AdditionalPackageManifestAttributes;
     readonly allowMutableSpecifiers: readonly string[];
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
     readonly sourcesFolder: ResourceResolveOptions['sourcesFolder'];
     readonly name: ResourceResolveOptions['name'];
-    readonly exportPackageJson?: ResourceResolveOptions['exportPackageJson'];
+    readonly exportPackageManifest?: ResourceResolveOptions['exportPackageManifest'];
     readonly includeSourceMapFiles: ResourceResolveOptions['includeSourceMapFiles'];
     readonly additionalFiles: ResourceResolveOptions['additionalFiles'];
     readonly roots: ResourceResolveOptions['roots'];
@@ -38,66 +42,75 @@ export type SharedPackageOptions<TBundle extends { readonly name: string; }> = {
 
 export type PreparedPackageOptions<TBundle extends { readonly name: string; }> = {
     readonly additionalChangelogSourceFiles: AdditionalChangelogSourceFiles;
-    readonly packageConfig: PackageConfig;
+    readonly packageConfiguration: PackageConfiguration;
     readonly sharedOptions: SharedPackageOptions<TBundle>;
     readonly versioning: VersioningSettings;
 };
 
-function getPackageConfig(packageName: string, packageConfigs: PackageConfigsByName): PackageConfig {
-    const packageConfig = packageConfigs[packageName];
-    if (packageConfig === undefined) {
+function getPackageConfiguration(
+    packageName: string,
+    packageConfigurations: PackageConfigurationsByName
+): PackageConfiguration {
+    const packageConfiguration = packageConfigurations[packageName];
+    if (packageConfiguration === undefined) {
         throw new Error(`Config for package "${packageName}" is missing`);
     }
-    return packageConfig;
+    return packageConfiguration;
 }
 
 function buildSharedOptions<TBundle extends { readonly name: string; }>(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry,
+    packageConfiguration: PackageConfiguration,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry,
     existingBundles: readonly TBundle[]
 ): SharedPackageOptions<TBundle> {
-    const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
-    const mainPackageJson = resolveMainPackageJson(packageConfig, packtoryConfig);
-    const bundleDependencies = resolveBundleDependencies(packageConfig, existingBundles);
+    const sourcesFolder = resolveSourcesFolder(packageConfiguration, packtoryConfiguration);
+    const mainPackageManifest = resolveMainPackageManifest(packageConfiguration, packtoryConfiguration);
+    const bundleDependencies = resolveBundleDependencies(packageConfiguration, existingBundles);
     const normalizedRootEntries = getRequiredArrayValue(
-        Object.entries(packageConfig.roots).map(function ([ rootId, root ]) {
-            return [ rootId, normalizeRoot(root, sourcesFolder) ] as const;
+        Object.entries(packageConfiguration.roots).map(function ([ rootIdentifier, root ]) {
+            return [ rootIdentifier, normalizeRoot(root, sourcesFolder) ] as const;
         }),
-        `Package "${packageConfig.name}" must define at least one root`
+        `Package "${packageConfiguration.name}" must define at least one root`
     );
 
     const roots = Object.fromEntries(normalizedRootEntries) as ResourceResolveOptions['roots'];
-    const rootIds = mapRequiredArrayValue(normalizedRootEntries, function ([ rootId ]) {
-        return rootId;
+    const rootIdentifiers = mapRequiredArrayValue(normalizedRootEntries, function ([ rootIdentifier ]) {
+        return rootIdentifier;
     });
-    const surface = resolveSurface(rootIds, packageConfig);
+    const surface = resolveSurface(rootIdentifiers, packageConfiguration);
 
     return {
-        name: packageConfig.name,
-        exportPackageJson: packageConfig.exportPackageJson,
+        name: packageConfiguration.name,
+        exportPackageManifest: packageConfiguration.exportPackageManifest,
         roots,
         surface,
         sourcesFolder,
-        includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
-        additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),
-        mainPackageJson,
-        additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
-        allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfig, packtoryConfig),
-        deadCodeElimination: resolveDeadCodeElimination(packageConfig, packtoryConfig),
+        includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfiguration, packtoryConfiguration),
+        additionalFiles: resolveAdditionalFiles(packageConfiguration, sourcesFolder, packtoryConfiguration),
+        mainPackageManifest,
+        additionalPackageManifestAttributes: buildAdditionalPackageManifestAttributes(
+            packageConfiguration,
+            packtoryConfiguration
+        ),
+        allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfiguration, packtoryConfiguration),
+        deadCodeElimination: resolveDeadCodeElimination(packageConfiguration, packtoryConfiguration),
         ...bundleDependencies
     };
 }
 
 export function preparePackageOptions<TBundle extends { readonly name: string; }>(
     packageName: string,
-    packageConfigs: PackageConfigsByName,
-    packtoryConfig: PacktoryConfigWithoutRegistry,
+    packageConfigurations: PackageConfigurationsByName,
+    packtoryConfiguration: PacktoryConfigurationWithoutRegistry,
     existingBundles: readonly TBundle[]
 ): PreparedPackageOptions<TBundle> {
-    const packageConfig = getPackageConfig(packageName, packageConfigs);
-    const sharedOptions = buildSharedOptions(packageConfig, packtoryConfig, existingBundles);
-    const additionalChangelogSourceFiles = resolveAdditionalChangelogSourceFiles(packageConfig, packtoryConfig);
-    const versioning = packageConfig.versioning ?? { automatic: true };
+    const packageConfiguration = getPackageConfiguration(packageName, packageConfigurations);
+    const sharedOptions = buildSharedOptions(packageConfiguration, packtoryConfiguration, existingBundles);
+    const additionalChangelogSourceFiles = resolveAdditionalChangelogSourceFiles(
+        packageConfiguration,
+        packtoryConfiguration
+    );
+    const versioning = packageConfiguration.versioning ?? { automatic: true };
 
-    return { additionalChangelogSourceFiles, packageConfig, sharedOptions, versioning };
+    return { additionalChangelogSourceFiles, packageConfiguration, sharedOptions, versioning };
 }

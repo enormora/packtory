@@ -1,20 +1,15 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import {
-    defaultPrLogConfig,
-    type FilterPullRequestsByTargetFilesInput,
-    type PrLogEngine,
-    type PullRequest,
-    type PullRequestChangedFile,
-    type PullRequestWithLabel
-} from '@pr-log/core';
-import { pullRequestChangedFileFactory } from '../test-libraries/pr-log-fixtures.ts';
+import { defaultPrLogConfig as defaultPullRequestLogConfiguration, type PullRequestChangedFile } from '@pr-log/core';
+import type { PullRequest, PullRequestWithLabel, PullRequestLogEngine } from '../changelog/pull-request-log.ts';
+import type { FilterPullRequestsByTargetFilesInput } from '../test-libraries/changelog-handler-fixtures.ts';
+import { pullRequestChangedFileFactory } from '../test-libraries/pull-request-log-fixtures.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
 type ChangelogEngine = {
-    readonly engine: PrLogEngine;
+    readonly engine: PullRequestLogEngine;
     readonly filterPullRequestsByTargetFiles: SinonSpy<
         readonly [FilterPullRequestsByTargetFilesInput],
         readonly PullRequest[]
@@ -27,7 +22,7 @@ type PullRequestLabelsInput = {
 
 function releasePackage(): ReleasePlanPackage {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
@@ -48,7 +43,7 @@ function releasePackage(): ReleasePlanPackage {
 function createEngine(
     changedFilesByPullRequest: ReadonlyMap<number, readonly PullRequestChangedFile[]>
 ): ChangelogEngine {
-    const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Remove feature' } ];
+    const pullRequests: readonly PullRequest[] = [ { identifier: 1, title: 'Remove feature' } ];
     const filterPullRequestsByTargetFiles = fake(function (input: FilterPullRequestsByTargetFilesInput) {
         return input.pullRequests;
     });
@@ -58,8 +53,8 @@ function createEngine(
         readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest),
         renderGroupedTargetChangelog: fake.returns(''),
         renderTargetChangelog: fake.returns(''),
-        resolveChangelogBaseRef: fake.resolves({ ref: 'pkg-a-base' }),
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
+        resolveChangelogBaseReference: fake.resolves({ reference: 'package-a-base' }),
+        resolveLatestSemverChangelogBaseReference: fake.resolves({ reference: 'latest-semver' }),
         resolvePullRequestLabels: fake(
             async function (input: PullRequestLabelsInput): Promise<readonly PullRequestWithLabel[]> {
                 return input.pullRequests.map(function (pullRequest) {
@@ -70,25 +65,25 @@ function createEngine(
     };
 
     return {
-        engine: engine as unknown as PrLogEngine,
+        engine: engine as unknown as PullRequestLogEngine,
         filterPullRequestsByTargetFiles
     };
 }
 
 async function generateWithSourceRoots(
-    engine: PrLogEngine,
+    engine: PullRequestLogEngine,
     changelogSourceFileRootsByPackageName: ReadonlyMap<string, readonly string[]>
 ): Promise<void> {
     await generateChangelogOutputs({
         packages: [ releasePackage() ],
-        prLogEngine: engine,
+        pullRequestLogEngine: engine,
         changelogSourceFileRootsByPackageName,
-        explicitBaseRef: undefined,
-        githubRepo: 'owner/repo',
+        explicitBaseReference: undefined,
+        githubRepository: 'owner/repo',
         packageTagFormat: undefined,
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
         ignoredAttributionPaths: [],
-        prLogConfig: defaultPrLogConfig,
+        pullRequestLogConfiguration: defaultPullRequestLogConfiguration,
         targetScopedLabelPattern: undefined
     });
 }
@@ -101,7 +96,7 @@ suite('packtory changelog source file history', function () {
             ])
         );
 
-        await generateWithSourceRoots(engine, new Map([ [ 'pkg-a', [ 'source' ] ] ]));
+        await generateWithSourceRoots(engine, new Map([ [ 'package-a', [ 'source' ] ] ]));
 
         assert.deepStrictEqual(filterPullRequestsByTargetFiles.firstCall.args[0].targetSourceFiles, [
             'source/removed.ts'

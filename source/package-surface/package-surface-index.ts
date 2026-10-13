@@ -2,7 +2,7 @@ import {
     declarationCompanionCandidates
 } from '../common/declaration-companion-paths.ts';
 import type { BundleLike, ExplicitSurface, ImplicitSurface, RootFileDescription } from './package-shape.ts';
-import { getEntryRootIds, getRoot } from './root-registry.ts';
+import { getEntryRootIdentifiers, getRoot } from './root-registry.ts';
 import { toPackageSpecifier } from './specifier-syntax.ts';
 
 type SummaryBundle = Pick<BundleLike, 'name' | 'roots' | 'surface'>;
@@ -21,8 +21,8 @@ type ImplicitModuleBundle = Pick<BundleLike, 'contents' | 'name' | 'roots'> & {
 type PublicModuleBundle = BundleLike;
 
 export type PackageSurfaceSummary = {
-    readonly publicRootIds: ReadonlySet<string>;
-    readonly representativeRootId: string;
+    readonly publicRootIdentifiers: ReadonlySet<string>;
+    readonly representativeRootIdentifier: string;
 };
 
 export type PublicModuleIndex = {
@@ -87,10 +87,10 @@ function createPublicModuleIndexBuilder(): PublicModuleIndexBuilder {
 
 export function rootInputFilePaths(root: RootFileDescription): readonly string[] {
     if (root.declarationFile === undefined) {
-        return [ root.js.inputFilePath ];
+        return [ root.javaScript.inputFilePath ];
     }
 
-    return [ root.js.inputFilePath, root.declarationFile.inputFilePath ];
+    return [ root.javaScript.inputFilePath, root.declarationFile.inputFilePath ];
 }
 
 function isExplicitSummaryBundle(bundle: SummaryBundle): bundle is ExplicitSummaryBundle {
@@ -109,26 +109,26 @@ function isImplicitModuleBundle(bundle: PublicModuleBundle): bundle is ImplicitM
     return bundle.surface.mode === 'implicit';
 }
 
-function firstExplicitRootId(surface: ExplicitSurface): string | undefined {
-    return surface.packageInterface.modules?.[0]?.root ?? surface.packageInterface.bins?.[0]?.root;
+function firstExplicitRootIdentifier(surface: ExplicitSurface): string | undefined {
+    return surface.packageInterface.modules?.[0]?.root ?? surface.packageInterface.executables?.[0]?.root;
 }
 
 function summarizeImplicitPackageSurface(bundle: ImplicitSummaryBundle): PackageSurfaceSummary {
     return {
-        publicRootIds: getEntryRootIds(bundle),
-        representativeRootId: bundle.surface.defaultModuleRoot
+        publicRootIdentifiers: getEntryRootIdentifiers(bundle),
+        representativeRootIdentifier: bundle.surface.defaultModuleRoot
     };
 }
 
 function summarizeExplicitPackageSurface(bundle: ExplicitSummaryBundle): PackageSurfaceSummary {
-    const representativeRootId = firstExplicitRootId(bundle.surface);
-    if (representativeRootId === undefined) {
-        throw new Error(`Package "${bundle.name}" explicit surface declares neither modules nor bins`);
+    const representativeRootIdentifier = firstExplicitRootIdentifier(bundle.surface);
+    if (representativeRootIdentifier === undefined) {
+        throw new Error(`Package "${bundle.name}" explicit surface declares neither modules nor executables`);
     }
 
     return {
-        publicRootIds: getEntryRootIds(bundle),
-        representativeRootId
+        publicRootIdentifiers: getEntryRootIdentifiers(bundle),
+        representativeRootIdentifier
     };
 }
 
@@ -155,7 +155,7 @@ function indexExplicitPublicModules(bundle: ExplicitModuleBundle): PublicModuleI
     for (const entry of modules) {
         const root = getRoot(bundle, entry.root);
         publicModuleIndex.recordShortestIndexedPublicSpecifier({
-            publicInputFilePath: root.js.inputFilePath,
+            publicInputFilePath: root.javaScript.inputFilePath,
             inputFilePaths: rootInputFilePaths(root),
             specifier: toPackageSpecifier(bundle.name, entry.export)
         });
@@ -178,16 +178,16 @@ function declarationCompanionSpecifier(bundle: ImplicitModuleBundle, targetFileP
 function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleIndex: PublicModuleIndexBuilder): void {
     const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
     publicModuleIndex.recordFirstIndexedPublicSpecifier({
-        publicInputFilePath: defaultRoot.js.inputFilePath,
+        publicInputFilePath: defaultRoot.javaScript.inputFilePath,
         inputFilePaths: rootInputFilePaths(defaultRoot),
         specifier: bundle.name
     });
     for (const root of Object.values(bundle.roots)) {
         if (root !== defaultRoot) {
             publicModuleIndex.recordFirstIndexedPublicSpecifier({
-                publicInputFilePath: root.js.inputFilePath,
+                publicInputFilePath: root.javaScript.inputFilePath,
                 inputFilePaths: rootInputFilePaths(root),
-                specifier: toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
+                specifier: toPackageSpecifier(bundle.name, `./${root.javaScript.targetFilePath}`)
             });
         }
     }

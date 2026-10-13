@@ -5,21 +5,21 @@ import {
 } from './spinner-shared-state.ts';
 
 const defaultSlotCount = 64;
-const defaultIntervalMs = 80;
+const defaultIntervalMilliseconds = 80;
 
 export type WorkerSpawnRequest = {
     readonly buffer: SharedArrayBuffer;
     readonly slotCount: number;
-    readonly stdoutFileDescriptor: number;
+    readonly standardOutputFileDescriptor: number;
 };
 
 type WorkerSpawner = (request: WorkerSpawnRequest) => void;
 
 export type SpinnerRuntimeOptions = {
     readonly slotCount?: number;
-    readonly intervalMs?: number;
-    readonly stdoutFileDescriptor: number;
-    readonly stdoutColumns: number;
+    readonly intervalMilliseconds?: number;
+    readonly standardOutputFileDescriptor: number;
+    readonly standardOutputColumns: number;
     readonly spawnWorker: WorkerSpawner;
 };
 
@@ -30,18 +30,18 @@ export type SpinnerRuntime = {
 
 type ResolvedOptions = {
     readonly slotCount: number;
-    readonly intervalMs: number;
-    readonly stdoutFileDescriptor: number;
-    readonly stdoutColumns: number;
+    readonly intervalMilliseconds: number;
+    readonly standardOutputFileDescriptor: number;
+    readonly standardOutputColumns: number;
     readonly spawnWorker: WorkerSpawner;
 };
 
 function resolveOptions(options: SpinnerRuntimeOptions): ResolvedOptions {
     return {
         slotCount: options.slotCount ?? defaultSlotCount,
-        intervalMs: options.intervalMs ?? defaultIntervalMs,
-        stdoutFileDescriptor: options.stdoutFileDescriptor,
-        stdoutColumns: options.stdoutColumns,
+        intervalMilliseconds: options.intervalMilliseconds ?? defaultIntervalMilliseconds,
+        standardOutputFileDescriptor: options.standardOutputFileDescriptor,
+        standardOutputColumns: options.standardOutputColumns,
         spawnWorker: options.spawnWorker
     };
 }
@@ -50,8 +50,8 @@ function setupSharedBuffer(resolved: ResolvedOptions): SpinnerSharedAccessors {
     const layout = createSpinnerSharedLayout(resolved.slotCount);
     const buffer = new SharedArrayBuffer(layout.bufferByteLength);
     const accessors = createSpinnerSharedAccessors(buffer, layout);
-    accessors.setIntervalMs(resolved.intervalMs);
-    accessors.setColumns(resolved.stdoutColumns);
+    accessors.setIntervalMilliseconds(resolved.intervalMilliseconds);
+    accessors.setColumns(resolved.standardOutputColumns);
     return accessors;
 }
 
@@ -61,7 +61,7 @@ export function createSpinnerRuntime(options: SpinnerRuntimeOptions): SpinnerRun
     resolved.spawnWorker({
         buffer: accessors.buffer,
         slotCount: accessors.layout.slotCount,
-        stdoutFileDescriptor: resolved.stdoutFileDescriptor
+        standardOutputFileDescriptor: resolved.standardOutputFileDescriptor
     });
     return { accessors, slotCount: resolved.slotCount };
 }

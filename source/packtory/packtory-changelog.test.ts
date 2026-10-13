@@ -1,29 +1,27 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import {
-    defaultPrLogConfig,
-    type FilterPullRequestsByTargetFilesInput,
-    type PrLogEngine,
-    type PullRequest,
-    type PullRequestWithLabel,
-    type RenderGroupedTargetChangelogMarkdownInput,
-    type ResolvePullRequestLabelsOptions
-} from '@pr-log/core';
+import { defaultPrLogConfig as defaultPullRequestLogConfiguration } from '@pr-log/core';
+import type { PullRequest, PullRequestWithLabel, PullRequestLogEngine } from '../changelog/pull-request-log.ts';
+import type {
+    FilterPullRequestsByTargetFilesInput,
+    RenderGroupedTargetChangelogMarkdownInput,
+    ResolvePullRequestLabelsOptions
+} from '../test-libraries/changelog-handler-fixtures.ts';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
-import { pullRequestChangedFileFactory } from '../test-libraries/pr-log-fixtures.ts';
+import { pullRequestChangedFileFactory } from '../test-libraries/pull-request-log-fixtures.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
-const prLogConfig = {
-    ...defaultPrLogConfig,
+const pullRequestLogConfiguration = {
+    ...defaultPullRequestLogConfiguration,
     validLabels: new Map([ [ 'bug', 'Bug Fixes' ] ]),
     versionBumps: { major: [], minor: [], patch: [ 'bug' ] }
 };
 
 function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPackage {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
@@ -34,8 +32,8 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
         latestRegistryMetadata: undefined,
         artifactFiles: [ 'dist/index.js' ],
         changedArtifactFiles: [ 'dist/index.js' ],
-        sourceFiles: [ 'source/pkg-a.ts' ],
-        changelogSourceFiles: [ 'source/pkg-a.ts' ],
+        sourceFiles: [ 'source/package-a.ts' ],
+        changelogSourceFiles: [ 'source/package-a.ts' ],
         changelogDependencyNames: [],
         changelogDependencyUpdates: [],
         ...overrides
@@ -51,14 +49,14 @@ type EngineCalls = {
     readonly readPullRequestChangedFiles: SinonSpy;
     readonly renderGroupedTargetChangelog: SinonSpy<readonly [RenderGroupedTargetChangelogMarkdownInput], string>;
     readonly renderTargetChangelog: SinonSpy;
-    readonly resolveChangelogBaseRef: SinonSpy;
-    readonly resolveLatestSemverChangelogBaseRef: SinonSpy;
+    readonly resolveChangelogBaseReference: SinonSpy;
+    readonly resolveLatestSemverChangelogBaseReference: SinonSpy;
     readonly resolvePullRequestLabels: SinonSpy;
     readonly resolveVersionNumber: SinonSpy;
 };
 
 type EngineFixture = {
-    readonly engine: PrLogEngine;
+    readonly engine: PullRequestLogEngine;
     readonly calls: EngineCalls;
 };
 
@@ -66,7 +64,7 @@ type TargetChangelogInput = {
     readonly targetName: string;
 };
 
-type ChangelogBaseRefInput = {
+type ChangelogBaseReferenceInput = {
     readonly packageName: string;
 };
 
@@ -76,10 +74,14 @@ type LabelOptionsInput = {
 
 function createEngine(): EngineFixture {
     const pullRequests: readonly PullRequest[] = [
-        { id: 1, title: 'Fix package' },
-        { id: 2, title: 'Update changelog only' }
+        { identifier: 1, title: 'Fix package' },
+        { identifier: 2, title: 'Update changelog only' }
     ];
-    const labeledPullRequests: readonly PullRequestWithLabel[] = [ { id: 1, title: 'Fix package', label: 'bug' } ];
+    const labeledPullRequests: readonly PullRequestWithLabel[] = [ {
+        identifier: 1,
+        title: 'Fix package',
+        label: 'bug'
+    } ];
     const calls: EngineCalls = {
         collectMergedPullRequests: fake.resolves(pullRequests),
         filterPullRequestsByTargetFiles: fake(function (input: FilterPullRequestsByTargetFilesInput) {
@@ -87,7 +89,7 @@ function createEngine(): EngineFixture {
         }),
         readPullRequestChangedFiles: fake.resolves(
             new Map([
-                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ],
                 [ 2, [ pullRequestChangedFileFactory.build({ path: 'CHANGELOG.md' }) ] ]
             ])
         ),
@@ -102,28 +104,28 @@ function createEngine(): EngineFixture {
         renderTargetChangelog: fake(function (input: TargetChangelogInput) {
             return `# ${input.targetName}\n`;
         }),
-        resolveChangelogBaseRef: fake(async function (input: ChangelogBaseRefInput) {
-            return { ref: `${input.packageName}-base` };
+        resolveChangelogBaseReference: fake(async function (input: ChangelogBaseReferenceInput) {
+            return { reference: `${input.packageName}-base` };
         }),
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
+        resolveLatestSemverChangelogBaseReference: fake.resolves({ reference: 'latest-semver' }),
         resolvePullRequestLabels: fake.resolves(labeledPullRequests),
         resolveVersionNumber: fake.returns('1.0.1')
     };
 
-    return { engine: calls as unknown as PrLogEngine, calls };
+    return { engine: calls as unknown as PullRequestLogEngine, calls };
 }
 
-async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngine): Promise<string> {
+async function render(packages: readonly ReleasePlanPackage[], engine: PullRequestLogEngine): Promise<string> {
     const changelog = await generateChangelogOutputs({
         packages,
-        prLogEngine: engine,
+        pullRequestLogEngine: engine,
         changelogSourceFileRootsByPackageName: new Map(),
-        explicitBaseRef: undefined,
-        githubRepo: 'owner/repo',
+        explicitBaseReference: undefined,
+        githubRepository: 'owner/repo',
         packageTagFormat: undefined,
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
         ignoredAttributionPaths: [],
-        prLogConfig,
+        pullRequestLogConfiguration,
         targetScopedLabelPattern: undefined
     });
     return changelog.groupedMarkdown;
@@ -149,9 +151,9 @@ function registerTargetSelectionTests(): void {
     test('renders changed and first-publish packages as released targets with their next versions', async function () {
         const { engine, calls } = createEngine();
         const packages = [
-            releasePackage({ name: 'pkg-a', nextVersion: '1.0.1' }),
+            releasePackage({ name: 'package-a', nextVersion: '1.0.1' }),
             releasePackage({
-                name: 'pkg-b',
+                name: 'package-b',
                 previousVersion: undefined,
                 previousGitHead: undefined,
                 nextVersion: '0.1.0',
@@ -161,45 +163,45 @@ function registerTargetSelectionTests(): void {
 
         await render(packages, engine);
 
-        assert.strictEqual(calls.resolveChangelogBaseRef.callCount, 1);
-        assert.deepStrictEqual(calls.resolveChangelogBaseRef.firstCall.args[0], {
-            packageName: 'pkg-a',
+        assert.strictEqual(calls.resolveChangelogBaseReference.callCount, 1);
+        assert.deepStrictEqual(calls.resolveChangelogBaseReference.firstCall.args[0], {
+            packageName: 'package-a',
             previousVersion: '1.0.0',
             previousGitHead: undefined,
             packageTagFormat: undefined,
-            explicitBaseRef: undefined
+            explicitBaseReference: undefined
         });
-        assert.strictEqual(calls.resolveLatestSemverChangelogBaseRef.callCount, 1);
+        assert.strictEqual(calls.resolveLatestSemverChangelogBaseReference.callCount, 1);
         assert.deepStrictEqual(calls.collectMergedPullRequests.firstCall.args[0], {
-            githubRepo: 'owner/repo',
-            baseRef: 'pkg-a-base'
+            githubRepository: 'owner/repo',
+            baseReference: 'package-a-base'
         });
         assert.deepStrictEqual(calls.readPullRequestChangedFiles.firstCall.args[0], {
-            githubRepo: 'owner/repo',
+            githubRepository: 'owner/repo',
             pullRequests: [
-                { id: 1, title: 'Fix package' },
-                { id: 2, title: 'Update changelog only' }
+                { identifier: 1, title: 'Fix package' },
+                { identifier: 2, title: 'Update changelog only' }
             ]
         });
         assert.deepStrictEqual(calls.resolvePullRequestLabels.firstCall.args[0], {
-            githubRepo: 'owner/repo',
-            config: prLogConfig,
-            pullRequests: [ { id: 1, title: 'Fix package' } ],
-            targetName: 'pkg-a',
+            githubRepository: 'owner/repo',
+            configuration: pullRequestLogConfiguration,
+            pullRequests: [ { identifier: 1, title: 'Fix package' } ],
+            targetName: 'package-a',
             targetScopedLabelPattern: undefined
         });
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
             {
-                targetName: 'pkg-a',
+                targetName: 'package-a',
                 unreleased: false,
                 versionNumber: '1.0.1',
-                mergedPullRequests: [ { id: 1, title: 'Fix package', label: 'bug' } ]
+                mergedPullRequests: [ { identifier: 1, title: 'Fix package', label: 'bug' } ]
             },
             {
-                targetName: 'pkg-b',
+                targetName: 'package-b',
                 unreleased: false,
                 versionNumber: '0.1.0',
-                mergedPullRequests: [ { id: 1, title: 'Fix package', label: 'bug' } ]
+                mergedPullRequests: [ { identifier: 1, title: 'Fix package', label: 'bug' } ]
             }
         ]);
     });
@@ -212,22 +214,22 @@ function registerTargetSelectionTests(): void {
                 releasePackage({
                     artifactFiles: [ 'dist/index.js' ],
                     changedArtifactFiles: [ 'dist/index.js' ],
-                    sourceFiles: [ 'source/pkg-a.ts' ],
-                    changelogSourceFiles: [ 'source/pkg-a.ts', 'CHANGELOG.md' ]
+                    sourceFiles: [ 'source/package-a.ts' ],
+                    changelogSourceFiles: [ 'source/package-a.ts', 'CHANGELOG.md' ]
                 })
             ],
             engine
         );
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0], {
-            targetName: 'pkg-a',
-            targetSourceFiles: [ 'source/pkg-a.ts', 'CHANGELOG.md' ],
+            targetName: 'package-a',
+            targetSourceFiles: [ 'source/package-a.ts', 'CHANGELOG.md' ],
             pullRequests: [
-                { id: 1, title: 'Fix package' },
-                { id: 2, title: 'Update changelog only' }
+                { identifier: 1, title: 'Fix package' },
+                { identifier: 2, title: 'Update changelog only' }
             ],
             changedFilesByPullRequest: new Map([
-                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ],
                 [ 2, [ pullRequestChangedFileFactory.build({ path: 'CHANGELOG.md' }) ] ]
             ]),
             ignoredAttributionPaths: [ 'CHANGELOG.md' ]
@@ -244,7 +246,7 @@ function registerTargetSelectionTests(): void {
         const sourceRootlessEngine = {
             ...engine,
             readPullRequestChangedFiles
-        } as unknown as PrLogEngine;
+        } as unknown as PullRequestLogEngine;
 
         await render(
             [
@@ -269,7 +271,7 @@ function registerDependencyUpdateTests(): void {
             [
                 releasePackage({
                     releaseClassification: 'dependency-only',
-                    changedArtifactFiles: [ 'package.json', 'sbom.cdx.json' ]
+                    changedArtifactFiles: [ 'package.json', 'software-bill-of-materials.cyclonedx.json' ]
                 })
             ],
             engine
@@ -277,14 +279,14 @@ function registerDependencyUpdateTests(): void {
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
             {
-                targetName: 'pkg-a',
+                targetName: 'package-a',
                 unreleased: false,
                 versionNumber: '1.0.1',
-                mergedPullRequests: [ { id: 1, title: 'Update dependencies', label: 'upgrade' } ]
+                mergedPullRequests: [ { identifier: 1, title: 'Update dependencies', label: 'upgrade' } ]
             }
         ]);
         assert.strictEqual(
-            calls.renderGroupedTargetChangelog.firstCall.args[0].config.validLabels.get('upgrade'),
+            calls.renderGroupedTargetChangelog.firstCall.args[0].configuration.validLabels.get('upgrade'),
             'Dependency Upgrades'
         );
     });
@@ -296,8 +298,8 @@ function registerDependencyUpdateTests(): void {
             [
                 releasePackage({
                     releaseClassification: 'dependency-only',
-                    changelogDependencyNames: [ '@scope/pkg' ],
-                    changelogDependencyUpdates: [ { name: '@scope/pkg', version: '1.2.3' } ]
+                    changelogDependencyNames: [ '@scope/package' ],
+                    changelogDependencyUpdates: [ { name: '@scope/package', version: '1.2.3' } ]
                 })
             ],
             engine
@@ -305,10 +307,10 @@ function registerDependencyUpdateTests(): void {
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
             {
-                targetName: 'pkg-a',
+                targetName: 'package-a',
                 unreleased: false,
                 versionNumber: '1.0.1',
-                mergedPullRequests: [ { id: 0, title: 'Update @scope/pkg to 1.2.3', label: 'upgrade' } ]
+                mergedPullRequests: [ { identifier: 0, title: 'Update @scope/package to 1.2.3', label: 'upgrade' } ]
             }
         ]);
     });
@@ -330,7 +332,7 @@ function registerDependencyUpdateTests(): void {
         );
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets[0]?.mergedPullRequests, [
-            { id: 0, title: 'Update dependencies', label: 'upgrade' }
+            { identifier: 0, title: 'Update dependencies', label: 'upgrade' }
         ]);
     });
 
@@ -353,27 +355,30 @@ function registerDependencyUpdateTests(): void {
 
     test('preserves configured dependency update changelog labels', async function () {
         const { engine, calls } = createEngine();
-        const customPrLogConfig = {
-            ...prLogConfig,
-            validLabels: new Map([ ...prLogConfig.validLabels, [ 'upgrade', 'Upgrades' ] ])
+        const customPullRequestLogConfiguration = {
+            ...pullRequestLogConfiguration,
+            validLabels: new Map([ ...pullRequestLogConfiguration.validLabels, [ 'upgrade', 'Upgrades' ] ])
         };
 
         await generateChangelogOutputs({
             packages: [ releasePackage({ releaseClassification: 'dependency-only' }) ],
-            prLogEngine: engine,
+            pullRequestLogEngine: engine,
             changelogSourceFileRootsByPackageName: new Map(),
-            githubRepo: 'owner/repo',
+            githubRepository: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
-            explicitBaseRef: undefined,
+            explicitBaseReference: undefined,
             ignoredAttributionPaths: [],
             packageTagFormat: undefined,
-            prLogConfig: customPrLogConfig,
+            pullRequestLogConfiguration: customPullRequestLogConfiguration,
             targetScopedLabelPattern: undefined
         });
 
-        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].config, customPrLogConfig);
         assert.strictEqual(
-            calls.renderGroupedTargetChangelog.firstCall.args[0].config.validLabels.get('upgrade'),
+            calls.renderGroupedTargetChangelog.firstCall.args[0].configuration,
+            customPullRequestLogConfiguration
+        );
+        assert.strictEqual(
+            calls.renderGroupedTargetChangelog.firstCall.args[0].configuration.validLabels.get('upgrade'),
             'Upgrades'
         );
     });
@@ -382,10 +387,10 @@ function registerDependencyUpdateTests(): void {
         const { engine, calls } = createEngine();
         const filterPullRequestsByTargetFiles = fake.returns([]);
         const collectMergedPullRequests = fake.resolves([
-            { id: 1, title: 'Update React to v19' },
-            { id: 2, title: 'Update unrelated lockfile' },
-            { id: 3, title: 'Update react without manifest input' },
-            { id: 4, title: 'Update React without changed files' }
+            { identifier: 1, title: 'Update React to v19' },
+            { identifier: 2, title: 'Update unrelated lockfile' },
+            { identifier: 3, title: 'Update react without manifest input' },
+            { identifier: 4, title: 'Update React without changed files' }
         ]);
         const readPullRequestChangedFiles = fake.resolves(
             new Map([
@@ -405,13 +410,13 @@ function registerDependencyUpdateTests(): void {
             collectMergedPullRequests,
             filterPullRequestsByTargetFiles,
             readPullRequestChangedFiles
-        } as unknown as PrLogEngine;
+        } as unknown as PullRequestLogEngine;
 
         await render([ releasePackage({ changelogDependencyNames: [ 'react', 'vue' ] }) ], dependencyEngine);
 
         const labelOptions = calls.resolvePullRequestLabels.firstCall.args[0] as ResolvePullRequestLabelsOptions;
         assert.deepStrictEqual(labelOptions.pullRequests, [
-            { id: 1, title: 'Update React to v19' }
+            { identifier: 1, title: 'Update React to v19' }
         ]);
     });
 }
@@ -425,24 +430,24 @@ function registerPackageChangelogTests(): void {
             ...engine,
             resolvePullRequestLabels: emptyLabelResolver,
             renderTargetChangelog
-        } as unknown as PrLogEngine;
+        } as unknown as PullRequestLogEngine;
 
         const changelog = await generateChangelogOutputs({
-            packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
-            prLogEngine: emptyEngine,
+            packages: [ releasePackage({ changelogSourceFiles: [ 'source/package-a.ts' ] }) ],
+            pullRequestLogEngine: emptyEngine,
             changelogSourceFileRootsByPackageName: new Map(),
-            githubRepo: 'owner/repo',
+            githubRepository: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
-            explicitBaseRef: undefined,
+            explicitBaseReference: undefined,
             ignoredAttributionPaths: [],
             packageTagFormat: undefined,
-            prLogConfig,
+            pullRequestLogConfiguration,
             targetScopedLabelPattern: undefined
         });
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
         assertDeepSubset(changelog, {
-            packageNamesWithoutChangelogEntries: [ 'pkg-a' ],
+            packageNamesWithoutChangelogEntries: [ 'package-a' ],
             packageMarkdownByName: new Map()
         });
         assert.strictEqual(renderTargetChangelog.callCount, 0);
@@ -455,20 +460,20 @@ function registerAttributionPathTests(): void {
 
         await render([ releasePackage({ previousVersion: undefined, previousGitHead: 'previous-head' }) ], engine);
 
-        assert.strictEqual(calls.resolveLatestSemverChangelogBaseRef.callCount, 0);
-        assert.deepStrictEqual(calls.resolveChangelogBaseRef.firstCall.args[0], {
-            packageName: 'pkg-a',
+        assert.strictEqual(calls.resolveLatestSemverChangelogBaseReference.callCount, 0);
+        assert.deepStrictEqual(calls.resolveChangelogBaseReference.firstCall.args[0], {
+            packageName: 'package-a',
             previousVersion: undefined,
             previousGitHead: 'previous-head',
             packageTagFormat: undefined,
-            explicitBaseRef: undefined
+            explicitBaseReference: undefined
         });
     });
 
     test('does not ignore files whose name only starts with CHANGELOG.md', async function () {
         const { engine, calls } = createEngine();
 
-        await render([ releasePackage({ changelogSourceFiles: [ 'docs/CHANGELOG.md.bak' ] }) ], engine);
+        await render([ releasePackage({ changelogSourceFiles: [ 'documentation/CHANGELOG.md.bak' ] }) ], engine);
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, []);
     });
@@ -476,10 +481,10 @@ function registerAttributionPathTests(): void {
     test('ignores nested CHANGELOG.md files', async function () {
         const { engine, calls } = createEngine();
 
-        await render([ releasePackage({ changelogSourceFiles: [ 'docs/CHANGELOG.md' ] }) ], engine);
+        await render([ releasePackage({ changelogSourceFiles: [ 'documentation/CHANGELOG.md' ] }) ], engine);
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
-            'docs/CHANGELOG.md'
+            'documentation/CHANGELOG.md'
         ]);
     });
 
@@ -487,20 +492,20 @@ function registerAttributionPathTests(): void {
         const { engine, calls } = createEngine();
 
         await generateChangelogOutputs({
-            packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
-            prLogEngine: engine,
+            packages: [ releasePackage({ changelogSourceFiles: [ 'source/package-a.ts' ] }) ],
+            pullRequestLogEngine: engine,
             changelogSourceFileRootsByPackageName: new Map(),
-            githubRepo: 'owner/repo',
+            githubRepository: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
-            explicitBaseRef: undefined,
-            ignoredAttributionPaths: [ 'docs/generated.md' ],
+            explicitBaseReference: undefined,
+            ignoredAttributionPaths: [ 'documentation/generated.md' ],
             packageTagFormat: undefined,
-            prLogConfig,
+            pullRequestLogConfiguration,
             targetScopedLabelPattern: undefined
         });
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
-            'docs/generated.md'
+            'documentation/generated.md'
         ]);
     });
 }
@@ -511,24 +516,24 @@ function registerOptionForwardingTests(): void {
 
         await generateChangelogOutputs({
             packages: [ releasePackage({ previousVersion: undefined, previousGitHead: undefined }) ],
-            prLogEngine: engine,
+            pullRequestLogEngine: engine,
             changelogSourceFileRootsByPackageName: new Map(),
-            explicitBaseRef: 'release-base',
-            githubRepo: 'owner/repo',
+            explicitBaseReference: 'release-base',
+            githubRepository: 'owner/repo',
             packageTagFormat: 'pkg/{packageName}/v{version}',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             ignoredAttributionPaths: [],
-            prLogConfig,
+            pullRequestLogConfiguration,
             targetScopedLabelPattern: 'scope:{targetName}:{label}'
         });
 
-        assert.strictEqual(calls.resolveLatestSemverChangelogBaseRef.callCount, 0);
-        assert.deepStrictEqual(calls.resolveChangelogBaseRef.firstCall.args[0], {
-            packageName: 'pkg-a',
+        assert.strictEqual(calls.resolveLatestSemverChangelogBaseReference.callCount, 0);
+        assert.deepStrictEqual(calls.resolveChangelogBaseReference.firstCall.args[0], {
+            packageName: 'package-a',
             previousVersion: undefined,
             previousGitHead: undefined,
             packageTagFormat: 'pkg/{packageName}/v{version}',
-            explicitBaseRef: 'release-base'
+            explicitBaseReference: 'release-base'
         });
         const labelInput = calls.resolvePullRequestLabels.firstCall.args[0] as LabelOptionsInput;
         assert.strictEqual(labelInput.targetScopedLabelPattern, 'scope:{targetName}:{label}');

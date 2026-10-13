@@ -61,9 +61,9 @@ type FakeTarEntry = {
     readonly [Symbol.asyncIterator]: () => AsyncGenerator<FakeTarChunk>;
 };
 type ExtractFakeTarLimits = {
-    readonly maxEntryCount: number;
-    readonly maxEntryPathLength: number;
-    readonly maxExtractedBytes: number;
+    readonly maximumEntryCount: number;
+    readonly maximumEntryPathLength: number;
+    readonly maximumExtractedBytes: number;
 };
 
 async function* singleTarChunk(chunk: unknown): AsyncGenerator {
@@ -206,14 +206,14 @@ suite('extract-tar', function () {
                 await extractFakeTarEntries([
                     { name: 'first.txt', chunks: [] },
                     { name: 'second.txt', chunks: [] }
-                ], { maxEntryCount: 1, maxEntryPathLength: 100, maxExtractedBytes: 100 });
+                ], { maximumEntryCount: 1, maximumEntryPathLength: 100, maximumExtractedBytes: 100 });
             }, /Refusing to extract tarball with more than 1 entries/u);
         });
 
         test('allows paths at the configured path length limit', async function () {
             const entries = await extractFakeTarEntries(
                 [ { name: 'a'.repeat(4), chunks: [ { length: 1, content: 'x' } ] } ],
-                { maxEntryCount: 2, maxEntryPathLength: 4, maxExtractedBytes: 10 }
+                { maximumEntryCount: 2, maximumEntryPathLength: 4, maximumExtractedBytes: 10 }
             );
 
             assert.deepStrictEqual(entries, [
@@ -225,7 +225,7 @@ suite('extract-tar', function () {
             await expectFailure(async function () {
                 await extractFakeTarEntries(
                     [ { name: 'a'.repeat(5), chunks: [] } ],
-                    { maxEntryCount: 2, maxEntryPathLength: 4, maxExtractedBytes: 10 }
+                    { maximumEntryCount: 2, maximumEntryPathLength: 4, maximumExtractedBytes: 10 }
                 );
             }, /Refusing to extract tarball entry with path longer than 4 characters/u);
         });
@@ -235,7 +235,7 @@ suite('extract-tar', function () {
                 await extractFakeTarEntries([
                     { name: 'first.txt', chunks: [ { length: 3, content: 'abc' } ] },
                     { name: 'second.txt', chunks: [ { length: 3, content: 'def' } ] }
-                ], { maxEntryCount: 3, maxEntryPathLength: 100, maxExtractedBytes: 5 });
+                ], { maximumEntryCount: 3, maximumEntryPathLength: 100, maximumExtractedBytes: 5 });
             }, /Refusing to extract tarball larger than 5 bytes/u);
         });
 
@@ -243,7 +243,7 @@ suite('extract-tar', function () {
             const entries = await extractFakeTarEntries([
                 { name: 'first.txt', chunks: [ { length: 3, content: 'abc' } ] },
                 { name: 'second.txt', chunks: [ { length: 2, content: 'de' } ] }
-            ], { maxEntryCount: 3, maxEntryPathLength: 100, maxExtractedBytes: 5 });
+            ], { maximumEntryCount: 3, maximumEntryPathLength: 100, maximumExtractedBytes: 5 });
 
             assert.deepStrictEqual(entries, [
                 { header: { name: 'first.txt' }, content: 'abc' },

@@ -13,22 +13,22 @@ import type {
     GeneratedDeadCodeEliminationMetamorphicCase
 } from './dead-code-elimination-metamorphic-types.ts';
 
-const producerPackageName = 'pkg-producer';
-const consumerPackageName = 'pkg-consumer';
-const producerIndexTargetPath = 'pkg-producer/index.js';
-const producerBaseSharedTargetPath = 'pkg-producer/base-shared.js';
-const producerBaseSharedDeclarationTargetPath = 'pkg-producer/base-shared.d.ts';
-const producerSharedTargetPath = 'pkg-producer/shared.js';
-const producerSharedDeclarationTargetPath = 'pkg-producer/shared.d.ts';
-const producerPluginTargetPath = 'pkg-producer/plugin.js';
-const consumerIndexTargetPath = 'pkg-consumer/index.js';
-const producerIndexSourcePath = '/src/pkg-producer/index.js';
-const producerBaseSharedSourcePath = '/src/pkg-producer/base-shared.js';
-const producerBaseSharedDeclarationSourcePath = '/src/pkg-producer/base-shared.d.ts';
-const producerSharedSourcePath = '/src/pkg-producer/shared.js';
-const producerSharedDeclarationSourcePath = '/src/pkg-producer/shared.d.ts';
-const producerPluginSourcePath = '/src/pkg-producer/plugin.js';
-const consumerIndexSourcePath = '/src/pkg-consumer/index.js';
+const producerPackageName = 'package-producer';
+const consumerPackageName = 'package-consumer';
+const producerIndexTargetPath = 'package-producer/index.js';
+const producerBaseSharedTargetPath = 'package-producer/base-shared.js';
+const producerBaseSharedDeclarationTargetPath = 'package-producer/base-shared.d.ts';
+const producerSharedTargetPath = 'package-producer/shared.js';
+const producerSharedDeclarationTargetPath = 'package-producer/shared.d.ts';
+const producerPluginTargetPath = 'package-producer/plugin.js';
+const consumerIndexTargetPath = 'package-consumer/index.js';
+const producerIndexSourcePath = '/source/package-producer/index.js';
+const producerBaseSharedSourcePath = '/source/package-producer/base-shared.js';
+const producerBaseSharedDeclarationSourcePath = '/source/package-producer/base-shared.d.ts';
+const producerSharedSourcePath = '/source/package-producer/shared.js';
+const producerSharedDeclarationSourcePath = '/source/package-producer/shared.d.ts';
+const producerPluginSourcePath = '/source/package-producer/plugin.js';
+const consumerIndexSourcePath = '/source/package-consumer/index.js';
 
 function producerIndex(): DeadCodeEliminationGeneratedFile {
     return runtimeFileFromSource(
@@ -51,7 +51,7 @@ function producerIndex(): DeadCodeEliminationGeneratedFile {
     );
 }
 
-function rootApiDeclaration(): DeadCodeEliminationGeneratedFile {
+function rootApplicationProgrammingInterfaceDeclaration(): DeadCodeEliminationGeneratedFile {
     return declarationFor(
         producerIndexTargetPath,
         [ 'export declare function api(): unknown;' ],
@@ -148,7 +148,7 @@ function consumerIndex(): DeadCodeEliminationGeneratedFile {
         consumerIndexSourcePath,
         consumerIndexTargetPath,
         [
-            'import { baseSharedConfig } from "pkg-producer/pkg-producer/base-shared.js";',
+            'import { baseSharedConfig } from "package-producer/package-producer/base-shared.js";',
             'export function api() { return baseSharedConfig.rules["example/basic-rule"]; }'
         ],
         []
@@ -163,11 +163,11 @@ function companionProducerBundle(
         name: producerPackageName,
         runtimeFiles: [ producerIndex(), baseSharedRuntime(), sharedRuntime(expression), pluginRuntime() ],
         declarationFiles: includeCompanions
-            ? [ rootApiDeclaration(), baseSharedDeclaration(), sharedDeclaration() ]
-            : [ rootApiDeclaration() ],
+            ? [ rootApplicationProgrammingInterfaceDeclaration(), baseSharedDeclaration(), sharedDeclaration() ]
+            : [ rootApplicationProgrammingInterfaceDeclaration() ],
         assetFiles: [],
         rootTargetFilePath: producerIndexTargetPath,
-        rootDeclarationTargetFilePath: 'pkg-producer/index.d.ts'
+        rootDeclarationTargetFilePath: 'package-producer/index.d.ts'
     };
 }
 
@@ -184,7 +184,7 @@ function companionConsumerBundle(): DeadCodeEliminationGeneratedBundle {
         ],
         assetFiles: [],
         rootTargetFilePath: consumerIndexTargetPath,
-        rootDeclarationTargetFilePath: 'pkg-consumer/index.d.ts'
+        rootDeclarationTargetFilePath: 'package-consumer/index.d.ts'
     };
 }
 

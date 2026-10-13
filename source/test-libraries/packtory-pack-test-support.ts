@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import {
@@ -14,7 +14,7 @@ import type { InternalResolveAndLinkFailure } from '../packtory/packtory-resolve
 import type { ResolvedPackage } from '../packtory/resolved-package.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
-export const validatedConfig = {} as unknown as ValidConfigWithoutRegistryResult;
+export const validatedConfiguration = {} as unknown as ValidConfigurationWithoutRegistryResult;
 
 export type FakeVersionedBundle = {
     readonly name: string;
@@ -37,7 +37,7 @@ type ResolvedPackageOverrides = {
     readonly bundlePeerDependencies?: readonly unknown[];
     readonly externalDependencyNames?: readonly string[];
     readonly bundleDependencyNames?: readonly string[];
-    readonly mainPackageJson?: ResolvedPackage['resolveOptions']['mainPackageJson'];
+    readonly mainPackageManifest?: ResolvedPackage['resolveOptions']['mainPackageManifest'];
     readonly sourcesFolder?: string;
     readonly contents?: readonly unknown[];
 };
@@ -76,9 +76,9 @@ export type PackEmitterInput = {
 };
 
 export const baseOptions: PackOptions = {
-    packageName: 'pkg-a',
+    packageName: 'package-a',
     format: 'zip',
-    outputPath: '/out/pkg-a.zip',
+    outputPath: '/out/package-a.zip',
     version: '0.0.0',
     vendorDependencies: false
 };
@@ -98,7 +98,7 @@ export function makeResolvedPackage(overrides: ResolvedPackageOverrides = {}): R
             return [ name, { name, referencedFrom: [ '/x' ] as const } ];
         })
     );
-    const packageName = valueOrFallback(overrides.name, 'pkg-a');
+    const packageName = valueOrFallback(overrides.name, 'package-a');
     return {
         name: packageName,
         analyzedBundle: {
@@ -108,12 +108,12 @@ export function makeResolvedPackage(overrides: ResolvedPackageOverrides = {}): R
             linkedBundleDependencies
         } as unknown as ResolvedPackage['analyzedBundle'],
         resolveOptions: {
-            mainPackageJson: valueOrFallback(overrides.mainPackageJson, { type: 'module' }),
-            additionalPackageJsonAttributes: {},
+            mainPackageManifest: valueOrFallback(overrides.mainPackageManifest, { type: 'module' }),
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             bundleDependencies: valueOrFallback(overrides.bundleDependencies, []),
             bundlePeerDependencies: valueOrFallback(overrides.bundlePeerDependencies, []),
-            roots: { main: { js: 'index.js' } },
+            roots: { main: { javaScript: 'index.js' } },
             surface: { kind: 'implicit' },
             sourcesFolder: valueOrFallback(overrides.sourcesFolder, '/repo')
         } as unknown as ResolvedPackage['resolveOptions']
@@ -128,12 +128,12 @@ type RunPackDependenciesFakes = {
 
 export function createDependencies(overrides: DependencyOverrides): CreatedDependencies {
     const versionedBundle = overrides.versionedBundle ?? {
-        name: 'pkg-a',
+        name: 'package-a',
         version: '0.0.0',
         contents: [],
         manifestFile: {
             content: JSON.stringify({
-                name: 'pkg-a',
+                name: 'package-a',
                 dependencies: { left: '1.0.0' },
                 peerDependencies: { right: '1.0.0' }
             }),
@@ -179,7 +179,7 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
     };
 }
 
-export function expectErr<TValue>(result: Result<TValue, InternalPackFailure>): InternalPackFailure {
+export function expectError<TValue>(result: Result<TValue, InternalPackFailure>): InternalPackFailure {
     if (result.isOk) {
         assert.fail('expected Err result');
     }
@@ -233,7 +233,11 @@ export async function runVendorAndExpectExtraFiles(
     resolveAndLinkAll: SinonSpy,
     packEmitterPack: SinonSpy
 ): Promise<readonly { readonly filePath: string; readonly content: string; }[]> {
-    const result = await runPack(validatedConfig, { ...baseOptions, vendorDependencies: true }, resolveAndLinkAll);
+    const result = await runPack(
+        validatedConfiguration,
+        { ...baseOptions, vendorDependencies: true },
+        resolveAndLinkAll
+    );
     assert.deepStrictEqual(result.isOk ? result.value : 'errored', undefined);
     const emitOptions = packEmitterPack.firstCall.args[0] as {
         readonly extraFiles: readonly { readonly filePath: string; readonly content: string; }[];
@@ -248,7 +252,7 @@ type PackClosureScenario = {
 };
 
 export function createTransitiveBundleClosureScenario(): PackClosureScenario {
-    const versionedTarget = makeBareVersionedBundle('pkg-a');
+    const versionedTarget = makeBareVersionedBundle('package-a');
     const versionedShared: FakeVersionedBundle = {
         ...makeBareVersionedBundle('shared'),
         manifestFile: {
@@ -272,7 +276,7 @@ export function createTransitiveBundleClosureScenario(): PackClosureScenario {
         } ]
     };
     const lookup = new Map<string, FakeVersionedBundle>([
-        [ 'pkg-a', versionedTarget ],
+        [ 'package-a', versionedTarget ],
         [ 'shared', versionedShared ],
         [ 'tooling', versionedTooling ]
     ]);
@@ -293,7 +297,7 @@ export function createTransitiveBundleClosureScenario(): PackClosureScenario {
 }
 
 export function createDeduplicatedBundleClosureScenario(): PackClosureScenario {
-    const versionedBundle = makeBareVersionedBundle('pkg-a');
+    const versionedBundle = makeBareVersionedBundle('package-a');
     const versionedShared = makeBareVersionedBundle('shared');
     const versionedLeftAndRight: FakeVersionedBundle = {
         ...versionedShared,
@@ -302,7 +306,7 @@ export function createDeduplicatedBundleClosureScenario(): PackClosureScenario {
         } ]
     };
     const lookup = new Map<string, FakeVersionedBundle>([
-        [ 'pkg-a', versionedBundle ],
+        [ 'package-a', versionedBundle ],
         [ 'left', { ...versionedLeftAndRight, name: 'left' } ],
         [ 'right', { ...versionedLeftAndRight, name: 'right' } ],
         [ 'shared', versionedShared ]

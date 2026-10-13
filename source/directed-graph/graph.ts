@@ -1,139 +1,141 @@
 import { createWorklist, type Worklist } from '../common/worklist.ts';
 
-type GraphNodeId = number | string;
+type GraphNodeIdentifier = number | string;
 
-type GraphNode<TId extends GraphNodeId, TData> = {
-    readonly id: TId;
+type GraphNode<TIdentifier extends GraphNodeIdentifier, TData> = {
+    readonly identifier: TIdentifier;
     readonly data: TData;
-    readonly adjacentNodeIds: ReadonlySet<TId>;
+    readonly adjacentNodeIdentifiers: ReadonlySet<TIdentifier>;
     readonly incomingEdges: number;
 };
-type NodeRegistryWriter<TId extends GraphNodeId, TData> = {
-    readonly set: (id: TId, node: GraphNode<TId, TData>) => void;
+type NodeRegistryWriter<TIdentifier extends GraphNodeIdentifier, TData> = {
+    readonly set: (identifier: TIdentifier, node: GraphNode<TIdentifier, TData>) => void;
 };
 
-type GraphEdge<TId extends GraphNodeId> = {
-    readonly from: TId;
-    readonly to: TId;
+type GraphEdge<TIdentifier extends GraphNodeIdentifier> = {
+    readonly from: TIdentifier;
+    readonly to: TIdentifier;
 };
 
-type Visitor<TId extends GraphNodeId, TData> = (node: Readonly<GraphNode<TId, TData>>) => void;
+type Visitor<TIdentifier extends GraphNodeIdentifier, TData> = (node: Readonly<GraphNode<TIdentifier, TData>>) => void;
 
 function attemptSlots(length: number): readonly unknown[] {
     return Array.from({ length });
 }
 
-export type DirectedGraph<TId extends GraphNodeId, TData> = {
-    addNode: (id: TId, data: TData) => void;
-    connect: (edge: Readonly<GraphEdge<TId>>) => void;
-    disconnect: (edge: Readonly<GraphEdge<TId>>) => void;
-    hasNode: (id: TId) => boolean;
-    hasConnection: (edge: Readonly<GraphEdge<TId>>) => boolean;
-    visitBreadthFirstSearch: (startId: TId, visitor: Visitor<TId, TData>) => void;
-    detectCycles: () => readonly (readonly TId[])[];
+export type DirectedGraph<TIdentifier extends GraphNodeIdentifier, TData> = {
+    addNode: (identifier: TIdentifier, data: TData) => void;
+    connect: (edge: Readonly<GraphEdge<TIdentifier>>) => void;
+    disconnect: (edge: Readonly<GraphEdge<TIdentifier>>) => void;
+    hasNode: (identifier: TIdentifier) => boolean;
+    hasConnection: (edge: Readonly<GraphEdge<TIdentifier>>) => boolean;
+    visitBreadthFirstSearch: (startIdentifier: TIdentifier, visitor: Visitor<TIdentifier, TData>) => void;
+    detectCycles: () => readonly (readonly TIdentifier[])[];
     isCyclic: () => boolean;
-    getTopologicalGenerations: () => readonly (readonly TId[])[];
-    reverse: () => DirectedGraph<TId, TData>;
-    getAdjacentIds: (id: TId) => ReadonlySet<TId>;
-    traverse: (visitor: Visitor<TId, TData>) => void;
+    getTopologicalGenerations: () => readonly (readonly TIdentifier[])[];
+    reverse: () => DirectedGraph<TIdentifier, TData>;
+    getAdjacentIdentifiers: (identifier: TIdentifier) => ReadonlySet<TIdentifier>;
+    traverse: (visitor: Visitor<TIdentifier, TData>) => void;
 };
 
-function getNode<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    id: TId
-): GraphNode<TId, TData> {
-    const node = nodes.get(id);
+function getNode<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    identifier: TIdentifier
+): GraphNode<TIdentifier, TData> {
+    const node = nodes.get(identifier);
 
     if (node === undefined) {
-        throw new Error(`Node with id "${id}" does not exist`);
+        throw new Error(`Node with id "${identifier}" does not exist`);
     }
 
     return node;
 }
 
-function detectCyclesForNode<TId extends GraphNodeId, TData>(
-    remainingNodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    baseNode: GraphNode<TId, TData>,
-    visitedIds: readonly TId[]
-): readonly (readonly TId[])[] {
-    const newVisitedIds = [ ...visitedIds, baseNode.id ];
+function detectCyclesForNode<TIdentifier extends GraphNodeIdentifier, TData>(
+    remainingNodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    baseNode: GraphNode<TIdentifier, TData>,
+    visitedIdentifiers: readonly TIdentifier[]
+): readonly (readonly TIdentifier[])[] {
+    const newVisitedIdentifiers = [ ...visitedIdentifiers, baseNode.identifier ];
     const newRemainingNodes = new Map(remainingNodes);
-    newRemainingNodes.delete(baseNode.id);
-    return Array.from(baseNode.adjacentNodeIds).flatMap(function (id) {
-        const adjacentNode = newRemainingNodes.get(id);
+    newRemainingNodes.delete(baseNode.identifier);
+    return Array.from(baseNode.adjacentNodeIdentifiers).flatMap(function (identifier) {
+        const adjacentNode = newRemainingNodes.get(identifier);
         return adjacentNode === undefined
-            ? [ [ ...newVisitedIds, id ] ]
-            : detectCyclesForNode(newRemainingNodes, adjacentNode, newVisitedIds);
+            ? [ [ ...newVisitedIdentifiers, identifier ] ]
+            : detectCyclesForNode(newRemainingNodes, adjacentNode, newVisitedIdentifiers);
     });
 }
 
-function detectCyclesForUnvisitedNode<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    idsWithinCycles: ReadonlySet<TId>,
-    baseNode: GraphNode<TId, TData>
-): readonly (readonly TId[])[] {
-    if (idsWithinCycles.has(baseNode.id)) {
+function detectCyclesForUnvisitedNode<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    identifiersWithinCycles: ReadonlySet<TIdentifier>,
+    baseNode: GraphNode<TIdentifier, TData>
+): readonly (readonly TIdentifier[])[] {
+    if (identifiersWithinCycles.has(baseNode.identifier)) {
         return [];
     }
 
     return detectCyclesForNode(nodes, baseNode, []);
 }
 
-function detectGraphCycles<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
-): readonly (readonly TId[])[] {
-    const cycles: (readonly TId[])[] = [];
-    const idsWithinCycles = new Set<TId>();
+function detectGraphCycles<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): readonly (readonly TIdentifier[])[] {
+    const cycles: (readonly TIdentifier[])[] = [];
+    const identifiersWithinCycles = new Set<TIdentifier>();
 
     for (const baseNode of nodes.values()) {
-        const cyclesForNode = detectCyclesForUnvisitedNode(nodes, idsWithinCycles, baseNode);
+        const cyclesForNode = detectCyclesForUnvisitedNode(nodes, identifiersWithinCycles, baseNode);
         cycles.push(...cyclesForNode);
-        for (const id of cyclesForNode.flat()) {
-            idsWithinCycles.add(id);
+        for (const identifier of cyclesForNode.flat()) {
+            identifiersWithinCycles.add(identifier);
         }
     }
 
     return cycles;
 }
 
-function countEdges<TId extends GraphNodeId, TData>(nodes: ReadonlyMap<TId, GraphNode<TId, TData>>): number {
+function countEdges<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): number {
     return Array.from(nodes.values()).reduce(function (edgeCount, node) {
-        return edgeCount + node.adjacentNodeIds.size;
+        return edgeCount + node.adjacentNodeIdentifiers.size;
     }, 0);
 }
 
-type BreadthFirstSearchStep<TId extends GraphNodeId, TData> = {
-    readonly head: GraphNode<TId, TData> | undefined;
-    readonly visited: ReadonlySet<TId>;
+type BreadthFirstSearchStep<TIdentifier extends GraphNodeIdentifier, TData> = {
+    readonly head: GraphNode<TIdentifier, TData> | undefined;
+    readonly visited: ReadonlySet<TIdentifier>;
 };
 
-type BreadthFirstSearchNodeVisit<TId extends GraphNodeId, TData> = {
-    readonly head: GraphNode<TId, TData>;
-    readonly nodes: ReadonlyMap<TId, GraphNode<TId, TData>>;
-    readonly pendingNodes: Worklist<GraphNode<TId, TData>>;
-    readonly visited: ReadonlySet<TId>;
-    readonly visitor: Visitor<TId, TData>;
+type BreadthFirstSearchNodeVisit<TIdentifier extends GraphNodeIdentifier, TData> = {
+    readonly head: GraphNode<TIdentifier, TData>;
+    readonly nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>;
+    readonly pendingNodes: Worklist<GraphNode<TIdentifier, TData>>;
+    readonly visited: ReadonlySet<TIdentifier>;
+    readonly visitor: Visitor<TIdentifier, TData>;
 };
-type BreadthFirstSearchState<TId extends GraphNodeId, TData> = {
-    readonly head: GraphNode<TId, TData> | undefined;
-    readonly pendingNodes: Worklist<GraphNode<TId, TData>>;
-    readonly visited: ReadonlySet<TId>;
+type BreadthFirstSearchState<TIdentifier extends GraphNodeIdentifier, TData> = {
+    readonly head: GraphNode<TIdentifier, TData> | undefined;
+    readonly pendingNodes: Worklist<GraphNode<TIdentifier, TData>>;
+    readonly visited: ReadonlySet<TIdentifier>;
 };
 
-function scheduleAdjacentNodes<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    head: GraphNode<TId, TData>,
-    pendingNodes: Worklist<GraphNode<TId, TData>>
+function scheduleAdjacentNodes<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    head: GraphNode<TIdentifier, TData>,
+    pendingNodes: Worklist<GraphNode<TIdentifier, TData>>
 ): void {
-    for (const id of head.adjacentNodeIds) {
-        pendingNodes.schedule(getNode(nodes, id));
+    for (const identifier of head.adjacentNodeIdentifiers) {
+        pendingNodes.schedule(getNode(nodes, identifier));
     }
 }
 
-function visitBreadthFirstSearchNode<TId extends GraphNodeId, TData>(
-    visit: BreadthFirstSearchNodeVisit<TId, TData>
-): BreadthFirstSearchStep<TId, TData> {
-    if (visit.visited.has(visit.head.id)) {
+function visitBreadthFirstSearchNode<TIdentifier extends GraphNodeIdentifier, TData>(
+    visit: BreadthFirstSearchNodeVisit<TIdentifier, TData>
+): BreadthFirstSearchStep<TIdentifier, TData> {
+    if (visit.visited.has(visit.head.identifier)) {
         return { head: visit.pendingNodes.takeNext(), visited: visit.visited };
     }
 
@@ -141,19 +143,19 @@ function visitBreadthFirstSearchNode<TId extends GraphNodeId, TData>(
     scheduleAdjacentNodes(visit.nodes, visit.head, visit.pendingNodes);
     return {
         head: visit.pendingNodes.takeNext(),
-        visited: new Set([ ...visit.visited, visit.head.id ])
+        visited: new Set([ ...visit.visited, visit.head.identifier ])
     };
 }
 
-function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    startId: TId,
-    visitor: Visitor<TId, TData>
+function visitGraphBreadthFirstSearch<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    startIdentifier: TIdentifier,
+    visitor: Visitor<TIdentifier, TData>
 ): void {
-    const pendingNodes = createWorklist<GraphNode<TId, TData>>([]);
+    const pendingNodes = createWorklist<GraphNode<TIdentifier, TData>>([]);
     const traversalSlots = attemptSlots(nodes.size + countEdges(nodes) + 1);
-    let state: BreadthFirstSearchState<TId, TData> = {
-        head: getNode(nodes, startId),
+    let state: BreadthFirstSearchState<TIdentifier, TData> = {
+        head: getNode(nodes, startIdentifier),
         pendingNodes,
         visited: new Set()
     };
@@ -163,7 +165,7 @@ function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
             return;
         }
 
-        const nextStep: BreadthFirstSearchStep<TId, TData> = visitBreadthFirstSearchNode<TId, TData>({
+        const nextStep: BreadthFirstSearchStep<TIdentifier, TData> = visitBreadthFirstSearchNode<TIdentifier, TData>({
             nodes,
             head: state.head,
             pendingNodes: state.pendingNodes,
@@ -174,97 +176,97 @@ function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
     });
 }
 
-function collectCurrentGeneration<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    alreadyDiscovered: ReadonlySet<TId>,
-    incomingEdgesPerNode: ReadonlyMap<TId, number>
-): readonly TId[] {
-    const currentGeneration: TId[] = [];
+function collectCurrentGeneration<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    alreadyDiscovered: ReadonlySet<TIdentifier>,
+    incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>
+): readonly TIdentifier[] {
+    const currentGeneration: TIdentifier[] = [];
 
     for (const node of nodes.values()) {
-        if (!alreadyDiscovered.has(node.id) && incomingEdgesPerNode.get(node.id) === 0) {
-            currentGeneration.push(node.id);
+        if (!alreadyDiscovered.has(node.identifier) && incomingEdgesPerNode.get(node.identifier) === 0) {
+            currentGeneration.push(node.identifier);
         }
     }
 
     return currentGeneration;
 }
 
-function getIncomingEdgesPerNode<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
-): Map<TId, number> {
-    const incomingEdgesPerNode = new Map<TId, number>();
+function getIncomingEdgesPerNode<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): Map<TIdentifier, number> {
+    const incomingEdgesPerNode = new Map<TIdentifier, number>();
 
     for (const node of nodes.values()) {
-        incomingEdgesPerNode.set(node.id, node.incomingEdges);
+        incomingEdgesPerNode.set(node.identifier, node.incomingEdges);
     }
 
     return incomingEdgesPerNode;
 }
 
-function decreaseIncomingEdgesPerNodeForAdjacentNodes<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    incomingEdgesPerNode: ReadonlyMap<TId, number>,
-    ids: readonly TId[]
-): Map<TId, number> {
+function decreaseIncomingEdgesPerNodeForAdjacentNodes<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>,
+    identifiers: readonly TIdentifier[]
+): Map<TIdentifier, number> {
     const newIncomingEdgesPerNode = new Map(incomingEdgesPerNode);
 
-    for (const id of ids) {
-        const node = getNode(nodes, id);
+    for (const identifier of identifiers) {
+        const node = getNode(nodes, identifier);
 
-        for (const adjacentNodeId of node.adjacentNodeIds) {
-            const degree = Number(newIncomingEdgesPerNode.get(adjacentNodeId));
-            newIncomingEdgesPerNode.set(adjacentNodeId, degree - 1);
+        for (const adjacentNodeIdentifier of node.adjacentNodeIdentifiers) {
+            const degree = Number(newIncomingEdgesPerNode.get(adjacentNodeIdentifier));
+            newIncomingEdgesPerNode.set(adjacentNodeIdentifier, degree - 1);
         }
     }
 
     return newIncomingEdgesPerNode;
 }
 
-function assertAcyclic<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
+function assertAcyclic<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
 ): void {
     if (detectGraphCycles(nodes).length > 0) {
         throw new Error('Failed to determine topological generations, current graph is cyclic');
     }
 }
 
-function disconnectExistingEdge<TId extends GraphNodeId, TData>(
-    nodes: NodeRegistryWriter<TId, TData>,
-    fromNode: GraphNode<TId, TData>,
-    toNode: GraphNode<TId, TData>
+function disconnectExistingEdge<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: NodeRegistryWriter<TIdentifier, TData>,
+    fromNode: GraphNode<TIdentifier, TData>,
+    toNode: GraphNode<TIdentifier, TData>
 ): void {
-    const adjacentNodeIds = new Set(fromNode.adjacentNodeIds);
-    adjacentNodeIds.delete(toNode.id);
-    if (fromNode.id === toNode.id) {
-        nodes.set(fromNode.id, {
+    const adjacentNodeIdentifiers = new Set(fromNode.adjacentNodeIdentifiers);
+    adjacentNodeIdentifiers.delete(toNode.identifier);
+    if (fromNode.identifier === toNode.identifier) {
+        nodes.set(fromNode.identifier, {
             ...fromNode,
-            adjacentNodeIds,
+            adjacentNodeIdentifiers,
             incomingEdges: fromNode.incomingEdges - 1
         });
         return;
     }
-    nodes.set(fromNode.id, { ...fromNode, adjacentNodeIds });
-    nodes.set(toNode.id, { ...toNode, incomingEdges: toNode.incomingEdges - 1 });
+    nodes.set(fromNode.identifier, { ...fromNode, adjacentNodeIdentifiers });
+    nodes.set(toNode.identifier, { ...toNode, incomingEdges: toNode.incomingEdges - 1 });
 }
 
-function updateTopologicalDiscovery<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    incomingEdgesPerNode: ReadonlyMap<TId, number>,
-    currentGeneration: readonly TId[]
-): Map<TId, number> {
+function updateTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>,
+    currentGeneration: readonly TIdentifier[]
+): Map<TIdentifier, number> {
     return decreaseIncomingEdgesPerNodeForAdjacentNodes(nodes, incomingEdgesPerNode, Array.from(currentGeneration));
 }
 
-type TopologicalDiscovery<TId extends GraphNodeId> = {
-    readonly alreadyDiscovered: ReadonlySet<TId>;
-    readonly generations: readonly (readonly TId[])[];
-    readonly incomingEdgesPerNode: ReadonlyMap<TId, number>;
+type TopologicalDiscovery<TIdentifier extends GraphNodeIdentifier> = {
+    readonly alreadyDiscovered: ReadonlySet<TIdentifier>;
+    readonly generations: readonly (readonly TIdentifier[])[];
+    readonly incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>;
 };
 
-function createTopologicalDiscovery<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
-): TopologicalDiscovery<TId> {
+function createTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): TopologicalDiscovery<TIdentifier> {
     return {
         alreadyDiscovered: new Set(),
         generations: [],
@@ -272,10 +274,10 @@ function createTopologicalDiscovery<TId extends GraphNodeId, TData>(
     };
 }
 
-function advanceTopologicalDiscovery<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
-    discovery: TopologicalDiscovery<TId>
-): TopologicalDiscovery<TId> {
+function advanceTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
+    discovery: TopologicalDiscovery<TIdentifier>
+): TopologicalDiscovery<TIdentifier> {
     if (discovery.alreadyDiscovered.size === nodes.size) {
         return discovery;
     }
@@ -292,11 +294,11 @@ function advanceTopologicalDiscovery<TId extends GraphNodeId, TData>(
     };
 }
 
-function collectTopologicalGenerationsFromAcyclicGraph<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
-): readonly (readonly TId[])[] {
+function collectTopologicalGenerationsFromAcyclicGraph<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): readonly (readonly TIdentifier[])[] {
     return attemptSlots(nodes.size)
-        .reduce<TopologicalDiscovery<TId>>(
+        .reduce<TopologicalDiscovery<TIdentifier>>(
             function (discovery) {
                 return advanceTopologicalDiscovery(nodes, discovery);
             },
@@ -305,59 +307,62 @@ function collectTopologicalGenerationsFromAcyclicGraph<TId extends GraphNodeId, 
         .generations;
 }
 
-function collectTopologicalGenerations<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
-): readonly (readonly TId[])[] {
+function collectTopologicalGenerations<TIdentifier extends GraphNodeIdentifier, TData>(
+    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
+): readonly (readonly TIdentifier[])[] {
     assertAcyclic(nodes);
     return collectTopologicalGenerationsFromAcyclicGraph(nodes);
 }
 
-export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedGraph<TId, TData> {
-    const nodes = new Map<TId, GraphNode<TId, TData>>();
+export function createDirectedGraph<TIdentifier extends GraphNodeIdentifier, TData>(): DirectedGraph<
+    TIdentifier,
+    TData
+> {
+    const nodes = new Map<TIdentifier, GraphNode<TIdentifier, TData>>();
 
     return {
-        addNode(id, data) {
-            if (nodes.has(id)) {
-                throw new Error(`Node with id "${id}" already exists`);
+        addNode(identifier, data) {
+            if (nodes.has(identifier)) {
+                throw new Error(`Node with id "${identifier}" already exists`);
             }
-            nodes.set(id, { id, data, adjacentNodeIds: new Set(), incomingEdges: 0 });
+            nodes.set(identifier, { identifier, data, adjacentNodeIdentifiers: new Set(), incomingEdges: 0 });
         },
         connect(edge) {
             const fromNode = getNode(nodes, edge.from);
             const toNode = getNode(nodes, edge.to);
-            if (fromNode.adjacentNodeIds.has(toNode.id)) {
-                throw new Error(`Edge from "${edge.from}" to "${toNode.id}" already exists`);
+            if (fromNode.adjacentNodeIdentifiers.has(toNode.identifier)) {
+                throw new Error(`Edge from "${edge.from}" to "${toNode.identifier}" already exists`);
             }
-            if (fromNode.id === toNode.id) {
-                nodes.set(fromNode.id, {
+            if (fromNode.identifier === toNode.identifier) {
+                nodes.set(fromNode.identifier, {
                     ...fromNode,
-                    adjacentNodeIds: new Set([ ...fromNode.adjacentNodeIds, toNode.id ]),
+                    adjacentNodeIdentifiers: new Set([ ...fromNode.adjacentNodeIdentifiers, toNode.identifier ]),
                     incomingEdges: fromNode.incomingEdges + 1
                 });
                 return;
             }
-            nodes.set(fromNode.id, {
+            nodes.set(fromNode.identifier, {
                 ...fromNode,
-                adjacentNodeIds: new Set([ ...fromNode.adjacentNodeIds, toNode.id ])
+                adjacentNodeIdentifiers: new Set([ ...fromNode.adjacentNodeIdentifiers, toNode.identifier ])
             });
-            nodes.set(toNode.id, { ...toNode, incomingEdges: toNode.incomingEdges + 1 });
+            nodes.set(toNode.identifier, { ...toNode, incomingEdges: toNode.incomingEdges + 1 });
         },
         disconnect(edge) {
             const fromNode = getNode(nodes, edge.from);
             const toNode = getNode(nodes, edge.to);
-            if (!fromNode.adjacentNodeIds.has(toNode.id)) {
-                throw new Error(`Edge from "${edge.from}" to "${toNode.id}" does not exist`);
+            if (!fromNode.adjacentNodeIdentifiers.has(toNode.identifier)) {
+                throw new Error(`Edge from "${edge.from}" to "${toNode.identifier}" does not exist`);
             }
             disconnectExistingEdge(nodes, fromNode, toNode);
         },
-        hasNode(id) {
-            return nodes.has(id);
+        hasNode(identifier) {
+            return nodes.has(identifier);
         },
         hasConnection(edge) {
-            return getNode(nodes, edge.from).adjacentNodeIds.has(edge.to);
+            return getNode(nodes, edge.from).adjacentNodeIdentifiers.has(edge.to);
         },
-        visitBreadthFirstSearch(startId, visitor) {
-            visitGraphBreadthFirstSearch(nodes, startId, visitor);
+        visitBreadthFirstSearch(startIdentifier, visitor) {
+            visitGraphBreadthFirstSearch(nodes, startIdentifier, visitor);
         },
         detectCycles() {
             return detectGraphCycles(nodes);
@@ -369,24 +374,24 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             return collectTopologicalGenerations(nodes);
         },
         reverse() {
-            const reversedGraph = createDirectedGraph<TId, TData>();
+            const reversedGraph = createDirectedGraph<TIdentifier, TData>();
             for (const node of nodes.values()) {
-                reversedGraph.addNode(node.id, node.data);
+                reversedGraph.addNode(node.identifier, node.data);
             }
             for (const node of nodes.values()) {
-                for (const adjacentNodeId of node.adjacentNodeIds) {
-                    reversedGraph.connect({ from: adjacentNodeId, to: node.id });
+                for (const adjacentNodeIdentifier of node.adjacentNodeIdentifiers) {
+                    reversedGraph.connect({ from: adjacentNodeIdentifier, to: node.identifier });
                 }
             }
             return reversedGraph;
         },
-        getAdjacentIds(id) {
-            return getNode(nodes, id).adjacentNodeIds;
+        getAdjacentIdentifiers(identifier) {
+            return getNode(nodes, identifier).adjacentNodeIdentifiers;
         },
         traverse(visitor) {
-            for (const [ nodeId, node ] of nodes) {
+            for (const [ nodeIdentifier, node ] of nodes) {
                 if (node.incomingEdges === 0) {
-                    visitGraphBreadthFirstSearch(nodes, nodeId, visitor);
+                    visitGraphBreadthFirstSearch(nodes, nodeIdentifier, visitor);
                 }
             }
         }

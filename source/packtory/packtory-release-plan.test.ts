@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import vm from 'node:vm';
+import virtualMachine from 'node:vm';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import { analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
@@ -8,7 +8,7 @@ import {
     packageProcessorCheckingStage,
     packageProcessorWithFailure,
     previousReleaseArtifactsFor,
-    validatedReleaseConfigFor
+    validatedReleaseConfigurationFor
 } from '../test-libraries/release-orchestrator-fixtures.ts';
 import {
     createPlanner,
@@ -47,9 +47,9 @@ function buildResultWithPreviousArtifacts(files: readonly ReleaseArtifactDescrip
 
 function registerPlanningTests(): void {
     test('runs dry-run release planning with staged publishing disabled', async function () {
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
         const plan = createPlanner({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             packageProcessor: packageProcessorCheckingStage(false)
         });
 
@@ -62,7 +62,7 @@ function registerPlanningTests(): void {
 
     test('plans first publishes with all current artifact files marked as changed', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ buildResultFor({ status: 'initial-version', version: '0.1.0' }) ],
             collectContents(_bundle, prefix) {
                 assert.strictEqual(prefix, 'package');
@@ -76,7 +76,7 @@ function registerPlanningTests(): void {
 
         assert.deepStrictEqual(expectPlan(result).packages, [
             {
-                name: 'pkg-a',
+                name: 'package-a',
                 previousVersion: undefined,
                 nextVersion: '0.1.0',
                 artifactState: 'first-publish',
@@ -87,17 +87,17 @@ function registerPlanningTests(): void {
                 artifactFiles: [ 'index.js', 'package.json', 'readme.md' ],
                 changedArtifactFiles: [ 'index.js', 'package.json', 'readme.md' ],
                 releaseClassification: 'first-publish',
-                sourceFiles: [ '/source/pkg-a.js' ],
+                sourceFiles: [ '/source/package-a.js' ],
                 changelogDependencyNames: [],
                 changelogDependencyUpdates: [],
-                changelogSourceFiles: [ 'source/pkg-a.js' ]
+                changelogSourceFiles: [ 'source/package-a.js' ]
             }
         ]);
     });
 
     test('plans changed packages from added, removed, and modified artifact paths', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ publishedBuildResultFor() ],
             collectContents() {
                 return [
@@ -108,7 +108,7 @@ function registerPlanningTests(): void {
         });
 
         assert.deepStrictEqual(expectPlan(result).packages[0], {
-            name: 'pkg-a',
+            name: 'package-a',
             previousVersion: '1.0.0',
             nextVersion: '1.0.1',
             artifactState: 'changed',
@@ -123,16 +123,16 @@ function registerPlanningTests(): void {
             artifactFiles: [ 'extra.js', 'index.js' ],
             changedArtifactFiles: [ 'extra.js', 'index.js', 'removed.js' ],
             releaseClassification: 'substantive',
-            sourceFiles: [ '/source/pkg-a.js' ],
+            sourceFiles: [ '/source/package-a.js' ],
             changelogDependencyNames: [],
             changelogDependencyUpdates: [],
-            changelogSourceFiles: [ 'source/pkg-a.js' ]
+            changelogSourceFiles: [ 'source/package-a.js' ]
         });
     });
 
     test('plans unchanged packages with current artifact files and no changed files', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ publishedBuildResultFor('already-published') ],
             collectContents() {
                 return [ { filePath: 'package/index.js', content: 'old', isExecutable: false } ];
@@ -140,7 +140,7 @@ function registerPlanningTests(): void {
         });
 
         assert.deepStrictEqual(expectPlan(result).packages[0], {
-            name: 'pkg-a',
+            name: 'package-a',
             previousVersion: '1.0.0',
             nextVersion: '1.0.1',
             artifactState: 'unchanged',
@@ -155,19 +155,19 @@ function registerPlanningTests(): void {
             artifactFiles: [ 'index.js' ],
             changedArtifactFiles: [],
             releaseClassification: 'unchanged',
-            sourceFiles: [ '/source/pkg-a.js' ],
+            sourceFiles: [ '/source/package-a.js' ],
             changelogDependencyNames: [],
             changelogDependencyUpdates: [],
-            changelogSourceFiles: [ 'source/pkg-a.js' ]
+            changelogSourceFiles: [ 'source/package-a.js' ]
         });
     });
 
     test('preserves succeeded package plans when a later dry-run publish fails', async function () {
-        const validated = validatedReleaseConfigFor([ 'pkg-a', 'pkg-b' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a', 'package-b' ]);
         const failure = new Error('publish failed');
         const plan = createPlanner({
-            packageNames: [ 'pkg-a', 'pkg-b' ],
-            packageProcessor: packageProcessorWithFailure([ buildResultFor({ packageName: 'pkg-a' }) ], failure),
+            packageNames: [ 'package-a', 'package-b' ],
+            packageProcessor: packageProcessorWithFailure([ buildResultFor({ packageName: 'package-a' }) ], failure),
             collectContents() {
                 return [ { filePath: 'package/index.js', content: 'new', isExecutable: false } ];
             }
@@ -180,7 +180,7 @@ function registerPlanningTests(): void {
         );
 
         assert.strictEqual(partial.succeeded.length, 1);
-        assert.strictEqual(partial.succeeded[0]?.name, 'pkg-a');
+        assert.strictEqual(partial.succeeded[0]?.name, 'package-a');
         assert.deepStrictEqual(partial.failures, [ failure ]);
     });
 }
@@ -188,7 +188,7 @@ function registerPlanningTests(): void {
 function registerMetadataTests(): void {
     test('plans previous and current git heads for published packages', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultFor({
                     previousReleaseArtifacts: previousReleaseArtifactsFor({
@@ -219,7 +219,7 @@ function registerMetadataTests(): void {
 function registerDependencyAttributionTests(): void {
     test('collects changed package manifest dependency names from previous and current artifacts', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultWithPreviousArtifacts([
                     manifestArtifact({ react: '^18.0.0', shared: '^1.0.0' })
@@ -231,8 +231,8 @@ function registerDependencyAttributionTests(): void {
                 ];
             },
             bundleContents: {
-                'pkg-a': [
-                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                'package-a': [
+                    analyzedBundleResource('/source/package-a.js', { targetFilePath: 'package/index.js' }),
                     analyzedBundleResource('/source/unused.js', { targetFilePath: 'package/unused.js' })
                 ]
             }
@@ -249,7 +249,7 @@ function registerDependencyAttributionTests(): void {
 
     test('does not attribute unchanged bundled files for dependency-only releases', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultWithPreviousArtifacts([
                     manifestArtifact({ react: '^18.0.0' }),
@@ -263,9 +263,9 @@ function registerDependencyAttributionTests(): void {
                 ];
             },
             bundleContents: {
-                'pkg-a': [
-                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
-                    analyzedBundleResource('/source/packages/pkg-a/readme.md', { targetFilePath: 'readme.md' })
+                'package-a': [
+                    analyzedBundleResource('/source/package-a.js', { targetFilePath: 'package/index.js' }),
+                    analyzedBundleResource('/source/packages/package-a/readme.md', { targetFilePath: 'readme.md' })
                 ]
             }
         });
@@ -281,7 +281,7 @@ function registerDependencyAttributionTests(): void {
 
     test('omits changed dependency names when the current artifact set has no manifest', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultWithPreviousArtifacts([
                     manifestArtifact({ react: '^18.0.0' })
@@ -300,7 +300,7 @@ function registerDependencyAttributionTests(): void {
 function registerFailureTests(): void {
     test('returns a partial failure when building a package plan throws after publish succeeds', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ buildResultFor() ],
             collectContents() {
                 throw new Error('collect failed');
@@ -314,7 +314,7 @@ function registerFailureTests(): void {
 
     test('returns a partial failure when changelog source attribution fails', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ buildResultFor() ],
             collectContents() {
                 return [ { filePath: 'package/index.js', content: 'new', isExecutable: false } ];
@@ -336,8 +336,8 @@ function registerFailureTests(): void {
 
     test('returns a partial failure when a publish result has no matching analyzed bundle', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
-            buildResults: [ buildResultFor({ packageName: 'pkg-other' }) ],
+            packageNames: [ 'package-a' ],
+            buildResults: [ buildResultFor({ packageName: 'package-other' }) ],
             collectContents() {
                 return [ { filePath: 'package/index.js', content: 'new', isExecutable: false } ];
             }
@@ -345,15 +345,17 @@ function registerFailureTests(): void {
 
         const partial = expectPartialFailure(result);
         assert.deepStrictEqual(partial.succeeded, []);
-        assert.match(partial.failures[0]?.message ?? '', /Resolved package "pkg-other" is missing/u);
+        assert.match(partial.failures[0]?.message ?? '', /Resolved package "package-other" is missing/u);
     });
 
     test('wraps non-Error plan failures in Error objects', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ buildResultFor() ],
             collectContents() {
-                return vm.runInNewContext("throw 'collect failed'") as readonly ReleaseArtifactDescription[];
+                return virtualMachine.runInNewContext(
+                    "throw 'collect failed'"
+                ) as readonly ReleaseArtifactDescription[];
             }
         });
 
@@ -362,11 +364,11 @@ function registerFailureTests(): void {
     });
 
     test('falls back to plan-stage succeeded entries when publish and plan mapping both fail', async function () {
-        const validated = validatedReleaseConfigFor([ 'pkg-a', 'pkg-b' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a', 'package-b' ]);
         const plan = createPlanner({
-            packageNames: [ 'pkg-a', 'pkg-b' ],
+            packageNames: [ 'package-a', 'package-b' ],
             packageProcessor: packageProcessorWithFailure(
-                [ buildResultFor({ packageName: 'pkg-a' }) ],
+                [ buildResultFor({ packageName: 'package-a' }) ],
                 new Error('publish failed')
             ),
             collectContents() {
@@ -386,18 +388,18 @@ function registerFailureTests(): void {
 
     test('passes non-partial resolve failures through unchanged', async function () {
         const releasePlan = createPlanner({ packageNames: [] });
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
-        const stopWithConfigFailure = async function (): ReturnType<ReleasePackageResolver> {
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
+        const stopWithConfigurationFailure = async function (): ReturnType<ReleasePackageResolver> {
             return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
-                type: 'config',
+                type: 'configuration',
                 issues: [ 'bad' ]
             });
         };
 
-        const result = await releasePlan(validated, stopWithConfigFailure);
+        const result = await releasePlan(validated, stopWithConfigurationFailure);
 
         if (result.isErr) {
-            assert.strictEqual(result.error.type, 'config');
+            assert.strictEqual(result.error.type, 'configuration');
             return;
         }
 
@@ -408,7 +410,7 @@ function registerFailureTests(): void {
 function registerSourceFileTests(): void {
     test('attributes only selected sources for substantive artifact changes', async function () {
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [
                 buildResultWithPreviousArtifacts([
                     artifact('package/index.js', 'old'),
@@ -422,8 +424,8 @@ function registerSourceFileTests(): void {
                 ];
             },
             bundleContents: {
-                'pkg-a': [
-                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                'package-a': [
+                    analyzedBundleResource('/source/package-a.js', { targetFilePath: 'package/index.js' }),
                     analyzedBundleResource('/source/unused.js', { targetFilePath: 'package/unused.js' })
                 ]
             }
@@ -437,7 +439,7 @@ function registerSourceFileTests(): void {
             },
             {
                 releaseClassification: 'substantive',
-                changelogSourceFiles: [ 'source/pkg-a.js' ]
+                changelogSourceFiles: [ 'source/package-a.js' ]
             }
         );
     });
@@ -448,7 +450,7 @@ function registerSourceFileTests(): void {
             isGeneratedManifest: true as const
         };
         const result = await planFor({
-            packageNames: [ 'pkg-a' ],
+            packageNames: [ 'package-a' ],
             buildResults: [ buildResultFor() ],
             collectContents() {
                 return [
@@ -457,7 +459,7 @@ function registerSourceFileTests(): void {
                 ];
             },
             bundleContents: {
-                'pkg-a': [
+                'package-a': [
                     generatedManifest,
                     analyzedBundleResource('/source/index.js', { targetFilePath: 'package/index.js' }),
                     analyzedBundleResource('/source/index.js', { targetFilePath: 'package/index.js' }),
@@ -485,7 +487,7 @@ function registerSourceFileTests(): void {
     test('maps partial resolve failures to release-plan partial failures with empty succeeded entries', async function () {
         const plan = createPlanner({ packageNames: [] });
         const failure = new Error('resolve failed');
-        const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
+        const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
 
         const partial = expectPartialFailure(
             await plan(validated, async function () {

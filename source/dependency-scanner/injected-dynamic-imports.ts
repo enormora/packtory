@@ -1,5 +1,5 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type ArrowFunction,
     type CallExpression,
@@ -7,13 +7,13 @@ import {
     type FunctionExpression,
     type Identifier,
     type MethodDeclaration,
-    type Node as TsMorphNodeType,
+    type Node as TypeScriptMorphNodeType,
     type ObjectLiteralElementLike,
     type ObjectLiteralExpression,
     type ParameterDeclaration,
     type SourceFile,
     type StringLiteral,
-    type Symbol as TsMorphSymbol
+    type Symbol as TypeScriptMorphSymbol
 } from 'ts-morph';
 
 type ImportingFunction = ArrowFunction | FunctionDeclaration | FunctionExpression | MethodDeclaration;
@@ -45,7 +45,7 @@ type StringLiteralArgument = {
     readonly literal: StringLiteral;
 };
 
-function symbolDeclarations(symbol: TsMorphSymbol | undefined): readonly TsMorphNodeType[] {
+function symbolDeclarations(symbol: TypeScriptMorphSymbol | undefined): readonly TypeScriptMorphNodeType[] {
     if (symbol === undefined) {
         return [];
     }
@@ -54,17 +54,17 @@ function symbolDeclarations(symbol: TsMorphSymbol | undefined): readonly TsMorph
     return targetSymbol.getDeclarations();
 }
 
-function referencesDeclaration(identifier: Readonly<Identifier>, declaration: TsMorphNodeType): boolean {
+function referencesDeclaration(identifier: Readonly<Identifier>, declaration: TypeScriptMorphNodeType): boolean {
     return symbolDeclarations(identifier.getSymbol()).includes(declaration);
 }
 
 function parameterForIdentifier(identifier: Readonly<Identifier>): ParameterDeclaration | undefined {
-    return symbolDeclarations(identifier.getSymbol()).find(TsMorphNode.isParameterDeclaration);
+    return symbolDeclarations(identifier.getSymbol()).find(TypeScriptMorphNode.isParameterDeclaration);
 }
 
 function functionParameterTarget(parameter: ParameterDeclaration): FunctionParameterTarget | undefined {
     const parent = parameter.getParent();
-    if (!TsMorphNode.isFunctionDeclaration(parent)) {
+    if (!TypeScriptMorphNode.isFunctionDeclaration(parent)) {
         return undefined;
     }
 
@@ -156,7 +156,7 @@ function objectLiteralArgument(
     return argument === undefined ? undefined : argument.asKind(SyntaxKind.ObjectLiteralExpression);
 }
 
-function directFunctionInitializer(initializer: TsMorphNodeType): readonly ImportingFunction[] {
+function directFunctionInitializer(initializer: TypeScriptMorphNodeType): readonly ImportingFunction[] {
     const arrowFunction = initializer.asKind(SyntaxKind.ArrowFunction);
     if (arrowFunction !== undefined) {
         return [ arrowFunction ];
@@ -166,9 +166,9 @@ function directFunctionInitializer(initializer: TsMorphNodeType): readonly Impor
     return functionExpression === undefined ? [] : [ functionExpression ];
 }
 
-function importingFunctionsForSymbol(symbol: TsMorphSymbol | undefined): readonly ImportingFunction[] {
+function importingFunctionsForSymbol(symbol: TypeScriptMorphSymbol | undefined): readonly ImportingFunction[] {
     return symbolDeclarations(symbol).flatMap(function (declaration) {
-        if (TsMorphNode.isFunctionDeclaration(declaration)) {
+        if (TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
             return [ declaration ];
         }
 
@@ -183,8 +183,8 @@ function importingFunctionsForSymbol(symbol: TsMorphSymbol | undefined): readonl
     });
 }
 
-function importingFunctionsForValue(value: TsMorphNodeType): readonly ImportingFunction[] {
-    if (TsMorphNode.isArrowFunction(value) || TsMorphNode.isFunctionExpression(value)) {
+function importingFunctionsForValue(value: TypeScriptMorphNodeType): readonly ImportingFunction[] {
+    if (TypeScriptMorphNode.isArrowFunction(value) || TypeScriptMorphNode.isFunctionExpression(value)) {
         return [ value ];
     }
 
@@ -205,29 +205,29 @@ function dynamicImportUsesParameter(
     return importArgument !== undefined && referencesDeclaration(importArgument, parameter);
 }
 
-function isImportingFunction(node: TsMorphNodeType): node is ImportingFunction {
-    return TsMorphNode.isArrowFunction(node) ||
-        TsMorphNode.isFunctionDeclaration(node) ||
-        TsMorphNode.isFunctionExpression(node) ||
-        TsMorphNode.isMethodDeclaration(node);
+function isImportingFunction(node: TypeScriptMorphNodeType): node is ImportingFunction {
+    return TypeScriptMorphNode.isArrowFunction(node) ||
+        TypeScriptMorphNode.isFunctionDeclaration(node) ||
+        TypeScriptMorphNode.isFunctionExpression(node) ||
+        TypeScriptMorphNode.isMethodDeclaration(node);
 }
 
-function enclosingImportingFunction(node: TsMorphNodeType): ImportingFunction | undefined {
+function enclosingImportingFunction(node: TypeScriptMorphNodeType): ImportingFunction | undefined {
     return node.getFirstAncestor(isImportingFunction);
 }
 
-function isReturnedFromFunction(expression: TsMorphNodeType, importingFunction: ImportingFunction): boolean {
+function isReturnedFromFunction(expression: TypeScriptMorphNodeType, importingFunction: ImportingFunction): boolean {
     const parent = expression.getParent();
-    if (TsMorphNode.isReturnStatement(parent)) {
+    if (TypeScriptMorphNode.isReturnStatement(parent)) {
         return enclosingImportingFunction(parent) === importingFunction;
     }
 
-    return TsMorphNode.isArrowFunction(importingFunction) && importingFunction.getBody() === expression;
+    return TypeScriptMorphNode.isArrowFunction(importingFunction) && importingFunction.getBody() === expression;
 }
 
-function returnedImportExpression(callExpression: CallExpression): TsMorphNodeType {
+function returnedImportExpression(callExpression: CallExpression): TypeScriptMorphNodeType {
     const parent = callExpression.getParent();
-    return TsMorphNode.isAwaitExpression(parent) ? parent : callExpression;
+    return TypeScriptMorphNode.isAwaitExpression(parent) ? parent : callExpression;
 }
 
 function functionReturnsImportedArgument(importingFunction: ImportingFunction, importArgumentIndex: number): boolean {
@@ -243,7 +243,10 @@ function functionReturnsImportedArgument(importingFunction: ImportingFunction, i
     });
 }
 
-function expressionImportsArgument(expression: TsMorphNodeType | undefined, importArgumentIndex: number): boolean {
+function expressionImportsArgument(
+    expression: TypeScriptMorphNodeType | undefined,
+    importArgumentIndex: number
+): boolean {
     if (expression === undefined) {
         return false;
     }
@@ -297,11 +300,11 @@ function objectLiteralPropertyImportsArgument(
     importArgumentIndex: number
 ): boolean {
     return objectLiteral.getProperties().some(function (property) {
-        if (TsMorphNode.isMethodDeclaration(property)) {
+        if (TypeScriptMorphNode.isMethodDeclaration(property)) {
             return property.getName() === propertyName &&
                 functionReturnsImportedArgument(property, importArgumentIndex);
         }
-        if (TsMorphNode.isPropertyAssignment(property)) {
+        if (TypeScriptMorphNode.isPropertyAssignment(property)) {
             return property.getName() === propertyName &&
                 expressionImportsArgument(property.getInitializer(), importArgumentIndex);
         }

@@ -12,7 +12,7 @@ type ZipEntryOptions = {
 
 type ZippableFileMap = Readonly<Record<string, readonly [Uint8Array, ZipEntryOptions]>>;
 type ZipCallback = (error: unknown, data: unknown) => void;
-type AsyncZipFunction = (
+type AsynchronousZipFunction = (
     data: ZippableFileMap,
     options: Readonly<Record<string, never>>,
     callback: ZipCallback
@@ -23,7 +23,7 @@ export type ZipBuilder = {
 };
 
 type ZipBuilderDependencies = {
-    readonly zip?: AsyncZipFunction;
+    readonly zip?: AsynchronousZipFunction;
     readonly fileManager?: Pick<FileManager, 'getRealPath' | 'readFileBytes'>;
 };
 
@@ -31,7 +31,7 @@ const unixOperatingSystem = 3;
 const executableUnixMode = 0o10_0755;
 const nonExecutableUnixMode = 0o10_0644;
 const highBytesScale = 65_536;
-const maxCompressionLevel = 9;
+const maximumCompressionLevel = 9;
 // 1980-01-01T12:00:00Z. Zip's DOS time format requires year >= 1980; the noon offset keeps
 // `getFullYear()` at 1980 across all timezones. Kept as a plain literal so the module has no
 // load-time side effects (tree-shake-friendly).
@@ -49,7 +49,7 @@ function isUint8Array(value: unknown): value is Uint8Array {
     return value instanceof Uint8Array;
 }
 
-function createZipFunction(zip: AsyncZipFunction | undefined): AsyncZipFunction {
+function createZipFunction(zip: AsynchronousZipFunction | undefined): AsynchronousZipFunction {
     const zipValue: unknown = zip ?? fflateZip;
     if (typeof zipValue !== 'function') {
         throw new TypeError('fflate zip export is not callable');
@@ -67,7 +67,7 @@ function buildFileEntry(payload: Uint8Array, isExecutable: boolean): [Uint8Array
             os: unixOperatingSystem,
             attrs: externalAttributes(isExecutable),
             mtime: staticFileModificationTimestamp,
-            level: maxCompressionLevel
+            level: maximumCompressionLevel
         }
     ];
 }

@@ -41,7 +41,7 @@ suite('failure-printing', function () {
 
     test('printPublishFailure formats config issues with bullet list when type is config', function () {
         const sink = captureLogger();
-        const failure: PublishFailure = { type: 'config', issues: [ 'issue A', 'issue B' ] };
+        const failure: PublishFailure = { type: 'configuration', issues: [ 'issue A', 'issue B' ] };
 
         printPublishFailure(sink.log, failure, false, false);
 
@@ -67,11 +67,11 @@ suite('failure-printing', function () {
         const failure: PublishFailure = {
             type: 'partial',
             succeeded: [
-                { bundle: { name: 'pkg-a', version: '1.0.0' }, publication: stagedForApproval('stage-a') },
-                { bundle: { name: 'pkg-b', version: '1.0.0' }, publication: noPublication }
+                { bundle: { name: 'package-a', version: '1.0.0' }, publication: stagedForApproval('stage-a') },
+                { bundle: { name: 'package-b', version: '1.0.0' }, publication: noPublication }
             ] as never,
             failures: [
-                new Error('pkg-c failed', {
+                new Error('package-c failed', {
                     cause: new Error('registry failed', { cause: new Error('connection reset') })
                 })
             ] as never
@@ -80,10 +80,10 @@ suite('failure-printing', function () {
         printPublishFailure(sink.log, failure, true, false);
 
         assert.ok((sink.messages[0] ?? '').includes('package(s) failed'));
-        assert.ok((sink.messages[0] ?? '').includes('- pkg-c failed'));
+        assert.ok((sink.messages[0] ?? '').includes('- package-c failed'));
         assert.ok((sink.messages[0] ?? '').includes('  Caused by: registry failed'));
         assert.ok((sink.messages[0] ?? '').includes('    Caused by: connection reset'));
-        assert.deepStrictEqual(sink.messages[1], 'Staged packages:\n- pkg-a@1.0.0: stage-a');
+        assert.deepStrictEqual(sink.messages[1], 'Staged packages:\n- package-a@1.0.0: stage-a');
     });
 
     test('printPublishFailure appends stack traces for partial failures when trace is enabled', function () {
@@ -92,7 +92,7 @@ suite('failure-printing', function () {
             type: 'partial',
             succeeded: [] as never,
             failures: [
-                new Error('pkg-c failed', {
+                new Error('package-c failed', {
                     cause: new Error('registry failed')
                 })
             ] as never
@@ -101,8 +101,8 @@ suite('failure-printing', function () {
         printPublishFailure(sink.log, failure, false, true);
 
         const message = sink.messages[0] ?? '';
-        assert.match(message, /- pkg-c failed\n {2}Caused by: registry failed/u);
-        assert.match(message, /Stack trace: Error: pkg-c failed/u);
+        assert.match(message, /- package-c failed\n {2}Caused by: registry failed/u);
+        assert.match(message, /Stack trace: Error: package-c failed/u);
         assert.match(message, /Caused by stack trace: Error: registry failed/u);
     });
 
@@ -110,14 +110,14 @@ suite('failure-printing', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
             type: 'partial',
-            succeeded: [ { bundle: { name: 'pkg-a', version: '1.0.0' }, publication: noPublication } ] as never,
-            failures: [ { message: 'pkg-b failed' } ] as never
+            succeeded: [ { bundle: { name: 'package-a', version: '1.0.0' }, publication: noPublication } ] as never,
+            failures: [ { message: 'package-b failed' } ] as never
         };
 
         printPublishFailure(sink.log, failure, true, false);
 
         assert.strictEqual(sink.messages.length, 1);
-        assert.ok((sink.messages[0] ?? '').includes('- pkg-b failed'));
+        assert.ok((sink.messages[0] ?? '').includes('- package-b failed'));
     });
 
     test('printSuccessSummary logs the count of published packages', function () {

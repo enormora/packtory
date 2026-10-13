@@ -8,11 +8,11 @@ suite('implicit-exports', function () {
         const result = buildImplicitExportsField(
             {
                 name: 'package-a',
-                roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                contents: [ content('/src/index.js', 'index.js'), content('/src/public.js', 'public.js') ]
+                roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                contents: [ content('/source/index.js', 'index.js'), content('/source/public.js', 'public.js') ]
             },
             { mode: 'implicit', defaultModuleRoot: 'main' },
-            new Set([ '/src/public.js' ])
+            new Set([ '/source/public.js' ])
         );
 
         assert.deepStrictEqual(result, {
@@ -21,12 +21,12 @@ suite('implicit-exports', function () {
         });
     });
 
-    test('appends the package.json export when exportPackageJson is true', function () {
+    test('appends the package.json export when exportPackageManifest is true', function () {
         const result = buildImplicitExportsField(
             {
                 name: 'package-a',
-                exportPackageJson: true,
-                roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                exportPackageManifest: true,
+                roots: { main: rootWithSource('/source/index.js', 'index.js') },
                 contents: []
             },
             { mode: 'implicit', defaultModuleRoot: 'main' },

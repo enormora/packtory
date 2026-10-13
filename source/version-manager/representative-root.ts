@@ -5,10 +5,10 @@ import type { RootFileDescription } from '../resource-resolver/resolved-bundle.t
 type RepresentativeRootBundle = Pick<AnalyzedBundle, 'name' | 'roots' | 'surface'>;
 
 export function resolveRepresentativeRoot(bundle: RepresentativeRootBundle): RootFileDescription {
-    const { representativeRootId } = summarizePackageSurface(bundle);
-    const root = bundle.roots[representativeRootId];
+    const { representativeRootIdentifier } = summarizePackageSurface(bundle);
+    const root = bundle.roots[representativeRootIdentifier];
     if (root === undefined) {
-        throw new Error(`Package "${bundle.name}" references unknown root "${representativeRootId}"`);
+        throw new Error(`Package "${bundle.name}" references unknown root "${representativeRootIdentifier}"`);
     }
     return root;
 }

@@ -34,21 +34,21 @@ suite('manager', function () {
         const result = manager.addVersion({
             bundle: createAnalyzedBundle(),
             version: '1.2.3',
-            mainPackageJson: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
+            mainPackageManifest: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
             bundleDependencies: [
                 versionedBundle({
                     name: 'bundle-dependency',
                     version: '4.5.6',
-                    mainFile: { inputFilePath: '/src/dependency.js', targetFilePath: 'dependency.js' }
+                    mainFile: { inputFilePath: '/source/dependency.js', targetFilePath: 'dependency.js' }
                 })
             ],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+            additionalPackageManifestAttributes: { publishConfig: { access: 'public' } },
             allowMutableSpecifiers: []
         });
 
         assert.partialDeepStrictEqual(result, {
-            packageJson: {
+            packageManifest: {
                 name: 'package-a',
                 version: '1.2.3',
                 exports: {
@@ -110,7 +110,7 @@ suite('manager', function () {
 
         assert.partialDeepStrictEqual(result, {
             version: '1.2.4',
-            packageJson: {
+            packageManifest: {
                 name: 'package-a',
                 version: '1.2.4',
                 exports: {
@@ -169,8 +169,8 @@ suite('manager', function () {
                 contents: [],
                 roots: {
                     main: {
-                        js: {
-                            inputFilePath: '/src/index.js',
+                        javaScript: {
+                            inputFilePath: '/source/index.js',
                             targetFilePath: 'index.js',
                             content: '',
                             isExecutable: false
@@ -187,7 +187,7 @@ suite('manager', function () {
                     }
                 },
                 mainFile: {
-                    inputFilePath: '/src/index.js',
+                    inputFilePath: '/source/index.js',
                     targetFilePath: 'index.js',
                     content: '',
                     isExecutable: false
@@ -203,18 +203,18 @@ suite('manager', function () {
 
     function callAddVersionWithProvider(
         progressBroadcaster: VersionManagerDependencies['progressBroadcaster'],
-        additionalPackageJsonAttributes: Parameters<
+        additionalPackageManifestAttributes: Parameters<
             VersionManager['addVersion']
-        >[0]['additionalPackageJsonAttributes'] = {}
+        >[0]['additionalPackageManifestAttributes'] = {}
     ): void {
         const manager = createVersionManager({ progressBroadcaster });
         manager.addVersion({
             bundle: analyzedBundle({}),
             version: '1.0.0',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes,
+            additionalPackageManifestAttributes,
             allowMutableSpecifiers: []
         });
     }
@@ -224,15 +224,15 @@ suite('manager', function () {
     ): Readonly<Record<string, { readonly source: string; }>> {
         const [ fields ] = received;
         if (fields === undefined) {
-            assert.fail('expected packageJsonAssembled to fire once');
+            assert.fail('expected packageManifestAssembled to fire once');
         }
         return fields;
     }
 
-    test('addVersion() emits a packageJsonAssembled event with the package name when subscribed', function () {
+    test('addVersion() emits a packageManifestAssembled event with the package name when subscribed', function () {
         const broadcaster = createProgressBroadcaster();
         const received: { readonly packageName: string; }[] = [];
-        broadcaster.consumer.on('packageJsonAssembled', function (payload) {
+        broadcaster.consumer.on('packageManifestAssembled', function (payload) {
             received.push({ packageName: payload.packageName });
         });
 
@@ -241,10 +241,10 @@ suite('manager', function () {
         assert.deepStrictEqual(received, [ { packageName: 'package-a' } ]);
     });
 
-    test('addVersion() emits packageJsonAssembled fields with provenance classification', function () {
+    test('addVersion() emits packageManifestAssembled fields with provenance classification', function () {
         const broadcaster = createProgressBroadcaster();
         const received: Readonly<Record<string, { readonly source: string; }>>[] = [];
-        broadcaster.consumer.on('packageJsonAssembled', function (payload) {
+        broadcaster.consumer.on('packageManifestAssembled', function (payload) {
             received.push(payload.fields);
         });
 
@@ -252,14 +252,14 @@ suite('manager', function () {
 
         const fields = expectAssembledFields(received);
         assert.partialDeepStrictEqual(fields, {
-            type: { source: 'mainPackageJson' },
+            type: { source: 'mainPackageManifest' },
             publishConfig: { source: 'additionalAttributes' },
             name: { source: 'derived' },
             version: { source: 'derived' }
         });
     });
 
-    test('addVersion() does NOT emit packageJsonAssembled when no subscriber is registered', function () {
+    test('addVersion() does NOT emit packageManifestAssembled when no subscriber is registered', function () {
         const wrapped = createSpyingBroadcaster();
 
         callAddVersionWithProvider(wrapped.provider);

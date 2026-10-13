@@ -4,8 +4,8 @@ import {
     type NodeEngineCompatibilityDependencies,
     type NodeEngineCompatibilityRule
 } from './node-engine-compatibility.ts';
-import { maxBundleSizeRule } from './max-bundle-size.ts';
-import { noDevDependencyImportsRule } from './no-dev-dependency-imports.ts';
+import { maximumBundleSizeRule } from './maximum-bundle-size.ts';
+import { noDevelopmentDependencyImportsRule } from './no-development-dependency-imports.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 import { noSideEffectsRule } from './no-side-effects.ts';
 import { noUnexposedExecutablesRule } from './no-unexposed-executables.ts';
@@ -23,9 +23,9 @@ export const checkRuleSchemas = {
     typeScriptIntegrity: typeScriptIntegritySchemas,
     noDuplicatedFiles: noDuplicatedFilesRule,
     requiredFiles: requiredFilesRule,
-    maxBundleSize: maxBundleSizeRule,
+    maximumBundleSize: maximumBundleSizeRule,
     noUnusedBundleDependencies: noUnusedBundleDependenciesRule,
-    noDevDependencyImports: noDevDependencyImportsRule,
+    noDevelopmentDependencyImports: noDevelopmentDependencyImportsRule,
     uniqueTargetPaths: uniqueTargetPathsRule,
     noSideEffects: noSideEffectsRule,
     noUnexposedExecutables: noUnexposedExecutablesRule,
@@ -38,9 +38,9 @@ export type AllCheckRules = readonly [
     TypeScriptIntegrityRule,
     typeof noDuplicatedFilesRule,
     typeof requiredFilesRule,
-    typeof maxBundleSizeRule,
+    typeof maximumBundleSizeRule,
     typeof noUnusedBundleDependenciesRule,
-    typeof noDevDependencyImportsRule,
+    typeof noDevelopmentDependencyImportsRule,
     typeof uniqueTargetPathsRule,
     typeof noSideEffectsRule,
     typeof noUnexposedExecutablesRule,
@@ -52,9 +52,9 @@ export function createAllRules(dependencies: CheckRuleDependencies): AllCheckRul
         createTypeScriptIntegrityRule(dependencies),
         noDuplicatedFilesRule,
         requiredFilesRule,
-        maxBundleSizeRule,
+        maximumBundleSizeRule,
         noUnusedBundleDependenciesRule,
-        noDevDependencyImportsRule,
+        noDevelopmentDependencyImportsRule,
         uniqueTargetPathsRule,
         noSideEffectsRule,
         noUnexposedExecutablesRule,

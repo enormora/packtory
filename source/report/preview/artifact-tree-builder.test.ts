@@ -32,19 +32,22 @@ suite('artifact-tree-builder', function () {
     });
 
     test('buildArtifactTree orders the root package.json before directories and nested files', function () {
-        const nodes = buildArtifactTree([ artifact('src/index.js'), artifact('package.json', { kind: 'manifest' }) ]);
+        const nodes = buildArtifactTree([
+            artifact('source/index.js'),
+            artifact('package.json', { kind: 'manifest' })
+        ]);
 
         const types = nodes.map(function (node) {
             return node.type;
         });
         assert.deepStrictEqual(types, [ 'file', 'directory', 'file' ]);
         assert.strictEqual(nodes[0]?.name, 'package.json');
-        assert.strictEqual(nodes[1]?.name, 'src');
-        assert.strictEqual(nodes[2]?.path, 'src/index.js');
+        assert.strictEqual(nodes[1]?.name, 'source');
+        assert.strictEqual(nodes[2]?.path, 'source/index.js');
     });
 
     test('buildArtifactTree assigns increasing depth to nested directories and the leaf file', function () {
-        const nodes = buildArtifactTree([ artifact('src/lib/util.js') ]);
+        const nodes = buildArtifactTree([ artifact('source/lib/utilities.js') ]);
         const depths = nodes.map(function (node) {
             return node.depth;
         });

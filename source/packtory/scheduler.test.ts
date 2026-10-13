@@ -4,9 +4,12 @@ import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
-import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import {
+    validateConfigurationWithoutRegistry,
+    type ValidConfigurationWithoutRegistryResult
+} from '../configuration/validation.ts';
 import { rejectWithNonError } from '../test-libraries/non-error-failures.ts';
-import { getErrResult } from '../test-libraries/result-helpers.ts';
+import { getErrorResult } from '../test-libraries/result-helpers.ts';
 import { createScheduler, type Scheduler as SchedulerType } from './scheduler.ts';
 
 type EmitCallArguments = readonly [string, unknown];
@@ -25,7 +28,7 @@ type CreateOptionsContext = {
 };
 type PackageExecutionSnapshots = {
     readonly snapshots: readonly ExecutionSnapshot[];
-    readonly configs: readonly unknown[];
+    readonly configurations: readonly unknown[];
     readonly createOptions: SinonSpy;
     readonly execute: SinonSpy;
 };
@@ -36,11 +39,13 @@ type SelectPackageNameResultInput = {
     readonly result: PackageNameResult;
 };
 
-function createValidatedConfig(packages: readonly Record<string, unknown>[]): ValidConfigWithoutRegistryResult {
-    const result = validateConfigWithoutRegistry({
+function createValidatedConfiguration(
+    packages: readonly Record<string, unknown>[]
+): ValidConfigurationWithoutRegistryResult {
+    const result = validateConfigurationWithoutRegistry({
         commonPackageSettings: {
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
+            sourcesFolder: '/source',
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages
@@ -75,16 +80,18 @@ function getEmitCallArguments(emit: SinonSpy): readonly EmitCallArguments[] {
     });
 }
 
-function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResult): PackageExecutionSnapshots {
+function createPackageExecutionSnapshots(
+    configuration: ValidConfigurationWithoutRegistryResult
+): PackageExecutionSnapshots {
     const snapshots: ExecutionSnapshot[] = [];
-    const configs: unknown[] = [];
+    const configurations: unknown[] = [];
     const createOptions = fake(
         function (context: CreateOptionsContext) {
             snapshots.push({
                 packageName: context.packageName,
                 existing: Array.from(context.existing)
             });
-            configs.push(config);
+            configurations.push(configuration);
             return { packageName: context.packageName, existing: Array.from(context.existing) };
         }
     );
@@ -92,20 +99,20 @@ function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResul
         return `${context.packageName}-result`;
     });
 
-    return { snapshots, configs, createOptions, execute };
+    return { snapshots, configurations, createOptions, execute };
 }
 
 suite('scheduler', function () {
     test('runForEachScheduledPackage() emits scheduled events per default and passes previous generation results into createOptions()', async function () {
         const { scheduler, emit } = createTestScheduler();
-        const config = createValidatedConfig([
-            { name: 'dependency', roots: { main: { js: 'dependency.js' } } },
-            { name: 'package-a', roots: { main: { js: 'entry.js' } }, bundleDependencies: [ 'dependency' ] }
+        const configuration = createValidatedConfiguration([
+            { name: 'dependency', roots: { main: { javaScript: 'dependency.js' } } },
+            { name: 'package-a', roots: { main: { javaScript: 'entry.js' } }, bundleDependencies: [ 'dependency' ] }
         ]);
-        const { snapshots, configs, createOptions, execute } = createPackageExecutionSnapshots(config);
+        const { snapshots, configurations, createOptions, execute } = createPackageExecutionSnapshots(configuration);
 
         const result = await scheduler.runForEachScheduledPackage({
-            config,
+            configuration,
             createOptions,
             execute,
             selectNext(input: SelectStringResultInput) {
@@ -118,7 +125,7 @@ suite('scheduler', function () {
             { packageName: 'dependency', existing: [] },
             { packageName: 'package-a', existing: [ 'dependency-result' ] }
         ]);
-        assert.deepStrictEqual(configs, [ config, config ]);
+        assert.deepStrictEqual(configurations, [ configuration, configuration ]);
         assert.deepStrictEqual(getEmitCallArguments(emit), [
             [ 'scheduled', { packageName: 'dependency' } ],
             [ 'scheduled', { packageName: 'package-a' } ]
@@ -129,7 +136,10 @@ suite('scheduler', function () {
         const { scheduler, emit } = createTestScheduler();
 
         const result = await scheduler.runForEachScheduledPackage({
-            config: createValidatedConfig([ { name: 'package-a', roots: { main: { js: 'entry.js' } } } ]),
+            configuration: createValidatedConfiguration([ {
+                name: 'package-a',
+                roots: { main: { javaScript: 'entry.js' } }
+            } ]),
             createOptions(context) {
                 return context.packageName;
             },
@@ -169,10 +179,10 @@ suite('scheduler', function () {
         });
 
         const result = await scheduler.runForEachScheduledPackage({
-            config: createValidatedConfig([
-                { name: 'root', roots: { main: { js: 'root.js' } } },
-                { name: 'package-a', roots: { main: { js: 'package-a.js' } }, bundleDependencies: [ 'root' ] },
-                { name: 'package-b', roots: { main: { js: 'package-b.js' } }, bundleDependencies: [ 'root' ] }
+            configuration: createValidatedConfiguration([
+                { name: 'root', roots: { main: { javaScript: 'root.js' } } },
+                { name: 'package-a', roots: { main: { javaScript: 'package-a.js' } }, bundleDependencies: [ 'root' ] },
+                { name: 'package-b', roots: { main: { javaScript: 'package-b.js' } }, bundleDependencies: [ 'root' ] }
             ]),
             createOptions(context) {
                 return { packageName: context.packageName };
@@ -190,7 +200,7 @@ suite('scheduler', function () {
             }
         });
 
-        const error = getErrResult(result, 'Expected result to be an error');
+        const error = getErrorResult(result, 'Expected result to be an error');
         assertDeepSubset(error, {
             succeeded: [ 'root-result', 'package-a-result' ],
             failures: {
@@ -231,7 +241,10 @@ suite('scheduler', function () {
         const { scheduler, emit } = createTestScheduler();
 
         const result = await scheduler.runForEachScheduledPackage({
-            config: createValidatedConfig([ { name: 'package-a', roots: { main: { js: 'entry.js' } } } ]),
+            configuration: createValidatedConfiguration([ {
+                name: 'package-a',
+                roots: { main: { javaScript: 'entry.js' } }
+            } ]),
             createOptions(context) {
                 return context.packageName;
             },
@@ -243,7 +256,7 @@ suite('scheduler', function () {
             }
         });
 
-        getErrResult(result, 'Expected result to be an error');
+        getErrorResult(result, 'Expected result to be an error');
         assert.deepStrictEqual(getEmitCallArguments(emit), [
             [ 'scheduled', { packageName: 'package-a' } ],
             [ 'error', { packageName: 'package-a', error: new Error('Unknown error') } ]

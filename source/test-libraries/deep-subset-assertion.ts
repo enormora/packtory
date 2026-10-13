@@ -1,5 +1,23 @@
 import assert from 'node:assert';
 
+const observedCallFields = {
+    arguments: 'args',
+    firstArgument: 'firstArg',
+    lastArgument: 'lastArg'
+} as const;
+
+function isObservedCallField(key: string): key is keyof typeof observedCallFields {
+    return Object.hasOwn(observedCallFields, key);
+}
+
+function observedProperty(actual: unknown, key: string): unknown {
+    const isObservedCall = Reflect.has(new Object(actual), 'proxy') && Reflect.has(new Object(actual), 'callId');
+    const property = isObservedCall && isObservedCallField(key)
+        ? observedCallFields[key]
+        : key;
+    return Reflect.get(new Object(actual), property);
+}
+
 function isRecordSubset(expected: unknown): expected is Record<string, unknown> {
     return Object.prototype.toString.call(expected) === '[object Object]';
 }
@@ -20,7 +38,7 @@ function subsetProjection(actual: unknown, expected: unknown): unknown {
         }
         return Object.fromEntries(
             Object.entries(expected).map(function ([ key, expectedValue ]) {
-                return [ key, subsetProjection((actual as Record<string, unknown>)[key], expectedValue) ];
+                return [ key, subsetProjection(observedProperty(new Object(actual), key), expectedValue) ];
             })
         );
     }

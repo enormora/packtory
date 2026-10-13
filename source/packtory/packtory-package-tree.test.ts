@@ -4,7 +4,7 @@ import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import {
     makeResolvedPackage,
-    validatedConfig
+    validatedConfiguration
 } from '../test-libraries/packtory-pack-test-support.ts';
 import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import type { PackageTreeFailure, PackageTreeResult, ResolveAndLinkFailure } from './packtory-results.ts';
@@ -15,7 +15,7 @@ type TreeFixture = {
     readonly runTree: ReturnType<typeof createInspectPackageTreeValidated>;
 };
 
-function expectErr(result: PackageTreeResult): PackageTreeFailure {
+function expectError(result: PackageTreeResult): PackageTreeFailure {
     if (result.isOk) {
         assert.fail('expected Err result');
     }
@@ -40,11 +40,11 @@ async function inspectWith(
     resolveAndLinkAll: SinonSpy,
     selectEntries: SinonSpy
 ): Promise<PackageTreeResult> {
-    return fixture.runTree(validatedConfig, 'pkg-a', resolveAndLinkAll, selectEntries);
+    return fixture.runTree(validatedConfiguration, 'package-a', resolveAndLinkAll, selectEntries);
 }
 
 function selectEmptyTree(): SinonSpy {
-    return fake.returns(Result.ok({ packageName: 'pkg-a', entries: [] }));
+    return fake.returns(Result.ok({ packageName: 'package-a', entries: [] }));
 }
 
 suite('packtory-package-tree', function () {
@@ -55,7 +55,7 @@ suite('packtory-package-tree', function () {
 
         const result = await inspectWith(fixture, resolveAndLinkAll, selectEmptyTree());
 
-        assert.deepStrictEqual(expectErr(result), resolveFailure);
+        assert.deepStrictEqual(expectError(result), resolveFailure);
     });
 
     test('returns package-not-found when no resolved package matches the requested name', async function () {
@@ -64,12 +64,12 @@ suite('packtory-package-tree', function () {
 
         const result = await inspectWith(fixture, resolveAndLinkAll, selectEmptyTree());
 
-        assert.deepStrictEqual(expectErr(result), { type: 'package-not-found', packageName: 'pkg-a' });
+        assert.deepStrictEqual(expectError(result), { type: 'package-not-found', packageName: 'package-a' });
     });
 
     test('stamps and collects the selected package without vendoring bundle dependencies', async function () {
         const versionedBundle = {
-            name: 'pkg-a',
+            name: 'package-a',
             version: '0.0.0',
             manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false },
             contents: []
@@ -86,10 +86,10 @@ suite('packtory-package-tree', function () {
         assert.deepStrictEqual(fixture.addVersion.firstCall.args[0], {
             bundle: makeResolvedPackage().analyzedBundle,
             version: '0.0.0',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             bundleDependencies: [ { name: 'dep', version: '0.0.0' } ],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             substitutionPublicModuleSourcePaths: undefined
         });
@@ -101,12 +101,12 @@ suite('packtory-package-tree', function () {
             { path: 'package.json', sizeBytes: 2, kind: 'manifest', status: 'generated', badges: [] }
         ] as const;
         const resolveAndLinkAll = fake.resolves(Result.ok([ makeResolvedPackage() ]));
-        const selectEntries = fake.returns(Result.ok({ packageName: 'pkg-a', entries }));
+        const selectEntries = fake.returns(Result.ok({ packageName: 'package-a', entries }));
         const fixture = createTreeFixture({});
 
         const result = await inspectWith(fixture, resolveAndLinkAll, selectEntries);
 
-        assert.deepStrictEqual(result.isOk ? result.value : undefined, { packageName: 'pkg-a', entries });
+        assert.deepStrictEqual(result.isOk ? result.value : undefined, { packageName: 'package-a', entries });
         assert.strictEqual(selectEntries.callCount, 1);
     });
 });

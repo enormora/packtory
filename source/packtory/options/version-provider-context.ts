@@ -1,11 +1,11 @@
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import { hasVersionProvider } from '../../config/versioning-settings.ts';
+import { hasVersionProvider } from '../../configuration/versioning-settings.ts';
 import {
     attributeChangelogSourceFiles,
     collectManifestChangelogSourceFiles,
     type ChangelogSourceAttributionDependencies
 } from '../changelog-source-attribution.ts';
-import type { BuildAndPublishOptions } from '../map-config.ts';
+import type { BuildAndPublishOptions } from '../map-configuration.ts';
 import type { VersionProviderContext } from './version-trigger.ts';
 
 function allConfiguredChangelogSourceFiles(options: BuildAndPublishOptions): readonly string[] {
@@ -25,8 +25,8 @@ export async function createVersionProviderContext(
     if (hasVersionProvider(options.versioning)) {
         const manifestChangelogSourceFiles = collectManifestChangelogSourceFiles(
             {
-                ...options.mainPackageJson,
-                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes
+                ...options.mainPackageManifest,
+                additionalPackageManifestAttributes: options.additionalPackageManifestAttributes
             },
             allConfiguredChangelogSourceFiles(options)
         );

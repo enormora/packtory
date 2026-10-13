@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type ArrowFunction,
     type Block,
@@ -87,7 +87,7 @@ function kindIsPureReturnLeaf(kind: SyntaxKind): boolean {
 
 function arrowReturnExpressionFrom(functionLike: ArrowFunction): Expression | undefined {
     const body = functionLike.getBody();
-    return TsMorphNode.isExpression(body) ? body : undefined;
+    return TypeScriptMorphNode.isExpression(body) ? body : undefined;
 }
 
 function blockFromFunctionLike(
@@ -104,21 +104,21 @@ function blockReturnExpressionFrom(
         return undefined;
     }
     const [ statement ] = body.getStatements();
-    return TsMorphNode.isReturnStatement(statement) ? statement.getExpression() : undefined;
+    return TypeScriptMorphNode.isReturnStatement(statement) ? statement.getExpression() : undefined;
 }
 
 function returnExpressionFrom(functionLike: FunctionLike): Expression | undefined {
-    if (TsMorphNode.isArrowFunction(functionLike)) {
+    if (TypeScriptMorphNode.isArrowFunction(functionLike)) {
         return arrowReturnExpressionFrom(functionLike);
     }
     return blockReturnExpressionFrom(functionLike);
 }
 
 function expressionIsPureReturnStructure(expression: Expression): boolean {
-    return TsMorphNode.isObjectLiteralExpression(expression) ||
-        TsMorphNode.isArrayLiteralExpression(expression) ||
-        TsMorphNode.isArrowFunction(expression) ||
-        TsMorphNode.isFunctionExpression(expression);
+    return TypeScriptMorphNode.isObjectLiteralExpression(expression) ||
+        TypeScriptMorphNode.isArrayLiteralExpression(expression) ||
+        TypeScriptMorphNode.isArrowFunction(expression) ||
+        TypeScriptMorphNode.isFunctionExpression(expression);
 }
 
 function expressionIsPureReturnValue(expression: Expression): boolean {
@@ -139,21 +139,21 @@ function callablePurity(functionLike: FunctionLike): ExportPurity {
 }
 
 function propertyInitializerPurity(initializer: Expression): ExportPurity {
-    if (TsMorphNode.isFunctionExpression(initializer) || TsMorphNode.isArrowFunction(initializer)) {
+    if (TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)) {
         return callablePurity(initializer);
     }
-    return TsMorphNode.isObjectLiteralExpression(initializer) ? 'pure-object' : 'unknown';
+    return TypeScriptMorphNode.isObjectLiteralExpression(initializer) ? 'pure-object' : 'unknown';
 }
 
-function supportedObjectProperty(property: TsMorphNode): SupportedObjectProperty | undefined {
-    if (TsMorphNode.isMethodDeclaration(property) || TsMorphNode.isPropertyAssignment(property)) {
+function supportedObjectProperty(property: TypeScriptMorphNode): SupportedObjectProperty | undefined {
+    if (TypeScriptMorphNode.isMethodDeclaration(property) || TypeScriptMorphNode.isPropertyAssignment(property)) {
         return property;
     }
     return undefined;
 }
 
 function propertyPurity(property: SupportedObjectProperty): ExportPurity {
-    if (TsMorphNode.isMethodDeclaration(property)) {
+    if (TypeScriptMorphNode.isMethodDeclaration(property)) {
         return callablePurity(property);
     }
     return propertyInitializerPurity(property.getInitializerOrThrow());
@@ -161,7 +161,7 @@ function propertyPurity(property: SupportedObjectProperty): ExportPurity {
 
 function propertyName(property: SupportedObjectProperty): string {
     const nameNode = property.getNameNode();
-    return TsMorphNode.isStringLiteral(nameNode) ? nameNode.getLiteralText() : property.getName();
+    return TypeScriptMorphNode.isStringLiteral(nameNode) ? nameNode.getLiteralText() : property.getName();
 }
 
 function functionLikeReturnObjectEntries(
@@ -170,38 +170,38 @@ function functionLikeReturnObjectEntries(
     collectObjectEntries: ObjectEntriesCollector
 ): readonly ExportPurityEntry[] {
     const unwrapped = unwrapExpression(returnExpressionFrom(functionLike));
-    return TsMorphNode.isObjectLiteralExpression(unwrapped)
+    return TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)
         ? collectObjectEntries(exportName, unwrapped, undefined)
         : noExportEntries;
 }
 
 function methodReturnObjectEntries(
     propertyPath: string,
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
 ): readonly ExportPurityEntry[] {
-    return TsMorphNode.isMethodDeclaration(property)
+    return TypeScriptMorphNode.isMethodDeclaration(property)
         ? functionLikeReturnObjectEntries(propertyPath, property, collectObjectEntries)
         : noExportEntries;
 }
 
 function propertyAssignmentReturnObjectEntries(
     propertyPath: string,
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
 ): readonly ExportPurityEntry[] {
-    if (!TsMorphNode.isPropertyAssignment(property)) {
+    if (!TypeScriptMorphNode.isPropertyAssignment(property)) {
         return noExportEntries;
     }
     const initializer = property.getInitializerOrThrow();
-    return TsMorphNode.isFunctionExpression(initializer) || TsMorphNode.isArrowFunction(initializer)
+    return TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)
         ? functionLikeReturnObjectEntries(propertyPath, initializer, collectObjectEntries)
         : noExportEntries;
 }
 
 function objectPropertyExportEntries(
     exportName: string,
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
 ): readonly ExportPurityEntry[] {
     const supportedProperty = supportedObjectProperty(property);
@@ -235,10 +235,10 @@ function objectLiteralExportEntries(
 function variableExportEntries(declaration: VariableDeclaration): readonly ExportPurityEntry[] {
     const initializer = declaration.getInitializer();
     const name = declaration.getName();
-    if (TsMorphNode.isObjectLiteralExpression(initializer)) {
+    if (TypeScriptMorphNode.isObjectLiteralExpression(initializer)) {
         return objectLiteralExportEntries(name, initializer, 'pure-object');
     }
-    if (TsMorphNode.isFunctionExpression(initializer) || TsMorphNode.isArrowFunction(initializer)) {
+    if (TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)) {
         return [
             [ name, callablePurity(initializer) ],
             ...functionLikeReturnObjectEntries(name, initializer, objectLiteralExportEntries)
@@ -408,7 +408,7 @@ function mergeExportDeclaration(context: SummaryContext, declaration: ExportDecl
 }
 
 function addFunctionExport(statement: Statement, context: SummaryContext): void {
-    if (!TsMorphNode.isFunctionDeclaration(statement) || !statement.isExported()) {
+    if (!TypeScriptMorphNode.isFunctionDeclaration(statement) || !statement.isExported()) {
         return;
     }
     const name = statement.getName();
@@ -418,7 +418,7 @@ function addFunctionExport(statement: Statement, context: SummaryContext): void 
 }
 
 function addVariableStatementExports(statement: Statement, context: SummaryContext): void {
-    if (!TsMorphNode.isVariableStatement(statement) || !statement.isExported()) {
+    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.isExported()) {
         return;
     }
     for (const declaration of statement.getDeclarations()) {
@@ -429,7 +429,7 @@ function addVariableStatementExports(statement: Statement, context: SummaryConte
 function mergeStatementExports(context: SummaryContext, statement: Statement): void {
     addFunctionExport(statement, context);
     addVariableStatementExports(statement, context);
-    if (TsMorphNode.isExportDeclaration(statement)) {
+    if (TypeScriptMorphNode.isExportDeclaration(statement)) {
         mergeExportDeclaration(context, statement);
     }
 }

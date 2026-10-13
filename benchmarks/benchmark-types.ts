@@ -1,39 +1,41 @@
 export const workloadSizes = [ 'small', 'medium', 'large' ] as const;
-export const cliWorkloadSizes = [ 'medium', 'large' ] as const;
+export const commandLineInterfaceWorkloadSizes = [ 'medium', 'large' ] as const;
 
 export type WorkloadSize = (typeof workloadSizes)[number];
-export type CliWorkloadSize = (typeof cliWorkloadSizes)[number];
+export type CommandLineInterfaceWorkloadSize = (typeof commandLineInterfaceWorkloadSizes)[number];
 
 export type WorkloadDefinition = {
     readonly clusterCount: number;
     readonly packageCount: number;
-    readonly jsFileCount: number;
+    readonly javaScriptFileCount: number;
     readonly declarationFileCount: number;
     readonly sourceMapFileCount: number;
-    readonly maxImportFanOut: number;
+    readonly maximumImportFanOut: number;
 };
 
-export type CliWorkloadDefinition = {
+export type CommandLineInterfaceWorkloadDefinition = {
     readonly packageCount: number;
-    readonly jsFileCount: number;
+    readonly javaScriptFileCount: number;
     readonly declarationFileCount: number;
     readonly sourceMapFileCount: number;
-    readonly maxImportFanOut: number;
+    readonly maximumImportFanOut: number;
 };
 
 export type WorkloadsFile = {
     readonly seedFixture: string;
     readonly workloads: Readonly<Record<WorkloadSize, WorkloadDefinition>>;
-    readonly cliWorkloads: Readonly<Record<CliWorkloadSize, CliWorkloadDefinition>>;
+    readonly commandLineInterfaceWorkloads: Readonly<
+        Record<CommandLineInterfaceWorkloadSize, CommandLineInterfaceWorkloadDefinition>
+    >;
 };
 
 export type ThroughputThreshold = {
-    readonly medianMs: number;
+    readonly medianMilliseconds: number;
 };
 
 export type ResponsivenessThreshold = {
-    readonly p99Ms: number;
-    readonly maxMs: number;
+    readonly p99Milliseconds: number;
+    readonly maximumMilliseconds: number;
 };
 
 export type ThresholdsFile = {
@@ -45,8 +47,8 @@ export type ThresholdsFile = {
         readonly 'build-artifacts': Readonly<Record<WorkloadSize, ThroughputThreshold>>;
     };
     readonly responsiveness: {
-        readonly 'publish-cli': {
-            readonly intervalMs: number;
+        readonly 'publish-command-line-interface': {
+            readonly intervalMilliseconds: number;
             readonly medium: ResponsivenessThreshold;
             readonly large: ResponsivenessThreshold;
         };
@@ -54,7 +56,7 @@ export type ThresholdsFile = {
 };
 
 export type TinybenchMeasurement = {
-    readonly medianMs: number;
+    readonly medianMilliseconds: number;
     readonly sampleCount: number;
 };
 
@@ -63,13 +65,13 @@ export type ThroughputBenchmarkMeasurement = TinybenchMeasurement & {
     readonly size: WorkloadSize;
 };
 
-export type CliResponsivenessMeasurement = TinybenchMeasurement & {
-    readonly benchmarkName: 'publish-cli';
-    readonly size: CliWorkloadSize;
+export type CommandLineInterfaceResponsivenessMeasurement = TinybenchMeasurement & {
+    readonly benchmarkName: 'publish-command-line-interface';
+    readonly size: CommandLineInterfaceWorkloadSize;
     readonly frameCount: number;
-    readonly p99FrameGapMs: number;
-    readonly maxFrameGapMs: number;
-    readonly eventLoopHistogramP99Ms: number;
-    readonly eventLoopHistogramMaxMs: number;
-    readonly eventLoopSampledMaxBlockMs: number;
+    readonly p99FrameGapMilliseconds: number;
+    readonly maximumFrameGapMilliseconds: number;
+    readonly eventLoopHistogramP99Milliseconds: number;
+    readonly eventLoopHistogramMaximumMilliseconds: number;
+    readonly eventLoopSampledMaximumBlockMilliseconds: number;
 };

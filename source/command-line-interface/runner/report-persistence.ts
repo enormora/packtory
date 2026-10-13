@@ -1,13 +1,13 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { BuildReport, Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument } from '../../report/preview/preview-document.ts';
-import { renderHtmlReport } from '../../report/html-renderer/html-renderer.ts';
+import * as webReport from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 
-const jsonIndentSpaces = 2;
+const javaScriptObjectNotationIndentSpaces = 2;
 
 export type ReportFlags = {
-    readonly reportJson: boolean;
-    readonly reportHtml: boolean;
+    readonly reportJavaScriptObjectNotation: boolean;
+    readonly reportHypertextMarkupLanguage: boolean;
 };
 type WriteReportsInput = {
     readonly dryRun: boolean;
@@ -32,11 +32,14 @@ export async function writeReports(input: WriteReportsInput): Promise<void> {
     if (report === undefined) {
         return;
     }
-    if (flags.reportJson) {
-        await fileManager.writeFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
+    if (flags.reportJavaScriptObjectNotation) {
+        await fileManager.writeFile(
+            'packtory-report.json',
+            `${JSON.stringify(report, undefined, javaScriptObjectNotationIndentSpaces)}\n`
+        );
     }
-    if (flags.reportHtml) {
+    if (flags.reportHypertextMarkupLanguage) {
         const document = await buildPreviewDocument({ report, result, dryRun, fileManager });
-        await fileManager.writeFile('packtory-report.html', renderHtmlReport(document));
+        await fileManager.writeFile('packtory-report.html', webReport.renderHypertextMarkupLanguageReport(document));
     }
 }

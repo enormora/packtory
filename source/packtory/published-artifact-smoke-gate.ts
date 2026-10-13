@@ -22,7 +22,7 @@ export type SmokeProbeInput = {
     readonly specifier: string;
     readonly packageName: string;
     readonly targetFilePath: string;
-    readonly timeoutMs: number;
+    readonly timeoutMilliseconds: number;
 };
 
 type PublishedArtifactSmokeGateInput = {
@@ -53,17 +53,17 @@ export type RuntimeExportTarget = {
     readonly targetFilePath: string;
 };
 
-export type BinTarget = {
+export type ExecutableTarget = {
     readonly name: string;
     readonly targetFilePath: string;
 };
 
 type SmokeTargets = {
     readonly runtimeExports: readonly RuntimeExportTarget[];
-    readonly bins: readonly BinTarget[];
+    readonly executables: readonly ExecutableTarget[];
 };
 
-const importProbeTimeoutMs = 10_000;
+const importProbeTimeoutMilliseconds = 10_000;
 
 type StagedPackage = {
     readonly bundle: PublishedPackageWithManifest;
@@ -159,17 +159,17 @@ export function runtimeExportsFromExportsField(
         : runtimeExportsFromRootConditions(packageName, exportsField);
 }
 
-export function binTargetsFromBinField(
+export function executableTargetsFromExecutableField(
     packageName: string,
-    binField: unknown
-): readonly BinTarget[] {
-    if (typeof binField === 'string') {
-        return [ { name: packageName, targetFilePath: normalizeArtifactPath(binField) } ];
+    executableField: unknown
+): readonly ExecutableTarget[] {
+    if (typeof executableField === 'string') {
+        return [ { name: packageName, targetFilePath: normalizeArtifactPath(executableField) } ];
     }
-    if (!isRecord(binField)) {
+    if (!isRecord(executableField)) {
         return [];
     }
-    return Object.entries(binField).flatMap(function ([ name, target ]): readonly BinTarget[] {
+    return Object.entries(executableField).flatMap(function ([ name, target ]): readonly ExecutableTarget[] {
         return typeof target === 'string' ? [ { name, targetFilePath: normalizeArtifactPath(target) } ] : [];
     });
 }
@@ -177,7 +177,7 @@ export function binTargetsFromBinField(
 function smokeTargets(bundle: PublishedPackageWithManifest): SmokeTargets {
     return {
         runtimeExports: runtimeExportsFromExportsField(bundle.name, bundle.exportsField),
-        bins: binTargetsFromBinField(bundle.name, bundle.binField)
+        executables: executableTargetsFromExecutableField(bundle.name, bundle.executableField)
     };
 }
 
@@ -201,7 +201,7 @@ function collectTargetIssues(
                     `"${target.targetFilePath}"`
                 ];
         }),
-        ...targets.bins.flatMap(function (target): readonly string[] {
+        ...targets.executables.flatMap(function (target): readonly string[] {
             return targetPaths.has(target.targetFilePath)
                 ? []
                 : [
@@ -214,8 +214,8 @@ function collectTargetIssues(
 
 function declaredDependencyNames(bundle: PublishedPackageWithManifest): ReadonlySet<string> {
     return new Set([
-        ...Object.keys(bundle.packageJson.dependencies ?? {}),
-        ...Object.keys(bundle.packageJson.peerDependencies ?? {})
+        ...Object.keys(bundle.packageManifest.dependencies ?? {}),
+        ...Object.keys(bundle.packageManifest.peerDependencies ?? {})
     ]);
 }
 
@@ -386,7 +386,7 @@ async function collectProbeIssues(
                 specifier: target.specifier,
                 packageName,
                 targetFilePath: target.targetFilePath,
-                timeoutMs: importProbeTimeoutMs
+                timeoutMilliseconds: importProbeTimeoutMilliseconds
             });
         } catch (error: unknown) {
             issues.push(

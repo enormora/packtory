@@ -54,7 +54,7 @@ async function runRule(options: RunOptions): Promise<readonly string[]> {
         publishedPackages: options.publishedPackages,
         settings: options.settings,
         ...emptyCheckContext(),
-        packageConfigs: {}
+        packageConfigurations: {}
     });
 }
 
@@ -68,7 +68,7 @@ async function runRuleForBundles(
         publishedPackages,
         settings: { typeScriptIntegrity: { enabled: true } },
         ...emptyCheckContext(),
-        packageConfigs: {}
+        packageConfigurations: {}
     });
 }
 
@@ -80,13 +80,13 @@ function publishedPackagesFor(...names: readonly string[]): ReadonlyMap<string, 
     );
 }
 
-function binOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
+function executableOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
     const base = checkBundle(name, hasDeclaration ? [ 'cli.js', 'cli.d.ts' ] : [ 'cli.js' ]);
     return {
         ...base,
         roots: {
-            cli: {
-                js: {
+            commandLineInterface: {
+                javaScript: {
                     content: '',
                     isExecutable: true,
                     inputFilePath: 'cli.js',
@@ -106,26 +106,26 @@ function binOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
         },
         surface: {
             mode: 'explicit',
-            packageInterface: { bins: [ { root: 'cli', name } ] }
+            packageInterface: { executables: [ { root: 'commandLineInterface', name } ] }
         }
     };
 }
 
-function moduleAndBinBundle(name: string): CheckBundle {
+function moduleAndExecutableBundle(name: string): CheckBundle {
     const base = checkBundle(name, [ 'index.js', 'cli.js' ]);
     return {
         ...base,
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath: 'index.js',
                     targetFilePath: 'index.js'
                 }
             },
-            cli: {
-                js: {
+            commandLineInterface: {
+                javaScript: {
                     content: '',
                     isExecutable: true,
                     inputFilePath: 'cli.js',
@@ -137,7 +137,7 @@ function moduleAndBinBundle(name: string): CheckBundle {
             mode: 'explicit',
             packageInterface: {
                 modules: [ { root: 'main', export: '.' } ],
-                bins: [ { root: 'cli', name } ]
+                executables: [ { root: 'commandLineInterface', name } ]
             }
         }
     };
@@ -166,8 +166,8 @@ suite('type-script-integrity', function () {
             const issues = await runRule({
                 rule: ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
                 settings: undefined,
-                publishedPackages: publishedPackagesFor('pkg'),
-                bundleNames: [ 'pkg' ]
+                publishedPackages: publishedPackagesFor('package'),
+                bundleNames: [ 'package' ]
             });
 
             assert.deepStrictEqual(issues, []);
@@ -181,8 +181,8 @@ suite('type-script-integrity', function () {
             const issues = await runRule({
                 rule: ruleFor({ analyzePackageResolution }),
                 settings: { typeScriptIntegrity: { enabled: false } },
-                publishedPackages: publishedPackagesFor('pkg'),
-                bundleNames: [ 'pkg' ]
+                publishedPackages: publishedPackagesFor('package'),
+                bundleNames: [ 'package' ]
             });
 
             assert.deepStrictEqual(issues, []);
@@ -192,17 +192,17 @@ suite('type-script-integrity', function () {
 
     test('analyzes package resolution for the checked resolution kinds', async function () {
         const analyzePackageResolution = fake.resolves(noProblemsReport);
-        const publishedPackages = publishedPackagesFor('pkg');
+        const publishedPackages = publishedPackagesFor('package');
 
         await runRule({
             rule: ruleFor({ analyzePackageResolution }),
             settings: { typeScriptIntegrity: { enabled: true } },
             publishedPackages,
-            bundleNames: [ 'pkg' ]
+            bundleNames: [ 'package' ]
         });
 
         assert.deepStrictEqual(analyzePackageResolution.args, [
-            [ publishedPackages.get('pkg'), [ 'node16-esm', 'bundler' ] ]
+            [ publishedPackages.get('package'), [ 'node16-esm', 'bundler' ] ]
         ]);
     });
 
@@ -214,7 +214,7 @@ suite('type-script-integrity', function () {
                     entrypoints: [ '.' ],
                     problems: [
                         {
-                            kind: 'CJSResolvesToESM',
+                            kind: 'CommonJavaScriptResolvesToEcmaScriptModule',
                             shortDescription: 'Missing `export =`',
                             affectedResolutionKinds: [ 'bundler' ],
                             affectedEntrypoints: [ '.' ]
@@ -223,12 +223,12 @@ suite('type-script-integrity', function () {
                 })
             }),
             settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages: publishedPackagesFor('pkg'),
-            bundleNames: [ 'pkg' ]
+            publishedPackages: publishedPackagesFor('package'),
+            bundleNames: [ 'package' ]
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+            'Package "package" failed TypeScript integrity: Missing `export =` ' +
             'affecting entrypoints "." in resolutions "bundler"'
         ]);
     });
@@ -236,47 +236,47 @@ suite('type-script-integrity', function () {
     test('turns a failing package-resolution analysis into a check issue', async function () {
         const issues = await runRule({
             rule: ruleFor({
-                analyzePackageResolution: fake.rejects(new Error('File not found: /node_modules/pkg/package.json'))
+                analyzePackageResolution: fake.rejects(new Error('File not found: /node_modules/package/package.json'))
             }),
             settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages: publishedPackagesFor('pkg'),
-            bundleNames: [ 'pkg' ]
+            publishedPackages: publishedPackagesFor('package'),
+            bundleNames: [ 'package' ]
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity: Error: File not found: /node_modules/pkg/package.json'
+            'Package "package" failed TypeScript integrity: Error: File not found: /node_modules/package/package.json'
         ]);
     });
 
     test('checks all packaged declarations by default', async function () {
         const summarizeDeclarationIntegrity = fake.returns([]);
-        const publishedPackages = publishedPackagesFor('pkg');
+        const publishedPackages = publishedPackagesFor('package');
 
         await runRule({
             rule: ruleFor({ summarizeDeclarationIntegrity }),
             settings: { typeScriptIntegrity: { enabled: true } },
             publishedPackages,
-            bundleNames: [ 'pkg' ]
+            bundleNames: [ 'package' ]
         });
 
         assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
-            [ 'pkg', publishedPackages.get('pkg'), 'all', publishedPackages ]
+            [ 'package', publishedPackages.get('package'), 'all', publishedPackages ]
         ]);
     });
 
     test('checks the configured declarations mode', async function () {
         const summarizeDeclarationIntegrity = fake.returns([]);
-        const publishedPackages = publishedPackagesFor('pkg');
+        const publishedPackages = publishedPackagesFor('package');
 
         await runRule({
             rule: ruleFor({ summarizeDeclarationIntegrity }),
             settings: { typeScriptIntegrity: { enabled: true, declarations: 'exports-graph' } },
             publishedPackages,
-            bundleNames: [ 'pkg' ]
+            bundleNames: [ 'package' ]
         });
 
         assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
-            [ 'pkg', publishedPackages.get('pkg'), 'exports-graph', publishedPackages ]
+            [ 'package', publishedPackages.get('package'), 'exports-graph', publishedPackages ]
         ]);
     });
 
@@ -287,14 +287,14 @@ suite('type-script-integrity', function () {
                 summarizeDeclarationIntegrity: fake.returns([ 'declaration issue' ])
             }),
             settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages: publishedPackagesFor('pkg-a', 'pkg-b'),
-            bundleNames: [ 'pkg-a', 'pkg-b' ]
+            publishedPackages: publishedPackagesFor('package-a', 'package-b'),
+            bundleNames: [ 'package-a', 'package-b' ]
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg-a" does not expose TypeScript declarations',
+            'Package "package-a" does not expose TypeScript declarations',
             'declaration issue',
-            'Package "pkg-b" does not expose TypeScript declarations',
+            'Package "package-b" does not expose TypeScript declarations',
             'declaration issue'
         ]);
     });
@@ -306,8 +306,11 @@ suite('type-script-integrity', function () {
 
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
-                [ binOnlyBundle('pkg', false) ],
-                new Map([ [ 'pkg', checkPublishedPackage('pkg', '{"bin":{"pkg":"./cli.js"}}', { 'cli.js': '' }) ] ])
+                [ executableOnlyBundle('package', false) ],
+                new Map([ [
+                    'package',
+                    checkPublishedPackage('package', '{"bin":{"package":"./cli.js"}}', { 'cli.js': '' })
+                ] ])
             );
 
             assert.deepStrictEqual(issues, []);
@@ -319,34 +322,34 @@ suite('type-script-integrity', function () {
             const analyzePackageResolution = fake.resolves({ kind: 'missing-declarations' });
             const summarizeDeclarationIntegrity = fake.returns([ 'declaration issue' ]);
             const publishedPackage = checkPublishedPackage(
-                'pkg',
-                '{"exports":{".":{"types":"./cli.d.ts"}},"bin":{"pkg":"./cli.js"}}',
+                'package',
+                '{"exports":{".":{"types":"./cli.d.ts"}},"bin":{"package":"./cli.js"}}',
                 { 'cli.js': '', 'cli.d.ts': 'export {};\n' }
             );
 
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
-                [ binOnlyBundle('pkg', true) ],
-                new Map([ [ 'pkg', publishedPackage ] ])
+                [ executableOnlyBundle('package', true) ],
+                new Map([ [ 'package', publishedPackage ] ])
             );
 
             assert.deepStrictEqual(issues, [ 'declaration issue' ]);
             assert.strictEqual(analyzePackageResolution.callCount, 0);
             assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
-                [ 'pkg', publishedPackage, 'all', new Map([ [ 'pkg', publishedPackage ] ]) ]
+                [ 'package', publishedPackage, 'all', new Map([ [ 'package', publishedPackage ] ]) ]
             ]);
         });
 
         test('runs declaration integrity when any bin-only root has declarations', async function () {
             const summarizeDeclarationIntegrity = fake.returns([ 'declaration issue' ]);
             const bundle = {
-                ...binOnlyBundle('pkg', true),
+                ...executableOnlyBundle('package', true),
                 surface: {
                     mode: 'explicit' as const,
                     packageInterface: {
-                        bins: [
+                        executables: [
                             { root: 'missing', name: 'missing-bin' },
-                            { root: 'cli', name: 'pkg' }
+                            { root: 'commandLineInterface', name: 'package' }
                         ] as const
                     }
                 }
@@ -355,7 +358,7 @@ suite('type-script-integrity', function () {
             const issues = await runRuleForBundles(
                 ruleFor({ summarizeDeclarationIntegrity }),
                 [ bundle ],
-                publishedPackagesFor('pkg')
+                publishedPackagesFor('package')
             );
 
             assert.deepStrictEqual(issues, [ 'declaration issue' ]);
@@ -365,7 +368,7 @@ suite('type-script-integrity', function () {
             const analyzePackageResolution = fake.resolves({ kind: 'missing-declarations' });
             const summarizeDeclarationIntegrity = fake.returns([ 'declaration issue' ]);
             const bundle = {
-                ...binOnlyBundle('pkg', false),
+                ...executableOnlyBundle('package', false),
                 surface: {
                     mode: 'explicit' as const,
                     packageInterface: {}
@@ -375,7 +378,7 @@ suite('type-script-integrity', function () {
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
                 [ bundle ],
-                publishedPackagesFor('pkg')
+                publishedPackagesFor('package')
             );
 
             assert.deepStrictEqual(issues, []);
@@ -383,17 +386,17 @@ suite('type-script-integrity', function () {
             assert.strictEqual(summarizeDeclarationIntegrity.callCount, 0);
         });
 
-        test('checks package resolution normally when a package declares modules and bins', async function () {
+        test('checks package resolution normally when a package declares modules and executables', async function () {
             const analyzePackageResolution = fake.resolves({ kind: 'missing-declarations' });
             const summarizeDeclarationIntegrity = fake.returns([]);
 
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
-                [ moduleAndBinBundle('pkg') ],
-                new Map([ [ 'pkg', checkPublishedPackage('pkg', '{"exports":{".":"./index.js"}}', {}) ] ])
+                [ moduleAndExecutableBundle('package') ],
+                new Map([ [ 'package', checkPublishedPackage('package', '{"exports":{".":"./index.js"}}', {}) ] ])
             );
 
-            assert.deepStrictEqual(issues, [ 'Package "pkg" does not expose TypeScript declarations' ]);
+            assert.deepStrictEqual(issues, [ 'Package "package" does not expose TypeScript declarations' ]);
             assert.strictEqual(analyzePackageResolution.callCount, 1);
         });
     });
@@ -406,7 +409,7 @@ suite('type-script-integrity', function () {
                         rule: ruleFor(),
                         settings: { typeScriptIntegrity: { enabled: true } },
                         publishedPackages: undefined,
-                        bundleNames: [ 'pkg' ]
+                        bundleNames: [ 'package' ]
                     });
                 },
                 /Published packages missing for TypeScript integrity/u
@@ -419,11 +422,11 @@ suite('type-script-integrity', function () {
                     await runRule({
                         rule: ruleFor(),
                         settings: { typeScriptIntegrity: { enabled: true } },
-                        publishedPackages: publishedPackagesFor('pkg-a'),
-                        bundleNames: [ 'pkg-a', 'pkg-b' ]
+                        publishedPackages: publishedPackagesFor('package-a'),
+                        bundleNames: [ 'package-a', 'package-b' ]
                     });
                 },
-                /Published package missing for "pkg-b"/u
+                /Published package missing for "package-b"/u
             );
         });
     });

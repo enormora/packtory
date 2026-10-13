@@ -26,12 +26,12 @@ suite('preview-document', function () {
             result: Result.ok([
                 buildResult(),
                 createBuildResultFixture({
-                    packageName: 'pkg-b',
+                    packageName: 'package-b',
                     version: '0.0.1',
                     status: 'initial-version',
                     contents: [
                         createAnalyzedResource({
-                            inputFilePath: '/workspace/pkg-b/index.js',
+                            inputFilePath: '/workspace/package-b/index.js',
                             targetFilePath: 'index.js',
                             content: 'export {};\n'
                         })
@@ -40,7 +40,7 @@ suite('preview-document', function () {
             ]),
             dryRun: true,
             fileManager: workspaceFileManager(
-                workspaceReader({ '/workspace/src/index.js': 'export const removed = 1;\n' })
+                workspaceReader({ '/workspace/source/index.js': 'export const removed = 1;\n' })
             )
         });
 
@@ -49,8 +49,8 @@ suite('preview-document', function () {
                 return [ previewPackage.name, previewPackage.versionTransition ];
             }),
             [
-                [ 'pkg-a', '1.0.0 -> 1.0.1' ],
-                [ 'pkg-b', '0.0.1' ]
+                [ 'package-a', '1.0.0 -> 1.0.1' ],
+                [ 'package-b', '0.0.1' ]
             ]
         );
     });
@@ -62,8 +62,8 @@ suite('preview-document', function () {
             dryRun: true,
             fileManager: workspaceFileManager(
                 workspaceReader({
-                    '/workspace/src/index.js': 'export const removed = 1;\n',
-                    '/workspace/src/index.js.map': '{"version":2}',
+                    '/workspace/source/index.js': 'export const removed = 1;\n',
+                    '/workspace/source/index.js.map': '{"version":2}',
                     '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
                 })
             )
@@ -80,20 +80,20 @@ suite('preview-document', function () {
                 .map(function (entry) {
                     return entry.path;
                 }),
-            [ 'src/index.js' ]
+            [ 'source/index.js' ]
         );
     });
 
     test('buildPreviewDocument builds exact tree ordering, depths, and summary counts', async function () {
         const report = createBuildReportFixture({
             packages: {
-                'pkg-a': createPackageReport(
+                'package-a': createPackageReport(
                     [
                         createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
                         createArtifactEntryFixture({
                             path: 'dist/index.js',
                             sizeBytes: 10,
-                            sourcePath: '/workspace/src/index.js',
+                            sourcePath: '/workspace/source/index.js',
                             status: 'changed',
                             badges: []
                         }),
@@ -107,16 +107,20 @@ suite('preview-document', function () {
                     ],
                     {
                         eliminatedSourceFiles: [
-                            { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
+                            {
+                                path: '/workspace/source/unused.js',
+                                reason: 'not-emitted-after-analysis',
+                                sourceBytes: 14
+                            }
                         ]
                     }
                 ),
-                'pkg-b': createPackageReport([
+                'package-b': createPackageReport([
                     createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
                     createArtifactEntryFixture({
                         path: 'index.js',
                         sizeBytes: 3,
-                        sourcePath: '/workspace/pkg-b/index.js',
+                        sourcePath: '/workspace/package-b/index.js',
                         status: 'unchanged',
                         badges: []
                     })
@@ -127,7 +131,7 @@ suite('preview-document', function () {
             createBuildResultFixture({
                 contents: [
                     createAnalyzedResource({
-                        inputFilePath: '/workspace/src/index.js',
+                        inputFilePath: '/workspace/source/index.js',
                         targetFilePath: 'dist/index.js',
                         content: 'export const changed = 1;\n'
                     }),
@@ -139,10 +143,10 @@ suite('preview-document', function () {
                 ]
             }),
             createBuildResultFixture({
-                packageName: 'pkg-b',
+                packageName: 'package-b',
                 contents: [
                     createAnalyzedResource({
-                        inputFilePath: '/workspace/pkg-b/index.js',
+                        inputFilePath: '/workspace/package-b/index.js',
                         targetFilePath: 'index.js',
                         content: 'ok\n'
                     })
@@ -155,9 +159,9 @@ suite('preview-document', function () {
             dryRun: true,
             fileManager: workspaceFileManager(
                 workspaceReader({
-                    '/workspace/src/index.js': 'export const original = 1;\n',
+                    '/workspace/source/index.js': 'export const original = 1;\n',
                     '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
-                    '/workspace/pkg-b/index.js': 'ok\n'
+                    '/workspace/package-b/index.js': 'ok\n'
                 })
             )
         });

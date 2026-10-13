@@ -1,4 +1,4 @@
-export const maxDownloadedTarballBytes = 268_435_456;
+export const maximumDownloadedTarballBytes = 268_435_456;
 
 function assertDownloadedTarballSize(size: number, maximumBytes: number): void {
     if (size > maximumBytes) {

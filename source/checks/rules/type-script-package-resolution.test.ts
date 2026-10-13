@@ -22,8 +22,8 @@ type Overrides = {
     readonly problemAffectsEntrypointResolution?: SinonSpy;
 };
 
-const problemKindInfo = {
-    CJSResolvesToESM: { shortDescription: 'Missing `export =`' }
+const problemKindInformation = {
+    CommonJavaScriptResolvesToEcmaScriptModule: { shortDescription: 'Missing `export =`' }
 };
 
 function analyzerFor(overrides: Overrides = {}): PackageResolutionAnalyzer {
@@ -36,7 +36,7 @@ function analyzerFor(overrides: Overrides = {}): PackageResolutionAnalyzer {
     const fakeDependencies = {
         Package: TypesPackage,
         checkPackage,
-        problemKindInfo,
+        problemKindInformation,
         problemAffectsResolutionKind,
         problemAffectsEntrypointResolution
     } as unknown as PackageResolutionDependencies;
@@ -55,7 +55,7 @@ function analysis(overrides: Partial<FakeAnalysis> = {}): FakeAnalysis {
 
 async function analyzeWith(overrides: Overrides): Promise<PackageResolutionReport> {
     return await analyzerFor(overrides)(
-        checkPublishedPackage('pkg', '{"name":"pkg"}', { 'index.d.ts': 'export declare const value: number;' }),
+        checkPublishedPackage('package', '{"name":"package"}', { 'index.d.ts': 'export declare const value: number;' }),
         [ 'node16-esm', 'bundler' ]
     );
 }
@@ -70,10 +70,10 @@ suite('type-script-package-resolution', function () {
         assert.strictEqual(TypesPackage.calledWithNew(), true);
         assert.deepStrictEqual(TypesPackage.args, [ [
             {
-                '/node_modules/pkg/package.json': '{"name":"pkg"}',
-                '/node_modules/pkg/index.d.ts': 'export declare const value: number;'
+                '/node_modules/package/package.json': '{"name":"package"}',
+                '/node_modules/package/index.d.ts': 'export declare const value: number;'
             },
-            'pkg',
+            'package',
             '0.0.0'
         ] ]);
         assert.deepStrictEqual(checkPackage.args, [ [ { isTypesPackage: true } ] ]);
@@ -93,7 +93,9 @@ suite('type-script-package-resolution', function () {
 
     test('reports the resolution kinds and entrypoints a problem affects', async function () {
         const report = await analyzeWith({
-            checkPackage: fake.resolves(analysis({ problems: [ { kind: 'CJSResolvesToESM' } ] })),
+            checkPackage: fake.resolves(
+                analysis({ problems: [ { kind: 'CommonJavaScriptResolvesToEcmaScriptModule' } ] })
+            ),
             problemAffectsResolutionKind: fake(function (_problem: unknown, resolutionKind: string) {
                 return resolutionKind === 'bundler';
             }),
@@ -107,7 +109,7 @@ suite('type-script-package-resolution', function () {
             entrypoints: [ '.', './feature' ],
             problems: [
                 {
-                    kind: 'CJSResolvesToESM',
+                    kind: 'CommonJavaScriptResolvesToEcmaScriptModule',
                     shortDescription: 'Missing `export =`',
                     affectedResolutionKinds: [ 'bundler' ],
                     affectedEntrypoints: [ './feature' ]
@@ -117,7 +119,7 @@ suite('type-script-package-resolution', function () {
     });
 
     test('asks the checker about every requested resolution kind and entrypoint', async function () {
-        const problem = { kind: 'CJSResolvesToESM' };
+        const problem = { kind: 'CommonJavaScriptResolvesToEcmaScriptModule' };
         const resolutionAnalysis = analysis({ problems: [ problem ] });
         const problemAffectsResolutionKind = fake.returns(false);
         const problemAffectsEntrypointResolution = fake.returns(false);

@@ -11,7 +11,7 @@ function file(filePath: string, content: string): FileDescription {
 }
 
 const publishedAt = new Date('2026-05-01T00:00:00.000Z');
-const dependencyOnlyPackageJsonFields = [
+const dependencyOnlyPackageManifestFields = [
     'bundleDependencies',
     'bundledDependencies',
     'dependencies',
@@ -26,7 +26,7 @@ function buildResultWithPublishedFiles(
 ): BuildAndPublishResult {
     return createBuildResultFixture({
         status,
-        packageName: 'pkg-a',
+        packageName: 'package-a',
         previousReleaseArtifacts: Maybe.just({
             version: '1.0.0',
             publishedAt,
@@ -45,14 +45,14 @@ function assertSubstantiveClassification(
 }
 
 function registerDependencyOnlyClassificationTests(): void {
-    for (const packageJsonField of dependencyOnlyPackageJsonFields) {
-        test(`classifyPackageRelease ignores ${packageJsonField} changes as the only published delta`, function () {
+    for (const packageManifestField of dependencyOnlyPackageManifestFields) {
+        test(`classifyPackageRelease ignores ${packageManifestField} changes as the only published delta`, function () {
             const buildResult = buildResultWithPublishedFiles([
-                file('package.json', `{"name":"pkg-a","version":"1.0.0","${packageJsonField}":{"a":"1.0.0"}}`)
+                file('package.json', `{"name":"package-a","version":"1.0.0","${packageManifestField}":{"a":"1.0.0"}}`)
             ]);
 
             const result = classifyPackageRelease(buildResult, [
-                file('package.json', `{"name":"pkg-a","version":"1.0.1","${packageJsonField}":{"a":"1.1.0"}}`)
+                file('package.json', `{"name":"package-a","version":"1.0.1","${packageManifestField}":{"a":"1.1.0"}}`)
             ]);
 
             assert.strictEqual(result.classification, 'dependency-only');
@@ -61,18 +61,18 @@ function registerDependencyOnlyClassificationTests(): void {
 
     test('classifyPackageRelease marks dependency-only updates and preserves publish metadata', function () {
         const buildResult = buildResultWithPublishedFiles([
-            file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}')
+            file('package.json', '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}')
         ]);
 
         const result = classifyPackageRelease(buildResult, [
-            file('package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}')
+            file('package.json', '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}')
         ]);
 
         assert.deepStrictEqual(result, {
             classification: 'dependency-only',
             latestPublishedAt: publishedAt,
             latestPublishedVersion: '1.0.0',
-            name: 'pkg-a'
+            name: 'package-a'
         });
     });
 
@@ -80,14 +80,14 @@ function registerDependencyOnlyClassificationTests(): void {
         const buildResult = buildResultWithPublishedFiles([
             file(
                 'package.json',
-                '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"},"stable":[{"path":"./index.js"}]}'
+                '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"},"stable":[{"path":"./index.js"}]}'
             )
         ]);
 
         const result = classifyPackageRelease(buildResult, [
             file(
                 'package.json',
-                '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"},"stable":[{"path":"./index.js"}]}'
+                '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"},"stable":[{"path":"./index.js"}]}'
             )
         ]);
 
@@ -96,11 +96,11 @@ function registerDependencyOnlyClassificationTests(): void {
 
     test('classifyPackageRelease preserves dependency-only classification for nested dependency objects inside package.json arrays', function () {
         const buildResult = buildResultWithPublishedFiles([
-            file('package.json', '{"name":"pkg-a","version":"1.0.0","stable":[{"dependencies":{"a":"1.0.0"}}]}')
+            file('package.json', '{"name":"package-a","version":"1.0.0","stable":[{"dependencies":{"a":"1.0.0"}}]}')
         ]);
 
         const result = classifyPackageRelease(buildResult, [
-            file('package.json', '{"name":"pkg-a","version":"1.0.1","stable":[{"dependencies":{"a":"1.1.0"}}]}')
+            file('package.json', '{"name":"package-a","version":"1.0.1","stable":[{"dependencies":{"a":"1.1.0"}}]}')
         ]);
 
         assert.strictEqual(result.classification, 'dependency-only');
@@ -110,21 +110,21 @@ function registerDependencyOnlyClassificationTests(): void {
 function registerSubstantiveInputTests(): void {
     test('classifyPackageRelease rejects non-dependency package.json field changes as substantive', function () {
         assertSubstantiveClassification(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0","exports":"./index.js"}') ],
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.1","exports":"./dist/index.js"}') ]
+            [ file('package.json', '{"name":"package-a","version":"1.0.0","exports":"./index.js"}') ],
+            [ file('package.json', '{"name":"package-a","version":"1.0.1","exports":"./dist/index.js"}') ]
         );
     });
 
     test('classifyPackageRelease treats invalid package.json contents as substantive', function () {
         assertSubstantiveClassification(
             [ file('package.json', 'not-json') ],
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.1"}') ]
+            [ file('package.json', '{"name":"package-a","version":"1.0.1"}') ]
         );
     });
 
     test('classifyPackageRelease treats invalid new package.json contents as substantive', function () {
         assertSubstantiveClassification(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('package.json', '{"name":"package-a","version":"1.0.0"}') ],
             [ file('package.json', 'not-json') ]
         );
     });
@@ -146,11 +146,11 @@ function registerSubstantiveInputTests(): void {
     test('classifyPackageRelease rejects non-package.json file changes as substantive', function () {
         assertSubstantiveClassification(
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.0"}'),
+                file('package.json', '{"name":"package-a","version":"1.0.0"}'),
                 file('index.js', 'export const value = 1;\n')
             ],
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
+                file('package.json', '{"name":"package-a","version":"1.0.1"}'),
                 file('index.js', 'export const value = 2;\n')
             ]
         );
@@ -160,13 +160,13 @@ function registerSubstantiveInputTests(): void {
 function registerArtifactClassificationTests(): void {
     test('classifyPackageRelease treats SBOM-only diffs alongside dependency-only package.json changes as dependency-only', function () {
         const buildResult = buildResultWithPublishedFiles([
-            file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
-            file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}')
+            file('package.json', '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+            file('software-bill-of-materials.cyclonedx.json', '{"components":[{"name":"a","version":"1.0.0"}]}')
         ]);
 
         const result = classifyPackageRelease(buildResult, [
-            file('package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
-            file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}')
+            file('package.json', '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+            file('software-bill-of-materials.cyclonedx.json', '{"components":[{"name":"a","version":"1.1.0"}]}')
         ]);
 
         assert.strictEqual(result.classification, 'dependency-only');
@@ -174,14 +174,20 @@ function registerArtifactClassificationTests(): void {
 
     test('classifyPackageRelease classifies dependency-only diffs as such when paths carry the npm tarball package prefix', function () {
         const buildResult = buildResultWithPublishedFiles([
-            file('package/package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
-            file('package/sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}'),
+            file('package/package.json', '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+            file(
+                'package/software-bill-of-materials.cyclonedx.json',
+                '{"components":[{"name":"a","version":"1.0.0"}]}'
+            ),
             file('package/index.js', 'export const value = 1;\n')
         ]);
 
         const result = classifyPackageRelease(buildResult, [
-            file('package/package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
-            file('package/sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}'),
+            file('package/package.json', '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+            file(
+                'package/software-bill-of-materials.cyclonedx.json',
+                '{"components":[{"name":"a","version":"1.1.0"}]}'
+            ),
             file('package/index.js', 'export const value = 1;\n')
         ]);
 
@@ -191,11 +197,11 @@ function registerArtifactClassificationTests(): void {
     test('classifyPackageRelease keeps substantive classification with the npm tarball package prefix when bundled sources differ', function () {
         assertSubstantiveClassification(
             [
-                file('package/package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+                file('package/package.json', '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
                 file('package/index.js', 'export const value = 1;\n')
             ],
             [
-                file('package/package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+                file('package/package.json', '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
                 file('package/index.js', 'export const value = 2;\n')
             ]
         );
@@ -204,13 +210,13 @@ function registerArtifactClassificationTests(): void {
     test('classifyPackageRelease keeps substantive classification when source files differ even if SBOM also differs', function () {
         assertSubstantiveClassification(
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
-                file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}'),
+                file('package.json', '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+                file('software-bill-of-materials.cyclonedx.json', '{"components":[{"name":"a","version":"1.0.0"}]}'),
                 file('index.js', 'export const value = 1;\n')
             ],
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
-                file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}'),
+                file('package.json', '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+                file('software-bill-of-materials.cyclonedx.json', '{"components":[{"name":"a","version":"1.1.0"}]}'),
                 file('index.js', 'export const value = 2;\n')
             ]
         );
@@ -225,9 +231,9 @@ function registerArtifactClassificationTests(): void {
 
     test('classifyPackageRelease treats differing file counts as substantive', function () {
         assertSubstantiveClassification(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('package.json', '{"name":"package-a","version":"1.0.0"}') ],
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
+                file('package.json', '{"name":"package-a","version":"1.0.1"}'),
                 file('index.js', 'export const value = 1;\n')
             ]
         );
@@ -235,37 +241,37 @@ function registerArtifactClassificationTests(): void {
 
     test('classifyPackageRelease treats duplicate published file paths as substantive when file counts differ', function () {
         assertSubstantiveClassification(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('package.json', '{"name":"package-a","version":"1.0.0"}') ],
             [
-                file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
-                file('package.json', '{"name":"pkg-a","version":"1.0.1"}')
+                file('package.json', '{"name":"package-a","version":"1.0.1"}'),
+                file('package.json', '{"name":"package-a","version":"1.0.1"}')
             ]
         );
     });
 
     test('classifyPackageRelease treats changed file paths as substantive', function () {
         assertSubstantiveClassification(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
-            [ file('manifest.json', '{"name":"pkg-a","version":"1.0.1"}') ]
+            [ file('package.json', '{"name":"package-a","version":"1.0.0"}') ],
+            [ file('manifest.json', '{"name":"package-a","version":"1.0.1"}') ]
         );
     });
 
     test('classifyPackageRelease marks already-published build results as unchanged', function () {
         const buildResult = buildResultWithPublishedFiles(
-            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('package.json', '{"name":"package-a","version":"1.0.0"}') ],
             'already-published'
         );
 
         const result = classifyPackageRelease(buildResult, [
-            file('package.json', '{"name":"pkg-a","version":"1.0.0"}')
+            file('package.json', '{"name":"package-a","version":"1.0.0"}')
         ]);
 
         assert.strictEqual(result.classification, 'unchanged');
     });
 
     test('classifyPackageRelease marks unpublished packages as first-publish', function () {
-        const result = classifyPackageRelease(createBuildResultFixture({ packageName: 'pkg-a' }), [
-            file('package.json', '{"name":"pkg-a","version":"1.0.0"}')
+        const result = classifyPackageRelease(createBuildResultFixture({ packageName: 'package-a' }), [
+            file('package.json', '{"name":"package-a","version":"1.0.0"}')
         ]);
 
         assert.strictEqual(result.classification, 'first-publish');
@@ -279,13 +285,13 @@ function registerReleaseSummaryTests(): void {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'substantive',
                 latestPublishedAt: new Date('2026-05-03T00:00:00.000Z'),
                 latestPublishedVersion: '2.0.0',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 
@@ -301,7 +307,7 @@ function registerReleaseSummaryTests(): void {
                 classification: 'unchanged',
                 latestPublishedAt: new Date('2026-05-03T00:00:00.000Z'),
                 latestPublishedVersion: '2.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             }
         ]);
 
@@ -317,11 +323,11 @@ function registerReleaseSummaryTests(): void {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'first-publish',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 
@@ -332,13 +338,13 @@ function registerReleaseSummaryTests(): void {
         const result = summarizeReleaseAnalysis([
             {
                 classification: 'first-publish',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 
@@ -349,7 +355,7 @@ function registerReleaseSummaryTests(): void {
         const result = summarizeReleaseAnalysis([
             {
                 classification: 'first-publish',
-                name: 'pkg-a'
+                name: 'package-a'
             }
         ]);
 
@@ -363,13 +369,13 @@ function registerReleaseSummaryTests(): void {
         const result = summarizeReleaseAnalysis([
             {
                 classification: 'first-publish',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 
@@ -382,7 +388,7 @@ function registerReleaseSummaryTests(): void {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             }
         ]);
 
@@ -398,13 +404,13 @@ function registerReleaseSummaryTests(): void {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-03T00:00:00.000Z'),
                 latestPublishedVersion: '2.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'dependency-only',
                 latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
                 latestPublishedVersion: '1.0.0',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 
@@ -420,13 +426,13 @@ function registerReleaseSummaryTests(): void {
                 classification: 'dependency-only',
                 latestPublishedAt: firstPublishedAt,
                 latestPublishedVersion: '2.0.0',
-                name: 'pkg-a'
+                name: 'package-a'
             },
             {
                 classification: 'dependency-only',
                 latestPublishedAt: secondPublishedAt,
                 latestPublishedVersion: '2.0.1',
-                name: 'pkg-b'
+                name: 'package-b'
             }
         ]);
 

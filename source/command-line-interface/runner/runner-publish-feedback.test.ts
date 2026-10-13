@@ -34,7 +34,7 @@ suite('runner publish feedback', function () {
         });
 
         async function runWithIssues(
-            type: 'checks' | 'config',
+            type: 'checks' | 'configuration',
             issues: readonly string[]
         ): Promise<{ readonly log: SinonSpy; }> {
             const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
@@ -46,11 +46,11 @@ suite('runner publish feedback', function () {
         }
 
         test('prints error summary when publish command encounters config errors', async function () {
-            const { log } = await runWithIssues('config', [ 'foo' ]);
+            const { log } = await runWithIssues('configuration', [ 'foo' ]);
             assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
-                    args: [
+                    arguments: [
                         '✖ The provided config is invalid, there are 1 issue(s)\n\n- foo'
                     ]
                 }
@@ -58,7 +58,7 @@ suite('runner publish feedback', function () {
         });
 
         test('prints every config issue on its own bullet line', async function () {
-            const { log } = await runWithIssues('config', [ 'foo', 'bar' ]);
+            const { log } = await runWithIssues('configuration', [ 'foo', 'bar' ]);
             assert.deepStrictEqual(log.firstCall.args, [
                 '✖ The provided config is invalid, there are 2 issue(s)\n\n- foo\n- bar'
             ]);
@@ -69,7 +69,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
-                    args: [ '✖ Checks failed, there are 1 issue(s)\n\n- foo' ]
+                    arguments: [ '✖ Checks failed, there are 1 issue(s)\n\n- foo' ]
                 }
             });
         });
@@ -86,11 +86,11 @@ suite('runner publish feedback', function () {
 
         async function runPublishCapturingLog(
             buildAndPublishAll: SinonSpy,
-            extraArgs: readonly string[] = []
+            extraArguments: readonly string[] = []
         ): Promise<SinonSpy> {
             const log = fake();
             const runner = createRunner({ buildAndPublishAll, log });
-            await runner.run([ 'foo', 'bar', 'publish', ...extraArgs ]);
+            await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
             return log;
         }
 
@@ -108,12 +108,12 @@ suite('runner publish feedback', function () {
             assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
-                    args: [
+                    arguments: [
                         '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
                     ]
                 },
                 secondCall: {
-                    args: [ dryRunNote ]
+                    arguments: [ dryRunNote ]
                 }
             });
         });
@@ -124,7 +124,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
-                    args: [
+                    arguments: [
                         '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
                     ]
                 }
@@ -137,10 +137,10 @@ suite('runner publish feedback', function () {
             assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
-                    args: [ '✔ Success: all 2 package(s) have been published' ]
+                    arguments: [ '✔ Success: all 2 package(s) have been published' ]
                 },
                 secondCall: {
-                    args: [ dryRunNote ]
+                    arguments: [ dryRunNote ]
                 }
             });
         });
@@ -153,7 +153,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '✔ Success: all 2 package(s) have been published' ]
+                    arguments: [ '✔ Success: all 2 package(s) have been published' ]
                 }
             });
         });
@@ -190,7 +190,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(add, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'foo', 'Scheduled …' ]
+                    arguments: [ 'foo', 'foo', 'Scheduled …' ]
                 }
             });
         });
@@ -216,7 +216,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'failure', 'bar' ]
+                    arguments: [ 'foo', 'failure', 'bar' ]
                 }
             });
         });
@@ -233,7 +233,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
-                    args: [
+                    arguments: [
                         'foo',
                         'success',
                         'Nothing has changed, published version 1 is already up-to-date'
@@ -254,7 +254,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'success', 'First version 1 has been published' ]
+                    arguments: [ 'foo', 'success', 'First version 1 has been published' ]
                 }
             });
         });
@@ -271,7 +271,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'success', 'New version 1 published' ]
+                    arguments: [ 'foo', 'success', 'New version 1 published' ]
                 }
             });
         });
@@ -283,7 +283,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(updateMessage, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'Building package with version 1' ]
+                    arguments: [ 'foo', 'Building package with version 1' ]
                 }
             });
         });
@@ -295,7 +295,7 @@ suite('runner publish feedback', function () {
             assertDeepSubset(updateMessage, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 'foo', 'Rebuilding package with version 1' ]
+                    arguments: [ 'foo', 'Rebuilding package with version 1' ]
                 }
             });
         });

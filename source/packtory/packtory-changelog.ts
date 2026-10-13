@@ -1,12 +1,12 @@
 import path from 'node:path';
 import type {
-    PrLogConfig,
-    PrLogEngine,
-    PullRequest,
+    PullRequestLogConfiguration,
     PullRequestChangedFile,
+    PullRequest,
     PullRequestWithLabel,
-    TargetChangelogSection
-} from '@pr-log/core';
+    TargetChangelogSection,
+    PullRequestLogEngine
+} from '../changelog/pull-request-log.ts';
 import { compareValues } from '../common/sort-values.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
@@ -25,22 +25,22 @@ type CollectedPullRequests = {
 };
 type PullRequestTargetContext = {
     readonly changedFilesByPullRequest: ReadonlyMap<number, readonly PullRequestChangedFile[]>;
-    readonly dependencyPullRequestIds: ReadonlySet<number>;
+    readonly dependencyPullRequestIdentifiers: ReadonlySet<number>;
     readonly targetSourceFiles: ReadonlySet<string>;
 };
 
-type PrLogMethods = readonly [
+type PullRequestLogMethods = readonly [
     'collectMergedPullRequests',
     'filterPullRequestsByTargetFiles',
     'readPullRequestChangedFiles',
     'renderGroupedTargetChangelog',
     'renderTargetChangelog',
-    'resolveChangelogBaseRef',
-    'resolveLatestSemverChangelogBaseRef',
+    'resolveChangelogBaseReference',
+    'resolveLatestSemverChangelogBaseReference',
     'resolvePullRequestLabels'
 ];
 
-type PrLogMethod = PrLogMethods[number];
+type PullRequestLogMethod = PullRequestLogMethods[number];
 
 function dependencyUpdateLabel(): string {
     return 'upgrade';
@@ -62,7 +62,7 @@ function dependencyUpdateTitle(packagePlan: ReleasePlanPackage): string {
     return dependencyUpdateTitleFor(update);
 }
 
-function syntheticDependencyPullRequestId(): 0 {
+function syntheticDependencyPullRequestIdentifier(): 0 {
     return 0;
 }
 
@@ -84,13 +84,13 @@ function changelogSourceFileRootsForPackage(
 export type GenerateChangelogInput = {
     readonly changelogSourceFileRootsByPackageName: ReadonlyMap<string, readonly string[]>;
     readonly currentDate: Date;
-    readonly explicitBaseRef: string | undefined;
-    readonly githubRepo: string;
+    readonly explicitBaseReference: string | undefined;
+    readonly githubRepository: string;
     readonly ignoredAttributionPaths: readonly string[];
     readonly packages: readonly ReleasePlanPackage[];
     readonly packageTagFormat: string | undefined;
-    readonly prLogConfig: PrLogConfig;
-    readonly prLogEngine: Pick<PrLogEngine, PrLogMethod>;
+    readonly pullRequestLogConfiguration: PullRequestLogConfiguration;
+    readonly pullRequestLogEngine: Pick<PullRequestLogEngine, PullRequestLogMethod>;
     readonly targetScopedLabelPattern: string | undefined;
 };
 
@@ -141,7 +141,7 @@ function selectManifestDependencyPullRequests(
     changedFilesByPullRequest: ReadonlyMap<number, readonly PullRequestChangedFile[]>
 ): readonly PullRequest[] {
     return pullRequests.filter(function (pullRequest) {
-        const changedFiles = changedFilesByPullRequest.get(pullRequest.id);
+        const changedFiles = changedFilesByPullRequest.get(pullRequest.identifier);
         return (
             changedFiles !== undefined &&
             changedFiles.some(function (changedFile) {
@@ -155,12 +155,12 @@ function selectManifestDependencyPullRequests(
 }
 
 function mergePullRequests<T extends PullRequest>(pullRequests: readonly T[]): readonly T[] {
-    const pullRequestsById = new Map(
+    const pullRequestsByIdentifier = new Map(
         pullRequests.map(function (pullRequest) {
-            return [ pullRequest.id, pullRequest ] as const;
+            return [ pullRequest.identifier, pullRequest ] as const;
         })
     );
-    return Array.from(pullRequestsById.values());
+    return Array.from(pullRequestsByIdentifier.values());
 }
 
 function targetFilePath(file: PullRequestChangedFile): string {
@@ -187,7 +187,7 @@ function shouldKeepPackagePullRequest(
     pullRequest: PullRequestWithLabel,
     context: PullRequestTargetContext
 ): boolean {
-    if (context.dependencyPullRequestIds.has(pullRequest.id)) {
+    if (context.dependencyPullRequestIdentifiers.has(pullRequest.identifier)) {
         return true;
     }
 
@@ -195,33 +195,33 @@ function shouldKeepPackagePullRequest(
         return true;
     }
 
-    const changedFiles = context.changedFilesByPullRequest.get(pullRequest.id) ?? [];
+    const changedFiles = context.changedFilesByPullRequest.get(pullRequest.identifier) ?? [];
     return touchesNonManifestTargetSource(changedFiles, context.targetSourceFiles) ||
         !touchesPackageManifestInput(changedFiles);
 }
 
-async function resolveBaseRefFor(
-    prLogEngine: GenerateChangelogInput['prLogEngine'],
+async function resolveBaseReferenceFor(
+    pullRequestLogEngine: GenerateChangelogInput['pullRequestLogEngine'],
     packagePlan: ReleasePlanPackage,
-    input: Pick<GenerateChangelogInput, 'explicitBaseRef' | 'packageTagFormat'>
+    input: Pick<GenerateChangelogInput, 'explicitBaseReference' | 'packageTagFormat'>
 ): Promise<string> {
     if (
-        input.explicitBaseRef === undefined &&
+        input.explicitBaseReference === undefined &&
         packagePlan.previousVersion === undefined &&
         packagePlan.previousGitHead === undefined
     ) {
-        const baseRef = await prLogEngine.resolveLatestSemverChangelogBaseRef();
-        return baseRef.ref;
+        const baseReference = await pullRequestLogEngine.resolveLatestSemverChangelogBaseReference();
+        return baseReference.reference;
     }
 
-    const baseRef = await prLogEngine.resolveChangelogBaseRef({
+    const baseReference = await pullRequestLogEngine.resolveChangelogBaseReference({
         packageName: packagePlan.name,
         previousVersion: packagePlan.previousVersion,
         previousGitHead: packagePlan.previousGitHead,
         packageTagFormat: input.packageTagFormat,
-        explicitBaseRef: input.explicitBaseRef
+        explicitBaseReference: input.explicitBaseReference
     });
-    return baseRef.ref;
+    return baseReference.reference;
 }
 
 async function collectTargetPullRequests(
@@ -229,13 +229,13 @@ async function collectTargetPullRequests(
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
 ): Promise<CollectedPullRequests> {
-    const baseRef = await resolveBaseRefFor(input.prLogEngine, packagePlan, input);
-    const pullRequests = await input.prLogEngine.collectMergedPullRequests({
-        githubRepo: input.githubRepo,
-        baseRef
+    const baseReference = await resolveBaseReferenceFor(input.pullRequestLogEngine, packagePlan, input);
+    const pullRequests = await input.pullRequestLogEngine.collectMergedPullRequests({
+        githubRepository: input.githubRepository,
+        baseReference
     });
-    const changedFilesByPullRequest = await input.prLogEngine.readPullRequestChangedFiles({
-        githubRepo: input.githubRepo,
+    const changedFilesByPullRequest = await input.pullRequestLogEngine.readPullRequestChangedFiles({
+        githubRepository: input.githubRepository,
         pullRequests
     });
     const targetSourceFiles = expandChangelogSourceFilesForHistory({
@@ -246,7 +246,7 @@ async function collectTargetPullRequests(
             packagePlan.name
         )
     });
-    const packagePullRequests = input.prLogEngine.filterPullRequestsByTargetFiles({
+    const packagePullRequests = input.pullRequestLogEngine.filterPullRequestsByTargetFiles({
         targetName: packagePlan.name,
         targetSourceFiles,
         pullRequests,
@@ -258,14 +258,14 @@ async function collectTargetPullRequests(
         pullRequests,
         changedFilesByPullRequest
     );
-    const dependencyPullRequestIds = new Set(
+    const dependencyPullRequestIdentifiers = new Set(
         dependencyPullRequests.map(function (pullRequest) {
-            return pullRequest.id;
+            return pullRequest.identifier;
         })
     );
-    const labeledPullRequests = await input.prLogEngine.resolvePullRequestLabels({
-        githubRepo: input.githubRepo,
-        config: input.prLogConfig,
+    const labeledPullRequests = await input.pullRequestLogEngine.resolvePullRequestLabels({
+        githubRepository: input.githubRepository,
+        configuration: input.pullRequestLogConfiguration,
         pullRequests: mergePullRequests([ ...packagePullRequests, ...dependencyPullRequests ]),
         targetName: packagePlan.name,
         targetScopedLabelPattern: input.targetScopedLabelPattern
@@ -273,12 +273,12 @@ async function collectTargetPullRequests(
 
     return {
         manifestDependencyPullRequests: labeledPullRequests.filter(function (pullRequest) {
-            return dependencyPullRequestIds.has(pullRequest.id);
+            return dependencyPullRequestIdentifiers.has(pullRequest.identifier);
         }),
         pullRequests: labeledPullRequests.filter(function (pullRequest) {
             return shouldKeepPackagePullRequest(pullRequest, {
                 changedFilesByPullRequest,
-                dependencyPullRequestIds,
+                dependencyPullRequestIdentifiers,
                 targetSourceFiles: new Set(targetSourceFiles)
             });
         })
@@ -304,7 +304,7 @@ function isDependencyOnlyTarget(target: ChangelogTarget): boolean {
 
 function syntheticDependencyPullRequestFor(update: ChangelogDependencyUpdate | undefined): PullRequestWithLabel {
     return {
-        id: syntheticDependencyPullRequestId(),
+        identifier: syntheticDependencyPullRequestIdentifier(),
         title: dependencyUpdateTitleFor(update),
         label: dependencyUpdateLabel()
     };
@@ -330,31 +330,31 @@ function dependencyUpdatePullRequestsFor(target: ChangelogTarget): readonly Pull
     );
 }
 
-function dependencyUpdatePullRequestIdsFor(target: ChangelogTarget): ReadonlySet<number> {
+function dependencyUpdatePullRequestIdentifiersFor(target: ChangelogTarget): ReadonlySet<number> {
     return new Set(
         target.packagePlan.changelogDependencyUpdates.flatMap(function (update) {
             return manifestPullRequestsForUpdate(target, update).map(function (pullRequest) {
-                return pullRequest.id;
+                return pullRequest.identifier;
             });
         })
     );
 }
 
 function unmatchedManifestDependencyPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
-    const dependencyUpdatePullRequestIds = dependencyUpdatePullRequestIdsFor(target);
+    const dependencyUpdatePullRequestIdentifiers = dependencyUpdatePullRequestIdentifiersFor(target);
     return target.manifestDependencyPullRequests.filter(function (pullRequest) {
-        return !dependencyUpdatePullRequestIds.has(pullRequest.id);
+        return !dependencyUpdatePullRequestIdentifiers.has(pullRequest.identifier);
     });
 }
 
 function nonManifestPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
-    const manifestPullRequestIds = new Set(
+    const manifestPullRequestIdentifiers = new Set(
         target.manifestDependencyPullRequests.map(function (pullRequest) {
-            return pullRequest.id;
+            return pullRequest.identifier;
         })
     );
     return target.pullRequests.filter(function (pullRequest) {
-        return !manifestPullRequestIds.has(pullRequest.id);
+        return !manifestPullRequestIdentifiers.has(pullRequest.identifier);
     });
 }
 
@@ -365,7 +365,7 @@ function dependencyOnlyChangelogPullRequestsFor(target: ChangelogTarget): readon
     ) {
         return [
             {
-                id: syntheticDependencyPullRequestId(),
+                identifier: syntheticDependencyPullRequestIdentifier(),
                 title: dependencyUpdateTitle(target.packagePlan),
                 label: dependencyUpdateLabel()
             }
@@ -396,13 +396,15 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
     ];
 }
 
-function prLogConfigForRendering(config: PrLogConfig): PrLogConfig {
-    if (config.validLabels.has(dependencyUpdateLabel())) {
-        return config;
+function pullRequestLogConfigurationForRendering(
+    configuration: PullRequestLogConfiguration
+): PullRequestLogConfiguration {
+    if (configuration.validLabels.has(dependencyUpdateLabel())) {
+        return configuration;
     }
     return {
-        ...config,
-        validLabels: new Map([ ...config.validLabels, [ dependencyUpdateLabel(), 'Dependency Upgrades' ] ])
+        ...configuration,
+        validLabels: new Map([ ...configuration.validLabels, [ dependencyUpdateLabel(), 'Dependency Upgrades' ] ])
     };
 }
 
@@ -419,9 +421,9 @@ function hasChangelogEntries(target: ChangelogTarget): boolean {
     return target.pullRequests.length > 0 || target.packagePlan.changelogDependencyUpdates.length > 0;
 }
 
-function removeSyntheticDependencyPullRequestLinks(markdown: string, githubRepo: string): string {
+function removeSyntheticDependencyPullRequestLinks(markdown: string, githubRepository: string): string {
     return markdown.replaceAll(
-        ` ([#${syntheticDependencyPullRequestId()}](https://github.com/${githubRepo}/pull/${syntheticDependencyPullRequestId()}))`,
+        ` ([#${syntheticDependencyPullRequestIdentifier()}](https://github.com/${githubRepository}/pull/${syntheticDependencyPullRequestIdentifier()}))`,
         ''
     );
 }
@@ -430,20 +432,20 @@ function createPackageMarkdownByName(
     input: GenerateChangelogInput,
     targets: readonly ChangelogTarget[]
 ): ReadonlyMap<string, string> {
-    const config = prLogConfigForRendering(input.prLogConfig);
+    const configuration = pullRequestLogConfigurationForRendering(input.pullRequestLogConfiguration);
     return new Map(
         targets.filter(hasChangelogEntries).map(function (target) {
             const targetSection = createTargetSection(target);
             return [
                 target.packagePlan.name,
                 removeSyntheticDependencyPullRequestLinks(
-                    input.prLogEngine.renderTargetChangelog({
-                        config,
+                    input.pullRequestLogEngine.renderTargetChangelog({
+                        configuration,
                         currentDate: input.currentDate,
-                        githubRepo: input.githubRepo,
+                        githubRepository: input.githubRepository,
                         ...targetSection
                     }),
-                    input.githubRepo
+                    input.githubRepository
                 )
             ] as const;
         })
@@ -453,7 +455,7 @@ function createPackageMarkdownByName(
 export async function generateChangelogOutputs(input: GenerateChangelogInput): Promise<GeneratedChangelog> {
     const packages = selectChangedPackages(input.packages);
     const ignoredAttributionPaths = mergeIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
-    const config = prLogConfigForRendering(input.prLogConfig);
+    const configuration = pullRequestLogConfigurationForRendering(input.pullRequestLogConfiguration);
     const targets = await Promise.all(
         packages.map(async function (packagePlan) {
             return createChangelogTarget(input, packagePlan, ignoredAttributionPaths);
@@ -463,13 +465,13 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
 
     return {
         groupedMarkdown: removeSyntheticDependencyPullRequestLinks(
-            input.prLogEngine.renderGroupedTargetChangelog({
-                config,
+            input.pullRequestLogEngine.renderGroupedTargetChangelog({
+                configuration,
                 currentDate: input.currentDate,
-                githubRepo: input.githubRepo,
+                githubRepository: input.githubRepository,
                 targets: targetsWithEntries.map(createTargetSection)
             }),
-            input.githubRepo
+            input.githubRepository
         ),
         packageNamesWithoutChangelogEntries: targets
             .filter(function (target) {

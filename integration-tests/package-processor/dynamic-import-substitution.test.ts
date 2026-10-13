@@ -2,7 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 
 type BuiltPackage = Awaited<ReturnType<typeof packageProcessor.build>>;
 
@@ -21,13 +21,13 @@ async function buildPackage(input: BuildPackageInput): Promise<BuiltPackage> {
         version: input.version,
         sourcesFolder: input.sourcesFolder,
         surface: { mode: 'explicit', packageInterface: { modules: [ { export: '.', root: 'main' } ] } },
-        roots: { main: { js: input.rootInputFilePath } },
-        mainPackageJson: await loadPackageJson(input.fixture),
+        roots: { main: { javaScript: input.rootInputFilePath } },
+        mainPackageManifest: await loadPackageManifest(input.fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
         bundleDependencies: input.bundleDependencies,
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {},
+        additionalPackageManifestAttributes: {},
         allowMutableSpecifiers: [],
         deadCodeElimination: { enabled: false }
     });
@@ -57,16 +57,16 @@ suite('dynamic-import-substitution', function () {
             name: 'producer',
             version: '1.2.3',
             fixture,
-            sourcesFolder: path.join(fixture, 'src/producer'),
-            rootInputFilePath: path.join(fixture, 'src/producer/index.js'),
+            sourcesFolder: path.join(fixture, 'source/producer'),
+            rootInputFilePath: path.join(fixture, 'source/producer/index.js'),
             bundleDependencies: []
         });
         const consumer = await buildPackage({
             name: 'consumer',
             version: '2.3.4',
             fixture,
-            sourcesFolder: path.join(fixture, 'src'),
-            rootInputFilePath: path.join(fixture, 'src/consumer/index.js'),
+            sourcesFolder: path.join(fixture, 'source'),
+            rootInputFilePath: path.join(fixture, 'source/consumer/index.js'),
             bundleDependencies: [ producer ]
         });
 
@@ -84,7 +84,7 @@ suite('dynamic-import-substitution', function () {
             ]
                 .join('\n')
         );
-        assert.deepStrictEqual(consumer.packageJson.dependencies, { producer: '1.2.3' });
+        assert.deepStrictEqual(consumer.packageManifest.dependencies, { producer: '1.2.3' });
         assert.strictEqual(hasEntry(consumer, 'producer/index.js'), false);
         assert.strictEqual(hasEntry(consumer, 'producer/feature.js'), true);
     });
@@ -95,16 +95,16 @@ suite('dynamic-import-substitution', function () {
             name: 'producer',
             version: '1.2.3',
             fixture,
-            sourcesFolder: path.join(fixture, 'src/producer'),
-            rootInputFilePath: path.join(fixture, 'src/producer/index.js'),
+            sourcesFolder: path.join(fixture, 'source/producer'),
+            rootInputFilePath: path.join(fixture, 'source/producer/index.js'),
             bundleDependencies: []
         });
         const consumer = await buildPackage({
             name: 'consumer',
             version: '2.3.4',
             fixture,
-            sourcesFolder: path.join(fixture, 'src'),
-            rootInputFilePath: path.join(fixture, 'src/consumer/injected.js'),
+            sourcesFolder: path.join(fixture, 'source'),
+            rootInputFilePath: path.join(fixture, 'source/consumer/injected.js'),
             bundleDependencies: [ producer ]
         });
 
@@ -125,7 +125,7 @@ suite('dynamic-import-substitution', function () {
             ]
                 .join('\n')
         );
-        assert.deepStrictEqual(consumer.packageJson.dependencies, { producer: '1.2.3' });
+        assert.deepStrictEqual(consumer.packageManifest.dependencies, { producer: '1.2.3' });
         assert.strictEqual(hasEntry(consumer, 'producer/index.js'), false);
     });
 });

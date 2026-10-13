@@ -4,10 +4,10 @@ import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 
 const baseEntry: ArtifactEntry = {
-    path: 'src/index.js',
+    path: 'source/index.js',
     sizeBytes: 10,
     kind: 'source',
-    sourcePath: '/workspace/src/index.js',
+    sourcePath: '/workspace/source/index.js',
     status: 'unchanged',
     badges: []
 };
@@ -19,7 +19,7 @@ suite('artifact-entry-merger', function () {
     });
 
     test('mergeArtifactEntry adds the import-path-rewrite badge and "changed" status for rewritten files', function () {
-        const merged = mergeArtifactEntry(baseEntry, new Set([ '/workspace/src/index.js' ]), new Set());
+        const merged = mergeArtifactEntry(baseEntry, new Set([ '/workspace/source/index.js' ]), new Set());
 
         assert.partialDeepStrictEqual(merged, {
             status: 'changed',
@@ -28,7 +28,7 @@ suite('artifact-entry-merger', function () {
     });
 
     test('mergeArtifactEntry adds the dead-code-elimination badge and "changed" status for transformed files', function () {
-        const merged = mergeArtifactEntry(baseEntry, new Set(), new Set([ '/workspace/src/index.js' ]));
+        const merged = mergeArtifactEntry(baseEntry, new Set(), new Set([ '/workspace/source/index.js' ]));
 
         assert.partialDeepStrictEqual(merged, {
             status: 'changed',
@@ -39,8 +39,8 @@ suite('artifact-entry-merger', function () {
     test('mergeArtifactEntry combines both badges when both rewrite and transform apply', function () {
         const merged = mergeArtifactEntry(
             baseEntry,
-            new Set([ '/workspace/src/index.js' ]),
-            new Set([ '/workspace/src/index.js' ])
+            new Set([ '/workspace/source/index.js' ]),
+            new Set([ '/workspace/source/index.js' ])
         );
 
         assert.strictEqual(merged.status, 'changed');
@@ -55,7 +55,7 @@ suite('artifact-entry-merger', function () {
     test('mergeArtifactEntry deduplicates badges that already appeared on the entry', function () {
         const merged = mergeArtifactEntry(
             { ...baseEntry, badges: [ 'import-path-rewrite' ] },
-            new Set([ '/workspace/src/index.js' ]),
+            new Set([ '/workspace/source/index.js' ]),
             new Set()
         );
 

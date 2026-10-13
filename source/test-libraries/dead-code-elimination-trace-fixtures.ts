@@ -24,11 +24,11 @@ export function createDeadCodeEliminationTraceCollector(): CollectedDeadCodeElim
 function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
     return match<DeadCodeEliminationTraceEvent, string>(event)
         .with({ type: 'binding-removed' }, function (entry) {
-            return `${entry.bundleName} removed binding ${entry.bindingId} from ${entry.inputFilePath}`;
+            return `${entry.bundleName} removed binding ${entry.bindingIdentifier} from ${entry.inputFilePath}`;
         })
         .with({ type: 'cross-bundle-seed-added' }, function (entry) {
             return [
-                `${entry.bundleName} cross-bundle seed ${entry.bindingId}`,
+                `${entry.bundleName} cross-bundle seed ${entry.bindingIdentifier}`,
                 entry.reason,
                 `from ${entry.sourceBundleName} ${entry.inputFilePath}:${entry.line}`,
                 `via ${entry.moduleSpecifier}`
@@ -36,7 +36,8 @@ function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
                 .join(' ');
         })
         .with({ type: 'edge-added' }, function (entry) {
-            return `${entry.bundleName} edge ${entry.fromBindingId} -> ${entry.toBindingId} ${entry.reason}`;
+            const edge = `${entry.fromBindingIdentifier} -> ${entry.toBindingIdentifier}`;
+            return `${entry.bundleName} edge ${edge} ${entry.reason}`;
         })
         .with({ type: 'file-pruned' }, function (entry) {
             return `${entry.bundleName} pruned ${entry.targetFilePath} ${entry.pruneKind} from ${entry.inputFilePath}`;
@@ -60,7 +61,7 @@ function formatTraceEvent(event: DeadCodeEliminationTraceEvent): string {
         })
         .with({ type: 'local-seed-added' }, function (entry) {
             return [
-                `${entry.bundleName} local seed ${entry.bindingId}`,
+                `${entry.bundleName} local seed ${entry.bindingIdentifier}`,
                 entry.reason,
                 `${entry.inputFilePath}:${entry.line}`
             ]

@@ -1,5 +1,5 @@
 import { fake } from 'sinon';
-import type { PackageChecksSettings } from '../config/config.ts';
+import type { PackageChecksSettings } from '../configuration/configuration.ts';
 import { createCheckRunner, type CheckRunner } from '../checks/check-runner.ts';
 import { createAllRules, type AllCheckRules, type CheckRuleDependencies } from '../checks/rules/registry.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';

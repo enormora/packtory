@@ -1,13 +1,13 @@
-import { Node as TsMorphNode, type Expression } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type Expression } from 'ts-morph';
 
 function nextUnwrappedExpression(expression: Expression | undefined): Expression | undefined {
-    if (TsMorphNode.isAsExpression(expression) || TsMorphNode.isSatisfiesExpression(expression)) {
+    if (TypeScriptMorphNode.isAsExpression(expression) || TypeScriptMorphNode.isSatisfiesExpression(expression)) {
         return expression.getExpression();
     }
     if (
-        TsMorphNode.isParenthesizedExpression(expression) ||
-        TsMorphNode.isTypeAssertion(expression) ||
-        TsMorphNode.isNonNullExpression(expression)
+        TypeScriptMorphNode.isParenthesizedExpression(expression) ||
+        TypeScriptMorphNode.isTypeAssertion(expression) ||
+        TypeScriptMorphNode.isNonNullExpression(expression)
     ) {
         return expression.getExpression();
     }

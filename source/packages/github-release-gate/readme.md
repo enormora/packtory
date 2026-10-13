@@ -64,7 +64,7 @@ More concretely:
    - `unchanged`: skip
    - `substantive`: publish
    - `first-publish`: publish
-   - `dependency-only`: publish only after `DEPENDENCY_ONLY_MIN_AGE_DAYS`
+   - `dependency-only`: publish only after `DEPENDENCY_ONLY_MINIMUM_AGE_DAYS`
 
 This means:
 
@@ -77,7 +77,7 @@ This means:
 ## Decision Outputs
 
 - `should_publish=true|false`
-- `reason=ci_not_green|ci_in_progress|activity_not_stale|quiet_period_elapsed|max_latency_elapsed|release_unchanged|dependency_only_min_age_not_elapsed|dependency_only_min_age_elapsed|dependency_only_published_at_unknown`
+- `reason=ci_not_green|ci_in_progress|activity_not_stale|quiet_period_elapsed|max_latency_elapsed|release_unchanged|dependency_only_minimum_age_not_elapsed|dependency_only_minimum_age_elapsed|dependency_only_published_at_unknown`
 - `main_head_sha=<sha>`
 
 `ci_not_green` is reserved for the case where the latest push run for `main` HEAD failed or never started; transient gaps during which the run is still executing are reported as `ci_in_progress` so the next gate evaluation can pick the publish back up once CI completes.
@@ -101,11 +101,11 @@ The package ships a `github-release-gate` executable that writes its decision to
   id: release-gate
   run: npx github-release-gate
   env:
-      CI_WORKFLOW_FILE: ci.yml
+      CONTINUOUS_INTEGRATION_WORKFLOW_FILE: ci.yml
       DEFAULT_BRANCH: main
-      DEPENDENCY_ONLY_MIN_AGE_DAYS: "7"
+      DEPENDENCY_ONLY_MINIMUM_AGE_DAYS: "7"
       GITHUB_TOKEN: ${{ github.token }}
-      MAX_LATENCY_HOURS: "24"
+      MAXIMUM_LATENCY_HOURS: "24"
       QUIET_PERIOD_MINUTES: "45"
 ```
 
@@ -113,10 +113,10 @@ The package ships a `github-release-gate` executable that writes its decision to
 
 - `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are required.
 - `GITHUB_OUTPUT` is required when used as a GitHub Actions step.
-- `CI_WORKFLOW_FILE` defaults to `ci.yml`.
-- `CHECKED_OUT_HEAD_SHA`, when set, must match the main HEAD checked by the gate. Pass the checked-out commit to prevent analysis and CI checks from using different commits.
+- `CONTINUOUS_INTEGRATION_WORKFLOW_FILE` defaults to `ci.yml`.
+- `CHECKED_OUT_HEAD_HASH`, when set, must match the main HEAD checked by the gate. Pass the checked-out commit to prevent analysis and CI checks from using different commits.
 - `DEFAULT_BRANCH` defaults to `main`.
-- `GITHUB_API_BASE_URL` defaults to `https://api.github.com`.
-- `DEPENDENCY_ONLY_MIN_AGE_DAYS` defaults to `7`.
+- `GITHUB_APPLICATION_PROGRAMMING_INTERFACE_BASE_ADDRESS` defaults to `https://api.github.com`.
+- `DEPENDENCY_ONLY_MINIMUM_AGE_DAYS` defaults to `7`.
 - `QUIET_PERIOD_MINUTES` defaults to `45`.
-- `MAX_LATENCY_HOURS` defaults to `24`.
+- `MAXIMUM_LATENCY_HOURS` defaults to `24`.

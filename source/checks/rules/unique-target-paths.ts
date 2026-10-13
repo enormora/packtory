@@ -10,9 +10,9 @@ import {
 
 const ruleName = 'uniqueTargetPaths';
 
-type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof emptyPerPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 
 function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
     const sourcesByTarget = groupBy(bundle.contents, function (resource) {
@@ -35,17 +35,18 @@ function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
 }
 
 async function run(input: RunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.uniqueTargetPaths;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.uniqueTargetPaths;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
 
     return input.bundles.flatMap(findCollidingTargetPaths);
 }
 
-export const uniqueTargetPathsRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema: enabledOnlyGlobalSchema,
-    perPackageSchema: emptyPerPackageSchema,
-    run
-};
+export const uniqueTargetPathsRule: CheckRuleDefinition<typeof ruleName, GlobalConfiguration, PerPackageConfiguration> =
+    {
+        name: ruleName,
+        globalSchema: enabledOnlyGlobalSchema,
+        perPackageSchema: emptyPerPackageSchema,
+        run
+    };

@@ -1,9 +1,9 @@
 import path from 'node:path';
 import type { Server } from 'node:http';
-import fs from 'node:fs/promises';
-import os from 'node:os';
+import fileSystem from 'node:fs/promises';
+import operatingSystem from 'node:os';
 import getPort from 'get-port';
-import type { AsyncFunc } from 'mocha';
+import type { AsyncFunc as AsynchronousTestFunction } from 'mocha';
 import { runServer } from 'verdaccio';
 
 const username = 'foo';
@@ -76,8 +76,8 @@ function getEnvironmentVariable(variableName: string): string | undefined {
 }
 
 async function createTemporaryDirectory(): Promise<string> {
-    const tempRootDir = getEnvironmentVariable('RUNNER_TEMP') ?? os.tmpdir();
-    return fs.mkdtemp(tempRootDir);
+    const temporaryRootDirectory = getEnvironmentVariable('RUNNER_TEMP') ?? operatingSystem.tmpdir();
+    return fileSystem.mkdtemp(temporaryRootDirectory);
 }
 
 async function createRegistryServer(storageDirectory: string): Promise<Server> {
@@ -86,7 +86,7 @@ async function createRegistryServer(storageDirectory: string): Promise<Server> {
 }
 
 export type RegistryDetails = {
-    readonly registryUrl: string;
+    readonly registryAddress: string;
     readonly storageDirectory: string;
     readonly token: string;
     readonly username: string;
@@ -95,11 +95,11 @@ export type RegistryDetails = {
 
 async function startRegistry(server: Server, storageDirectory: string): Promise<RegistryDetails> {
     const port = await getPort();
-    const registryUrl = `http://127.0.0.1:${port}`;
+    const registryAddress = `http://127.0.0.1:${port}`;
     const credentials = `${username}:${password}`;
 
     await startServer(server, port);
-    const response = await fetch(`${registryUrl}/-/npm/v1/tokens`, {
+    const response = await fetch(`${registryAddress}/-/npm/v1/tokens`, {
         method: 'POST',
         body: JSON.stringify({
             password,
@@ -116,10 +116,12 @@ async function startRegistry(server: Server, storageDirectory: string): Promise<
         throw new Error('Couldn’t create a token');
     }
 
-    return { registryUrl, storageDirectory, token, username, password };
+    return { registryAddress, storageDirectory, token, username, password };
 }
 
-export function checkWithRegistry(callback: (registryDetails: RegistryDetails) => Promise<void>): AsyncFunc {
+export function checkWithRegistry(
+    callback: (registryDetails: RegistryDetails) => Promise<void>
+): AsynchronousTestFunction {
     return async function () {
         const storageDirectory = await createTemporaryDirectory();
         const server = await createRegistryServer(storageDirectory);
@@ -130,7 +132,7 @@ export function checkWithRegistry(callback: (registryDetails: RegistryDetails) =
             try {
                 await stopServer(server);
             } finally {
-                await fs.rm(storageDirectory, { recursive: true, force: true });
+                await fileSystem.rm(storageDirectory, { recursive: true, force: true });
             }
         }
     };

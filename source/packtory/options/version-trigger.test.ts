@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Maybe } from 'true-myth';
-import type { VersionProviderInput } from '../../config/manual-versioning-settings.ts';
-import type { BuildAndPublishOptions } from '../map-config.ts';
+import type { VersionProviderInput } from '../../configuration/manual-versioning-settings.ts';
+import type { BuildAndPublishOptions } from '../map-configuration.ts';
 import {
     determineBuildVersion,
     inferVersionTrigger,
@@ -22,7 +22,7 @@ function pinnedOptions(version: string): BuildAndPublishOptions {
 
 function providerOptions(provideVersion: ManualVersionProvider): BuildAndPublishOptions {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         versioning: { automatic: false, provideVersion }
     } as unknown as BuildAndPublishOptions;
 }
@@ -30,7 +30,7 @@ function providerOptions(provideVersion: ManualVersionProvider): BuildAndPublish
 function providerContext(): VersionProviderContext {
     return {
         ignoredAttributionPaths: [ 'CHANGELOG.md' ],
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
         stage: false,
         targetSourceFiles: [ 'source/index.ts' ]
     };
@@ -79,10 +79,10 @@ function registerDetermineBuildVersionTests(): void {
         assert.strictEqual(version, '1.0.1');
         assert.deepStrictEqual(providerInput, [
             {
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 currentVersion: '1.0.0',
                 ignoredAttributionPaths: [ 'CHANGELOG.md' ],
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
                 stage: false,
                 targetSourceFiles: [ 'source/index.ts' ]
             }

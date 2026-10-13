@@ -13,8 +13,8 @@ import {
 } from '../../test-libraries/orchestrator-stub-fixtures.ts';
 import {
     buildAndPublishResultFixture,
-    publishableConfigFixture,
-    publishableConfigFixtures,
+    publishableConfigurationFixture,
+    publishableConfigurationFixtures,
     resolvedPublishPackageFixture,
     versionedPublishBundleFixture
 } from '../../test-libraries/publish-stage-fixtures.ts';
@@ -28,20 +28,22 @@ type ProcessorScenario = {
     readonly publishPreparedPackage: ReturnType<typeof fake.resolves>;
 };
 type PublishStageScheduler = PublishStageDependencies['scheduler'];
-type MissingPreparedSchedulerConfig = Parameters<PublishStageScheduler['runForEachScheduledPackage']>[0]['config'];
+type MissingPreparedSchedulerConfiguration = Parameters<
+    PublishStageScheduler['runForEachScheduledPackage']
+>[0]['configuration'];
 type MissingPreparedSchedulerContext = {
     readonly packageName: string;
     readonly existing: readonly unknown[];
-    readonly config: MissingPreparedSchedulerConfig;
+    readonly configuration: MissingPreparedSchedulerConfiguration;
 };
 type MissingPreparedSchedulerInput = {
-    readonly config: MissingPreparedSchedulerConfig;
+    readonly configuration: MissingPreparedSchedulerConfiguration;
     readonly createOptions: (context: MissingPreparedSchedulerContext) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
 };
 
 function createSuccessfulPreflightProcessor(): ProcessorScenario {
-    const bundle = versionedPublishBundleFixture('pkg-a', '2.0.0');
+    const bundle = versionedPublishBundleFixture('package-a', '2.0.0');
     const prepared = buildAndPublishResultFixture(bundle);
     const publishPreparedPackage = fake.resolves(prepared);
     return {
@@ -59,7 +61,7 @@ function createSuccessfulPreflightProcessor(): ProcessorScenario {
 }
 
 function createFailingPreflightProcessor(): ProcessorScenario {
-    const bundle = versionedPublishBundleFixture('pkg-a', '2.0.0');
+    const bundle = versionedPublishBundleFixture('package-a', '2.0.0');
     let preflightAttempt = 0;
     const publishPreparedPackage = fake.resolves(buildAndPublishResultFixture(bundle));
     return {
@@ -92,8 +94,8 @@ function createMissingPreparedScheduler(): PublishStageScheduler {
     const scheduler = {
         async runForEachScheduledPackage(input: MissingPreparedSchedulerInput) {
             callCount += 1;
-            const packageName = callCount === 1 ? 'pkg-a' : 'pkg-b';
-            const options = input.createOptions({ packageName, existing: [], config: input.config });
+            const packageName = callCount === 1 ? 'package-a' : 'package-b';
+            const options = input.createOptions({ packageName, existing: [], configuration: input.configuration });
             try {
                 const result = await input.execute(options);
                 return Result.ok([ result ]);
@@ -109,17 +111,17 @@ suite('publish-stage preflight', function () {
     test('determineVersionAndPublishAll publishes prepared results after successful preflight', async function () {
         const { bundle, prepared, processor, publishPreparedPackage } = createSuccessfulPreflightProcessor();
         const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
-        const config = publishableConfigFixture('pkg-a');
+        const configuration = publishableConfigurationFixture('package-a');
 
         const result = await determineVersionAndPublishAll(
             {
                 packageProcessor: processor,
-                scheduler: iteratingScheduler([ 'pkg-a' ], capture),
+                scheduler: iteratingScheduler([ 'package-a' ], capture),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            config,
-            [ resolvedPublishPackageFixture('pkg-a') ],
+            configuration,
+            [ resolvedPublishPackageFixture('package-a') ],
             { dryRun: false, stage: false }
         );
 
@@ -137,17 +139,17 @@ suite('publish-stage preflight', function () {
 
     test('determineVersionAndPublishAll does not publish any package when preflight fails', async function () {
         const { processor, publishPreparedPackage } = createFailingPreflightProcessor();
-        const configWithTwoPackages = publishableConfigFixtures([ 'pkg-a', 'pkg-b' ]);
+        const configurationWithTwoPackages = publishableConfigurationFixtures([ 'package-a', 'package-b' ]);
 
         const result = await determineVersionAndPublishAll(
             {
                 packageProcessor: processor,
-                scheduler: iteratingScheduler([ 'pkg-a', 'pkg-b' ]),
+                scheduler: iteratingScheduler([ 'package-a', 'package-b' ]),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            configWithTwoPackages,
-            [ resolvedPublishPackageFixture('pkg-a'), resolvedPublishPackageFixture('pkg-b') ],
+            configurationWithTwoPackages,
+            [ resolvedPublishPackageFixture('package-a'), resolvedPublishPackageFixture('package-b') ],
             { dryRun: false, stage: false }
         );
 
@@ -174,24 +176,24 @@ suite('publish-stage preflight', function () {
         await determineVersionAndPublishAll(
             {
                 packageProcessor: failingProcessor,
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster,
                 repositoryFolder: '/'
             },
-            publishableConfigFixture('pkg-a'),
-            [ resolvedPublishPackageFixture('pkg-a') ],
+            publishableConfigurationFixture('package-a'),
+            [ resolvedPublishPackageFixture('package-a') ],
             { dryRun: false, stage: false }
         );
 
-        assert.strictEqual(prepared.bundle.name, 'pkg-a');
+        assert.strictEqual(prepared.bundle.name, 'package-a');
         assert.deepStrictEqual(failures, [
-            { packageName: 'pkg-a', stage: 'publish', message: 'prepared publish failed' }
+            { packageName: 'package-a', stage: 'publish', message: 'prepared publish failed' }
         ]);
     });
 
     test('determineVersionAndPublishAll fails when a scheduled package has no prepared result', async function () {
         const { processor } = createSuccessfulPreflightProcessor();
-        const configWithTwoPackages = publishableConfigFixtures([ 'pkg-a', 'pkg-b' ]);
+        const configurationWithTwoPackages = publishableConfigurationFixtures([ 'package-a', 'package-b' ]);
 
         const result = await determineVersionAndPublishAll(
             {
@@ -200,8 +202,8 @@ suite('publish-stage preflight', function () {
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            configWithTwoPackages,
-            [ resolvedPublishPackageFixture('pkg-a'), resolvedPublishPackageFixture('pkg-b') ],
+            configurationWithTwoPackages,
+            [ resolvedPublishPackageFixture('package-a'), resolvedPublishPackageFixture('package-b') ],
             { dryRun: false, stage: false }
         );
 
@@ -210,7 +212,7 @@ suite('publish-stage preflight', function () {
         }
         assert.strictEqual(
             result.error.failures[0]?.message,
-            'Prepared publish for package "pkg-b" is missing'
+            'Prepared publish for package "package-b" is missing'
         );
     });
 });

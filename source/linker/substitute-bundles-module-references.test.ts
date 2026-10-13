@@ -22,8 +22,8 @@ function bundleSource(packageName: string, inputFilePath: string): VersionedBund
         mainFile,
         manifestFile: { content: '', isExecutable: false, filePath: '/package.json' },
         name: packageName,
-        packageJson: { name: packageName, version: '21' },
-        roots: { main: { js: mainFile } },
+        packageManifest: { name: packageName, version: '21' },
+        roots: { main: { javaScript: mainFile } },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         version: '21'
     });
@@ -50,7 +50,7 @@ function graphWithEntry(
         ],
         roots: {
             main: {
-                js: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' }
+                javaScript: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -178,17 +178,17 @@ suite('substitute-bundles module references', function () {
             isCyclic: unexpectedGraphCall,
             getTopologicalGenerations: unexpectedGraphCall,
             reverse: unexpectedGraphCall,
-            getAdjacentIds: unexpectedGraphCall,
+            getAdjacentIdentifiers: unexpectedGraphCall,
             traverse(visitor) {
                 const node = {
-                    id: '/entry.js',
+                    identifier: '/entry.js',
                     data: {
                         fileDescription: resource.fileDescription,
                         moduleReferences: resource.moduleReferences,
                         externalDependencies: [],
                         isExplicitlyIncluded: false
                     },
-                    adjacentNodeIds: new Set<string>(),
+                    adjacentNodeIdentifiers: new Set<string>(),
                     incomingEdges: 0
                 };
                 visitor(node);

@@ -6,16 +6,16 @@ import { indexBundles } from './bundle-index.ts';
 suite('bundle-index', function () {
     test('indexBundles keys bundles by their name', function () {
         const indexed = indexBundles([
-            { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] },
-            { bundle: linkedBundle({ name: 'pkg-b' }), fileBindings: [] }
+            { bundle: linkedBundle({ name: 'package-a' }), fileBindings: [] },
+            { bundle: linkedBundle({ name: 'package-b' }), fileBindings: [] }
         ]);
-        assert.deepStrictEqual(Array.from(indexed.keys()), [ 'pkg-a', 'pkg-b' ]);
+        assert.deepStrictEqual(Array.from(indexed.keys()), [ 'package-a', 'package-b' ]);
     });
 
     test('indexBundles places each file binding into its file-path lookup map', function () {
         const indexed = indexBundles([
             {
-                bundle: linkedBundle({ name: 'pkg-a' }),
+                bundle: linkedBundle({ name: 'package-a' }),
                 fileBindings: [
                     {
                         inputFilePath: '/a/index.ts',
@@ -36,13 +36,13 @@ suite('bundle-index', function () {
                 ]
             }
         ]);
-        const bundle = indexed.get('pkg-a');
+        const bundle = indexed.get('package-a');
         assert.deepStrictEqual(Array.from(bundle?.bindingsByFilePath.keys() ?? []), [ 'index.ts', 'helpers.ts' ]);
     });
 
     test('indexBundles attaches the originating bundle to each indexed entry', function () {
-        const bundle = linkedBundle({ name: 'pkg-a' });
+        const bundle = linkedBundle({ name: 'package-a' });
         const indexed = indexBundles([ { bundle, fileBindings: [] } ]);
-        assert.strictEqual(indexed.get('pkg-a')?.bundle, bundle);
+        assert.strictEqual(indexed.get('package-a')?.bundle, bundle);
     });
 });

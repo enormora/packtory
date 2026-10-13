@@ -9,24 +9,24 @@ suite('public-module-usage', function () {
             name: 'package-a',
             roots: {
                 main: {
-                    js: {
-                        inputFilePath: '/pkg/index.js',
+                    javaScript: {
+                        inputFilePath: '/package/index.js',
                         targetFilePath: 'index.js',
                         content: '',
                         isExecutable: false
                     }
                 },
                 feature: {
-                    js: {
-                        inputFilePath: '/pkg/feature.js',
+                    javaScript: {
+                        inputFilePath: '/package/feature.js',
                         targetFilePath: 'feature.js',
                         content: '',
                         isExecutable: false
                     }
                 },
                 ignored: {
-                    js: {
-                        inputFilePath: '/pkg/ignored.js',
+                    javaScript: {
+                        inputFilePath: '/package/ignored.js',
                         targetFilePath: 'ignored.js',
                         content: '',
                         isExecutable: false
@@ -34,9 +34,9 @@ suite('public-module-usage', function () {
                 }
             },
             contents: [
-                analyzedBundleResource('/pkg/index.js', { targetFilePath: 'index.js' }),
-                analyzedBundleResource('/pkg/feature.js', { targetFilePath: 'feature.js' }),
-                analyzedBundleResource('/pkg/ignored.js', { targetFilePath: 'ignored.js' })
+                analyzedBundleResource('/package/index.js', { targetFilePath: 'index.js' }),
+                analyzedBundleResource('/package/feature.js', { targetFilePath: 'feature.js' }),
+                analyzedBundleResource('/package/ignored.js', { targetFilePath: 'ignored.js' })
             ],
             surface: { mode: 'implicit', defaultModuleRoot: 'main' }
         });
@@ -44,7 +44,7 @@ suite('public-module-usage', function () {
             name: 'Stryker was here',
             roots: {
                 main: {
-                    js: {
+                    javaScript: {
                         inputFilePath: '/extra/index.js',
                         targetFilePath: 'index.js',
                         content: '',
@@ -79,7 +79,7 @@ suite('public-module-usage', function () {
 
         const result = collectPublicModuleUsage([ consumer, packageBundle, extraBundle ]);
 
-        assert.deepStrictEqual(result.get('package-a'), new Set([ '/pkg/index.js', '/pkg/feature.js' ]));
+        assert.deepStrictEqual(result.get('package-a'), new Set([ '/package/index.js', '/package/feature.js' ]));
         assert.strictEqual(result.has('Stryker was here'), false);
     });
 
@@ -88,8 +88,8 @@ suite('public-module-usage', function () {
             name: 'package-a',
             roots: {
                 main: {
-                    js: {
-                        inputFilePath: '/pkg/index.js',
+                    javaScript: {
+                        inputFilePath: '/package/index.js',
                         targetFilePath: 'index.js',
                         content: '',
                         isExecutable: false
@@ -97,7 +97,7 @@ suite('public-module-usage', function () {
                 }
             },
             contents: [
-                analyzedBundleResource('/pkg/index.js', {
+                analyzedBundleResource('/package/index.js', {
                     content: 'import "package-a";\nimport "missing-package";\n',
                     targetFilePath: 'index.js'
                 })

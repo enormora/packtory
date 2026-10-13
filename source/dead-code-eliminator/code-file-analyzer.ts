@@ -1,9 +1,9 @@
 import type { SourceFile } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { buildModuleAnalysis } from './liveness/module-analysis.ts';
-import { bindingId } from './reachability/binding-id.ts';
+import { bindingIdentifier } from './reachability/binding-identifier.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 import type { PositionAtom, TextTransformMap } from './transform/atom-translator.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
@@ -44,7 +44,7 @@ function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet
     const { targetFilePath } = loaded.resource.fileDescription;
     return new Set(
         loaded.bindings.flatMap(function (binding) {
-            return reachable.has(bindingId(targetFilePath, binding.name)) ? [ binding.name ] : [];
+            return reachable.has(bindingIdentifier(targetFilePath, binding.name)) ? [ binding.name ] : [];
         })
     );
 }

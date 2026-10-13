@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationBehaviorEquivalent,
@@ -85,8 +85,8 @@ suite('dead code elimination source and target skew', function () {
 
     for (let chunk = 0; chunk < sourceTargetSkewChunks; chunk += 1) {
         test(`preserves behavior for generated source and target skew cases, chunk ${chunk + 1}`, async function () {
-            await fc.assert(
-                fc.asyncProperty(deadCodeEliminationSourceTargetSkewProgramArbitrary, async function (program) {
+            await fastCheck.assert(
+                fastCheck.asyncProperty(deadCodeEliminationSourceTargetSkewProgramArbitrary, async function (program) {
                     await assertEquivalentAndIdempotent(program);
                 }),
                 { numRuns: sourceTargetSkewRunsPerChunk }

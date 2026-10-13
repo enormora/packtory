@@ -1,4 +1,4 @@
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import {
     deadCodeEliminationDeclarationFor as declarationFor,
     deadCodeEliminationDependencyPath as dependencyPath,
@@ -41,7 +41,7 @@ type BroadCaseInput = {
     readonly eventName: string;
 };
 
-const packageName = 'pkg';
+const packageName = 'package';
 
 function moduleA(expression: GeneratedExpression, eventName: string): DeadCodeEliminationGeneratedFile {
     return runtimeFile(
@@ -81,7 +81,7 @@ function indexDeclarationForReexport(): DeadCodeEliminationGeneratedFile {
     );
 }
 
-function indexDeclarationForLocalApi(): DeadCodeEliminationGeneratedFile {
+function indexDeclarationForLocalApplicationProgrammingInterface(): DeadCodeEliminationGeneratedFile {
     return declarationFor(
         'index.js',
         [
@@ -128,7 +128,7 @@ function aliasedImportCase(input: CoreCaseInput): ProgramInput {
             ),
             moduleA(input.expression, input.eventName)
         ],
-        declarationFiles: [ indexDeclarationForLocalApi(), moduleADeclaration() ]
+        declarationFiles: [ indexDeclarationForLocalApplicationProgrammingInterface(), moduleADeclaration() ]
     };
 }
 
@@ -148,7 +148,7 @@ function namespaceImportCase(input: CoreCaseInput): ProgramInput {
             ),
             moduleA(input.expression, input.eventName)
         ],
-        declarationFiles: [ indexDeclarationForLocalApi(), moduleADeclaration() ]
+        declarationFiles: [ indexDeclarationForLocalApplicationProgrammingInterface(), moduleADeclaration() ]
     };
 }
 
@@ -205,7 +205,7 @@ function sideEffectImportCase(input: CoreCaseInput): ProgramInput {
                 []
             )
         ],
-        declarationFiles: [ indexDeclarationForLocalApi(), moduleADeclaration() ]
+        declarationFiles: [ indexDeclarationForLocalApplicationProgrammingInterface(), moduleADeclaration() ]
     };
 }
 
@@ -277,7 +277,7 @@ function broadCase(input: BroadCaseInput): ProgramInput {
             )
         ],
         declarationFiles: [
-            indexDeclarationForLocalApi(),
+            indexDeclarationForLocalApplicationProgrammingInterface(),
             moduleADeclaration(),
             declarationFor(
                 'module-b.js',
@@ -309,10 +309,10 @@ function programFrom(input: ProgramInput): GeneratedDeadCodeEliminationProgram {
 
 export function deadCodeEliminationCoreProgramArbitraryFor(
     kind: DeadCodeEliminationCoreCaseKind
-): fc.Arbitrary<GeneratedDeadCodeEliminationProgram> {
-    return fc
+): fastCheck.Arbitrary<GeneratedDeadCodeEliminationProgram> {
+    return fastCheck
         .record({
-            kind: fc.constant(kind),
+            kind: fastCheck.constant(kind),
             expression: expressionArbitrary,
             eventName: eventNameArbitrary
         })
@@ -320,11 +320,12 @@ export function deadCodeEliminationCoreProgramArbitraryFor(
         .map(programFrom);
 }
 
-export const deadCodeEliminationBroadProgramArbitrary: fc.Arbitrary<GeneratedDeadCodeEliminationProgram> = fc
-    .record({
-        firstExpression: expressionArbitrary,
-        secondExpression: expressionArbitrary,
-        eventName: eventNameArbitrary
-    })
-    .map(broadCase)
-    .map(programFrom);
+export const deadCodeEliminationBroadProgramArbitrary: fastCheck.Arbitrary<GeneratedDeadCodeEliminationProgram> =
+    fastCheck
+        .record({
+            firstExpression: expressionArbitrary,
+            secondExpression: expressionArbitrary,
+            eventName: eventNameArbitrary
+        })
+        .map(broadCase)
+        .map(programFrom);

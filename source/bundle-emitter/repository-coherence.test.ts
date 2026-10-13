@@ -2,26 +2,27 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertRepositoryCoherence,
-    getCiRepositoryUrl,
-    readCiEnvironment,
-    type CiEnvironment
+    getContinuousIntegrationRepositoryAddress,
+    readContinuousIntegrationEnvironment,
+    type ContinuousIntegrationEnvironment
 } from './repository-coherence.ts';
-import { normalizeRepositoryUrl } from './repository-url-normalizer.ts';
+import { normalizeRepositoryAddress } from './repository-address-normalizer.ts';
 
 const expectedNoRepositoryDeclaredMessage = 'Provenance is enabled but the package has no repository declared.\n' +
-    'Add a "repository" entry to additionalPackageJsonAttributes\n' +
+    'Add a "repository" entry to additionalPackageManifestAttributes\n' +
     "so consumers can verify the attestation's source claim.";
 
-const expectedNoCiDetectedMessage = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
+const expectedNoContinuousIntegrationDetectedMessage =
+    'Provenance auto mode is enabled but no CI repository was detected.\n' +
     'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
     'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
 
-function buildExpectedMismatchMessage(configuredUrl: string, ciUrl: string): string {
+function buildExpectedMismatchMessage(configuredAddress: string, continuousIntegrationAddress: string): string {
     return (
         "Provenance is enabled but the package's repository URL does not match\n" +
         'the CI repository.\n' +
-        `Configured repository: ${configuredUrl}\n` +
-        `CI repository:         ${ciUrl}\n` +
+        `Configured repository: ${configuredAddress}\n` +
+        `CI repository:         ${continuousIntegrationAddress}\n` +
         'Either correct the package.json repository field, or disable provenance\n' +
         'if the mismatch is intentional.'
     );
@@ -46,107 +47,122 @@ function assertThrowsMessage(runRepositoryCoherenceAssertion: () => void, expect
 
 suite('repository-coherence', function () {
     suite('invalid repository urls', function () {
-        test('normalizeRepositoryUrl() returns undefined for undefined input', function () {
-            assert.strictEqual(normalizeRepositoryUrl(undefined), undefined);
+        test('normalizeRepositoryAddress() returns undefined for undefined input', function () {
+            assert.strictEqual(normalizeRepositoryAddress(undefined), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for an empty string', function () {
-            assert.strictEqual(normalizeRepositoryUrl(''), undefined);
+        test('normalizeRepositoryAddress() returns undefined for an empty string', function () {
+            assert.strictEqual(normalizeRepositoryAddress(''), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for null input', function () {
-            assert.strictEqual(normalizeRepositoryUrl(null), undefined);
+        test('normalizeRepositoryAddress() returns undefined for null input', function () {
+            assert.strictEqual(normalizeRepositoryAddress(null), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for numeric input', function () {
-            assert.strictEqual(normalizeRepositoryUrl(42), undefined);
+        test('normalizeRepositoryAddress() returns undefined for numeric input', function () {
+            assert.strictEqual(normalizeRepositoryAddress(42), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for an array input', function () {
-            assert.strictEqual(normalizeRepositoryUrl([ 'https://github.com/foo/bar' ]), undefined);
+        test('normalizeRepositoryAddress() returns undefined for an array input', function () {
+            assert.strictEqual(normalizeRepositoryAddress([ 'https://github.com/foo/bar' ]), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for object input missing the url property', function () {
-            assert.strictEqual(normalizeRepositoryUrl({ type: 'git' }), undefined);
+        test('normalizeRepositoryAddress() returns undefined for object input missing the url property', function () {
+            assert.strictEqual(normalizeRepositoryAddress({ type: 'git' }), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for object input with an empty url property', function () {
-            assert.strictEqual(normalizeRepositoryUrl({ url: '' }), undefined);
+        test('normalizeRepositoryAddress() returns undefined for object input with an empty url property', function () {
+            assert.strictEqual(normalizeRepositoryAddress({ url: '' }), undefined);
         });
 
-        test('normalizeRepositoryUrl() returns undefined for object input with a non-string url property', function () {
-            assert.strictEqual(normalizeRepositoryUrl({ url: 42 }), undefined);
+        test('normalizeRepositoryAddress() returns undefined for object input with a non-string url property', function () {
+            assert.strictEqual(normalizeRepositoryAddress({ url: 42 }), undefined);
         });
     });
 
     suite('hosted repository urls', function () {
         suite('GitHub urls', function () {
-            test('normalizeRepositoryUrl() canonicalizes a plain https GitHub url', function () {
-                assert.strictEqual(normalizeRepositoryUrl('https://github.com/foo/bar'), 'https://github.com/foo/bar');
-            });
-
-            test('normalizeRepositoryUrl() canonicalizes a https GitHub url with a .git suffix', function () {
+            test('normalizeRepositoryAddress() canonicalizes a plain https GitHub url', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('https://github.com/foo/bar.git'),
+                    normalizeRepositoryAddress('https://github.com/foo/bar'),
                     'https://github.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() canonicalizes a https GitHub url with a trailing slash', function () {
-                assert.strictEqual(normalizeRepositoryUrl('https://github.com/foo/bar/'), 'https://github.com/foo/bar');
-            });
-
-            test('normalizeRepositoryUrl() canonicalizes a git+https GitHub url', function () {
+            test('normalizeRepositoryAddress() canonicalizes a https GitHub url with a .git suffix', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('git+https://github.com/foo/bar.git'),
+                    normalizeRepositoryAddress('https://github.com/foo/bar.git'),
                     'https://github.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() canonicalizes a git+ssh GitHub url', function () {
+            test('normalizeRepositoryAddress() canonicalizes a https GitHub url with a trailing slash', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('git+ssh://git@github.com/foo/bar.git'),
+                    normalizeRepositoryAddress('https://github.com/foo/bar/'),
                     'https://github.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() canonicalizes an SCP-style GitHub url', function () {
-                assert.strictEqual(normalizeRepositoryUrl('git@github.com:foo/bar.git'), 'https://github.com/foo/bar');
+            test('normalizeRepositoryAddress() canonicalizes a git+https GitHub url', function () {
+                assert.strictEqual(
+                    normalizeRepositoryAddress('git+https://github.com/foo/bar.git'),
+                    'https://github.com/foo/bar'
+                );
             });
 
-            test('normalizeRepositoryUrl() canonicalizes an npm shorthand GitHub url', function () {
-                assert.strictEqual(normalizeRepositoryUrl('github:foo/bar'), 'https://github.com/foo/bar');
+            test('normalizeRepositoryAddress() canonicalizes a git+ssh GitHub url', function () {
+                assert.strictEqual(
+                    normalizeRepositoryAddress('git+ssh://git@github.com/foo/bar.git'),
+                    'https://github.com/foo/bar'
+                );
+            });
+
+            test('normalizeRepositoryAddress() canonicalizes an SCP-style GitHub url', function () {
+                assert.strictEqual(
+                    normalizeRepositoryAddress('git@github.com:foo/bar.git'),
+                    'https://github.com/foo/bar'
+                );
+            });
+
+            test('normalizeRepositoryAddress() canonicalizes an npm shorthand GitHub url', function () {
+                assert.strictEqual(normalizeRepositoryAddress('github:foo/bar'), 'https://github.com/foo/bar');
             });
         });
 
         suite('GitLab urls', function () {
-            test('normalizeRepositoryUrl() canonicalizes a https GitLab url', function () {
-                assert.strictEqual(normalizeRepositoryUrl('https://gitlab.com/foo/bar'), 'https://gitlab.com/foo/bar');
+            test('normalizeRepositoryAddress() canonicalizes a https GitLab url', function () {
+                assert.strictEqual(
+                    normalizeRepositoryAddress('https://gitlab.com/foo/bar'),
+                    'https://gitlab.com/foo/bar'
+                );
             });
         });
 
         suite('object urls', function () {
-            test('normalizeRepositoryUrl() canonicalizes the object form with a url property', function () {
+            test('normalizeRepositoryAddress() canonicalizes the object form with a url property', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl({ type: 'git', url: 'git+ssh://git@github.com/foo/bar.git' }),
+                    normalizeRepositoryAddress({ type: 'git', url: 'git+ssh://git@github.com/foo/bar.git' }),
                     'https://github.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() lowercases mixed-case host and path', function () {
-                assert.strictEqual(normalizeRepositoryUrl('https://Github.com/Foo/Bar'), 'https://github.com/foo/bar');
-            });
-
-            test('normalizeRepositoryUrl() drops a committish from a hosted GitHub url', function () {
+            test('normalizeRepositoryAddress() lowercases mixed-case host and path', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('https://github.com/foo/bar#main'),
+                    normalizeRepositoryAddress('https://Github.com/Foo/Bar'),
                     'https://github.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() ignores the directory field on the object form', function () {
+            test('normalizeRepositoryAddress() drops a committish from a hosted GitHub url', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl({
+                    normalizeRepositoryAddress('https://github.com/foo/bar#main'),
+                    'https://github.com/foo/bar'
+                );
+            });
+
+            test('normalizeRepositoryAddress() ignores the directory field on the object form', function () {
+                assert.strictEqual(
+                    normalizeRepositoryAddress({
                         type: 'git',
                         url: 'https://github.com/foo/bar',
                         directory: 'packages/inner'
@@ -157,30 +173,30 @@ suite('repository-coherence', function () {
         });
 
         suite('self-hosted urls', function () {
-            test('normalizeRepositoryUrl() falls back to manual normalization for self-hosted https urls', function () {
+            test('normalizeRepositoryAddress() falls back to manual normalization for self-hosted https urls', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('https://gitea.example.com/foo/bar.git'),
+                    normalizeRepositoryAddress('https://gitea.example.com/foo/bar.git'),
                     'https://gitea.example.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() strips a trailing slash for self-hosted urls', function () {
+            test('normalizeRepositoryAddress() strips a trailing slash for self-hosted urls', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('https://gitea.example.com/foo/bar/'),
+                    normalizeRepositoryAddress('https://gitea.example.com/foo/bar/'),
                     'https://gitea.example.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() strips a git+ prefix for self-hosted urls', function () {
+            test('normalizeRepositoryAddress() strips a git+ prefix for self-hosted urls', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('git+https://gitea.example.com/foo/bar.git'),
+                    normalizeRepositoryAddress('git+https://gitea.example.com/foo/bar.git'),
                     'https://gitea.example.com/foo/bar'
                 );
             });
 
-            test('normalizeRepositoryUrl() lowercases self-hosted urls', function () {
+            test('normalizeRepositoryAddress() lowercases self-hosted urls', function () {
                 assert.strictEqual(
-                    normalizeRepositoryUrl('https://Gitea.Example.com/Foo/Bar'),
+                    normalizeRepositoryAddress('https://Gitea.Example.com/Foo/Bar'),
                     'https://gitea.example.com/foo/bar'
                 );
             });
@@ -188,74 +204,83 @@ suite('repository-coherence', function () {
     });
 
     suite('CI repository urls', function () {
-        test('getCiRepositoryUrl() returns undefined when no env vars are set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: undefined,
+        test('getContinuousIntegrationRepositoryAddress() returns undefined when no env vars are set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: undefined,
                 githubRepository: undefined,
-                gitlabProjectUrl: undefined
+                gitlabProjectAddress: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
+            assert.strictEqual(getContinuousIntegrationRepositoryAddress(environment), undefined);
         });
 
-        test('getCiRepositoryUrl() returns the GitHub Actions repository url when both GHA env vars are set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: 'https://github.com',
+        test('getContinuousIntegrationRepositoryAddress() returns the GitHub Actions repository url when both GHA env vars are set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: 'https://github.com',
                 githubRepository: 'enormora/packtory',
-                gitlabProjectUrl: undefined
+                gitlabProjectAddress: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), 'https://github.com/enormora/packtory');
+            assert.strictEqual(
+                getContinuousIntegrationRepositoryAddress(environment),
+                'https://github.com/enormora/packtory'
+            );
         });
 
-        test('getCiRepositoryUrl() returns the GitLab CI repository url when only the GitLab var is set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: undefined,
+        test('getContinuousIntegrationRepositoryAddress() returns the GitLab CI repository url when only the GitLab var is set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: undefined,
                 githubRepository: undefined,
-                gitlabProjectUrl: 'https://gitlab.com/enormora/packtory'
+                gitlabProjectAddress: 'https://gitlab.com/enormora/packtory'
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), 'https://gitlab.com/enormora/packtory');
+            assert.strictEqual(
+                getContinuousIntegrationRepositoryAddress(environment),
+                'https://gitlab.com/enormora/packtory'
+            );
         });
 
-        test('getCiRepositoryUrl() prefers GitHub Actions over GitLab when both are set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: 'https://github.com',
+        test('getContinuousIntegrationRepositoryAddress() prefers GitHub Actions over GitLab when both are set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: 'https://github.com',
                 githubRepository: 'enormora/packtory',
-                gitlabProjectUrl: 'https://gitlab.com/some/other'
+                gitlabProjectAddress: 'https://gitlab.com/some/other'
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), 'https://github.com/enormora/packtory');
+            assert.strictEqual(
+                getContinuousIntegrationRepositoryAddress(environment),
+                'https://github.com/enormora/packtory'
+            );
         });
 
-        test('getCiRepositoryUrl() returns undefined when only GITHUB_SERVER_URL is set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: 'https://github.com',
+        test('getContinuousIntegrationRepositoryAddress() returns undefined when only GITHUB_SERVER_URL is set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: 'https://github.com',
                 githubRepository: undefined,
-                gitlabProjectUrl: undefined
+                gitlabProjectAddress: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
+            assert.strictEqual(getContinuousIntegrationRepositoryAddress(environment), undefined);
         });
 
-        test('getCiRepositoryUrl() returns undefined when only GITHUB_REPOSITORY is set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: undefined,
+        test('getContinuousIntegrationRepositoryAddress() returns undefined when only GITHUB_REPOSITORY is set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: undefined,
                 githubRepository: 'enormora/packtory',
-                gitlabProjectUrl: undefined
+                gitlabProjectAddress: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
+            assert.strictEqual(getContinuousIntegrationRepositoryAddress(environment), undefined);
         });
 
-        test('getCiRepositoryUrl() treats empty env values as not set', function () {
-            const environment: CiEnvironment = {
-                githubServerUrl: '',
+        test('getContinuousIntegrationRepositoryAddress() treats empty env values as not set', function () {
+            const environment: ContinuousIntegrationEnvironment = {
+                githubServerAddress: '',
                 githubRepository: '',
-                gitlabProjectUrl: ''
+                gitlabProjectAddress: ''
             };
 
-            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
+            assert.strictEqual(getContinuousIntegrationRepositoryAddress(environment), undefined);
         });
     });
 
@@ -267,10 +292,10 @@ suite('repository-coherence', function () {
             );
 
             assert.strictEqual(
-                getCiRepositoryUrl({
+                getContinuousIntegrationRepositoryAddress({
                     githubRepository: 'enormora/packtory',
-                    githubServerUrl: 'https://github.com',
-                    gitlabProjectUrl: ''
+                    githubServerAddress: 'https://github.com',
+                    gitlabProjectAddress: ''
                 }),
                 'https://github.com/enormora/packtory'
             );
@@ -283,7 +308,7 @@ suite('repository-coherence', function () {
             );
 
             assert.strictEqual(
-                normalizeRepositoryUrl('git+ssh://git@github.com/enormora/packtory.git'),
+                normalizeRepositoryAddress('git+ssh://git@github.com/enormora/packtory.git'),
                 'https://github.com/enormora/packtory'
             );
         });
@@ -326,33 +351,33 @@ suite('repository-coherence', function () {
                 function () {
                     assertRepositoryCoherence({ repository: 'https://github.com/enormora/packtory' }, undefined);
                 },
-                expectedNoCiDetectedMessage
+                expectedNoContinuousIntegrationDetectedMessage
             );
         });
     });
 
     suite('CI environment reads', function () {
-        test('readCiEnvironment() reads GitHub Actions, GitLab CI, and missing env vars from the given env', function () {
-            const environment: CiEnvironment = readCiEnvironment({
+        test('readContinuousIntegrationEnvironment() reads GitHub Actions, GitLab CI, and missing env vars from the given env', function () {
+            const environment: ContinuousIntegrationEnvironment = readContinuousIntegrationEnvironment({
                 GITHUB_SERVER_URL: 'https://github.com',
                 GITHUB_REPOSITORY: 'enormora/packtory',
                 CI_PROJECT_URL: 'https://gitlab.com/some/other'
             });
 
             assert.deepStrictEqual(environment, {
-                githubServerUrl: 'https://github.com',
+                githubServerAddress: 'https://github.com',
                 githubRepository: 'enormora/packtory',
-                gitlabProjectUrl: 'https://gitlab.com/some/other'
+                gitlabProjectAddress: 'https://gitlab.com/some/other'
             });
         });
 
-        test('readCiEnvironment() returns undefined values when env vars are absent', function () {
-            const environment: CiEnvironment = readCiEnvironment({});
+        test('readContinuousIntegrationEnvironment() returns undefined values when env vars are absent', function () {
+            const environment: ContinuousIntegrationEnvironment = readContinuousIntegrationEnvironment({});
 
             assert.deepStrictEqual(environment, {
-                githubServerUrl: undefined,
+                githubServerAddress: undefined,
                 githubRepository: undefined,
-                gitlabProjectUrl: undefined
+                gitlabProjectAddress: undefined
             });
         });
     });

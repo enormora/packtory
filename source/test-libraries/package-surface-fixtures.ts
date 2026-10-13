@@ -11,7 +11,7 @@ export function rootWithSource(
     overrides: RootContentOverrides = {}
 ): RootFileDescription {
     return {
-        js: {
+        javaScript: {
             inputFilePath,
             targetFilePath,
             content: overrides.content ?? '',
@@ -33,13 +33,18 @@ export function executableShebangRoot(targetFilePath: string): RootFileDescripti
 }
 
 export function rootWithDeclaration(
-    jsSource: string,
-    jsTarget: string,
+    javaScriptSource: string,
+    javaScriptTarget: string,
     declarationSource: string,
     declarationTarget: string
 ): RootFileDescription {
     return {
-        js: { inputFilePath: jsSource, targetFilePath: jsTarget, content: '', isExecutable: false },
+        javaScript: {
+            inputFilePath: javaScriptSource,
+            targetFilePath: javaScriptTarget,
+            content: '',
+            isExecutable: false
+        },
         declarationFile: { inputFilePath: declarationSource, targetFilePath: declarationTarget }
     };
 }

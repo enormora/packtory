@@ -1,18 +1,18 @@
 import {
     resolveDeadCodeEliminationSettings,
     type DeadCodeEliminationSettings
-} from '../../config/dead-code-elimination-settings.ts';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+} from '../../configuration/dead-code-elimination-settings.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
 
 export function resolveDeadCodeEliminationByName(
-    validated: ValidConfigWithoutRegistryResult
+    validated: ValidConfigurationWithoutRegistryResult
 ): ReadonlyMap<string, DeadCodeEliminationSettings | undefined> {
-    const commonSettings = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination;
+    const commonSettings = validated.packtoryConfiguration.commonPackageSettings?.deadCodeElimination;
     return new Map(
-        validated.packtoryConfig.packages.map(function (packageConfig) {
+        validated.packtoryConfiguration.packages.map(function (packageConfiguration) {
             return [
-                packageConfig.name,
-                resolveDeadCodeEliminationSettings(packageConfig.deadCodeElimination, commonSettings)
+                packageConfiguration.name,
+                resolveDeadCodeEliminationSettings(packageConfiguration.deadCodeElimination, commonSettings)
             ];
         })
     );

@@ -37,7 +37,7 @@ After the tool exits, configure the Trusted Publisher in the npm UI, then publis
 
 - `<package-name>`: required. The npm name to claim, scoped (e.g. `@scope/foo`) or unscoped.
 
-The registry, the workaround URL embedded in the placeholder, and the placeholder's dist-tag are intentionally not configurable — the tool is single-purpose and targets `registry.npmjs.org`, the `npm/cli#8544` tracking issue, and the `bootstrap` dist-tag.
+The registry, the workaround URL embedded in the placeholder, and the placeholder's dist-tag are intentionally not configurable , the tool is single-purpose and targets `registry.npmjs.org`, the `npm/cli#8544` tracking issue, and the `bootstrap` dist-tag.
 
 ## What gets published
 

@@ -1,0 +1,305 @@
+import assert from 'node:assert';
+import { suite, test } from 'mocha';
+import { safeParse } from '../common/schema-validation.ts';
+import { changelogSettingsSchema, validateChangelogSettings } from './changelog-settings.ts';
+import type { PacktoryConfigurationWithoutRegistry } from './configuration.ts';
+
+function configurationWith(
+    changelog: PacktoryConfigurationWithoutRegistry['changelog']
+): PacktoryConfigurationWithoutRegistry {
+    return {
+        changelog,
+        packages: [
+            {
+                sourcesFolder: 'source/package-a',
+                mainPackageManifest: { type: 'module' },
+                name: 'package-a',
+                roots: { main: { javaScript: 'index.js' } },
+                publishSettings: { access: 'public' }
+            },
+            {
+                sourcesFolder: 'source/package-b',
+                mainPackageManifest: { type: 'module' },
+                name: 'package-b',
+                roots: { main: { javaScript: 'index.js' } },
+                publishSettings: { access: 'public' }
+            }
+        ]
+    };
+}
+
+function packageWithoutSources(
+    name: string,
+    javaScriptFile: string
+): PacktoryConfigurationWithoutRegistry['packages'][number] {
+    return {
+        name,
+        mainPackageManifest: { type: 'module' },
+        roots: { main: { javaScript: javaScriptFile } }
+    } as const;
+}
+
+function packagesWithoutSources(): readonly PacktoryConfigurationWithoutRegistry['packages'][number][] {
+    return [ packageWithoutSources('package-a', 'a.js'), packageWithoutSources('package-b', 'b.js') ] as const;
+}
+
+suite('changelog-settings', function () {
+    suite('changelog schema outputs and labels', function () {
+        test('schema accepts all output kinds', function () {
+            const result = safeParse(changelogSettingsSchema, {
+                outputs: [
+                    { kind: 'repository-file', path: 'CHANGELOG.md' },
+                    { kind: 'package-file', path: 'documentation/CHANGELOG.md' },
+                    {
+                        kind: 'package-file',
+                        paths: {
+                            'package-a': 'packages/package-a/CHANGELOG.md',
+                            'package-b': 'packages/package-b/CHANGELOG.md'
+                        }
+                    },
+                    { kind: 'github-release' }
+                ]
+            });
+
+            assert.strictEqual(result.success, true);
+        });
+
+        test('schema accepts pr-log and base-ref settings without outputs', function () {
+            const result = safeParse(changelogSettingsSchema, {
+                pullRequestLog: {
+                    validLabels: { bug: 'Fixes', operations: 'Operations' },
+                    ignoredLabels: [ 'skip-changelog' ],
+                    versionBumps: { major: [ 'breaking' ], minor: [ 'feature' ], patch: [ 'bug' ] },
+                    dateFormat: 'yyyy-MM-dd',
+                    collapseRules: [
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$',
+                            replace: 'Update $<dependency> from $<from> to $<to>',
+                            keyGroup: 'dependency',
+                            fromGroup: 'from',
+                            toGroup: 'to'
+                        },
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?) to (?<version>.+?)$',
+                            replace: 'Update $<dependency> to $<version>',
+                            keyGroup: 'dependency',
+                            versionGroup: 'version'
+                        },
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?)$',
+                            replace: 'Update $<dependency>',
+                            keyGroup: 'dependency',
+                            collapse: 'same'
+                        }
+                    ],
+                    labelLookupIntervalMilliseconds: 500,
+                    maximumRateLimitRetryCount: 5
+                },
+                targetScopedLabelPattern: 'scope:{targetName}:{label}',
+                packageTagFormat: 'pkg/{packageName}/v{version}',
+                explicitBaseReference: 'main'
+            });
+
+            assert.strictEqual(result.success, true);
+        });
+
+        test('schema rejects empty outputs', function () {
+            assert.strictEqual(safeParse(changelogSettingsSchema, { outputs: [] }).success, false);
+        });
+
+        test('schema rejects empty pattern and base-ref settings', function () {
+            assert.strictEqual(safeParse(changelogSettingsSchema, { targetScopedLabelPattern: '' }).success, false);
+            assert.strictEqual(safeParse(changelogSettingsSchema, { packageTagFormat: '' }).success, false);
+            assert.strictEqual(safeParse(changelogSettingsSchema, { explicitBaseReference: '' }).success, false);
+        });
+
+        test('schema rejects invalid pr-log settings', function () {
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    pullRequestLog: {
+                        collapseRules: [
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?)$',
+                                replace: 'Update $<dependency>',
+                                collapse: 'all'
+                            }
+                        ]
+                    }
+                })
+                    .success,
+                false
+            );
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    pullRequestLog: {
+                        collapseRules: [
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?) to (?<version>.+?)$',
+                                replace: 'Update $<dependency> to $<version>',
+                                versionGroup: ''
+                            }
+                        ]
+                    }
+                })
+                    .success,
+                false
+            );
+        });
+
+        test('schema rejects unsafe output paths', function () {
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'repository-file', path: '../CHANGELOG.md' } ]
+                })
+                    .success,
+                false
+            );
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'package-file', path: '/CHANGELOG.md' } ]
+                })
+                    .success,
+                false
+            );
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'package-file', paths: { 'package-a': '../CHANGELOG.md' } } ]
+                })
+                    .success,
+                false
+            );
+        });
+
+        test('schema rejects empty explicit package-file paths', function () {
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'package-file', paths: {} } ]
+                })
+                    .success,
+                false
+            );
+        });
+
+        test('schema rejects extra output object properties', function () {
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'github-release', path: 'CHANGELOG.md' } ]
+                })
+                    .success,
+                false
+            );
+            assert.strictEqual(
+                safeParse(changelogSettingsSchema, {
+                    outputs: [ { kind: 'package-file', path: 'CHANGELOG.md', paths: { 'package-a': 'CHANGELOG.md' } } ]
+                })
+                    .success,
+                false
+            );
+        });
+
+        test('validation rejects duplicate github-release outputs', function () {
+            const result = validateChangelogSettings(
+                configurationWith({ outputs: [ { kind: 'github-release' }, { kind: 'github-release' } ] })
+            );
+
+            assert.deepStrictEqual(result, [ 'changelog.outputs must not contain duplicate github-release outputs' ]);
+        });
+    });
+
+    suite('changelog output validation', function () {
+        test('validation accepts a single github-release output', function () {
+            const result = validateChangelogSettings(configurationWith({ outputs: [ { kind: 'github-release' } ] }));
+
+            assert.deepStrictEqual(result, []);
+        });
+
+        test('validation accepts target-scoped label patterns with both placeholders', function () {
+            const result = validateChangelogSettings(
+                configurationWith({ targetScopedLabelPattern: 'scope:{targetName}:{label}' })
+            );
+
+            assert.deepStrictEqual(result, []);
+        });
+
+        test('validation rejects target-scoped label patterns without the target placeholder', function () {
+            assert.deepStrictEqual(
+                validateChangelogSettings(configurationWith({ targetScopedLabelPattern: 'scope:{label}' })),
+                [
+                    'changelog.targetScopedLabelPattern must contain {targetName} and {label}'
+                ]
+            );
+        });
+
+        test('validation rejects target-scoped label patterns without the label placeholder', function () {
+            assert.deepStrictEqual(
+                validateChangelogSettings(configurationWith({ targetScopedLabelPattern: 'scope:{targetName}' })),
+                [ 'changelog.targetScopedLabelPattern must contain {targetName} and {label}' ]
+            );
+        });
+
+        test('validation rejects duplicate repository-file paths', function () {
+            const result = validateChangelogSettings(
+                configurationWith({
+                    outputs: [
+                        { kind: 'repository-file', path: 'documentation/CHANGELOG.md' },
+                        { kind: 'repository-file', path: 'documentation\\CHANGELOG.md' }
+                    ]
+                })
+            );
+
+            assert.deepStrictEqual(result, [
+                'changelog.outputs must not contain duplicate repository-file path "documentation/CHANGELOG.md"'
+            ]);
+        });
+
+        test('validation rejects package-file destinations that resolve to the same file', function () {
+            const result = validateChangelogSettings({
+                changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                commonPackageSettings: { sourcesFolder: 'source', publishSettings: { access: 'public' } },
+                packages: packagesWithoutSources()
+            });
+
+            assert.deepStrictEqual(result, [
+                'changelog.outputs package-file destinations must resolve to unique files; "source/CHANGELOG.md" is duplicated'
+            ]);
+        });
+
+        test('validation rejects duplicate explicit package-file destinations', function () {
+            const result = validateChangelogSettings(
+                configurationWith({
+                    outputs: [
+                        {
+                            kind: 'package-file',
+                            paths: {
+                                'package-a': 'packages/package-a/CHANGELOG.md',
+                                'package-b': 'packages\\package-a\\CHANGELOG.md'
+                            }
+                        }
+                    ]
+                })
+            );
+
+            assert.deepStrictEqual(result, [
+                [
+                    'changelog.outputs package-file destinations must resolve to unique files;',
+                    '"packages/package-a/CHANGELOG.md" is duplicated'
+                ]
+                    .join(' ')
+            ]);
+        });
+
+        test('validation skips package-file destination checks when sourcesFolder is unavailable', function () {
+            const result = validateChangelogSettings({
+                changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                packages: packagesWithoutSources()
+            });
+
+            assert.deepStrictEqual(result, []);
+        });
+    });
+});

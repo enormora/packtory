@@ -8,7 +8,7 @@ import {
     type Statement,
     type VariableStatement
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { hasClassImpurity } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
 import { isPureExpression } from './pure-expression.ts';

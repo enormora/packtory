@@ -39,17 +39,17 @@ function resolvedPath(
 }
 
 function resolvedTypePath(from: string, files: readonly TestFile[]): string | undefined {
-    return resolvedPath(from, files, '/project/src/index.ts', 'type');
+    return resolvedPath(from, files, '/project/source/index.ts', 'type');
 }
 
 function resolvedRuntimePath(from: string, files: readonly TestFile[]): string | undefined {
-    return resolvedPath(from, files, '/project/src/index.ts', 'runtime');
+    return resolvedPath(from, files, '/project/source/index.ts', 'runtime');
 }
 
 function packageTypeFor(filePath: string, files: readonly TestFile[]): string | undefined {
     return packageTypeForResolvedFilePath({
         filePath,
-        containingSourceFile: containingSourceFile(files, '/project/src/index.ts')
+        containingSourceFile: containingSourceFile(files, '/project/source/index.ts')
     });
 }
 
@@ -83,9 +83,9 @@ function registerTypeResolutionTests(): void {
     test('resolveTypescriptModuleFilePath resolves relative modules', function () {
         assert.strictEqual(
             resolvedTypePath('./relative.js', [
-                { filePath: '/project/src/relative.js', content: 'export const value = 1;' }
+                { filePath: '/project/source/relative.js', content: 'export const value = 1;' }
             ]),
-            '/project/src/relative.js'
+            '/project/source/relative.js'
         );
     });
 
@@ -93,12 +93,12 @@ function registerTypeResolutionTests(): void {
         assert.strictEqual(
             resolvedTypePath('#shared', [
                 {
-                    filePath: '/project/src/package.json',
+                    filePath: '/project/source/package.json',
                     content: '{"type":"module","imports":{"#shared":"./shared.js"}}'
                 },
-                { filePath: '/project/src/shared.js', content: 'export const value = 1;' }
+                { filePath: '/project/source/shared.js', content: 'export const value = 1;' }
             ]),
-            '/project/src/shared.js'
+            '/project/source/shared.js'
         );
     });
 
@@ -240,17 +240,17 @@ function registerRuntimePackageFallbackTests(): void {
         assert.strictEqual(
             resolvedRuntimePath('#shared', [
                 {
-                    filePath: '/project/src/package.json',
+                    filePath: '/project/source/package.json',
                     content: '{"type":"module","imports":{"#shared":"./shared.js"}}'
                 },
-                { filePath: '/project/src/shared.js', content: 'export const value = 1;' },
+                { filePath: '/project/source/shared.js', content: 'export const value = 1;' },
                 {
                     filePath: '/project/node_modules/#shared/package.json',
                     content: '{"type":"module","exports":"./wrong.js"}'
                 },
                 { filePath: '/project/node_modules/#shared/wrong.js', content: 'export const wrong = 1;' }
             ]),
-            '/project/src/shared.js'
+            '/project/source/shared.js'
         );
     });
 
@@ -280,7 +280,7 @@ function registerRuntimePackageFallbackTests(): void {
     test('resolveTypescriptModuleFilePath resolves bare packages before local file paths', function () {
         assert.strictEqual(
             resolvedRuntimePath('schema-lib', [
-                { filePath: '/project/src/schema-lib', content: 'export const local = 1;' },
+                { filePath: '/project/source/schema-lib', content: 'export const local = 1;' },
                 {
                     filePath: '/project/node_modules/schema-lib/package.json',
                     content: '{"type":"module","exports":"./index.js"}'
@@ -291,7 +291,7 @@ function registerRuntimePackageFallbackTests(): void {
         );
         assert.strictEqual(
             resolvedRuntimePath('schema.lib', [
-                { filePath: '/project/src/schema.lib.js', content: 'export const local = 1;' },
+                { filePath: '/project/source/schema.lib.js', content: 'export const local = 1;' },
                 {
                     filePath: '/project/node_modules/schema.lib/package.json',
                     content: '{"type":"module","exports":"./index.js"}'
@@ -374,20 +374,20 @@ function registerRuntimeRelativeResolutionTests(): void {
     test('resolveTypescriptModuleFilePath resolves extensionless runtime relative imports', function () {
         assert.strictEqual(
             resolvedRuntimePath('./feature', [
-                { filePath: '/project/src/feature.mjs', content: 'export const value = 1;' },
-                { filePath: '/project/src/feature.js', content: 'export const wrong = 1;' }
+                { filePath: '/project/source/feature.mjs', content: 'export const value = 1;' },
+                { filePath: '/project/source/feature.js', content: 'export const wrong = 1;' }
             ]),
-            '/project/src/feature.mjs'
+            '/project/source/feature.mjs'
         );
         assert.strictEqual(
             resolvedRuntimePath('./script', [
-                { filePath: '/project/src/script.js', content: 'export const value = 1;' }
+                { filePath: '/project/source/script.js', content: 'export const value = 1;' }
             ]),
-            '/project/src/script.js'
+            '/project/source/script.js'
         );
         assert.strictEqual(
             resolvedRuntimePath('./missing.js', [
-                { filePath: '/project/src/missing.js.js', content: 'export const value = 1;' }
+                { filePath: '/project/source/missing.js.js', content: 'export const value = 1;' }
             ]),
             undefined
         );
@@ -413,9 +413,9 @@ function registerRuntimeFallbackTests(): void {
             resolvedPath(
                 './feature.js',
                 [
-                    { filePath: '/project/src/feature.js', content: 'export const value = 1;' }
+                    { filePath: '/project/source/feature.js', content: 'export const value = 1;' }
                 ],
-                '/project/src/index.ts',
+                '/project/source/index.ts',
                 'invalid' as 'runtime'
             ),
             undefined

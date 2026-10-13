@@ -1,13 +1,13 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import type { FileDescription } from './file-description.ts';
 import { compareFileDescriptions } from './compare.ts';
 
-const fileDescriptionArbitrary = fc.record<FileDescription>({
-    filePath: fc.string(),
-    content: fc.string(),
-    isExecutable: fc.boolean()
+const fileDescriptionArbitrary = fastCheck.record<FileDescription>({
+    filePath: fastCheck.string(),
+    content: fastCheck.string(),
+    isExecutable: fastCheck.boolean()
 });
 
 function firstFileDescription(fileDescriptions: readonly FileDescription[]): FileDescription {
@@ -20,9 +20,9 @@ function firstFileDescription(fileDescriptions: readonly FileDescription[]): Fil
 
 suite('compare', function () {
     test('compareFileDescriptions() is order-insensitive for equivalent file sets', function () {
-        fc.assert(
-            fc.property(
-                fc.uniqueArray(fileDescriptionArbitrary, {
+        fastCheck.assert(
+            fastCheck.property(
+                fastCheck.uniqueArray(fileDescriptionArbitrary, {
                     selector(fileDescription) {
                         return fileDescription.filePath;
                     },
@@ -38,10 +38,10 @@ suite('compare', function () {
     });
 
     test('compareFileDescriptions() reports non-equal when any file content changes', function () {
-        fc.assert(
-            fc.property(
-                fc.array(fileDescriptionArbitrary, { minLength: 1, maxLength: 20 }),
-                fc.string(),
+        fastCheck.assert(
+            fastCheck.property(
+                fastCheck.array(fileDescriptionArbitrary, { minLength: 1, maxLength: 20 }),
+                fastCheck.string(),
                 function (fileDescriptions, suffix) {
                     const modified = Array.from(fileDescriptions);
                     const first = firstFileDescription(modified);

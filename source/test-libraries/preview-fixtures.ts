@@ -12,8 +12,8 @@ export function createAnalyzedResource(
 ): AnalyzedBundleResource {
     return {
         fileDescription: {
-            inputFilePath: overrides.inputFilePath ?? '/workspace/src/index.js',
-            targetFilePath: overrides.targetFilePath ?? 'src/index.js',
+            inputFilePath: overrides.inputFilePath ?? '/workspace/source/index.js',
+            targetFilePath: overrides.targetFilePath ?? 'source/index.js',
             content: overrides.content ?? 'export const kept = 1;\n',
             isExecutable: overrides.isExecutable ?? false
         },
@@ -36,7 +36,7 @@ export function createBuildResultFixture(
         readonly contents?: readonly AnalyzedBundleResource[];
     } = {}
 ): BuildAndPublishResult {
-    const packageName = overrides.packageName ?? 'pkg-a';
+    const packageName = overrides.packageName ?? 'package-a';
     const version = overrides.version ?? '1.0.1';
     return {
         status: 'new-version',
@@ -45,7 +45,7 @@ export function createBuildResultFixture(
             name: packageName,
             version,
             manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false },
-            packageJson: { name: packageName, version },
+            packageManifest: { name: packageName, version },
             contents: overrides.contents ?? [ createAnalyzedResource() ]
         }),
         extraFiles: [],
@@ -55,7 +55,7 @@ export function createBuildResultFixture(
 }
 
 function defaultArtifactPath(kind: ArtifactEntry['kind']): string {
-    return kind === 'manifest' ? 'package.json' : 'src/index.js';
+    return kind === 'manifest' ? 'package.json' : 'source/index.js';
 }
 
 function defaultArtifactSize(kind: ArtifactEntry['kind']): number {
@@ -71,7 +71,7 @@ function artifactSourcePathEntry(
     sourcePath: string | undefined
 ): Record<PropertyKey, never> | { readonly sourcePath: string; } {
     if (kind === 'source') {
-        return { sourcePath: sourcePath ?? '/workspace/src/index.js' };
+        return { sourcePath: sourcePath ?? '/workspace/source/index.js' };
     }
     return sourcePath === undefined ? {} : { sourcePath };
 }
@@ -106,8 +106,8 @@ export function createPackageReportFixture(overrides: Partial<PackageReport> = {
                 totalBytes: 22,
                 entries: [
                     createArtifactEntryFixture({
-                        path: 'src/index.js',
-                        sourcePath: '/workspace/src/index.js',
+                        path: 'source/index.js',
+                        sourcePath: '/workspace/source/index.js',
                         badges: [ 'dead-code-elimination' ]
                     }),
                     createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
@@ -115,7 +115,7 @@ export function createPackageReportFixture(overrides: Partial<PackageReport> = {
             }
         },
         eliminatedSourceFiles: [
-            { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
+            { path: '/workspace/source/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
         ],
         timings: { publish: 5 },
         ...overrides
@@ -127,7 +127,7 @@ export function createBuildReportFixture(overrides: Partial<BuildReport> = {}): 
         schemaVersion: 1,
         generatedAt: '2026-05-11T00:00:00.000Z',
         packages: {
-            'pkg-a': createPackageReportFixture()
+            'package-a': createPackageReportFixture()
         },
         aggregate: { crossBundleLinks: [] },
         ...overrides
@@ -137,8 +137,8 @@ export function createBuildReportFixture(overrides: Partial<BuildReport> = {}): 
 export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> = {}): PreviewPackage {
     const changedArtifact = {
         ...createArtifactEntryFixture({
-            path: 'src/index.js',
-            sourcePath: '/workspace/src/index.js',
+            path: 'source/index.js',
+            sourcePath: '/workspace/source/index.js',
             badges: [ 'dead-code-elimination' ]
         }),
         diff: [
@@ -166,13 +166,13 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
             artifact: createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
         },
         {
-            path: 'src',
-            name: 'src',
+            path: 'source',
+            name: 'source',
             depth: 0,
             type: 'directory'
         },
         {
-            path: 'src/index.js',
+            path: 'source/index.js',
             name: 'index.js',
             depth: 1,
             type: 'file',
@@ -201,7 +201,7 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
         );
 
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         versionTransition: '1.0.0 -> 1.0.1',
         hasChanges: true,
         openByDefault: true,
@@ -209,7 +209,7 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
         changedArtifacts,
         artifactCounts,
         eliminatedSourceFiles: [
-            { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
+            { path: '/workspace/source/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
         ],
         diagnostics: createPackageReportFixture({
             decisions: { linker: { rewrites: [] } },
@@ -245,8 +245,8 @@ export function createDirectoryDiffPreviewPackageFixture(overrides: Partial<Prev
         artifactCounts: { emitted: 0, changed: 0 },
         tree: [
             {
-                path: 'src',
-                name: 'src',
+                path: 'source',
+                name: 'source',
                 depth: 0,
                 type: 'directory'
             }
@@ -274,7 +274,7 @@ export function createPreviewDocumentFixture(overrides: Partial<PreviewDocument>
         packages: [ createPreviewPackageFixture() ],
         report: createBuildReportFixture({
             packages: {
-                'pkg-a': createPackageReportFixture({
+                'package-a': createPackageReportFixture({
                     decisions: { linker: { rewrites: [] } },
                     outputs: { tarball: { entries: [], totalBytes: 0 } }
                 })

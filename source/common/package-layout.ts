@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { FileManager } from '../file-manager/file-manager.ts';
 
 export const packageManifestFilePath = 'package.json';
-export const sbomArtifactFilePath = 'sbom.cdx.json';
+export const softwareBillOfMaterialsArtifactFilePath = 'software-bill-of-materials.cyclonedx.json';
 export const installedDependenciesFolderName = 'node_modules';
 
 const tarballPackageRootPrefix = 'package/';

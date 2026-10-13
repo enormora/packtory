@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {
-    cliWorkloadSizes,
+    commandLineInterfaceWorkloadSizes,
     workloadSizes,
-    type CliWorkloadDefinition,
-    type CliWorkloadSize,
+    type CommandLineInterfaceWorkloadDefinition,
+    type CommandLineInterfaceWorkloadSize,
     type ResponsivenessThreshold,
     type ThresholdsFile,
     type ThroughputThreshold,
@@ -31,22 +31,22 @@ function parseWorkloadDefinition(value: unknown): WorkloadDefinition {
     return {
         clusterCount: readNumberField(value, 'clusterCount'),
         packageCount: readNumberField(value, 'packageCount'),
-        jsFileCount: readNumberField(value, 'jsFileCount'),
+        javaScriptFileCount: readNumberField(value, 'javaScriptFileCount'),
         declarationFileCount: readNumberField(value, 'declarationFileCount'),
         sourceMapFileCount: readNumberField(value, 'sourceMapFileCount'),
-        maxImportFanOut: readNumberField(value, 'maxImportFanOut')
+        maximumImportFanOut: readNumberField(value, 'maximumImportFanOut')
     };
 }
 
-function parseCliWorkloadDefinition(value: unknown): CliWorkloadDefinition {
+function parseCommandLineInterfaceWorkloadDefinition(value: unknown): CommandLineInterfaceWorkloadDefinition {
     assert.ok(isRecord(value), 'CLI workload definition must be an object');
 
     return {
         packageCount: readNumberField(value, 'packageCount'),
-        jsFileCount: readNumberField(value, 'jsFileCount'),
+        javaScriptFileCount: readNumberField(value, 'javaScriptFileCount'),
         declarationFileCount: readNumberField(value, 'declarationFileCount'),
         sourceMapFileCount: readNumberField(value, 'sourceMapFileCount'),
-        maxImportFanOut: readNumberField(value, 'maxImportFanOut')
+        maximumImportFanOut: readNumberField(value, 'maximumImportFanOut')
     };
 }
 
@@ -60,12 +60,14 @@ function parseWorkloadDefinitions(value: unknown): Record<WorkloadSize, Workload
     };
 }
 
-function parseCliWorkloadDefinitions(value: unknown): Record<CliWorkloadSize, CliWorkloadDefinition> {
+function parseCommandLineInterfaceWorkloadDefinitions(
+    value: unknown
+): Record<CommandLineInterfaceWorkloadSize, CommandLineInterfaceWorkloadDefinition> {
     assert.ok(isRecord(value), 'CLI workloads must be an object');
 
     return {
-        medium: parseCliWorkloadDefinition(value[cliWorkloadSizes[0]]),
-        large: parseCliWorkloadDefinition(value[cliWorkloadSizes[mediumIndex]])
+        medium: parseCommandLineInterfaceWorkloadDefinition(value[commandLineInterfaceWorkloadSizes[0]]),
+        large: parseCommandLineInterfaceWorkloadDefinition(value[commandLineInterfaceWorkloadSizes[mediumIndex]])
     };
 }
 
@@ -73,7 +75,7 @@ function parseThroughputThreshold(value: unknown): ThroughputThreshold {
     assert.ok(isRecord(value), 'Throughput threshold must be an object');
 
     return {
-        medianMs: readNumberField(value, 'medianMs')
+        medianMilliseconds: readNumberField(value, 'medianMilliseconds')
     };
 }
 
@@ -81,8 +83,8 @@ function parseResponsivenessThreshold(value: unknown): ResponsivenessThreshold {
     assert.ok(isRecord(value), 'Responsiveness threshold must be an object');
 
     return {
-        p99Ms: readNumberField(value, 'p99Ms'),
-        maxMs: readNumberField(value, 'maxMs')
+        p99Milliseconds: readNumberField(value, 'p99Milliseconds'),
+        maximumMilliseconds: readNumberField(value, 'maximumMilliseconds')
     };
 }
 
@@ -103,7 +105,7 @@ export function parseWorkloadsFile(value: unknown): WorkloadsFile {
     return {
         seedFixture: value.seedFixture,
         workloads: parseWorkloadDefinitions(value.workloads),
-        cliWorkloads: parseCliWorkloadDefinitions(value.cliWorkloads)
+        commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(value.commandLineInterfaceWorkloads)
     };
 }
 
@@ -112,9 +114,12 @@ export function parseThresholdsFile(value: unknown): ThresholdsFile {
     assert.ok(isRecord(value.normalization), 'Thresholds normalization must be an object');
     assert.ok(isRecord(value.throughput), 'Thresholds throughput must be an object');
     assert.ok(isRecord(value.responsiveness), 'Thresholds responsiveness must be an object');
-    assert.ok(isRecord(value.responsiveness['publish-cli']), 'publish-cli responsiveness threshold must be an object');
+    assert.ok(
+        isRecord(value.responsiveness['publish-command-line-interface']),
+        'publish-command-line-interface responsiveness threshold must be an object'
+    );
 
-    const publishCliThresholds = value.responsiveness['publish-cli'];
+    const publishCommandLineInterfaceThresholds = value.responsiveness['publish-command-line-interface'];
 
     return {
         normalization: {
@@ -125,10 +130,10 @@ export function parseThresholdsFile(value: unknown): ThresholdsFile {
             'resolve-and-link': parseThroughputThresholds(value.throughput['resolve-and-link'])
         },
         responsiveness: {
-            'publish-cli': {
-                intervalMs: readNumberField(publishCliThresholds, 'intervalMs'),
-                medium: parseResponsivenessThreshold(publishCliThresholds.medium),
-                large: parseResponsivenessThreshold(publishCliThresholds.large)
+            'publish-command-line-interface': {
+                intervalMilliseconds: readNumberField(publishCommandLineInterfaceThresholds, 'intervalMilliseconds'),
+                medium: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds.medium),
+                large: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds.large)
             }
         }
     };

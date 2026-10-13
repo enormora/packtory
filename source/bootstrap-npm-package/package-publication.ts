@@ -6,18 +6,18 @@ export type PublicationManifest = {
     readonly deprecated: string;
 };
 
-export type WebOtpUrls = {
-    readonly authUrl: string;
-    readonly doneUrl: string;
+export type WebOneTimePasswordAddresses = {
+    readonly authenticationAddress: string;
+    readonly doneAddress: string;
 };
 
-type OneTimePasswordPrompt = (webOtpUrls: WebOtpUrls | undefined) => Promise<string>;
+type OneTimePasswordPrompt = (webOneTimePasswordAddresses: WebOneTimePasswordAddresses | undefined) => Promise<string>;
 
 type PublicationInput = {
     readonly manifest: PublicationManifest;
     readonly tarball: Buffer;
     readonly token: string;
-    readonly registryUrl: string;
+    readonly registryAddress: string;
     readonly distTag: string;
     readonly promptForOneTimePassword: OneTimePasswordPrompt;
 };
@@ -58,16 +58,18 @@ function isOneTimePasswordRequiredError(error: unknown): error is OneTimePasswor
     return isRecord(error) && error.code === 'EOTP';
 }
 
-function extractWebOtpUrls(error: OneTimePasswordRequiredError): WebOtpUrls | undefined {
+function extractWebOneTimePasswordAddresses(
+    error: OneTimePasswordRequiredError
+): WebOneTimePasswordAddresses | undefined {
     const { body } = error;
     if (!isRecord(body)) {
         return undefined;
     }
-    const { authUrl, doneUrl } = body;
-    if (typeof authUrl !== 'string' || typeof doneUrl !== 'string') {
+    const { authUrl: authenticationAddress, doneUrl: doneAddress } = body;
+    if (typeof authenticationAddress !== 'string' || typeof doneAddress !== 'string') {
         return undefined;
     }
-    return { authUrl, doneUrl };
+    return { authenticationAddress, doneAddress };
 }
 
 export function createPackagePublication(dependencies: Readonly<PackagePublicationDependencies>): PackagePublication {
@@ -78,7 +80,7 @@ export function createPackagePublication(dependencies: Readonly<PackagePublicati
             const baseOptions: LibnpmpublishOptions = {
                 defaultTag: input.distTag,
                 access: 'public',
-                registry: input.registryUrl,
+                registry: input.registryAddress,
                 forceAuth: { token: input.token },
                 authType: 'web'
             };
@@ -89,8 +91,8 @@ export function createPackagePublication(dependencies: Readonly<PackagePublicati
                 if (!isOneTimePasswordRequiredError(error)) {
                     throw error;
                 }
-                const otp = await input.promptForOneTimePassword(extractWebOtpUrls(error));
-                await publish(input.manifest, input.tarball, { ...baseOptions, otp });
+                const oneTimePassword = await input.promptForOneTimePassword(extractWebOneTimePasswordAddresses(error));
+                await publish(input.manifest, input.tarball, { ...baseOptions, otp: oneTimePassword });
             }
         }
     };

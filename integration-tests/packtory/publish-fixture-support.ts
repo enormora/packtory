@@ -2,23 +2,27 @@ import path from 'node:path';
 import assert from 'node:assert';
 import npmFetch from 'npm-registry-fetch';
 import { publish } from 'libnpmpublish';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import type { RegistryDetails } from '../registry.ts';
 import { createTarballBuilder, type TarballBuilder } from '../../source/tar/tarball-builder.ts';
 import {
     buildAndPublishAll,
-    type PacktoryConfig,
+    type PacktoryConfiguration,
     type PublishAllResult
 } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { createRegistryClient } from '../../source/bundle-emitter/registry/registry-client.ts';
 import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
 const timers = process.getBuiltinModule('node:timers');
-const fs = process.getBuiltinModule('node:fs').promises;
+const fileSystem = process.getBuiltinModule('node:fs').promises;
 const nodeCrypto = process.getBuiltinModule('node:crypto');
 
 const registryClient = createRegistryClient({
-    npmFetch,
+    npmFetch: {
+        async javaScriptObjectNotation(address, options) {
+            return npmFetch.json(address, options);
+        }
+    },
     publish,
     fetch,
     clock: {
@@ -28,7 +32,7 @@ const registryClient = createRegistryClient({
         setTimeout: timers.setTimeout,
         clearTimeout: timers.clearTimeout
     },
-    async resolveIdToken() {
+    async resolveIdentifierToken() {
         throw new Error('OIDC id tokens are not used in this integration test');
     }
 });
@@ -41,30 +45,30 @@ export type PublishedPackage = {
     readonly manifest: Readonly<Record<string, unknown>>;
 };
 
-export type PackageConfig = PacktoryConfig['packages'][number];
-export type PackageConfigList = readonly [PackageConfig, ...(readonly PackageConfig[])];
-type CommonPackageSettings = NonNullable<PacktoryConfig['commonPackageSettings']>;
-type PublishConfig = PacktoryConfig & {
+export type PackageConfiguration = PacktoryConfiguration['packages'][number];
+export type PackageConfigurationList = readonly [PackageConfiguration, ...(readonly PackageConfiguration[])];
+type CommonPackageSettings = NonNullable<PacktoryConfiguration['commonPackageSettings']>;
+type PublishConfiguration = PacktoryConfiguration & {
     readonly commonPackageSettings: CommonPackageSettings & {
         readonly sourcesFolder: string;
-        readonly mainPackageJson: NonNullable<CommonPackageSettings['mainPackageJson']>;
+        readonly mainPackageManifest: NonNullable<CommonPackageSettings['mainPackageManifest']>;
     };
 };
-type CreatePublishConfigInput = {
+type CreatePublishConfigurationInput = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;
-    readonly packages: PackageConfigList;
+    readonly packages: PackageConfigurationList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
-    readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
+    readonly mainPackageManifestOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageManifest']>>;
 };
 type PublishFixturePackagesInput = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;
-    readonly packages?: PackageConfigList;
+    readonly packages?: PackageConfigurationList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
-    readonly authMode?: 'basic' | 'bearer';
+    readonly authenticationMode?: 'basic' | 'bearer';
     readonly dryRun?: boolean;
-    readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
+    readonly mainPackageManifestOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageManifest']>>;
 };
 type PublishTaggedVersionInput = {
     readonly distTag: string;
@@ -74,16 +78,16 @@ type PublishTaggedVersionInput = {
     readonly version: string;
 };
 type StoredPackageDocument = {
-    readonly _id: string;
+    readonly _identifier: string;
     readonly name: string;
     readonly 'dist-tags': Readonly<Record<string, string>>;
     readonly versions: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
     readonly time: Readonly<Record<string, string>>;
     readonly users: Readonly<Record<string, never>>;
     readonly _uplinks: Readonly<Record<string, never>>;
-    readonly _distfiles: Readonly<Record<string, { readonly url: string; }>>;
+    readonly _distfiles: Readonly<Record<string, { readonly address: string; }>>;
     readonly _attachments: Readonly<Record<string, { readonly version: string; }>>;
-    readonly _rev: string;
+    readonly _revision: string;
 };
 type TarballData = Awaited<ReturnType<TarballBuilder['build']>>;
 type StoredPackageDocumentInput = {
@@ -93,7 +97,7 @@ type StoredPackageDocumentInput = {
     readonly manifest: Readonly<Record<string, unknown>>;
     readonly name: string;
     readonly packageIntegrity: string;
-    readonly tarballUrl: string;
+    readonly tarballAddress: string;
     readonly version: string;
 };
 type WriteStoredPackageInput = {
@@ -107,12 +111,12 @@ type WriteStoredPackageInput = {
 
 function createRegistrySettings(
     registryDetails: RegistryDetails,
-    authMode: PublishFixturePackagesInput['authMode'] = 'bearer'
-): NonNullable<PublishConfig['registrySettings']> {
-    if (authMode === 'basic') {
+    authenticationMode: PublishFixturePackagesInput['authenticationMode'] = 'bearer'
+): NonNullable<PublishConfiguration['registrySettings']> {
+    if (authenticationMode === 'basic') {
         return {
-            registryUrl: registryDetails.registryUrl,
-            auth: {
+            registryAddress: registryDetails.registryAddress,
+            authentication: {
                 type: 'basic',
                 username: registryDetails.username,
                 password: registryDetails.password
@@ -121,27 +125,27 @@ function createRegistrySettings(
     }
 
     return {
-        registryUrl: registryDetails.registryUrl,
-        auth: {
+        registryAddress: registryDetails.registryAddress,
+        authentication: {
             type: 'bearer-token',
             token: registryDetails.token
         }
     };
 }
 
-function createRoot(fixturePath: string, entryBaseName: string): PackageConfig['roots'][string] {
+function createRoot(fixturePath: string, entryBaseName: string): PackageConfiguration['roots'][string] {
     return {
-        js: path.join(fixturePath, `src/${entryBaseName}.js`),
-        declarationFile: path.join(fixturePath, `src/${entryBaseName}.d.ts`)
+        javaScript: path.join(fixturePath, `source/${entryBaseName}.js`),
+        declarationFile: path.join(fixturePath, `source/${entryBaseName}.d.ts`)
     };
 }
 
-export function createPackageConfig(
+export function createPackageConfiguration(
     fixturePath: string,
     name: string,
     entryBaseName: string,
-    overrides: Partial<PackageConfig> = {}
-): PackageConfig {
+    overrides: Partial<PackageConfiguration> = {}
+): PackageConfiguration {
     return {
         name,
         roots: { main: createRoot(fixturePath, entryBaseName) },
@@ -149,17 +153,20 @@ export function createPackageConfig(
     };
 }
 
-export function createPackageConfigList<TFirst extends PackageConfig, TRest extends readonly PackageConfig[]>(
+export function createPackageConfigurationList<
+    TFirst extends PackageConfiguration,
+    TRest extends readonly PackageConfiguration[]
+>(
     first: TFirst,
     ...rest: TRest
 ): readonly [TFirst, ...TRest] {
     return [ first, ...rest ];
 }
 
-export function standardFixturePackages(fixturePath: string): PackageConfigList {
-    return createPackageConfigList(
-        createPackageConfig(fixturePath, 'first', 'entry1'),
-        createPackageConfig(fixturePath, 'second', 'entry2', { bundleDependencies: [ 'first' ] })
+export function standardFixturePackages(fixturePath: string): PackageConfigurationList {
+    return createPackageConfigurationList(
+        createPackageConfiguration(fixturePath, 'first', 'entry1'),
+        createPackageConfiguration(fixturePath, 'second', 'entry2', { bundleDependencies: [ 'first' ] })
     );
 }
 
@@ -167,16 +174,16 @@ export function getFixturePath(name: string): string {
     return path.join(process.cwd(), `integration-tests/fixtures/${name}`);
 }
 
-async function createPublishConfig(input: CreatePublishConfigInput): Promise<PublishConfig> {
-    const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageJsonOverrides } = input;
-    const baseMainPackageJson = await loadPackageJson(fixturePath);
-    const mergedMainPackageJson = { ...baseMainPackageJson, ...mainPackageJsonOverrides };
-    const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
-        publishSettings: { access: 'public', sbom: { enabled: false } },
+async function createPublishConfiguration(input: CreatePublishConfigurationInput): Promise<PublishConfiguration> {
+    const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageManifestOverrides } = input;
+    const baseMainPackageManifest = await loadPackageManifest(fixturePath);
+    const mergedMainPackageManifest = { ...baseMainPackageManifest, ...mainPackageManifestOverrides };
+    const mergedCommonPackageSettings: PublishConfiguration['commonPackageSettings'] = {
+        publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: false } },
         deadCodeElimination: { enabled: false },
         ...commonPackageSettings,
-        sourcesFolder: path.join(fixturePath, 'src'),
-        mainPackageJson: mergedMainPackageJson
+        sourcesFolder: path.join(fixturePath, 'source'),
+        mainPackageManifest: mergedMainPackageManifest
     };
 
     return {
@@ -187,20 +194,20 @@ async function createPublishConfig(input: CreatePublishConfigInput): Promise<Pub
 }
 
 export async function publishFixturePackages(input: PublishFixturePackagesInput): Promise<PublishAllResult> {
-    const configInput = {
+    const configurationInput = {
         fixturePath: input.fixturePath,
         registryDetails: input.registryDetails,
         packages: input.packages ?? standardFixturePackages(input.fixturePath),
         ...input.commonPackageSettings === undefined ? {} : { commonPackageSettings: input.commonPackageSettings },
-        ...input.mainPackageJsonOverrides === undefined ? {} : {
-            mainPackageJsonOverrides: input.mainPackageJsonOverrides
+        ...input.mainPackageManifestOverrides === undefined ? {} : {
+            mainPackageManifestOverrides: input.mainPackageManifestOverrides
         }
     };
-    const config = await createPublishConfig(configInput);
-    const registrySettings = createRegistrySettings(input.registryDetails, input.authMode ?? 'basic');
+    const configuration = await createPublishConfiguration(configurationInput);
+    const registrySettings = createRegistrySettings(input.registryDetails, input.authenticationMode ?? 'basic');
 
     const outcome = await buildAndPublishAll(
-        { ...config, registrySettings },
+        { ...configuration, registrySettings },
         { dryRun: input.dryRun ?? false, stage: false }
     );
     return outcome.result;
@@ -215,7 +222,7 @@ function createStoredPackageDocument(input: StoredPackageDocumentInput): StoredP
     const publishedDate = new Date();
     const publishedAt = publishedDate.toISOString();
     return {
-        _id: input.name,
+        _identifier: input.name,
         name: input.name,
         'dist-tags': {
             latest: input.latestVersion,
@@ -227,14 +234,14 @@ function createStoredPackageDocument(input: StoredPackageDocumentInput): StoredP
                 version: input.latestVersion,
                 dist: {
                     integrity: input.packageIntegrity,
-                    tarball: input.tarballUrl
+                    tarball: input.tarballAddress
                 }
             },
             [input.version]: {
                 ...input.manifest,
                 dist: {
                     integrity: input.packageIntegrity,
-                    tarball: input.tarballUrl
+                    tarball: input.tarballAddress
                 }
             }
         },
@@ -247,22 +254,25 @@ function createStoredPackageDocument(input: StoredPackageDocumentInput): StoredP
         users: {},
         _uplinks: {},
         _distfiles: {
-            [input.attachmentName]: { url: input.tarballUrl }
+            [input.attachmentName]: { address: input.tarballAddress }
         },
         _attachments: {
             [input.attachmentName]: {
                 version: input.version
             }
         },
-        _rev: '1-fixture'
+        _revision: '1-fixture'
     };
 }
 
 async function writeStoredPackage(input: WriteStoredPackageInput): Promise<void> {
     const packageFolder = path.join(input.registryDetails.storageDirectory, input.name);
-    await fs.mkdir(packageFolder, { recursive: true });
-    await fs.writeFile(path.join(packageFolder, input.attachmentName), input.tarball);
-    await fs.writeFile(path.join(packageFolder, 'package.json'), JSON.stringify(input.packageDocument, null, '\t'));
+    await fileSystem.mkdir(packageFolder, { recursive: true });
+    await fileSystem.writeFile(path.join(packageFolder, input.attachmentName), input.tarball);
+    await fileSystem.writeFile(
+        path.join(packageFolder, 'package.json'),
+        JSON.stringify(input.packageDocument, null, '\t')
+    );
 
     const registrySettings = createRegistrySettings(input.registryDetails);
     const metadata = await registryClient.fetchVersionReleaseMetadata(input.name, input.version, registrySettings);
@@ -290,7 +300,7 @@ export async function publishTaggedRegistryVersion(input: PublishTaggedVersionIn
         }
     ]);
     const attachmentName = `${input.name}-${input.version}.tgz`;
-    const tarballUrl = `${input.registryDetails.registryUrl}/${input.name}/-/${attachmentName}`;
+    const tarballAddress = `${input.registryDetails.registryAddress}/${input.name}/-/${attachmentName}`;
     const packageIntegrity = await createTarballIntegrity(tarball);
     const packageDocument = createStoredPackageDocument({
         attachmentName,
@@ -299,7 +309,7 @@ export async function publishTaggedRegistryVersion(input: PublishTaggedVersionIn
         manifest,
         name: input.name,
         packageIntegrity,
-        tarballUrl,
+        tarballAddress,
         version: input.version
     });
     await writeStoredPackage({
@@ -339,8 +349,8 @@ export async function fetchPublishedPackage(
         assert.fail(`Expected package "${packageName}" to be published`);
     }
 
-    const { version, tarballUrl, tarballIntegrity } = versionDetails.value;
-    const tarballData = await registryClient.fetchTarball(tarballUrl, tarballIntegrity, registrySettings);
+    const { version, tarballAddress, tarballIntegrity } = versionDetails.value;
+    const tarballData = await registryClient.fetchTarball(tarballAddress, tarballIntegrity, registrySettings);
     const files = await extractPackageTarball(tarballData);
     const manifestFile = findManifestFile(files, packageName);
 

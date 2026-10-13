@@ -17,23 +17,24 @@ import {
 } from '../../test-libraries/release-pull-request-handler-test-support.ts';
 import {
     createReleasePullRequestClient,
-    createReleasePullRequestConfig
+    createReleasePullRequestConfiguration
 } from '../../test-libraries/runner-test-support.ts';
-import { releaseCommitFilePath } from './release-output-files.ts';
+import { toPreparedReleaseFile } from './release-output-files.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
 suite('release-pull-request-handler', function () {
     suite('release commit paths', function () {
         test('formats repository-relative paths with Windows separators', function () {
             assert.strictEqual(
-                releaseCommitFilePath('/repo\\workspace', '/repo\\workspace\\CHANGELOG.md'),
+                toPreparedReleaseFile('/repo\\workspace', { content: '', filePath: '/repo\\workspace\\CHANGELOG.md' })
+                    .path,
                 'CHANGELOG.md'
             );
         });
 
         test('keeps paths outside the repository unchanged', function () {
             assert.strictEqual(
-                releaseCommitFilePath('/repo/workspace', '/repo/other/CHANGELOG.md'),
+                toPreparedReleaseFile('/repo/workspace', { content: '', filePath: '/repo/other/CHANGELOG.md' }).path,
                 '/repo/other/CHANGELOG.md'
             );
         });
@@ -80,15 +81,15 @@ suite('release-pull-request-handler', function () {
                 const runEnvironment of [
                     {
                         eventName: 'workflow_dispatch',
-                        refName: 'main'
+                        referenceName: 'main'
                     },
                     {
                         eventName: 'push',
-                        refName: 'release/packtory'
+                        referenceName: 'release/packtory'
                     }
                 ]
             ) {
-                test(`maintain runs for ${runEnvironment.eventName} on ${runEnvironment.refName}`, async function () {
+                test(`maintain ${runEnvironment.eventName}/${runEnvironment.referenceName}`, async function () {
                     const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient({}));
                     const { dependencies, log } = createDependencies({
                         createReleasePullRequestGitHubClient,
@@ -97,7 +98,7 @@ suite('release-pull-request-handler', function () {
                             return {
                                 GH_TOKEN: 'token',
                                 GITHUB_EVENT_NAME: runEnvironment.eventName,
-                                GITHUB_REF_NAME: runEnvironment.refName,
+                                GITHUB_REF_NAME: runEnvironment.referenceName,
                                 GITHUB_REPOSITORY: 'owner/repo'
                             }[name];
                         }
@@ -114,7 +115,7 @@ suite('release-pull-request-handler', function () {
                     readEnvironmentVariable(name) {
                         return { GH_TOKEN: 'token' }[name];
                     },
-                    readPackageInfo: fake.rejects(new Error('repository failed')),
+                    readPackageInformation: fake.rejects(new Error('repository failed')),
                     trace: true
                 });
 
@@ -167,13 +168,13 @@ suite('release-pull-request-handler', function () {
 
             test('maintain returns failure when configured release PR CI fails', async function () {
                 const { dependencies, log } = createReleaseContentDependencies({
-                    configLoader: {
+                    configurationLoader: {
                         load: fake.resolves({
-                            ...createReleasePullRequestConfig(),
+                            ...createReleasePullRequestConfiguration(),
                             releasePullRequest: {
-                                githubActionsCi: {
+                                githubActionsContinuousIntegration: {
                                     trigger: 'workflow-dispatch',
-                                    workflowFile: 'ci.yml',
+                                    workflowFile: 'continuous-integration.yml',
                                     requiredStatusContexts: [ 'Missing job' ]
                                 }
                             }
@@ -190,7 +191,7 @@ suite('release-pull-request-handler', function () {
                     flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
                     packtory: createPacktoryWithPlan(
                         fake.resolves({
-                            result: Result.err({ type: 'config', issues: [ 'Registry failed' ] }),
+                            result: Result.err({ type: 'configuration', issues: [ 'Registry failed' ] }),
                             getReport() {
                                 return createBuildReportFixture();
                             }
@@ -204,13 +205,13 @@ suite('release-pull-request-handler', function () {
 
             test('maintain rejects changed releases without written changelogs', async function () {
                 const { dependencies, log } = createReleaseContentDependencies({
-                    createPrLogEngine: fake.returns(createEmptyReleaseChangelogEngine())
+                    createPullRequestLogEngine: fake.returns(createEmptyReleaseChangelogEngine())
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
                 assert.strictEqual(
                     log.lastCall.args[0],
-                    'No changelog files were written; changelog attribution found no pull requests for pkg.'
+                    'No changelog files were written; changelog attribution found no pull requests for package.'
                 );
             });
         });
@@ -218,7 +219,7 @@ suite('release-pull-request-handler', function () {
         suite('configuration', function () {
             test('maintain rejects configs without valid packages', async function () {
                 const { dependencies, log } = createDependencies({
-                    configLoader: { load: fake.resolves({}) },
+                    configurationLoader: { load: fake.resolves({}) },
                     flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined }
                 });
 
@@ -228,13 +229,13 @@ suite('release-pull-request-handler', function () {
 
             test('maintain rejects invalid release pull request settings', async function () {
                 const { dependencies, log } = createDependencies({
-                    configLoader: {
+                    configurationLoader: {
                         load: fake.resolves({
-                            ...createReleasePullRequestConfig(),
+                            ...createReleasePullRequestConfiguration(),
                             releasePullRequest: {
-                                githubActionsCi: {
+                                githubActionsContinuousIntegration: {
                                     trigger: 'workflow-dispatch',
-                                    workflowFile: 'ci.yml',
+                                    workflowFile: 'continuous-integration.yml',
                                     requiredStatusContexts: []
                                 }
                             }
@@ -249,10 +250,10 @@ suite('release-pull-request-handler', function () {
 
             test('maintain rejects non-object pr-log settings', async function () {
                 const { dependencies, log } = createDependencies({
-                    configLoader: {
+                    configurationLoader: {
                         load: fake.resolves({
-                            ...createReleasePullRequestConfig(),
-                            changelog: { prLog: null }
+                            ...createReleasePullRequestConfiguration(),
+                            changelog: { pullRequestLog: null }
                         })
                     },
                     flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined }
@@ -274,9 +275,9 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
-                    apiBaseUrl: 'https://api.github.com',
+                    applicationProgrammingInterfaceBaseAddress: 'https://api.github.com',
                     owner: 'owner',
-                    repo: 'repo',
+                    repository: 'repo',
                     token: undefined
                 });
             });
@@ -289,16 +290,16 @@ suite('release-pull-request-handler', function () {
                     readEnvironmentVariable(name) {
                         return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
                     },
-                    readPackageInfo: fake.resolves({
+                    readPackageInformation: fake.resolves({
                         repository: { url: 'https://github.com/package-owner/package-repo' }
                     })
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
-                    apiBaseUrl: 'https://api.github.com',
+                    applicationProgrammingInterfaceBaseAddress: 'https://api.github.com',
                     owner: 'package-owner',
-                    repo: 'package-repo',
+                    repository: 'package-repo',
                     token: 'github-token'
                 });
             });
@@ -312,9 +313,9 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
-                    apiBaseUrl: 'https://api.github.com',
+                    applicationProgrammingInterfaceBaseAddress: 'https://api.github.com',
                     owner: 'owner',
-                    repo: 'repo',
+                    repository: 'repo',
                     token: 'token'
                 });
             });
@@ -335,9 +336,9 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
-                    apiBaseUrl: 'http://127.0.0.1:1234',
+                    applicationProgrammingInterfaceBaseAddress: 'http://127.0.0.1:1234',
                     owner: 'owner',
-                    repo: 'repo',
+                    repository: 'repo',
                     token: 'token'
                 });
             });
@@ -361,16 +362,16 @@ suite('release-pull-request-handler', function () {
     suite('validate', function () {
         suite('pull request events', function () {
             test('validate accepts release pull request events that satisfy policy', async function () {
-                const getBranchHeadSha = fake.resolves('main-head');
+                const getBranchHeadHash = fake.resolves('main-head');
                 const getPullRequestHead = fake.resolves(createPullRequestHead());
                 const { dependencies, log } = createValidationDependencies(
                     'pull_request',
                     { pull_request: { number: 12 } },
-                    { getBranchHeadSha, getPullRequestHead }
+                    { getBranchHeadHash, getPullRequestHead }
                 );
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
-                assert.strictEqual(getBranchHeadSha.firstCall.args[0], 'main');
+                assert.strictEqual(getBranchHeadHash.firstCall.args[0], 'main');
                 assert.strictEqual(getPullRequestHead.firstCall.args[0], 12);
                 assert.strictEqual(log.lastCall.args[0], 'Release PR policy passed.');
             });
@@ -391,7 +392,7 @@ suite('release-pull-request-handler', function () {
                 const getPullRequestHead = fake.resolves(createPullRequestHead({
                     author: 'contributor',
                     labels: [ 'needs-review' ],
-                    parentShas: [ 'feature-parent' ],
+                    parentHashes: [ 'feature-parent' ],
                     title: 'Feature work'
                 }));
                 const { dependencies, log } = createValidationDependencies(
@@ -429,11 +430,11 @@ suite('release-pull-request-handler', function () {
             test('validate accepts merge group events whose release pull requests satisfy policy', async function () {
                 const listCommitPullRequests = fake.resolves([ { number: 12 } ]);
                 const getPullRequestHead = fake.resolves(createPullRequestHead({
-                    parentShas: [ 'base-sha' ]
+                    parentHashes: [ 'base-sha' ]
                 }));
                 const { dependencies, log } = createValidationDependencies(
                     'merge_group',
-                    { merge_group: { base_sha: 'base-sha', head_sha: 'head-sha' } },
+                    { merge_group: { base_hash: 'base-sha', head_sha: 'head-sha' } },
                     { getPullRequestHead, listCommitPullRequests }
                 );
 
@@ -459,7 +460,7 @@ suite('release-pull-request-handler', function () {
             test('validate rejects merge group events without a head SHA', async function () {
                 const { dependencies, log } = createValidationDependencies(
                     'merge_group',
-                    { merge_group: { base_sha: 'base-sha' } }
+                    { merge_group: { base_hash: 'base-sha' } }
                 );
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
@@ -487,7 +488,7 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
                 assert.strictEqual(
                     log.lastCall.args[0],
-                    'release-pr validate only supports pull_request and merge_group events'
+                    'release-pull-request validate only supports pull_request and merge_group events'
                 );
             });
 
@@ -546,7 +547,7 @@ suite('release-pull-request-handler', function () {
 
     test('formats non-error command failures', async function () {
         const { dependencies, log } = createDependencies({
-            configLoader: {
+            configurationLoader: {
                 async load() {
                     return rejectWithUnknown('plain failure');
                 }

@@ -1,5 +1,5 @@
 import { z, type ZodMiniType } from 'zod/mini';
-import { nonEmptyStringSchema } from '../config/base-validations.ts';
+import { nonEmptyStringSchema } from '../configuration/base-validations.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 
@@ -17,23 +17,23 @@ export const pathAllowListGlobalSchema = z.strictObject({
 
 export const pathAllowListPerPackageSchema = z.strictObject(pathAllowListShape);
 
-type RuleGlobalConfig = {
+type RuleGlobalConfiguration = {
     readonly enabled: boolean;
 };
 
-type MainPackageJsonShape = {
+type MainPackageManifestShape = {
     readonly dependencies?: Readonly<Record<string, string>> | undefined;
     readonly devDependencies?: Readonly<Record<string, string>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
 };
 
-export type RulePackageConfig = {
+export type RulePackageConfiguration = {
     readonly bundleDependencies?: readonly string[] | undefined;
     readonly bundlePeerDependencies?: readonly string[] | undefined;
-    readonly mainPackageJson?: MainPackageJsonShape | undefined;
+    readonly mainPackageManifest?: MainPackageManifestShape | undefined;
 };
 
-export type RuleRunInput<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
+export type RuleRunInput<TName extends string, TGlobal extends RuleGlobalConfiguration, TPerPackage> = {
     readonly bundles: readonly AnalyzedBundle[];
     readonly sourceFolders: ReadonlyMap<string, string>;
     readonly publishedPackages?: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
@@ -42,10 +42,10 @@ export type RuleRunInput<TName extends string, TGlobal extends RuleGlobalConfig,
         string,
         Readonly<Partial<Readonly<Record<TName, TPerPackage | undefined>>>> | undefined
     >;
-    readonly packageConfigs?: Readonly<Record<string, RulePackageConfig>>;
+    readonly packageConfigurations?: Readonly<Record<string, RulePackageConfiguration>>;
 };
 
-export type CheckRuleDefinition<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
+export type CheckRuleDefinition<TName extends string, TGlobal extends RuleGlobalConfiguration, TPerPackage> = {
     readonly name: TName;
     readonly globalSchema: ZodMiniType<TGlobal>;
     readonly perPackageSchema: ZodMiniType<TPerPackage>;

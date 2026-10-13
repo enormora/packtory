@@ -2,59 +2,59 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { loadPackageJson } from '../load-package-json.ts';
-import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
+import type { PacktoryConfigurationWithoutRegistry } from '../../source/configuration/configuration.ts';
 import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
 import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
-import { runEmittedPackageApi } from './emitted-package-probe.ts';
+import { runEmittedPackageApplicationProgrammingInterface } from './emitted-package-probe.ts';
 
-async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+async function singlePackageConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' }
         },
         packages: [
             {
-                name: 'pkg',
-                roots: { main: { js: path.join(fixturePath, 'src/pkg/index.js') } }
+                name: 'package',
+                roots: { main: { javaScript: path.join(fixturePath, 'source/package/index.js') } }
             }
         ]
     };
 }
 
-async function consumerProducerConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+async function consumerProducerConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' }
         },
         packages: [
             {
-                name: 'pkg-consumer',
-                roots: { main: { js: path.join(fixturePath, 'src/pkg-consumer/index.js') } },
-                bundleDependencies: [ 'pkg-producer' ]
+                name: 'package-consumer',
+                roots: { main: { javaScript: path.join(fixturePath, 'source/package-consumer/index.js') } },
+                bundleDependencies: [ 'package-producer' ]
             },
             {
-                name: 'pkg-producer',
-                roots: { main: { js: path.join(fixturePath, 'src/pkg-producer/index.js') } }
+                name: 'package-producer',
+                roots: { main: { javaScript: path.join(fixturePath, 'source/package-producer/index.js') } }
             }
         ]
     };
 }
 
-async function duplicatedFilesConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+async function duplicatedFilesConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' }
         },
         packages: [
-            { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
-            { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
+            { name: 'package-a', roots: { main: { javaScript: path.join(fixturePath, 'source/package-a/index.js') } } },
+            { name: 'package-b', roots: { main: { javaScript: path.join(fixturePath, 'source/package-b/index.js') } } }
         ],
         checks: { noDuplicatedFiles: { enabled: true } }
     };
@@ -114,15 +114,15 @@ function assertSharedDeclarationIssue(
     if (issue === undefined) {
         assert.fail('expected issue');
     }
-    assert.ok(issue.includes('shared/util.js'));
+    assert.ok(issue.includes('shared/utilities.js'));
     assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
 }
 
 function assertDeadDependencyMetadataRemoved(consumer: ResolvedPackage): void {
-    const entry = findResource(consumer, 'pkg-consumer/index.js');
+    const entry = findResource(consumer, 'package-consumer/index.js');
 
     assert.strictEqual(entry.fileDescription.content.includes('common-tags'), false);
-    assert.strictEqual(entry.fileDescription.content.includes('pkg-producer'), false);
+    assert.strictEqual(entry.fileDescription.content.includes('package-producer'), false);
     assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.externalDependencies), []);
     assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.linkedBundleDependencies), []);
     assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.substitutedInputFilePathsByPackageName), []);
@@ -131,10 +131,10 @@ function assertDeadDependencyMetadataRemoved(consumer: ResolvedPackage): void {
 suite('dead-code-elimination', function () {
     test('happy path: removes an unused exported helper from a shared module while keeping the used one', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
-        const config = await singlePackageConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await singlePackageConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const resolvedPackage = findPackage(packages, 'pkg');
+        const resolvedPackage = findPackage(packages, 'package');
         const helpers = findResource(resolvedPackage, 'shared/helpers.js');
 
         assert.ok(helpers.fileDescription.content.includes('used'), 'used() should remain');
@@ -147,55 +147,58 @@ suite('dead-code-elimination', function () {
 
     test('repairs stale imports so emitted ECMAScript modules instantiate after dead code elimination', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
-        const config = await singlePackageConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await singlePackageConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const resolvedPackage = findPackage(packages, 'pkg');
-        const entry = findResource(resolvedPackage, 'pkg/index.js');
+        const resolvedPackage = findPackage(packages, 'package');
+        const entry = findResource(resolvedPackage, 'package/index.js');
 
         assert.strictEqual(entry.fileDescription.content.includes('unused'), false);
-        assert.strictEqual(await runEmittedPackageApi(resolvedPackage, 'pkg/index.js'), 'helper-used-result');
+        assert.strictEqual(
+            await runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'package/index.js'),
+            'helper-used-result'
+        );
     });
 
     test('prunes pure files reached only by code removed by dead code elimination', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
-        const config = await singlePackageConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await singlePackageConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const resolvedPackage = findPackage(packages, 'pkg');
+        const resolvedPackage = findPackage(packages, 'package');
 
         assert.strictEqual(targetPaths(resolvedPackage).includes('dead-local.js'), false);
     });
 
     test('removes dead declarations from a side-effecting file and lists it in sideEffectsField', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-side-effects');
-        const config = await singlePackageConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await singlePackageConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const resolvedPackage = findPackage(packages, 'pkg');
-        const entry = findResource(resolvedPackage, 'pkg/index.js');
+        const resolvedPackage = findPackage(packages, 'package');
+        const entry = findResource(resolvedPackage, 'package/index.js');
 
         assert.strictEqual(entry.fileDescription.content.includes('unusedHelper'), false);
         assert.strictEqual(entry.fileDescription.content.includes('module loaded'), true);
-        assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './pkg/index.js' ]);
+        assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './package/index.js' ]);
     });
 
-    test('preserves a binding in pkg-producer that pkg-consumer imports across bundles', async function () {
+    test('preserves a binding in package-producer that package-consumer imports across bundles', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-cross-bundle');
-        const config = await consumerProducerConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await consumerProducerConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const producer = findPackage(packages, 'pkg-producer');
-        const helpers = findResource(producer, 'pkg-producer/helpers.js');
+        const producer = findPackage(packages, 'package-producer');
+        const helpers = findResource(producer, 'package-producer/helpers.js');
 
         assert.ok(
             helpers.fileDescription.content.includes('consumedExport'),
-            'consumedExport must remain because pkg-consumer imports it across the bundle boundary'
+            'consumedExport must remain because package-consumer imports it across the bundle boundary'
         );
         assert.strictEqual(
             helpers.fileDescription.content.includes('unconsumedExport'),
             false,
-            'unconsumedExport should be removed since neither pkg-producer entry nor pkg-consumer references it'
+            'unconsumedExport should be removed since neither package-producer entry nor package-consumer references it'
         );
     });
 
@@ -204,10 +207,10 @@ suite('dead-code-elimination', function () {
             process.cwd(),
             'integration-tests/fixtures/dead-code-elimination-dead-dependencies'
         );
-        const config = await consumerProducerConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await consumerProducerConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const consumer = findPackage(packages, 'pkg-consumer');
+        const consumer = findPackage(packages, 'package-consumer');
 
         assertDeadDependencyMetadataRemoved(consumer);
     });
@@ -217,11 +220,11 @@ suite('dead-code-elimination', function () {
             process.cwd(),
             'integration-tests/fixtures/dead-code-elimination-declaration-companion-regression'
         );
-        const config = await consumerProducerConfig(fixturePath);
-        const result = await resolveAndLinkAll(config);
+        const configuration = await consumerProducerConfiguration(fixturePath);
+        const result = await resolveAndLinkAll(configuration);
         const packages = expectOk(result);
-        const producer = findPackage(packages, 'pkg-producer');
-        const shared = findResource(producer, 'pkg-producer/shared.js');
+        const producer = findPackage(packages, 'package-producer');
+        const shared = findResource(producer, 'package-producer/shared.js');
 
         assertValidDeadCodeEliminationOutput(
             'declaration companion integration regression',
@@ -232,12 +235,15 @@ suite('dead-code-elimination', function () {
             'sharedConfig must remain because emitted modules still import it'
         );
         assert.strictEqual(shared.fileDescription.content.includes('unusedConfig'), false);
-        assert.strictEqual(await runEmittedPackageApi(producer, 'pkg-producer/index.js'), 'error');
+        assert.strictEqual(
+            await runEmittedPackageApplicationProgrammingInterface(producer, 'package-producer/index.js'),
+            'error'
+        );
     });
 
     test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const { result } = await resolveAndLinkAll(await duplicatedFilesConfig(fixturePath));
+        const { result } = await resolveAndLinkAll(await duplicatedFilesConfiguration(fixturePath));
         assertSharedDeclarationIssue(result);
     });
 });

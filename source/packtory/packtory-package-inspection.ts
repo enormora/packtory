@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import { packageNameMap } from '../common/package-name-map.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
 import { resolvePackages, type PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
 import {
@@ -15,7 +15,7 @@ type PackageInspectionDependencies = PackageAnalysisDependencies & PackageResolu
 
 async function resolvePackageForInspection(
     dependencies: PackageInspectionDependencies,
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     packageName: string
 ): Promise<Result<ResolvedPackage, PackPackageFailure | PartialErrorResult>> {
     const runResult = await resolvePackages(dependencies, validated);
@@ -36,7 +36,7 @@ async function resolvePackageForInspection(
 
 export async function inspectResolvedPackageFor<TInspection>(
     dependencies: PackageInspectionDependencies,
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     packageName: string,
     inspect: (target: ResolvedPackage) => TInspection
 ): Promise<Result<TInspection, PackPackageFailure | PartialErrorResult>> {

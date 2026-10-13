@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import { isPureExpression } from './pure-expression.ts';
 import { expressionWithSchemaPackage, variableInitializer } from './pure-expression-test-support.ts';

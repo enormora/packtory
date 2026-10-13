@@ -26,7 +26,7 @@ function bundleWith(
     contents: readonly AnalyzedBundleResource[],
     overrides: Partial<AnalyzedBundle> = {}
 ): AnalyzedBundle {
-    return analyzedBundle({ name: 'pkg', contents, ...overrides });
+    return analyzedBundle({ name: 'package', contents, ...overrides });
 }
 
 function issues(bundle: AnalyzedBundle): readonly string[] {
@@ -52,13 +52,13 @@ suite('dead code elimination output invariants', function () {
     suite('compiler project isolation', function () {
         test('validates emitted content instead of preloaded compiler content', function () {
             const emittedBundle = bundleWith([
-                resource('/src/index.js', 'index.js', 'export const value = 1;')
+                resource('/source/index.js', 'index.js', 'export const value = 1;')
             ]);
 
             assert.deepStrictEqual(
                 collectDeadCodeEliminationOutputIssues([ emittedBundle ], function () {
                     return createProject({
-                        withFiles: [ { filePath: '/pkg/index.js', content: 'import "./missing.js";' } ]
+                        withFiles: [ { filePath: '/package/index.js', content: 'import "./missing.js";' } ]
                     });
                 }),
                 []
@@ -67,16 +67,16 @@ suite('dead code elimination output invariants', function () {
 
         test('rejects targets present only in the injected compiler project', function () {
             const emittedBundle = bundleWith([
-                resource('/src/index.js', 'index.js', 'import { value } from "./missing.js";')
+                resource('/source/index.js', 'index.js', 'import { value } from "./missing.js";')
             ]);
 
             assert.deepStrictEqual(
                 collectDeadCodeEliminationOutputIssues([ emittedBundle ], function () {
                     return createProject({
-                        withFiles: [ { filePath: '/pkg/missing.js', content: 'export const value = 1;' } ]
+                        withFiles: [ { filePath: '/package/missing.js', content: 'export const value = 1;' } ]
                     });
                 }),
-                [ 'pkg: index.js imports ./missing.js in runtime mode, but no emitted target remains' ]
+                [ 'package: index.js imports ./missing.js in runtime mode, but no emitted target remains' ]
             );
         });
     });
@@ -85,7 +85,7 @@ suite('dead code elimination output invariants', function () {
         test('accepts runtime imports and re-exports that preserve exported bindings', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import fallback, { value as renamed } from "./value";',
@@ -98,18 +98,18 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/value.js', 'value.js', 'export default 1;\nexport const value = 2;\n'),
-                resource('/src/namespace.js', 'namespace.js', 'export const member = 1;\n'),
-                resource('/src/named.js', 'named.js', 'export const named = 1;\n'),
-                resource('/src/star.js', 'star.js', 'export const star = 1;\n'),
-                resource('/src/grouped.js', 'grouped.js', 'export const grouped = 1;\n')
+                resource('/source/value.js', 'value.js', 'export default 1;\nexport const value = 2;\n'),
+                resource('/source/namespace.js', 'namespace.js', 'export const member = 1;\n'),
+                resource('/source/named.js', 'named.js', 'export const named = 1;\n'),
+                resource('/source/star.js', 'star.js', 'export const star = 1;\n'),
+                resource('/source/grouped.js', 'grouped.js', 'export const grouped = 1;\n')
             ]));
         });
 
         test('accepts declaration imports through source and declaration candidates', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.d.ts',
+                    '/source/index.d.ts',
                     'index.d.ts',
                     [
                         'import type { Api } from "./api.ts";',
@@ -120,17 +120,17 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/api.d.ts', 'api.d.ts', 'export type Api = string;\n'),
-                resource('/src/module.d.mts', 'module.d.mts', 'export type MtsApi = string;\n'),
-                resource('/src/common.d.cts', 'common.d.cts', 'export type CtsApi = string;\n')
+                resource('/source/api.d.ts', 'api.d.ts', 'export type Api = string;\n'),
+                resource('/source/module.d.mts', 'module.d.mts', 'export type MtsApi = string;\n'),
+                resource('/source/common.d.cts', 'common.d.cts', 'export type CtsApi = string;\n')
             ]));
         });
 
         test('ignores package imports, type-only runtime imports, static exports, and source maps', function () {
             assertNoIssues(bundleWith([
-                resource('/src/readme.md', 'readme.md', 'import "./missing.js";\n'),
+                resource('/source/readme.md', 'readme.md', 'import "./missing.js";\n'),
                 resourceWithDependencies(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import fs from "node:fs";',
@@ -150,7 +150,7 @@ suite('dead code elimination output invariants', function () {
         test('accepts absolute targets, namespace imports, and type-only runtime re-exports', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'lib/index.js',
                     [
                         'import * as namespace from "/value.js";',
@@ -162,16 +162,16 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/value.js', 'value.js', 'export const value = 1;\n'),
-                resource('/src/types.d.ts', 'types.d.ts', 'export type Api = string;\n'),
-                resource('/src/data.json', 'data.json', '{"ok":true}\n')
+                resource('/source/value.js', 'value.js', 'export const value = 1;\n'),
+                resource('/source/types.d.ts', 'types.d.ts', 'export type Api = string;\n'),
+                resource('/source/data.json', 'data.json', '{"ok":true}\n')
             ]));
         });
 
         test('ignores named type-only imports in runtime mode', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import { type Api, value } from "./value.js";',
@@ -180,14 +180,14 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/value.js', 'value.js', 'export const value = 1;\n')
+                resource('/source/value.js', 'value.js', 'export const value = 1;\n')
             ]));
         });
 
         test('keeps default imports unchecked when a namespace import is present', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import fallback, * as namespace from "./value.js";',
@@ -196,14 +196,14 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/value.js', 'value.js', 'export const value = 1;\n')
+                resource('/source/value.js', 'value.js', 'export const value = 1;\n')
             ]));
         });
 
         test('accepts local export declarations for every local binding form', function () {
             assertNoIssues(bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import defaultImport, { named as renamed } from "./value.js";',
@@ -224,13 +224,13 @@ suite('dead code elimination output invariants', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/value.js', 'value.js', 'export default 1;\nexport const named = 1;\n'),
+                resource('/source/value.js', 'value.js', 'export default 1;\nexport const named = 1;\n'),
                 resource(
-                    '/src/more-values.js',
+                    '/source/more-values.js',
                     'more-values.js',
                     'export const first = 1;\nexport const second = 2;\n'
                 ),
-                resource('/src/namespace.js', 'namespace.js', 'export const value = 1;\n')
+                resource('/source/namespace.js', 'namespace.js', 'export const value = 1;\n')
             ]));
         });
     });
@@ -240,7 +240,7 @@ suite('dead code elimination output invariants', function () {
             assertIssues(
                 bundleWith([
                     resourceWithDependencies(
-                        '/src/index.js',
+                        '/source/index.js',
                         'index.js',
                         [
                             'import { missing } from "./missing.js";',
@@ -256,7 +256,7 @@ suite('dead code elimination output invariants', function () {
                 ], {
                     externalDependencies: new Map([
                         [ 'dep', {
-                            ...externalDependency('dep', [ '/src/index.js' ]),
+                            ...externalDependency('dep', [ '/source/index.js' ]),
                             references: [ {
                                 targetFilePath: 'external.js',
                                 sourceSpecifier: 'dep',
@@ -265,9 +265,12 @@ suite('dead code elimination output invariants', function () {
                         } ]
                     ]),
                     linkedBundleDependencies: new Map([
-                        [ 'linked', externalDependency('linked', [ '/src/linked.js' ]) ]
+                        [ 'linked', externalDependency('linked', [ '/source/linked.js' ]) ]
                     ]),
-                    substitutedInputFilePathsByPackageName: new Map([ [ 'substituted', new Set([ '/src/sub.js' ]) ] ])
+                    substitutedInputFilePathsByPackageName: new Map([ [
+                        'substituted',
+                        new Set([ '/source/sub.js' ])
+                    ] ])
                 }),
                 [
                     /index\.js imports \.\/missing\.js in runtime mode, but no emitted target remains/u,
@@ -284,11 +287,11 @@ suite('dead code elimination output invariants', function () {
 
         test('accepts present dependency metadata references', function () {
             assertNoIssues(bundleWith([
-                resource('/src/index.js', 'index.js', 'export const value = 1;\n'),
-                resource('/src/external.js', 'external.js', 'export const external = 1;\n'),
-                resource('/src/linked.js', 'linked.js', 'export const linked = 1;\n'),
+                resource('/source/index.js', 'index.js', 'export const value = 1;\n'),
+                resource('/source/external.js', 'external.js', 'export const external = 1;\n'),
+                resource('/source/linked.js', 'linked.js', 'export const linked = 1;\n'),
                 resourceWithDependencies(
-                    '/src/readme.md',
+                    '/source/readme.md',
                     'readme.md',
                     '# readme\n',
                     new Set([ 'missing.md' ])
@@ -308,17 +311,17 @@ suite('dead code elimination output invariants', function () {
                     [ 'linked', externalDependency('linked', [ 'linked.js' ]) ],
                     [ 'substituted', externalDependency('substituted', [ 'index.js' ]) ]
                 ]),
-                substitutedInputFilePathsByPackageName: new Map([ [ 'substituted', new Set([ '/src/sub.js' ]) ] ])
+                substitutedInputFilePathsByPackageName: new Map([ [ 'substituted', new Set([ '/source/sub.js' ]) ] ])
             }));
         });
 
         test('reports declaration-mode missing targets without runtime declaration-only candidates', function () {
             assertExactIssues(
                 bundleWith([
-                    resource('/src/index.d.ts', 'index.d.ts', 'import type { Api } from "./missing.js";\n')
+                    resource('/source/index.d.ts', 'index.d.ts', 'import type { Api } from "./missing.js";\n')
                 ]),
                 [
-                    'pkg: index.d.ts imports ./missing.js in declaration mode, but no emitted target remains'
+                    'package: index.d.ts imports ./missing.js in declaration mode, but no emitted target remains'
                 ]
             );
         });
@@ -327,7 +330,7 @@ suite('dead code elimination output invariants', function () {
             assertExactIssues(
                 bundleWith([
                     resource(
-                        '/src/index.d.ts',
+                        '/source/index.d.ts',
                         'index.d.ts',
                         [
                             'import { type Imported } from "./imported.js";',
@@ -336,11 +339,11 @@ suite('dead code elimination output invariants', function () {
                         ]
                             .join('\n')
                     ),
-                    resource('/src/imported.d.ts', 'imported.d.ts', 'export type Present = string;\n')
+                    resource('/source/imported.d.ts', 'imported.d.ts', 'export type Present = string;\n')
                 ]),
                 [
-                    'pkg: index.d.ts imports Imported from ./imported.js, but imported.d.ts does not export it in declaration mode',
-                    'pkg: index.d.ts imports ./exported.js in declaration mode, but no emitted target remains'
+                    'package: index.d.ts imports Imported from ./imported.js, but imported.d.ts does not export it in declaration mode',
+                    'package: index.d.ts imports ./exported.js in declaration mode, but no emitted target remains'
                 ]
             );
         });
@@ -349,7 +352,7 @@ suite('dead code elimination output invariants', function () {
             assertIssues(
                 bundleWith([
                     resource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'index.js',
                         [
                             'import { missing as renamed } from "./named.js";',
@@ -359,10 +362,10 @@ suite('dead code elimination output invariants', function () {
                         ]
                             .join('\n')
                     ),
-                    resource('/src/named.js', 'named.js', 'export const present = 1;\n'),
-                    resource('/src/without-default.js', 'without-default.js', 'export const present = 1;\n'),
-                    resource('/src/re-export.js', 're-export.js', 'export { present } from "./leaf.js";\n'),
-                    resource('/src/leaf.js', 'leaf.js', 'export const present = 1;\n')
+                    resource('/source/named.js', 'named.js', 'export const present = 1;\n'),
+                    resource('/source/without-default.js', 'without-default.js', 'export const present = 1;\n'),
+                    resource('/source/re-export.js', 're-export.js', 'export { present } from "./leaf.js";\n'),
+                    resource('/source/leaf.js', 'leaf.js', 'export const present = 1;\n')
                 ]),
                 [
                     /imports missing from \.\/named\.js, but named\.js does not export it in runtime mode/u,
@@ -374,21 +377,25 @@ suite('dead code elimination output invariants', function () {
 
         test('accepts imported names through re-export chains', function () {
             assertNoIssues(bundleWith([
-                resource('/src/index.js', 'index.js', 'import { exposed } from "./barrel.js";\nexport { exposed };\n'),
-                resource('/src/barrel.js', 'barrel.js', 'export { value as exposed } from "./leaf.js";\n'),
-                resource('/src/leaf.js', 'leaf.js', 'export const value = 1;\n')
+                resource(
+                    '/source/index.js',
+                    'index.js',
+                    'import { exposed } from "./barrel.js";\nexport { exposed };\n'
+                ),
+                resource('/source/barrel.js', 'barrel.js', 'export { value as exposed } from "./leaf.js";\n'),
+                resource('/source/leaf.js', 'leaf.js', 'export const value = 1;\n')
             ]));
         });
 
         test('reports imported names through unresolved star re-export chains', function () {
             assertExactIssues(
                 bundleWith([
-                    resource('/src/index.js', 'index.js', 'import { missing } from "./barrel.js";\n'),
-                    resource('/src/barrel.js', 'barrel.js', 'export * from "./missing-leaf.js";\n')
+                    resource('/source/index.js', 'index.js', 'import { missing } from "./barrel.js";\n'),
+                    resource('/source/barrel.js', 'barrel.js', 'export * from "./missing-leaf.js";\n')
                 ]),
                 [
-                    'pkg: index.js imports missing from ./barrel.js, but barrel.js does not export it in runtime mode',
-                    'pkg: barrel.js imports ./missing-leaf.js in runtime mode, but no emitted target remains'
+                    'package: index.js imports missing from ./barrel.js, but barrel.js does not export it in runtime mode',
+                    'package: barrel.js imports ./missing-leaf.js in runtime mode, but no emitted target remains'
                 ]
             );
         });
@@ -396,11 +403,11 @@ suite('dead code elimination output invariants', function () {
         test('formats declaration-only runtime target issues exactly', function () {
             assertExactIssues(
                 bundleWith([
-                    resource('/src/index.js', 'index.js', 'import { value } from "./value.js";\n'),
-                    resource('/src/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
+                    resource('/source/index.js', 'index.js', 'import { value } from "./value.js";\n'),
+                    resource('/source/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
                 ]),
                 [
-                    'pkg: index.js imports ./value.js in runtime mode, but only declaration targets remain: value.d.ts'
+                    'package: index.js imports ./value.js in runtime mode, but only declaration targets remain: value.d.ts'
                 ]
             );
         });
@@ -408,12 +415,12 @@ suite('dead code elimination output invariants', function () {
         test('formats multiple declaration-only runtime targets exactly', function () {
             assertExactIssues(
                 bundleWith([
-                    resource('/src/index.js', 'index.js', 'import { value } from "./value.mjs";\n'),
-                    resource('/src/value.d.mts', 'value.d.mts', 'export declare const value: number;\n'),
-                    resource('/src/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
+                    resource('/source/index.js', 'index.js', 'import { value } from "./value.mjs";\n'),
+                    resource('/source/value.d.mts', 'value.d.mts', 'export declare const value: number;\n'),
+                    resource('/source/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
                 ]),
                 [
-                    'pkg: index.js imports ./value.mjs in runtime mode, but only declaration targets remain: value.d.mts, value.d.ts'
+                    'package: index.js imports ./value.mjs in runtime mode, but only declaration targets remain: value.d.mts, value.d.ts'
                 ]
             );
         });
@@ -421,11 +428,11 @@ suite('dead code elimination output invariants', function () {
         test('reports duplicate emitted target paths exactly', function () {
             assertExactIssues(
                 bundleWith([
-                    resource('/src/first.js', 'index.js', 'export const first = 1;\n'),
-                    resource('/src/second.js', 'index.js', 'export const second = 1;\n')
+                    resource('/source/first.js', 'index.js', 'export const first = 1;\n'),
+                    resource('/source/second.js', 'index.js', 'export const second = 1;\n')
                 ]),
                 [
-                    'pkg: duplicate emitted target path index.js'
+                    'package: duplicate emitted target path index.js'
                 ]
             );
         });

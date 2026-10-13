@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { suite, test, type Func } from 'mocha';
+import { suite, test, type Func as TestFunction } from 'mocha';
 import {
     collectFromGraph,
     createGraphWithNodes,
@@ -48,22 +48,22 @@ function addDisconnectedNodes(graph: DirectedGraph<string, string>): void {
 
 type NodeVisitingTestCase = GraphWithNodesOptions & {
     readonly disconnections?: readonly GraphEdge<string>[];
-    readonly startId: string;
-    readonly expectedCollectedIds: readonly string[];
+    readonly startIdentifier: string;
+    readonly expectedCollectedIdentifiers: readonly string[];
 };
 
-function checkNodeVisiting(testCase: Readonly<NodeVisitingTestCase>): Func {
+function checkNodeVisiting(testCase: Readonly<NodeVisitingTestCase>): TestFunction {
     return function () {
-        const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+        const { nodes, connections, disconnections = [], expectedCollectedIdentifiers, startIdentifier } = testCase;
         const graph = createGraphWithNodes({ nodes, connections });
 
         disconnections.forEach(function (edge) {
             graph.disconnect(edge);
         });
 
-        const collected = collectFromGraph(graph, startId);
+        const collected = collectFromGraph(graph, startIdentifier);
 
-        assert.deepStrictEqual(collected, expectedCollectedIds);
+        assert.deepStrictEqual(collected, expectedCollectedIdentifiers);
     };
 }
 
@@ -220,8 +220,8 @@ suite('graph', function () {
                     [ 'c', 'baz' ]
                 ],
                 connections: [ { from: 'b', to: 'c' } ],
-                startId: 'a',
-                expectedCollectedIds: [ 'a' ]
+                startIdentifier: 'a',
+                expectedCollectedIdentifiers: [ 'a' ]
             })
         );
 
@@ -233,8 +233,8 @@ suite('graph', function () {
                     [ 'b', 'bar' ]
                 ],
                 connections: [ { from: 'a', to: 'b' } ],
-                startId: 'a',
-                expectedCollectedIds: [ 'a', 'b' ]
+                startIdentifier: 'a',
+                expectedCollectedIdentifiers: [ 'a', 'b' ]
             })
         );
 
@@ -246,8 +246,8 @@ suite('graph', function () {
                     [ 'b', 'bar' ]
                 ],
                 connections: [ { from: 'b', to: 'a' } ],
-                startId: 'a',
-                expectedCollectedIds: [ 'a' ]
+                startIdentifier: 'a',
+                expectedCollectedIdentifiers: [ 'a' ]
             })
         );
 
@@ -263,8 +263,8 @@ suite('graph', function () {
                     { from: 'a', to: 'b' },
                     { from: 'a', to: 'c' }
                 ],
-                startId: 'a',
-                expectedCollectedIds: [ 'a', 'b', 'c' ]
+                startIdentifier: 'a',
+                expectedCollectedIdentifiers: [ 'a', 'b', 'c' ]
             })
         );
 
@@ -274,8 +274,8 @@ suite('graph', function () {
                 checkNodeVisiting({
                     nodes: fiveNodes,
                     connections: fiveNodeConnections,
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a', 'b', 'c', 'd', 'e' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a', 'b', 'c', 'd', 'e' ]
                 })
             );
 
@@ -285,8 +285,8 @@ suite('graph', function () {
                     nodes: fiveNodes,
                     connections: fiveNodeConnections,
                     disconnections: [ { from: 'a', to: 'b' } ],
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a', 'c' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a', 'c' ]
                 })
             );
 
@@ -301,8 +301,8 @@ suite('graph', function () {
                         { from: 'a', to: 'b' },
                         { from: 'b', to: 'a' }
                     ],
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a', 'b' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a', 'b' ]
                 })
             );
 
@@ -319,8 +319,8 @@ suite('graph', function () {
                         { from: 'b', to: 'c' },
                         { from: 'c', to: 'a' }
                     ],
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a', 'b', 'c' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a', 'b', 'c' ]
                 })
             );
 
@@ -341,8 +341,8 @@ suite('graph', function () {
                         { from: 'c', to: 'd' },
                         { from: 'c', to: 'e' }
                     ],
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a', 'b', 'c', 'd', 'e' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a', 'b', 'c', 'd', 'e' ]
                 })
             );
 
@@ -351,8 +351,8 @@ suite('graph', function () {
                 checkNodeVisiting({
                     nodes: [ [ 'a', 'foo' ] ],
                     connections: [ { from: 'a', to: 'a' } ],
-                    startId: 'a',
-                    expectedCollectedIds: [ 'a' ]
+                    startIdentifier: 'a',
+                    expectedCollectedIdentifiers: [ 'a' ]
                 })
             );
 
@@ -368,8 +368,8 @@ suite('graph', function () {
                         { from: 'a', to: 'b' },
                         { from: 'b', to: 'c' }
                     ],
-                    startId: 'b',
-                    expectedCollectedIds: [ 'b', 'c' ]
+                    startIdentifier: 'b',
+                    expectedCollectedIdentifiers: [ 'b', 'c' ]
                 })
             );
         });

@@ -32,13 +32,13 @@ function analyzedReport(
 }
 
 function summarize(report: PackageResolutionReport): readonly string[] {
-    return summarizeResolutionReport('pkg', report, checkedResolutionKinds);
+    return summarizeResolutionReport('package', report, checkedResolutionKinds);
 }
 
 suite('type-script-resolution-summary', function () {
     test('reports a package without declarations', function () {
         assert.deepStrictEqual(summarize({ kind: 'missing-declarations' }), [
-            'Package "pkg" does not expose TypeScript declarations'
+            'Package "package" does not expose TypeScript declarations'
         ]);
     });
 
@@ -52,7 +52,7 @@ suite('type-script-resolution-summary', function () {
                 problem({ affectedResolutionKinds: [ 'bundler' ], affectedEntrypoints: [ './feature' ] })
             ])),
             [
-                'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+                'Package "package" failed TypeScript integrity: Missing `export =` ' +
                 'affecting entrypoints "./feature" in resolutions "bundler"'
             ]
         );
@@ -67,7 +67,7 @@ suite('type-script-resolution-summary', function () {
                 })
             ])),
             [
-                'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+                'Package "package" failed TypeScript integrity: Missing `export =` ' +
                 'affecting entrypoints ".", "./feature" in resolutions "node16-esm", "bundler"'
             ]
         );
@@ -81,7 +81,7 @@ suite('type-script-resolution-summary', function () {
                     problem({ affectedEntrypoints: [ './feature' ] })
                 ])),
                 [
-                    'Package "pkg" failed TypeScript integrity: Missing `export =` (2 findings) ' +
+                    'Package "package" failed TypeScript integrity: Missing `export =` (2 findings) ' +
                     'affecting entrypoints ".", "./feature" in resolutions "bundler"'
                 ]
             );
@@ -94,7 +94,7 @@ suite('type-script-resolution-summary', function () {
                     problem({ affectedResolutionKinds: [ 'node16-esm' ] })
                 ])),
                 [
-                    'Package "pkg" failed TypeScript integrity: Missing `export =` (2 findings) ' +
+                    'Package "package" failed TypeScript integrity: Missing `export =` (2 findings) ' +
                     'affecting entrypoints "." in resolutions "node16-esm", "bundler"'
                 ]
             );
@@ -107,9 +107,9 @@ suite('type-script-resolution-summary', function () {
                     problem({ kind: 'UnexpectedModuleSyntax', shortDescription: 'Unexpected module syntax' })
                 ])),
                 [
-                    'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+                    'Package "package" failed TypeScript integrity: Missing `export =` ' +
                     'affecting entrypoints "." in resolutions "bundler"',
-                    'Package "pkg" failed TypeScript integrity: Unexpected module syntax ' +
+                    'Package "package" failed TypeScript integrity: Unexpected module syntax ' +
                     'affecting entrypoints "." in resolutions "bundler"'
                 ]
             );
@@ -125,7 +125,7 @@ suite('type-script-resolution-summary', function () {
                     [ '.', './feature' ]
                 )),
                 [
-                    'Package "pkg" failed TypeScript integrity: Missing `export =` (2 findings) ' +
+                    'Package "package" failed TypeScript integrity: Missing `export =` (2 findings) ' +
                     'affecting entrypoints ".", "./feature" in resolutions "bundler"'
                 ]
             );
@@ -135,7 +135,7 @@ suite('type-script-resolution-summary', function () {
             assert.deepStrictEqual(
                 summarize(analyzedReport([ problem({ affectedResolutionKinds: [ 'bundler', 'node16-esm' ] }) ])),
                 [
-                    'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+                    'Package "package" failed TypeScript integrity: Missing `export =` ' +
                     'affecting entrypoints "." in resolutions "node16-esm", "bundler"'
                 ]
             );
@@ -149,7 +149,7 @@ suite('type-script-resolution-summary', function () {
     test('omits the entrypoint list when a problem affects no entrypoint', function () {
         assert.deepStrictEqual(
             summarize(analyzedReport([ problem({ affectedEntrypoints: [] }) ])),
-            [ 'Package "pkg" failed TypeScript integrity: Missing `export =` in resolutions "bundler"' ]
+            [ 'Package "package" failed TypeScript integrity: Missing `export =` in resolutions "bundler"' ]
         );
     });
 });

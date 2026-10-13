@@ -7,7 +7,7 @@ import { emptyTarball } from '../test-libraries/tarball-fixtures.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
 
-const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const registrySettings = { authentication: { type: 'bearer-token', token: 'the-token' } } as const;
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 type RegistryClientOverrides = {
@@ -52,7 +52,7 @@ suite('fetch-published-artifacts', function () {
         assertDeepSubset(fetchLatestReleaseMetadata, {
             callCount: 1,
             firstCall: {
-                args: [ 'the-name', registrySettings ]
+                arguments: [ 'the-name', registrySettings ]
             }
         });
         assert.strictEqual(fetchTarball.callCount, 0);
@@ -62,7 +62,7 @@ suite('fetch-published-artifacts', function () {
         const fetchLatestReleaseMetadata = fake.resolves(
             Maybe.just({
                 version: '1.2.3',
-                tarballUrl: 'https://registry.example.test/package.tgz',
+                tarballAddress: 'https://registry.example.test/package.tgz',
                 tarballIntegrity: { integrity: 'sha512-the-digest', shasum: undefined },
                 publishedAt: new Date('2026-05-20T00:00:00.000Z'),
                 gitHead: 'abcdef123456'
@@ -85,7 +85,7 @@ suite('fetch-published-artifacts', function () {
         const fetchLatestReleaseMetadata = fake.resolves(
             Maybe.just({
                 version: '1.2.3',
-                tarballUrl: 'https://registry.example.test/package.tgz',
+                tarballAddress: 'https://registry.example.test/package.tgz',
                 tarballIntegrity: emptyTarballIntegrity,
                 publishedAt: undefined,
                 gitHead: undefined

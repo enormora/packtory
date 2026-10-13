@@ -16,10 +16,10 @@ type ArtifactFile = {
 
 type ReleasePlanFixture = {
     readonly additionalChangelogSourceFiles: readonly string[];
-    readonly additionalPackageJsonAttributes?: Readonly<Record<string, unknown>> | undefined;
+    readonly additionalPackageManifestAttributes?: Readonly<Record<string, unknown>> | undefined;
     readonly bundleContents: readonly AnalyzedBundleResource[];
     readonly currentArtifactFiles: readonly ArtifactFile[];
-    readonly mainPackageJson?: Readonly<Record<string, unknown>> | undefined;
+    readonly mainPackageManifest?: Readonly<Record<string, unknown>> | undefined;
     readonly packageName?: string | undefined;
     readonly previousArtifactFiles: readonly ArtifactFile[];
     readonly sharedChangelogSourceFiles?: readonly string[] | undefined;
@@ -30,7 +30,7 @@ function artifactFile(filePath: string, content: string): ArtifactFile {
 }
 
 function readmeBundleResource(targetFilePath: string): AnalyzedBundleResource {
-    return analyzedBundleResource('/source/packages/pkg-a/README.md', { targetFilePath });
+    return analyzedBundleResource('/source/packages/package-a/README.md', { targetFilePath });
 }
 
 async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof createReleasePlanPackage> {
@@ -47,7 +47,7 @@ async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof crea
             repositoryFolder: '/'
         },
         analyzedBundle({
-            name: 'pkg-a',
+            name: 'package-a',
             contents: input.bundleContents
         }),
         buildResultFor({
@@ -60,12 +60,12 @@ async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof crea
         }),
         {
             changelogSourceOptions: {
-                additionalPackageJsonAttributes: input.additionalPackageJsonAttributes ?? {},
+                additionalPackageManifestAttributes: input.additionalPackageManifestAttributes ?? {},
                 additionalChangelogSourceFiles: {
                     packageFiles: input.additionalChangelogSourceFiles,
                     sharedFiles: input.sharedChangelogSourceFiles ?? []
                 },
-                mainPackageJson: input.mainPackageJson ?? {}
+                mainPackageManifest: input.mainPackageManifest ?? {}
             },
             currentGitHead: undefined,
             releaseArtifactFiles: input.currentArtifactFiles,
@@ -85,29 +85,29 @@ suite('packtory-release-plan changelog attribution', function () {
 
         assert.partialDeepStrictEqual(result, {
             changedArtifactFiles: [ 'README.md' ],
-            changelogSourceFiles: [ 'source/packages/pkg-a/README.md' ]
+            changelogSourceFiles: [ 'source/packages/package-a/README.md' ]
         });
     });
 
     test('attributes changed shipped additional file target paths', async function () {
         const result = await releasePlanFor({
             additionalChangelogSourceFiles: [],
-            bundleContents: [ readmeBundleResource('package/docs/README.md') ],
+            bundleContents: [ readmeBundleResource('package/documentation/README.md') ],
             previousArtifactFiles: [ artifactFile('package/README.md', 'readme') ],
-            currentArtifactFiles: [ artifactFile('package/docs/README.md', 'readme') ]
+            currentArtifactFiles: [ artifactFile('package/documentation/README.md', 'readme') ]
         });
 
         assert.partialDeepStrictEqual(result, {
-            changedArtifactFiles: [ 'README.md', 'docs/README.md' ],
-            changelogSourceFiles: [ 'source/packages/pkg-a/README.md' ]
+            changedArtifactFiles: [ 'README.md', 'documentation/README.md' ],
+            changelogSourceFiles: [ 'source/packages/package-a/README.md' ]
         });
     });
 
     test('ignores source-only moves whose shipped target artifact is unchanged', async function () {
         const result = await releasePlanFor({
-            additionalChangelogSourceFiles: [ 'source/packages/pkg-a/README.md' ],
+            additionalChangelogSourceFiles: [ 'source/packages/package-a/README.md' ],
             bundleContents: [
-                analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                analyzedBundleResource('/source/package-a.js', { targetFilePath: 'package/index.js' }),
                 readmeBundleResource('package/README.md')
             ],
             previousArtifactFiles: [
@@ -122,7 +122,7 @@ suite('packtory-release-plan changelog attribution', function () {
 
         assert.partialDeepStrictEqual(result, {
             changedArtifactFiles: [ 'index.js' ],
-            changelogSourceFiles: [ 'source/pkg-a.js' ]
+            changelogSourceFiles: [ 'source/package-a.js' ]
         });
     });
 
@@ -134,8 +134,8 @@ suite('packtory-release-plan changelog attribution', function () {
 
         const result = await releasePlanFor({
             additionalChangelogSourceFiles: [
-                'source/packages/pkg-a/package.json',
-                'source/packages/pkg-a/README.md'
+                'source/packages/package-a/package.json',
+                'source/packages/package-a/README.md'
             ],
             bundleContents: [ generatedManifest ],
             previousArtifactFiles: [ artifactFile('package/package.json', '{"type":"module"}') ],
@@ -144,7 +144,7 @@ suite('packtory-release-plan changelog attribution', function () {
 
         assert.partialDeepStrictEqual(result, {
             changedArtifactFiles: [ 'package.json' ],
-            changelogSourceFiles: [ 'source/packages/pkg-a/package.json' ]
+            changelogSourceFiles: [ 'source/packages/package-a/package.json' ]
         });
     });
 
@@ -156,20 +156,20 @@ suite('packtory-release-plan changelog attribution', function () {
 
         const result = await releasePlanFor({
             additionalChangelogSourceFiles: [],
-            additionalPackageJsonAttributes: {
+            additionalPackageManifestAttributes: {
                 engines: { node: '^22.0.0 || ^24.0.0 || ^26.0.0' }
             },
             bundleContents: [ generatedManifest ],
             previousArtifactFiles: [
                 artifactFile(
                     'package/package.json',
-                    '{"name":"pkg-a","version":"1.0.0","engines":{"node":"^24.0.0 || ^26.0.0"}}'
+                    '{"name":"package-a","version":"1.0.0","engines":{"node":"^24.0.0 || ^26.0.0"}}'
                 )
             ],
             currentArtifactFiles: [
                 artifactFile(
                     'package/package.json',
-                    '{"name":"pkg-a","version":"1.0.1","engines":{"node":"^22.0.0 || ^24.0.0 || ^26.0.0"}}'
+                    '{"name":"package-a","version":"1.0.1","engines":{"node":"^22.0.0 || ^24.0.0 || ^26.0.0"}}'
                 )
             ]
         });
@@ -189,7 +189,7 @@ suite('packtory-release-plan changelog attribution', function () {
             [ 'pr-log', '@pr-log/core' ].map(async function (packageName) {
                 return releasePlanFor({
                     additionalChangelogSourceFiles: [],
-                    additionalPackageJsonAttributes: {
+                    additionalPackageManifestAttributes: {
                         engines: { node: '^22.0.0 || ^24.0.0 || ^26.0.0' }
                     },
                     bundleContents: [ generatedManifest ],
@@ -239,9 +239,9 @@ suite('packtory-release-plan changelog attribution', function () {
         };
 
         const result = await releasePlanFor({
-            additionalChangelogSourceFiles: [ 'source/packages/pkg-a/package.json' ],
+            additionalChangelogSourceFiles: [ 'source/packages/package-a/package.json' ],
             bundleContents: [
-                analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                analyzedBundleResource('/source/package-a.js', { targetFilePath: 'package/index.js' }),
                 generatedManifest
             ],
             previousArtifactFiles: [
@@ -256,7 +256,7 @@ suite('packtory-release-plan changelog attribution', function () {
 
         assert.partialDeepStrictEqual(result, {
             changedArtifactFiles: [ 'index.js' ],
-            changelogSourceFiles: [ 'source/pkg-a.js' ]
+            changelogSourceFiles: [ 'source/package-a.js' ]
         });
     });
 });

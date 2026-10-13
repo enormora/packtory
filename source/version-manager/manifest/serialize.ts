@@ -1,11 +1,11 @@
-import type { PackageJson } from 'type-fest';
-import { serializeStableJson } from '../../common/stable-json.ts';
+import type { PackageJson as PackageManifest } from 'type-fest';
+import { serializeStableJavaScriptObjectNotation } from '../../common/stable-structured-data.ts';
 
 function shouldPreserveArrayOrder(path: readonly string[]): boolean {
     const [ topLevelKey ] = path;
     return topLevelKey === 'imports' || topLevelKey === 'exports';
 }
 
-export function serializePackageJson(data: Readonly<PackageJson>): string {
-    return serializeStableJson(data, { shouldPreserveArrayOrder });
+export function serializePackageManifest(data: Readonly<PackageManifest>): string {
+    return serializeStableJavaScriptObjectNotation(data, { shouldPreserveArrayOrder });
 }

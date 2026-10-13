@@ -11,18 +11,18 @@ import {
 } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { createTestProgressBroadcaster, getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
+import { createTestProgressBroadcaster, getErrorResult, getOkResult } from '../test-libraries/result-helpers.ts';
 import { createPacktory, type Packtory, type PacktoryDependencies } from './packtory.ts';
 
 type PackageEntry = {
     readonly name: string;
-    readonly roots: { readonly main: { readonly js: string; }; };
+    readonly roots: { readonly main: { readonly javaScript: string; }; };
 };
 
 type StageCreateOptionsContext = {
     readonly packageName: string;
     readonly existing: readonly unknown[];
-    readonly config: unknown;
+    readonly configuration: unknown;
 };
 
 type StageSelectNextInput = {
@@ -31,7 +31,7 @@ type StageSelectNextInput = {
 };
 
 type StageInput = {
-    readonly config: { readonly packtoryConfig: { readonly packages: readonly PackageEntry[]; }; };
+    readonly configuration: { readonly packtoryConfiguration: { readonly packages: readonly PackageEntry[]; }; };
     readonly createOptions: (context: StageCreateOptionsContext) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
     readonly selectNext: (input: StageSelectNextInput) => unknown;
@@ -59,15 +59,15 @@ type PackAllFacadeFixture = {
 };
 
 const packageEntries: readonly PackageEntry[] = [
-    { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } },
-    { name: 'package-b', roots: { main: { js: 'package-b/index.js' } } }
+    { name: 'package-a', roots: { main: { javaScript: 'package-a/index.js' } } },
+    { name: 'package-b', roots: { main: { javaScript: 'package-b/index.js' } } }
 ];
 
-function createConfig(): Record<string, unknown> {
+function createConfiguration(): Record<string, unknown> {
     return {
         commonPackageSettings: {
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
+            sourcesFolder: '/source',
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages: packageEntries
@@ -80,7 +80,7 @@ function createLinkedBundle(name: string): BundleFixtureLinkedBundle {
         contents: [],
         roots: {
             main: {
-                js: {
+                javaScript: {
                     inputFilePath: `/${name}/index.js`,
                     targetFilePath: 'index.js',
                     content: '',
@@ -95,23 +95,30 @@ function createVersionedBundle(name: string): BundleFixtureVersionedBundleWithMa
     return versionedBundleWithManifest({
         name,
         version: '1.0.0',
-        packageJson: { name, version: '1.0.0' },
+        packageManifest: { name, version: '1.0.0' },
         manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
     });
 }
 
 async function runStage(input: StageInput): Promise<Result<unknown[], never>> {
     const existing: unknown[] = [];
-    async function runPackage(accumulator: Promise<unknown[]>, packageConfig: PackageEntry): Promise<unknown[]> {
+    async function runPackage(accumulator: Promise<unknown[]>, packageConfiguration: PackageEntry): Promise<unknown[]> {
         const results = await accumulator;
-        const options = input.createOptions({ packageName: packageConfig.name, existing, config: input.config });
+        const options = input.createOptions({
+            packageName: packageConfiguration.name,
+            existing,
+            configuration: input.configuration
+        });
         const result = await input.execute(options);
         existing.push(input.selectNext({ result, options }));
 
         return [ ...results, result ];
     }
 
-    const results = await input.config.packtoryConfig.packages.reduce(runPackage, Promise.resolve([] as unknown[]));
+    const results = await input.configuration.packtoryConfiguration.packages.reduce(
+        runPackage,
+        Promise.resolve([] as unknown[])
+    );
 
     return Result.ok(results);
 }
@@ -195,8 +202,8 @@ suite('packtory pack facade', function () {
             }
         );
 
-        const error = getErrResult(result, 'Expected packPackage() should fail but it did not');
-        assert.strictEqual(error.type, 'config');
+        const error = getErrorResult(result, 'Expected packPackage() should fail but it did not');
+        assert.strictEqual(error.type, 'configuration');
     });
 
     test('packPackage() emits the requested package artifact on success', async function () {
@@ -204,7 +211,7 @@ suite('packtory pack facade', function () {
         const { packtory } = createPacktoryForPackAll(packEmitterPack);
 
         const { result } = await packtory.packPackage(
-            createConfig(),
+            createConfiguration(),
             {
                 packageName: 'package-a',
                 format: 'tar',
@@ -232,8 +239,8 @@ suite('packtory pack facade', function () {
             { outputPath: '/out', version: '1.0.0', vendorDependencies: false }
         );
 
-        const error = getErrResult(result, 'Expected packAllPackages() should fail but it did not');
-        assert.strictEqual(error.type, 'config');
+        const error = getErrorResult(result, 'Expected packAllPackages() should fail but it did not');
+        assert.strictEqual(error.type, 'configuration');
     });
 
     test('packAllPackages() emits every package folder on success', async function () {
@@ -241,7 +248,7 @@ suite('packtory pack facade', function () {
         const { packtory } = createPacktoryForPackAll(packEmitterPack);
 
         const { result } = await packtory.packAllPackages(
-            createConfig(),
+            createConfiguration(),
             { outputPath: '/out', version: '1.0.0', vendorDependencies: false }
         );
 

@@ -1,7 +1,7 @@
 ---
 # All audits run with defaults; only the configurable audits are overridden
 # below. Persona, severity floor, and confidence floor are set on the
-# zizmor action invocation in .github/workflows/ci.yml.
+# zizmor action invocation in .github/workflows/continuous-integration.yml.
 
 rules:
     unpinned-uses:

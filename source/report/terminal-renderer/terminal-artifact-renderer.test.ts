@@ -10,19 +10,19 @@ function colors(): Colors {
 
 suite('terminal-artifact-renderer', function () {
     test('renderArtifactNode renders a directory with a triangle marker indented by depth', function () {
-        const node: PreviewArtifactNode = { type: 'directory', name: 'src', path: 'src/', depth: 1 };
+        const node: PreviewArtifactNode = { type: 'directory', name: 'source', path: 'source/', depth: 1 };
 
-        assert.strictEqual(renderArtifactNode(node, colors()), '    ▸ src/');
+        assert.strictEqual(renderArtifactNode(node, colors()), '    ▸ source/');
     });
 
     test('renderArtifactNode renders a file node with kind, byte size, status and badge labels', function () {
         const node: PreviewArtifactNode = {
             type: 'file',
             name: 'index.js',
-            path: 'src/index.js',
+            path: 'source/index.js',
             depth: 0,
             artifact: {
-                path: 'src/index.js',
+                path: 'source/index.js',
                 sizeBytes: 42,
                 kind: 'source',
                 status: 'changed',
@@ -30,7 +30,7 @@ suite('terminal-artifact-renderer', function () {
             }
         };
 
-        assert.strictEqual(renderArtifactNode(node, colors()), '  • src/index.js (source, 42 B) [changed, rewrite]');
+        assert.strictEqual(renderArtifactNode(node, colors()), '  • source/index.js (source, 42 B) [changed, rewrite]');
     });
 
     test('renderArtifactNode omits trailing whitespace when there are no badges and the status label is empty', function () {

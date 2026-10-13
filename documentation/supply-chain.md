@@ -11,7 +11,7 @@ publish actually produces.
 
 packtory protects the **build → publish** segment of the supply chain.
 The threat model is an attacker who tries to slip a tampered or
-misattributed artifact into the registry — by abusing CI access,
+misattributed artifact into the registry , by abusing CI access,
 hijacking a maintainer account, mutating a dependency mid-flight, or
 sneaking lifecycle scripts into the published manifest. packtory's
 defaults raise the cost of those attacks; the opt-in features
@@ -21,7 +21,7 @@ guarantees on top.
 ### Out of scope
 
 - **Malicious source code in your own repo.** Provenance signs _what
-  was built_, not _that the source was clean_ — an attacker who
+  was built_, not _that the source was clean_ , an attacker who
   compromises your repository (xz-utils-style) gets a packtory-signed
   attestation for their payload. Code review is the defense.
 - **A compromised build machine.** If the machine running
@@ -33,11 +33,11 @@ guarantees on top.
 
 ### Comparison
 
-| Feature                                                     | Defends against                                          | Default | Configure                                      |
-| ----------------------------------------------------------- | -------------------------------------------------------- | ------- | ---------------------------------------------- |
-| [Provenance](#provenance-attestations)                      | Account compromise, package misattribution               | off     | `publishSettings.provenance: { type: 'auto' }` |
-| [Tarball origin pinning](#tarball-origin-pinning)           | Credential exfiltration via a tampered registry response | on      | always on; not configurable                    |
-| [Tarball digest verification](#tarball-digest-verification) | Tampered latest-version tarballs after metadata lookup   | on      | always on; not configurable                    |
+| Feature                                                     | Defends against                                          | Default | Configure                                           |
+| ----------------------------------------------------------- | -------------------------------------------------------- | ------- | --------------------------------------------------- |
+| [Provenance](#provenance-attestations)                      | Account compromise, package misattribution               | off     | `publishSettings.provenance: { type: 'automatic' }` |
+| [Tarball origin pinning](#tarball-origin-pinning)           | Credential exfiltration via a tampered registry response | on      | always on; not configurable                         |
+| [Tarball digest verification](#tarball-digest-verification) | Tampered latest-version tarballs after metadata lookup   | on      | always on; not configurable                         |
 
 ## Quickstart
 
@@ -46,11 +46,11 @@ The typical configuration for a public package with provenance:
 ```javascript
 publishSettings: {
     access: 'public',
-    provenance: { type: 'auto' }
+    provenance: { type: 'automatic' }
 }
 ```
 
-On GitHub Actions, the workflow needs `id-token: write` — see
+On GitHub Actions, the workflow needs `id-token: write` , see
 [Provenance attestations](#provenance-attestations) for the workflow
 snippet, GitLab CI variant, and other CIs.
 
@@ -75,7 +75,7 @@ exposes it on the package page.
 ### The `access: 'public'` precondition
 
 `provenance` is only valid when `access: 'public'`. The discriminated
-union in `publishSettings` enforces this at config-validation time —
+union in `publishSettings` enforces this at config-validation time ,
 combining `access: 'restricted'` with a `provenance` field is rejected
 before any network call. The reasoning is registry-side: npmjs.org only
 publishes provenance attestations for public packages.
@@ -85,11 +85,11 @@ publishes provenance attestations for public packages.
 ```javascript
 publishSettings: {
     access: 'public',
-    provenance: { type: 'auto' }
+    provenance: { type: 'automatic' }
 }
 ```
 
-`type: 'auto'` lets `libnpmpublish` detect the CI environment and
+`type: 'automatic'` lets `libnpmpublish` detect the CI environment and
 generate the attestation in-process. Currently supported natively:
 **GitHub Actions** and **GitLab CI**.
 
@@ -154,7 +154,7 @@ Generate a sigstore bundle with the attestation tooling of your choice
 [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance)
 in a federated GHA job, or `cosign`/`sigstore-js` in a script) and
 point packtory at the resulting file via `provenance.path`. The bundle
-must be signed against the tarball packtory builds — re-generate it
+must be signed against the tarball packtory builds , re-generate it
 from the same source tree the publish runs against.
 
 ### Verifying as a consumer
@@ -228,7 +228,7 @@ extracting it. `dist.integrity` is checked with strict SRI rules.
 must match. Missing digest fields keep the existing compatibility path,
 but malformed or mismatched provided metadata fails the command.
 
-## CLI error reference
+## command line interface error reference
 
 ### Tarball origin
 
@@ -236,7 +236,7 @@ but malformed or mismatched provided metadata fails the command.
   The registry returned a tarball URL on a different origin than the one
   configured. Investigate the registry mirror or proxy in between; a
   legitimate registry serves tarballs from its own origin.
-- `Registry returned an invalid tarball URL: "<value>"` — the registry
+- `Registry returned an invalid tarball URL: "<value>"` , the registry
   response carried a non-URL `dist.tarball`. Almost always a registry
   bug or a tampered response.
 
@@ -254,24 +254,24 @@ but malformed or mismatched provided metadata fails the command.
 ### Provenance, auto mode
 
 - `Provenance auto mode requires GitHub Actions or GitLab CI. Detected CI: <name>. Use provenance: { type: 'file' } for other environments.`
-  — your CI is not natively supported by `auto` mode. Either run from
+  , your CI is not natively supported by `auto` mode. Either run from
   GitHub Actions / GitLab CI, or switch to
   `provenance: { type: 'file', path }` and pre-generate the bundle.
 - `GitHub Actions provenance needs "permissions: id-token: write" on the workflow job.`
-  — add `id-token: write` to the workflow job that runs
+  , add `id-token: write` to the workflow job that runs
   `packtory publish`.
 - `GitLab CI provenance needs an "id_tokens" entry with audience "sigstore" exposed as SIGSTORE_ID_TOKEN.`
-  — declare the OIDC ID token for the job with audience `sigstore`.
+  , declare the OIDC ID token for the job with audience `sigstore`.
 
 ### Provenance, file mode
 
-- `Provenance bundle file "<path>" does not exist.` — generate the
+- `Provenance bundle file "<path>" does not exist.` , generate the
   bundle with your CI's attestation tooling before running packtory.
 - `Provenance bundle file "<path>" is not a valid sigstore bundle.`
-  — the file is corrupted or was not produced by a supported sigstore
+  , the file is corrupted or was not produced by a supported sigstore
   client. Re-generate it from the current build.
 - `Provenance bundle at "<path>" was signed against a different tarball than the one packtory built.`
-  — the bundle's signed digest does not match the tarball packtory
+  , the bundle's signed digest does not match the tarball packtory
   built. Re-generate the bundle from the current source so its digest
   matches.
 
@@ -280,7 +280,7 @@ but malformed or mismatched provided metadata fails the command.
 These are the artifacts a packtory publish emits, with links to the
 specifications that define them. Use these as inputs for your own
 compliance mapping (NTIA Minimum Elements, EU CRA Annex I, SLSA, etc.)
-— the matching is your obligation, not packtory's claim.
+, the matching is your obligation, not packtory's claim.
 
 - When provenance is enabled, a **sigstore-signed in-toto v1
   statement** carrying the
@@ -289,7 +289,7 @@ compliance mapping (NTIA Minimum Elements, EU CRA Annex I, SLSA, etc.)
   [Rekor transparency log](https://docs.sigstore.dev/logging/overview/),
   delivered via
   [npm provenance](https://docs.npmjs.com/generating-provenance-statements).
-- When `provenance: { type: 'auto' }` is enabled, a coherence guarantee
+- When `provenance: { type: 'automatic' }` is enabled, a coherence guarantee
   that `package.json#repository` matches the CI-detected source
   repository, enforced before signing.
 

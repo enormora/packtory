@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { createHash } from 'node:crypto';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import type { RegistrySettings } from '../../config/registry-settings.ts';
+import type { RegistrySettings } from '../../configuration/registry-settings.ts';
 import { fakeNpmFetch, registryTarballBytes } from '../../test-libraries/registry-fetch-fixtures.ts';
 import {
     fetchLatestPackageReleaseMetadata,
@@ -13,28 +13,28 @@ import {
 } from './package-metadata-fetcher.ts';
 import type { TarballIntegrity } from './tarball-integrity.ts';
 
-const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
+const settings: RegistrySettings = { authentication: { type: 'bearer-token', token: 'tok' } };
 const latestVersion = '1.2.3';
 const targetVersion = '1.2.4';
-const tarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.3.tgz';
-const targetTarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.4.tgz';
+const tarballAddress = 'https://registry.npmjs.org/package-a/-/package-a-1.2.3.tgz';
+const targetTarballAddress = 'https://registry.npmjs.org/package-a/-/package-a-1.2.4.tgz';
 const matchingIntegrity = `sha512-${createHash('sha512').update(registryTarballBytes).digest('base64')}`;
 const matchingShasum = [ '9ef2570c89e65b9f', 'e47687b0b49e122e', '59354bef' ].join('');
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 function latestPackageResponse(time?: string, dist: Record<string, unknown> = {}): Record<string, unknown> {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         'dist-tags': { latest: latestVersion },
         ...time === undefined ? {} : { time: { [latestVersion]: time } },
-        versions: { [latestVersion]: { dist: { tarball: tarballUrl, ...dist } } }
+        versions: { [latestVersion]: { dist: { tarball: tarballAddress, ...dist } } }
     };
 }
 
 function expectedVersionDetails(tarballIntegrity: TarballIntegrity = emptyTarballIntegrity): Record<string, unknown> {
     return {
         version: latestVersion,
-        tarballUrl,
+        tarballAddress,
         tarballIntegrity,
         gitHead: undefined
     };
@@ -46,14 +46,14 @@ function expectedReleaseMetadata(
 ): Record<string, unknown> {
     return {
         version: latestVersion,
-        tarballUrl,
+        tarballAddress,
         tarballIntegrity,
         publishedAt,
         gitHead: undefined
     };
 }
 
-function fakeJsonSequence(...responses: readonly (Error | Record<string, unknown>)[]): SinonSpy {
+function fakeJavaScriptObjectNotationSequence(...responses: readonly (Error | Record<string, unknown>)[]): SinonSpy {
     let callIndex = 0;
 
     return fake(async function () {
@@ -71,7 +71,7 @@ function fakeJsonSequence(...responses: readonly (Error | Record<string, unknown
 
 async function expectError(npmFetch: NpmFetch, expectedMessage: string): Promise<void> {
     try {
-        await fetchLatestPackageVersion(npmFetch, 'pkg-a', settings);
+        await fetchLatestPackageVersion(npmFetch, 'package-a', settings);
         assert.fail('Expected fetchLatestPackageVersion() to throw but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, expectedMessage);
@@ -84,19 +84,19 @@ suite('package-metadata-fetcher', function () {
             const result = await fetchLatestPackageVersion(
                 fakeNpmFetch(
                     fake.resolves({
-                        name: 'pkg-a',
+                        name: 'package-a',
                         'dist-tags': { latest: latestVersion },
-                        versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
+                        versions: { [latestVersion]: { dist: { tarball: tarballAddress } } }
                     })
                 ),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     gitHead: undefined
                 }),
@@ -110,14 +110,14 @@ suite('package-metadata-fetcher', function () {
                     integrity: matchingIntegrity,
                     shasum: matchingShasum
                 }))),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     gitHead: undefined
                 }),
@@ -129,27 +129,27 @@ suite('package-metadata-fetcher', function () {
             const result = await fetchLatestPackageVersion(
                 fakeNpmFetch(
                     fake.resolves({
-                        name: 'pkg-a',
+                        name: 'package-a',
                         'dist-tags': { latest: latestVersion },
                         versions: {
-                            [latestVersion]: { dist: { tarball: tarballUrl, integrity: matchingIntegrity } },
+                            [latestVersion]: { dist: { tarball: tarballAddress, integrity: matchingIntegrity } },
                             '0.0.1': {
                                 dist: {
-                                    tarball: 'https://registry.npmjs.org/pkg-a/-/pkg-a-0.0.1.tgz',
+                                    tarball: 'https://registry.npmjs.org/package-a/-/package-a-0.0.1.tgz',
                                     integrity: 42
                                 }
                             }
                         }
                     })
                 ),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     gitHead: undefined
                 }),
@@ -160,29 +160,29 @@ suite('package-metadata-fetcher', function () {
         test('fetchLatestPackageVersion throws when latest digest metadata is not a string', async function () {
             await expectError(
                 fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: { length: 1 } }))),
-                'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.3"'
+                'Registry returned invalid dist.integrity for package "package-a" version "1.2.3"'
             );
             await expectError(
                 fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: { length: 1 } }))),
-                'Registry returned invalid dist.shasum for package "pkg-a" version "1.2.3"'
+                'Registry returned invalid dist.shasum for package "package-a" version "1.2.3"'
             );
         });
 
         test('fetchLatestPackageVersion throws when latest digest metadata is empty', async function () {
             await expectError(
                 fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: '' }))),
-                'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.3"'
+                'Registry returned invalid dist.integrity for package "package-a" version "1.2.3"'
             );
             await expectError(
                 fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: '' }))),
-                'Registry returned invalid dist.shasum for package "pkg-a" version "1.2.3"'
+                'Registry returned invalid dist.shasum for package "package-a" version "1.2.3"'
             );
         });
 
         test('fetchLatestPackageVersion returns Nothing when the registry has no latest dist-tag', async function () {
             const result = await fetchLatestPackageVersion(
-                fakeNpmFetch(fake.resolves({ name: 'pkg-a', 'dist-tags': {}, versions: {} })),
-                'pkg-a',
+                fakeNpmFetch(fake.resolves({ name: 'package-a', 'dist-tags': {}, versions: {} })),
+                'package-a',
                 settings
             );
 
@@ -192,7 +192,7 @@ suite('package-metadata-fetcher', function () {
         test('fetchLatestPackageVersion returns Nothing when the registry responds with 404', async function () {
             const result = await fetchLatestPackageVersion(
                 fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
@@ -203,7 +203,7 @@ suite('package-metadata-fetcher', function () {
             await assert.rejects(async function () {
                 await fetchLatestPackageVersion(
                     fakeNpmFetch(fake.rejects(Object.assign(new Error('status 403'), { statusCode: 403 }))),
-                    'pkg-a',
+                    'package-a',
                     settings
                 );
             }, /status 403/u);
@@ -211,15 +211,15 @@ suite('package-metadata-fetcher', function () {
 
         test('fetchLatestPackageVersion throws when the registry response shape is invalid', async function () {
             await expectError(
-                fakeNpmFetch(fake.resolves({ name: 'pkg-a' })),
+                fakeNpmFetch(fake.resolves({ name: 'package-a' })),
                 'Got an invalid response from registry API'
             );
         });
 
         test('fetchLatestPackageVersion throws when the version listed under dist-tags.latest has no entry', async function () {
             await expectError(
-                fakeNpmFetch(fake.resolves({ name: 'pkg-a', 'dist-tags': { latest: '1.2.3' }, versions: {} })),
-                'Version "1.2.3" for package "pkg-a" has no entry in the registry response'
+                fakeNpmFetch(fake.resolves({ name: 'package-a', 'dist-tags': { latest: '1.2.3' }, versions: {} })),
+                'Version "1.2.3" for package "package-a" has no entry in the registry response'
             );
         });
     });
@@ -228,14 +228,14 @@ suite('package-metadata-fetcher', function () {
         test('fetchLatestPackageReleaseMetadata returns the latest version details with publishedAt when the registry response is valid', async function () {
             const result = await fetchLatestPackageReleaseMetadata(
                 fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z'))),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined
@@ -250,14 +250,14 @@ suite('package-metadata-fetcher', function () {
                     integrity: matchingIntegrity,
                     shasum: matchingShasum
                 }))),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined
@@ -273,18 +273,18 @@ suite('package-metadata-fetcher', function () {
             const result = await fetchLatestPackageReleaseMetadata(
                 fakeNpmFetch(
                     fake.resolves({
-                        name: 'pkg-a',
+                        name: 'package-a',
                         'dist-tags': { latest: latestVersion },
-                        versions: { [latestVersion]: { dist: { tarball: tarballUrl }, gitHead: 'abcdef123456' } }
+                        versions: { [latestVersion]: { dist: { tarball: tarballAddress }, gitHead: 'abcdef123456' } }
                     })
                 ),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             const fallback = {
                 version: '',
-                tarballUrl: '',
+                tarballAddress: '',
                 tarballIntegrity: emptyTarballIntegrity,
                 publishedAt: undefined,
                 gitHead: undefined
@@ -295,14 +295,14 @@ suite('package-metadata-fetcher', function () {
         test('fetchLatestPackageReleaseMetadata returns undefined publishedAt when the registry omits the time entry', async function () {
             const result = await fetchLatestPackageReleaseMetadata(
                 fakeNpmFetch(fake.resolves(latestPackageResponse())),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined
@@ -314,7 +314,7 @@ suite('package-metadata-fetcher', function () {
         test('fetchLatestPackageReleaseMetadata returns Nothing when the package is missing from the registry', async function () {
             const result = await fetchLatestPackageReleaseMetadata(
                 fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
-                'pkg-a',
+                'package-a',
                 settings
             );
 
@@ -323,8 +323,8 @@ suite('package-metadata-fetcher', function () {
 
         test('fetchLatestPackageReleaseMetadata returns Nothing when the full metadata has no latest dist-tag', async function () {
             const result = await fetchLatestPackageReleaseMetadata(
-                fakeNpmFetch(fake.resolves({ name: 'pkg-a', 'dist-tags': {}, versions: {} })),
-                'pkg-a',
+                fakeNpmFetch(fake.resolves({ name: 'package-a', 'dist-tags': {}, versions: {} })),
+                'package-a',
                 settings
             );
 
@@ -335,7 +335,7 @@ suite('package-metadata-fetcher', function () {
             try {
                 await fetchLatestPackageReleaseMetadata(
                     fakeNpmFetch(fake.resolves(latestPackageResponse('not-a-date'))),
-                    'pkg-a',
+                    'package-a',
                     settings
                 );
                 assert.fail('Expected fetchLatestPackageReleaseMetadata() to throw but it did not');
@@ -353,14 +353,14 @@ suite('package-metadata-fetcher', function () {
             const result = await fetchPackageVersionReleaseMetadata(
                 fakeNpmFetch(
                     fake.resolves({
-                        name: 'pkg-a',
+                        name: 'package-a',
                         'dist-tags': { latest: latestVersion },
                         time: { [targetVersion]: '2026-05-20T10:00:00.000Z' },
                         versions: {
-                            [latestVersion]: { dist: { tarball: tarballUrl } },
+                            [latestVersion]: { dist: { tarball: tarballAddress } },
                             [targetVersion]: {
                                 dist: {
-                                    tarball: targetTarballUrl,
+                                    tarball: targetTarballAddress,
                                     integrity: matchingIntegrity,
                                     shasum: matchingShasum
                                 },
@@ -369,7 +369,7 @@ suite('package-metadata-fetcher', function () {
                         }
                     })
                 ),
-                'pkg-a',
+                'package-a',
                 targetVersion,
                 settings
             );
@@ -377,7 +377,7 @@ suite('package-metadata-fetcher', function () {
             assert.deepStrictEqual(
                 result.unwrapOr({
                     version: '',
-                    tarballUrl: '',
+                    tarballAddress: '',
                     tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined,
@@ -385,7 +385,7 @@ suite('package-metadata-fetcher', function () {
                 }),
                 {
                     version: targetVersion,
-                    tarballUrl: targetTarballUrl,
+                    tarballAddress: targetTarballAddress,
                     tarballIntegrity: { integrity: matchingIntegrity, shasum: matchingShasum },
                     publishedAt: new Date('2026-05-20T10:00:00.000Z'),
                     gitHead: 'abcdef123456',
@@ -397,7 +397,7 @@ suite('package-metadata-fetcher', function () {
         test('fetchPackageVersionReleaseMetadata returns Nothing when the exact version is missing', async function () {
             const result = await fetchPackageVersionReleaseMetadata(
                 fakeNpmFetch(fake.resolves(latestPackageResponse())),
-                'pkg-a',
+                'package-a',
                 targetVersion,
                 settings
             );
@@ -408,7 +408,7 @@ suite('package-metadata-fetcher', function () {
         test('fetchPackageVersionReleaseMetadata returns Nothing when the package is missing', async function () {
             const result = await fetchPackageVersionReleaseMetadata(
                 fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
-                'pkg-a',
+                'package-a',
                 targetVersion,
                 settings
             );
@@ -421,23 +421,23 @@ suite('package-metadata-fetcher', function () {
                 await fetchPackageVersionReleaseMetadata(
                     fakeNpmFetch(
                         fake.resolves({
-                            name: 'pkg-a',
+                            name: 'package-a',
                             'dist-tags': { latest: latestVersion },
                             versions: {
                                 [targetVersion]: {
                                     dist: {
-                                        tarball: targetTarballUrl,
+                                        tarball: targetTarballAddress,
                                         integrity: 42
                                     }
                                 }
                             }
                         })
                     ),
-                    'pkg-a',
+                    'package-a',
                     targetVersion,
                     settings
                 );
-            }, { message: 'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.4"' });
+            }, { message: 'Registry returned invalid dist.integrity for package "package-a" version "1.2.4"' });
         });
 
         test('fetchPackageVersionReleaseMetadata throws when exact version publish time is invalid', async function () {
@@ -445,13 +445,13 @@ suite('package-metadata-fetcher', function () {
                 await fetchPackageVersionReleaseMetadata(
                     fakeNpmFetch(
                         fake.resolves({
-                            name: 'pkg-a',
+                            name: 'package-a',
                             'dist-tags': { latest: latestVersion },
                             time: { [targetVersion]: 'not-a-date' },
-                            versions: { [targetVersion]: { dist: { tarball: targetTarballUrl } } }
+                            versions: { [targetVersion]: { dist: { tarball: targetTarballAddress } } }
                         })
                     ),
-                    'pkg-a',
+                    'package-a',
                     targetVersion,
                     settings
                 );
@@ -461,50 +461,65 @@ suite('package-metadata-fetcher', function () {
 
     suite('staged package versions', function () {
         test('fetchStagedPackageVersions returns staged versions across pages and stops when it reaches the total', async function () {
-            const json = fakeJsonSequence(
+            const javaScriptObjectNotation = fakeJavaScriptObjectNotationSequence(
                 { items: [ { version: '1.2.4' } ], total: 2 },
                 { items: [ { version: '1.2.5' } ], total: 2 },
                 new Error('Unexpected extra stage lookup')
             );
 
-            const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+            const result = await fetchStagedPackageVersions(
+                fakeNpmFetch(javaScriptObjectNotation),
+                'package-a',
+                settings
+            );
 
             assert.deepStrictEqual(result, [ '1.2.4', '1.2.5' ]);
-            assert.strictEqual(json.callCount, 2);
+            assert.strictEqual(javaScriptObjectNotation.callCount, 2);
         });
 
         test('fetchStagedPackageVersions stops when a later page is empty even if the total is larger', async function () {
-            const json = fakeJsonSequence(
+            const javaScriptObjectNotation = fakeJavaScriptObjectNotationSequence(
                 { items: [ { version: '1.2.4' } ], total: 3 },
                 { items: [], total: 3 },
                 new Error('Unexpected extra stage lookup')
             );
 
-            const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+            const result = await fetchStagedPackageVersions(
+                fakeNpmFetch(javaScriptObjectNotation),
+                'package-a',
+                settings
+            );
 
             assert.deepStrictEqual(result, [ '1.2.4' ]);
-            assert.strictEqual(json.callCount, 2);
+            assert.strictEqual(javaScriptObjectNotation.callCount, 2);
         });
 
         test('fetchStagedPackageVersions returns an empty list when the first page is empty', async function () {
-            const json = fakeJsonSequence({ items: [], total: 0 }, new Error('Unexpected extra stage lookup'));
+            const javaScriptObjectNotation = fakeJavaScriptObjectNotationSequence(
+                { items: [], total: 0 },
+                new Error('Unexpected extra stage lookup')
+            );
 
-            const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+            const result = await fetchStagedPackageVersions(
+                fakeNpmFetch(javaScriptObjectNotation),
+                'package-a',
+                settings
+            );
 
             assert.deepStrictEqual(result, []);
-            assert.strictEqual(json.callCount, 1);
+            assert.strictEqual(javaScriptObjectNotation.callCount, 1);
         });
 
         test('fetchStagedPackageVersions throws when staged results exceed the page budget', async function () {
-            const json = fake(async function () {
+            const javaScriptObjectNotation = fake(async function () {
                 return { items: [ { version: '1.2.4' } ], total: 100_001 };
             });
 
             await assert.rejects(
-                fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings),
+                fetchStagedPackageVersions(fakeNpmFetch(javaScriptObjectNotation), 'package-a', settings),
                 /^Error: Staged package listing exceeded 1000 pages$/u
             );
-            assert.strictEqual(json.callCount, 1000);
+            assert.strictEqual(javaScriptObjectNotation.callCount, 1000);
         });
     });
 });

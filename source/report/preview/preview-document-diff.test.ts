@@ -4,10 +4,10 @@ import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { isDiffableArtifact, toPreviewDiffHunk } from './preview-document-diff.ts';
 
 const diffable: ArtifactEntry = {
-    path: 'src/index.js',
+    path: 'source/index.js',
     sizeBytes: 10,
     kind: 'source',
-    sourcePath: '/workspace/src/index.js',
+    sourcePath: '/workspace/source/index.js',
     status: 'changed',
     badges: []
 };

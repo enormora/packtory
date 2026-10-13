@@ -44,7 +44,7 @@ function oneFileBundle(
     return linkedBundle({
         name: 'a',
         contents: [ {
-            ...bundleResource('/src/index.js', { content, targetFilePath: 'index.js' }),
+            ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
             isSubstituted
         } ],
         ...metadata
@@ -68,8 +68,8 @@ function linkedIndexBundle(content: string): LinkedBundle {
         content,
         {
             externalDependencies: new Map(),
-            linkedBundleDependencies: dependencyMap('pkg-b'),
-            substitutedInputFilePathsByPackageName: substitutedInputPaths('pkg-b')
+            linkedBundleDependencies: dependencyMap('package-b'),
+            substitutedInputFilePathsByPackageName: substitutedInputPaths('package-b')
         },
         true
     );
@@ -94,7 +94,7 @@ suite('eliminator dependency metadata', function () {
             const input = linkedBundle({
                 name: 'a',
                 contents: [ {
-                    ...bundleResource('/src/index.js', {
+                    ...bundleResource('/source/index.js', {
                         content: [
                             'import { live } from "dep";',
                             'function dead() { return import("stale"); }',
@@ -128,7 +128,7 @@ suite('eliminator dependency metadata', function () {
             const input = linkedBundle({
                 name: 'a',
                 contents: [ {
-                    ...bundleResource('/src/index.ts', {
+                    ...bundleResource('/source/index.ts', {
                         content: 'import type { Dead } from "types-dep";\nexport const api = 1;\n',
                         targetFilePath: 'index.ts'
                     }),
@@ -136,7 +136,7 @@ suite('eliminator dependency metadata', function () {
                 } ],
                 externalDependencies: new Map([ [
                     'types-dep',
-                    externalDependency('types-dep', [ '/src/index.ts' ])
+                    externalDependency('types-dep', [ '/source/index.ts' ])
                 ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
@@ -156,11 +156,11 @@ suite('eliminator dependency metadata', function () {
         test('eliminate records scoped package metadata by package root', async function () {
             const eliminator = createTestEliminator();
             const input = externalIndexBundle(
-                'import { api } from "@scope/pkg/subpath";\nexport const value = api;\n',
-                dependencyMap('@scope/pkg', '@scope')
+                'import { api } from "@scope/package/subpath";\nexport const value = api;\n',
+                dependencyMap('@scope/package', '@scope')
             );
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), [ '@scope/pkg' ]);
+            assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), [ '@scope/package' ]);
         });
 
         test('eliminate records unscoped subpath metadata by package root', async function () {
@@ -188,15 +188,15 @@ suite('eliminator dependency metadata', function () {
             const input = linkedBundle({
                 name: 'a',
                 contents: [
-                    transformedResource('/src/index.js', 'export const api = 1;\n', 'index.js', new Set<string>()),
+                    transformedResource('/source/index.js', 'export const api = 1;\n', 'index.js', new Set<string>()),
                     transformedResource(
-                        '/src/other.js',
+                        '/source/other.js',
                         'import { api } from "dep";\nexport const other = api;\n',
                         'other.js',
                         new Set<string>()
                     )
                 ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/index.js' ]) ] ])
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/index.js' ]) ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), []);
@@ -210,12 +210,12 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'function dead() { return import("./dead.js"); }\nexport const api = 1;\n',
                         'index.js',
-                        new Set([ '/src/dead.js' ])
+                        new Set([ '/source/dead.js' ])
                     ),
-                    transformedResource('/src/dead.js', 'export const dead = 1;\n', 'dead.js', new Set<string>())
+                    transformedResource('/source/dead.js', 'export const dead = 1;\n', 'dead.js', new Set<string>())
                 ]
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
@@ -229,12 +229,12 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'import { live } from "./live.js";\nexport const api = live;\n',
                         'index.js',
                         new Set([ 'live.js' ])
                     ),
-                    transformedResource('/src/live.js', 'export const live = 1;\n', 'live.js', new Set<string>())
+                    transformedResource('/source/live.js', 'export const live = 1;\n', 'live.js', new Set<string>())
                 ]
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
@@ -247,7 +247,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'import "dep";\nexport const api = 1;\n',
                         'index.js',
                         new Set([ 'dep' ])
@@ -265,13 +265,13 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'export const api = 1;\n',
                         'index.js',
                         new Set([ 'dead.js' ])
                     ),
                     transformedResource(
-                        '/src/other.js',
+                        '/source/other.js',
                         'import "./dead.js";\nexport const other = 1;\n',
                         'other.js',
                         new Set<string>()
@@ -289,7 +289,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'import "./live";\nexport const api = 1;\n',
                         'index.js',
                         localDependencies
@@ -306,7 +306,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'export const api = 1;\n',
                         'index.js',
                         new Set([ 'index.js.map' ])
@@ -323,7 +323,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.cjs',
+                        '/source/index.cjs',
                         'exports.api = 1;\n',
                         'index.cjs',
                         new Set([ 'dead.js' ])
@@ -340,13 +340,13 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.cjs',
+                        '/source/index.cjs',
                         'exports.api = import.meta.resolve( "dep" );\n',
                         'index.cjs',
                         new Set<string>()
                     )
                 ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/index.cjs' ]) ] ])
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/index.cjs' ]) ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), [ 'dep' ]);
@@ -357,7 +357,7 @@ suite('eliminator dependency metadata', function () {
             const input = linkedBundle({
                 name: 'a',
                 contents: [
-                    transformedResource('/src/LICENSE', 'license', 'LICENSE', new Set([ 'dead.js' ]))
+                    transformedResource('/source/LICENSE', 'license', 'LICENSE', new Set([ 'dead.js' ]))
                 ]
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
@@ -370,8 +370,8 @@ suite('eliminator dependency metadata', function () {
             const eliminator = createTestEliminator();
             const input = linkedBundle({
                 name: 'a',
-                contents: [ transformedResource('/src/LICENSE', 'license', 'LICENSE', new Set<string>()) ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/LICENSE' ]) ] ])
+                contents: [ transformedResource('/source/LICENSE', 'license', 'LICENSE', new Set<string>()) ],
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/LICENSE' ]) ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), []);
@@ -381,10 +381,12 @@ suite('eliminator dependency metadata', function () {
             const eliminator = createTestEliminator();
             const input = linkedBundle({
                 name: 'a',
-                contents: [ transformedResource('/src/index.d.ts', 'export {};\n', 'index.d.ts', new Set<string>()) ],
+                contents: [
+                    transformedResource('/source/index.d.ts', 'export {};\n', 'index.d.ts', new Set<string>())
+                ],
                 externalDependencies: new Map([ [
                     '@types/dep',
-                    externalDependency('@types/dep', [ '/src/index.d.ts' ])
+                    externalDependency('@types/dep', [ '/source/index.d.ts' ])
                 ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
@@ -397,7 +399,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.d.ts',
+                        '/source/index.d.ts',
                         'export type Api = import("./foo.js").Api;\n',
                         'index.d.ts',
                         new Set([ 'foo.d.ts' ])
@@ -414,7 +416,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'import "./live.js";\nexport const api = 1;\n',
                         'index.js',
                         new Set([ 'live.js', 'live.d.ts' ])
@@ -431,7 +433,7 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.d.ts',
+                        '/source/index.d.ts',
                         'export type Api = import("./foo.js/index.js").Api;\n',
                         'index.d.ts',
                         new Set([ 'foo.js/index.d.ts' ])
@@ -448,25 +450,28 @@ suite('eliminator dependency metadata', function () {
                 name: 'a',
                 contents: [
                     transformedResource(
-                        '/src/index.js',
+                        '/source/index.js',
                         'import "./a.js";\nimport "./b.js";\nexport const api = 1;\n',
                         'index.js',
                         new Set([ 'a.js', 'b.js' ])
                     ),
                     transformedResource(
-                        '/src/a.js',
+                        '/source/a.js',
                         'import { api } from "dep";\nexport const a = api;\n',
                         'a.js',
                         new Set<string>()
                     ),
                     transformedResource(
-                        '/src/b.js',
+                        '/source/b.js',
                         'import { api } from "dep";\nexport const b = api;\n',
                         'b.js',
                         new Set<string>()
                     )
                 ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/a.js', '/src/b.js' ]) ] ])
+                externalDependencies: new Map([ [
+                    'dep',
+                    externalDependency('dep', [ '/source/a.js', '/source/b.js' ])
+                ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assertDefined(analyzed);
@@ -484,7 +489,7 @@ suite('eliminator dependency metadata', function () {
             const eliminator = createTestEliminator();
             const input = linkedBundle({
                 name: 'a',
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/missing.js' ]) ] ])
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/missing.js' ]) ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), []);
@@ -492,7 +497,9 @@ suite('eliminator dependency metadata', function () {
 
         test('eliminate removes stale linked bundle dependency metadata', async function () {
             const eliminator = createTestEliminator();
-            const input = linkedIndexBundle('function dead() { return import("pkg-b"); }\nexport const value = 1;\n');
+            const input = linkedIndexBundle(
+                'function dead() { return import("package-b"); }\nexport const value = 1;\n'
+            );
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(mapKeys(analyzed?.linkedBundleDependencies), []);
             assert.deepStrictEqual(mapKeys(analyzed?.substitutedInputFilePathsByPackageName), []);
@@ -500,10 +507,10 @@ suite('eliminator dependency metadata', function () {
 
         test('eliminate preserves surviving linked bundle dependency metadata', async function () {
             const eliminator = createTestEliminator();
-            const input = linkedIndexBundle('import { api } from "pkg-b";\nexport const value = api;\n');
+            const input = linkedIndexBundle('import { api } from "package-b";\nexport const value = api;\n');
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.deepStrictEqual(mapKeys(analyzed?.linkedBundleDependencies), [ 'pkg-b' ]);
-            assert.deepStrictEqual(mapKeys(analyzed?.substitutedInputFilePathsByPackageName), [ 'pkg-b' ]);
+            assert.deepStrictEqual(mapKeys(analyzed?.linkedBundleDependencies), [ 'package-b' ]);
+            assert.deepStrictEqual(mapKeys(analyzed?.substitutedInputFilePathsByPackageName), [ 'package-b' ]);
         });
 
         test('eliminate keeps dependency metadata when transformations are disabled', async function () {

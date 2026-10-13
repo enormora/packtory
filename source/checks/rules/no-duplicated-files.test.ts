@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { PackageChecksSettings } from '../../config/config.ts';
+import type { PackageChecksSettings } from '../../configuration/configuration.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { emptyCheckContext, checkBundle } from '../../test-libraries/check-fixtures.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
@@ -15,7 +15,7 @@ type SymbolAwareProject = {
 type DuplicateRuleSettings = {
     readonly noDuplicatedFiles: { readonly enabled: boolean; readonly allowList?: readonly string[]; };
 };
-type DuplicateRuleRunArgs = {
+type DuplicateRuleRunArguments = {
     readonly sourceFolders: ReadonlyMap<string, string>;
     readonly bundles: readonly AnalyzedBundle[];
     readonly settings: DuplicateRuleSettings | undefined;
@@ -76,7 +76,7 @@ function consentMap(
     );
 }
 
-async function runRule(input: DuplicateRuleRunArgs): Promise<readonly string[]> {
+async function runRule(input: DuplicateRuleRunArguments): Promise<readonly string[]> {
     return await noDuplicatedFilesRule.run(input);
 }
 

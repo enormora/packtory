@@ -10,13 +10,13 @@ import {
     createDeduplicatedBundleClosureScenario,
     createDependencies,
     createTransitiveBundleClosureScenario,
-    expectErr,
+    expectError,
     makeResolvedPackage,
     packEmitterInput,
     packEmitterOutputPaths,
     runVendorAndExpectExtraFiles,
     sortedFilePaths,
-    validatedConfig,
+    validatedConfiguration,
     type CreatedDependencies,
     type FakeVersionedBundle,
     type PackEmitterInput
@@ -27,7 +27,7 @@ import type { InternalResolveAndLinkFailure } from './packtory-resolve.ts';
 async function runVendoredPackage(fixture: CreatedDependencies): ReturnType<ReturnType<typeof createRunPackValidated>> {
     const runPack = createRunPackValidated(fixture.dependencies);
     return runPack(
-        validatedConfig,
+        validatedConfiguration,
         { ...baseOptions, vendorDependencies: true },
         fixture.fakes.resolveAndLinkAll
     );
@@ -39,7 +39,7 @@ async function runVendoredPackageWithManifest(content: string): Promise<{
 }> {
     const fixture = createDependencies({
         versionedBundle: {
-            name: 'pkg-a',
+            name: 'package-a',
             version: '0.0.0',
             manifestFile: {
                 content,
@@ -70,14 +70,14 @@ function createReadableOutputDependencies(): CreatedDependencies {
     });
 }
 
-function validatedWithPackages(packageNames: readonly string[]): typeof validatedConfig {
+function validatedWithPackages(packageNames: readonly string[]): typeof validatedConfiguration {
     return {
-        packtoryConfig: {
+        packtoryConfiguration: {
             packages: packageNames.map(function (name) {
                 return { name };
             })
         }
-    } as unknown as typeof validatedConfig;
+    } as unknown as typeof validatedConfiguration;
 }
 
 const batchFolderOptions = { outputPath: '/out', version: '1.2.3', vendorDependencies: false } as const;
@@ -89,21 +89,21 @@ suite('packtory-pack', function () {
             const { dependencies, fakes } = createDependencies({ resolveResult: Result.err(resolveFailure) });
             const runPack = createRunPackValidated(dependencies);
 
-            const result = await runPack(validatedConfig, baseOptions, fakes.resolveAndLinkAll);
+            const result = await runPack(validatedConfiguration, baseOptions, fakes.resolveAndLinkAll);
 
-            const error = expectErr(result);
+            const error = expectError(result);
             assert.deepStrictEqual(error, resolveFailure);
         });
 
         test('returns a package-not-found failure when no resolved package matches the requested name', async function () {
             const { dependencies, fakes } = createDependencies({
-                resolveResult: Result.ok([ makeResolvedPackage({ name: 'pkg-other' }) ])
+                resolveResult: Result.ok([ makeResolvedPackage({ name: 'package-other' }) ])
             });
             const runPack = createRunPackValidated(dependencies);
 
-            const result = await runPack(validatedConfig, baseOptions, fakes.resolveAndLinkAll);
+            const result = await runPack(validatedConfiguration, baseOptions, fakes.resolveAndLinkAll);
 
-            assert.deepStrictEqual(expectErr(result), { type: 'package-not-found', packageName: 'pkg-a' });
+            assert.deepStrictEqual(expectError(result), { type: 'package-not-found', packageName: 'package-a' });
         });
 
         test('returns a bundle-dependencies-unsupported failure when the target package declares bundle dependencies in non-vendor mode', async function () {
@@ -112,11 +112,11 @@ suite('packtory-pack', function () {
             });
             const runPack = createRunPackValidated(dependencies);
 
-            const result = await runPack(validatedConfig, baseOptions, fakes.resolveAndLinkAll);
+            const result = await runPack(validatedConfiguration, baseOptions, fakes.resolveAndLinkAll);
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'bundle-dependencies-unsupported',
-                packageName: 'pkg-a'
+                packageName: 'package-a'
             });
         });
 
@@ -129,16 +129,16 @@ suite('packtory-pack', function () {
             });
             const runPack = createRunPackValidated(dependencies);
 
-            const result = await runPack(validatedConfig, baseOptions, fakes.resolveAndLinkAll);
+            const result = await runPack(validatedConfiguration, baseOptions, fakes.resolveAndLinkAll);
 
             assert.deepStrictEqual(result.isOk ? result.value : 'errored', undefined);
             assert.deepStrictEqual(fakes.versionManagerAddVersion.firstCall.args[0], {
                 bundle: makeResolvedPackage().analyzedBundle,
                 version: '0.0.0',
-                mainPackageJson: { type: 'module' },
+                mainPackageManifest: { type: 'module' },
                 bundleDependencies: [],
                 bundlePeerDependencies: [ { ...bundlePeerDependency, version: '0.0.0' } ],
-                additionalPackageJsonAttributes: {},
+                additionalPackageManifestAttributes: {},
                 allowMutableSpecifiers: [],
                 substitutionPublicModuleSourcePaths: undefined
             });
@@ -146,7 +146,7 @@ suite('packtory-pack', function () {
             assert.deepStrictEqual(fakes.packEmitterPack.firstCall.args[0], {
                 bundle: versionedBundle,
                 format: 'zip',
-                outputPath: '/out/pkg-a.zip',
+                outputPath: '/out/package-a.zip',
                 vendorEntries: [],
                 extraFiles: []
             });
@@ -157,15 +157,15 @@ suite('packtory-pack', function () {
             const runPack = createRunPackValidated(dependencies);
 
             const result = await runPack(
-                validatedConfig,
-                { ...baseOptions, format: 'folder', outputPath: '/out/pkg-a' },
+                validatedConfiguration,
+                { ...baseOptions, format: 'folder', outputPath: '/out/package-a' },
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'output-folder-exists',
-                packageName: 'pkg-a',
-                outputPath: '/out/pkg-a'
+                packageName: 'package-a',
+                outputPath: '/out/package-a'
             });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
@@ -175,8 +175,8 @@ suite('packtory-pack', function () {
             const runPack = createRunPackValidated(dependencies);
 
             const result = await runPack(
-                validatedConfig,
-                { ...baseOptions, format: 'zip', outputPath: '/out/pkg-a.zip' },
+                validatedConfiguration,
+                { ...baseOptions, format: 'zip', outputPath: '/out/package-a.zip' },
                 fakes.resolveAndLinkAll
             );
 
@@ -189,31 +189,36 @@ suite('packtory-pack', function () {
         test('resolves once and packs every configured package in config order', async function () {
             const { dependencies, fakes } = createDependencies({
                 resolveResult: Result.ok([
-                    makeResolvedPackage({ name: 'pkg-b' }),
-                    makeResolvedPackage({ name: 'pkg-a' })
+                    makeResolvedPackage({ name: 'package-b' }),
+                    makeResolvedPackage({ name: 'package-a' })
                 ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                validatedWithPackages([ 'package-a', 'package-b' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(result.isOk ? result.value : 'errored', { packageNames: [ 'pkg-a', 'pkg-b' ] });
+            assert.deepStrictEqual(result.isOk ? result.value : 'errored', {
+                packageNames: [ 'package-a', 'package-b' ]
+            });
             assert.deepStrictEqual([ fakes.resolveAndLinkAll.callCount, fakes.packEmitterPack.callCount ], [ 1, 2 ]);
             assert.deepStrictEqual(fakes.versionManagerAddVersion.firstCall.args[0], {
-                bundle: makeResolvedPackage({ name: 'pkg-a' }).analyzedBundle,
+                bundle: makeResolvedPackage({ name: 'package-a' }).analyzedBundle,
                 version: '1.2.3',
-                mainPackageJson: { type: 'module' },
+                mainPackageManifest: { type: 'module' },
                 bundleDependencies: [],
                 bundlePeerDependencies: [],
-                additionalPackageJsonAttributes: {},
+                additionalPackageManifestAttributes: {},
                 allowMutableSpecifiers: [],
                 substitutionPublicModuleSourcePaths: undefined
             });
-            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/pkg-a', '/out/pkg-b' ]);
+            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [
+                '/out/package-a',
+                '/out/package-b'
+            ]);
             const emitterInputs: readonly PackEmitterInput[] = fakes.packEmitterPack.args.map(function (call) {
                 return call[0] as PackEmitterInput;
             });
@@ -225,18 +230,18 @@ suite('packtory-pack', function () {
 
         test('uses nested npm-style output folders for scoped packages', async function () {
             const { dependencies, fakes } = createDependencies({
-                resolveResult: Result.ok([ makeResolvedPackage({ name: '@scope/pkg-a' }) ])
+                resolveResult: Result.ok([ makeResolvedPackage({ name: '@scope/package-a' }) ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ '@scope/pkg-a' ]),
+                validatedWithPackages([ '@scope/package-a' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(result.isOk ? result.value : 'errored', { packageNames: [ '@scope/pkg-a' ] });
-            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/@scope/pkg-a' ]);
+            assert.deepStrictEqual(result.isOk ? result.value : 'errored', { packageNames: [ '@scope/package-a' ] });
+            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/@scope/package-a' ]);
         });
 
         test('returns output-root-not-directory before resolving when the output root is a file', async function () {
@@ -248,37 +253,37 @@ suite('packtory-pack', function () {
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedConfig,
+                validatedConfiguration,
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), { type: 'output-root-not-directory', outputPath: '/out' });
+            assert.deepStrictEqual(expectError(result), { type: 'output-root-not-directory', outputPath: '/out' });
             assert.deepStrictEqual([ fakes.resolveAndLinkAll.callCount, fakes.packEmitterPack.callCount ], [ 0, 0 ]);
         });
 
         test('returns unsafe-output-folder for package names that escape the output root', async function () {
             const { dependencies, fakes } = createDependencies({
-                resolveResult: Result.ok([ makeResolvedPackage({ name: '../pkg-a' }) ])
+                resolveResult: Result.ok([ makeResolvedPackage({ name: '../package-a' }) ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ '../pkg-a' ]),
+                validatedWithPackages([ '../package-a' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'unsafe-output-folder',
-                packageName: '../pkg-a',
-                outputPath: '/pkg-a'
+                packageName: '../package-a',
+                outputPath: '/package-a'
             });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
 
         test('returns unsafe-output-folder for package names with unsafe path segments', async function () {
-            const unsafePackageNames = [ 'pkg/', 'pkg/.', 'pkg/../pkg-a', 'pkg\\a' ];
+            const unsafePackageNames = [ 'pkg/', 'pkg/.', 'pkg/../package-a', 'pkg\\a' ];
             for (const packageName of unsafePackageNames) {
                 const { dependencies, fakes } = createDependencies({
                     resolveResult: Result.ok([ makeResolvedPackage({ name: packageName }) ])
@@ -291,7 +296,7 @@ suite('packtory-pack', function () {
                     fakes.resolveAndLinkAll
                 );
 
-                assert.deepStrictEqual(expectErr(result).type, 'unsafe-output-folder');
+                assert.deepStrictEqual(expectError(result).type, 'unsafe-output-folder');
                 assert.strictEqual(fakes.packEmitterPack.callCount, 0);
             }
         });
@@ -305,39 +310,39 @@ suite('packtory-pack', function () {
                     ]
                 }),
                 resolveResult: Result.ok([
-                    makeResolvedPackage({ name: 'pkg-a' }),
-                    makeResolvedPackage({ name: 'pkg-b' })
+                    makeResolvedPackage({ name: 'package-a' }),
+                    makeResolvedPackage({ name: 'package-b' })
                 ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                validatedWithPackages([ 'package-a', 'package-b' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'output-folder-exists',
-                packageName: 'pkg-b',
-                outputPath: '/out/pkg-b'
+                packageName: 'package-b',
+                outputPath: '/out/package-b'
             });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
 
         test('returns package-not-found before writing any package folder', async function () {
             const { dependencies, fakes } = createDependencies({
-                resolveResult: Result.ok([ makeResolvedPackage({ name: 'pkg-b' }) ])
+                resolveResult: Result.ok([ makeResolvedPackage({ name: 'package-b' }) ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ 'pkg-a' ]),
+                validatedWithPackages([ 'package-a' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), { type: 'package-not-found', packageName: 'pkg-a' });
+            assert.deepStrictEqual(expectError(result), { type: 'package-not-found', packageName: 'package-a' });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
 
@@ -347,33 +352,33 @@ suite('packtory-pack', function () {
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ 'pkg-a' ]),
+                validatedWithPackages([ 'package-a' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), resolveFailure);
+            assert.deepStrictEqual(expectError(result), resolveFailure);
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
 
         test('does not write earlier packages when a later package cannot be prepared', async function () {
             const { dependencies, fakes } = createDependencies({
                 resolveResult: Result.ok([
-                    makeResolvedPackage({ name: 'pkg-a' }),
-                    makeResolvedPackage({ name: 'pkg-b', bundleDependencies: [ { name: 'pkg-a' } ] })
+                    makeResolvedPackage({ name: 'package-a' }),
+                    makeResolvedPackage({ name: 'package-b', bundleDependencies: [ { name: 'package-a' } ] })
                 ])
             });
             const runPackAll = createRunPackAllValidated(dependencies);
 
             const result = await runPackAll(
-                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                validatedWithPackages([ 'package-a', 'package-b' ]),
                 batchFolderOptions,
                 fakes.resolveAndLinkAll
             );
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'bundle-dependencies-unsupported',
-                packageName: 'pkg-b'
+                packageName: 'package-b'
             });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
@@ -396,7 +401,7 @@ suite('packtory-pack', function () {
         test('deduplicates bundle dependencies that are reachable through multiple paths in the closure', async function () {
             const { runPack, resolveAndLinkAll, packEmitterPack } = createDeduplicatedBundleClosureScenario();
 
-            await runPack(validatedConfig, { ...baseOptions, vendorDependencies: true }, resolveAndLinkAll);
+            await runPack(validatedConfiguration, { ...baseOptions, vendorDependencies: true }, resolveAndLinkAll);
 
             const emitOptions = packEmitterPack.firstCall.args[0] as {
                 readonly extraFiles: readonly { readonly filePath: string; }[];
@@ -409,7 +414,7 @@ suite('packtory-pack', function () {
 
         test('silently skips bundle dependencies whose names are not present in the resolved package list', async function () {
             const versionedBundle: FakeVersionedBundle = {
-                name: 'pkg-a',
+                name: 'package-a',
                 version: '0.0.0',
                 manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' },
                 contents: [],
@@ -427,7 +432,7 @@ suite('packtory-pack', function () {
 
         test('preserves vendored peers and export order while stripping runtime dependencies', async function () {
             const { fixture, result } = await runVendoredPackageWithManifest(JSON.stringify({
-                name: 'pkg-a',
+                name: 'package-a',
                 dependencies: { left: '1.0.0' },
                 peerDependencies: { right: '1.0.0' },
                 exports: [ './z.js', './a.js' ],
@@ -442,7 +447,7 @@ suite('packtory-pack', function () {
                     exports: [ './z.js', './a.js' ],
                     imports: [ '#z', '#a' ],
                     keywords: [ 'a', 'z' ],
-                    name: 'pkg-a',
+                    name: 'package-a',
                     peerDependencies: { right: '1.0.0' }
                 }
             );
@@ -475,9 +480,9 @@ suite('packtory-pack', function () {
 
             const result = await runVendoredPackage({ dependencies, fakes });
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'peer-dependencies-unsatisfied',
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 items: [ { packageName: 'react-dom', peer: 'react-router' } ]
             });
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
@@ -496,7 +501,7 @@ suite('packtory-pack', function () {
                 resolveResult: Result.ok([
                     makeResolvedPackage({
                         externalDependencyNames: [ 'react', 'react-dom' ],
-                        sourcesFolder: '/repo/packages/pkg-a'
+                        sourcesFolder: '/repo/packages/package-a'
                     })
                 ])
             });
@@ -507,7 +512,7 @@ suite('packtory-pack', function () {
             assert.deepStrictEqual(materializerSpy.firstCall.args[0], {
                 dependencySources: [ {
                     initialDependencyNames: [ 'react', 'react-dom' ],
-                    projectFolder: '/repo/packages/pkg-a'
+                    projectFolder: '/repo/packages/package-a'
                 } ]
             });
         });
@@ -521,9 +526,9 @@ suite('packtory-pack', function () {
 
             const result = await runVendoredPackage({ dependencies, fakes });
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'vendor-invalid-dependency-name',
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 sourcePackageName: 'dep',
                 invalidDependencyName: 'github:user/repo'
             });
@@ -539,9 +544,9 @@ suite('packtory-pack', function () {
 
             const result = await runVendoredPackage({ dependencies, fakes });
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'vendor-dependency-not-found',
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 sourcePackageName: 'dep',
                 dependencyName: 'missing'
             });
@@ -558,9 +563,9 @@ suite('packtory-pack', function () {
 
             const result = await runVendoredPackage({ dependencies, fakes });
 
-            assert.deepStrictEqual(expectErr(result), {
+            assert.deepStrictEqual(expectError(result), {
                 type: 'vendor-symlink-target-outside-package',
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 vendoredPackageName: 'dep',
                 entryRelativePath: 'bin/dep',
                 resolvedTargetPath: '/repo/outside.js'

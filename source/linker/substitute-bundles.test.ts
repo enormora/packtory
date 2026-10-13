@@ -31,7 +31,7 @@ function buildInputGraph(
     entryPath = '/entry.js'
 ): ResourceGraph {
     const root = {
-        js: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
+        javaScript: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createGraphFromResolvedBundle({
@@ -69,7 +69,7 @@ function bundleSource(packageName: string, inputFilePath: string, isSubstituted 
     return versionedBundleWithManifest({
         name: packageName,
         version: '21',
-        roots: { main: { js: { content: '', isExecutable: false, inputFilePath, targetFilePath } } },
+        roots: { main: { javaScript: { content: '', isExecutable: false, inputFilePath, targetFilePath } } },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         contents: [
             {
@@ -78,7 +78,7 @@ function bundleSource(packageName: string, inputFilePath: string, isSubstituted 
                 analysis: emptySubstitutionAnalysis()
             }
         ],
-        packageJson: { name: packageName, version: '21' },
+        packageManifest: { name: packageName, version: '21' },
         exportsField: { '.': { import: `./${targetFilePath}` } },
         mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -91,7 +91,7 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
         version: '21',
         roots: {
             main: {
-                js: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' }
+                javaScript: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -107,7 +107,7 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
                 analysis: emptySubstitutionAnalysis()
             }
         ],
-        packageJson: { name: packageName, version: '21' },
+        packageManifest: { name: packageName, version: '21' },
         exportsField: { '.': { import: './foo.js' } },
         mainFile: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -300,7 +300,7 @@ suite('substitute-bundles', function () {
                 version: '1.0.0',
                 roots: {
                     main: {
-                        js: {
+                        javaScript: {
                             inputFilePath: '/bar.js',
                             targetFilePath: 'bar.js',
                             content: '',
@@ -326,7 +326,7 @@ suite('substitute-bundles', function () {
                         analysis: emptySubstitutionAnalysis()
                     }
                 ],
-                packageJson: { name: 'hidden-package', version: '1.0.0' },
+                packageManifest: { name: 'hidden-package', version: '1.0.0' },
                 exportsField: { '.': { import: './bar.js' } },
                 mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
                 manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -510,10 +510,10 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        const packageJson = result.contents.find(function (content) {
+        const packageManifest = result.contents.find(function (content) {
             return content.fileDescription.inputFilePath === '/package.json';
         });
-        assert.partialDeepStrictEqual(packageJson, {
+        assert.partialDeepStrictEqual(packageManifest, {
             isGeneratedManifest: true,
             moduleReferences: [],
             directDependencies: new Set()

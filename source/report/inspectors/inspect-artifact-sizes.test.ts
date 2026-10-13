@@ -12,20 +12,20 @@ function registerArtifactKindTests(): void {
         const entries = inspectArtifactSizes([
             { filePath: 'package.json', content: '{"name":"a"}', isExecutable: false },
             {
-                filePath: 'src/index.js',
+                filePath: 'source/index.js',
                 content: 'export const a = 1;',
                 isExecutable: false,
-                inputFilePath: '/workspace/src/index.js'
+                inputFilePath: '/workspace/source/index.js'
             }
         ]);
 
         assert.deepStrictEqual(entries, [
             { path: 'package.json', sizeBytes: 12, kind: 'manifest', status: 'generated', badges: [] },
             {
-                path: 'src/index.js',
+                path: 'source/index.js',
                 sizeBytes: 19,
                 kind: 'source',
-                sourcePath: '/workspace/src/index.js',
+                sourcePath: '/workspace/source/index.js',
                 status: 'unchanged',
                 badges: []
             }
@@ -44,7 +44,7 @@ function registerArtifactKindTests(): void {
 
     test('inspectArtifactSizes recognizes sbom files', function () {
         const entries = inspectArtifactSizes([
-            { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false },
+            { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false },
             { filePath: 'project.sbom.json', content: '{}', isExecutable: false }
         ]);
 
@@ -52,7 +52,7 @@ function registerArtifactKindTests(): void {
             entries.map(function (entry) {
                 return entry.kind;
             }),
-            [ 'sbom', 'sbom' ]
+            [ 'software-bill-of-materials', 'software-bill-of-materials' ]
         );
     });
 
@@ -143,7 +143,7 @@ function registerArtifactMetadataTests(): void {
                 filePath: 'deep/nested/file.js',
                 content: 'export {};',
                 isExecutable: false,
-                inputFilePath: '/workspace/src/file.js',
+                inputFilePath: '/workspace/source/file.js',
                 isSubstituted: true
             }
         ]);
@@ -152,7 +152,7 @@ function registerArtifactMetadataTests(): void {
             path: 'deep/nested/file.js',
             sizeBytes: 10,
             kind: 'source',
-            sourcePath: '/workspace/src/file.js',
+            sourcePath: '/workspace/source/file.js',
             status: 'changed',
             badges: [ 'import-path-rewrite' ]
         });

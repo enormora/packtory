@@ -1,8 +1,8 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
-import { hasProp } from 'remeda';
-import type { AdditionalPackageJsonAttributes } from '../../config/package-json.ts';
+import { hasProp as hasProperty } from 'remeda';
+import type { AdditionalPackageManifestAttributes } from '../../configuration/package-manifest.ts';
 import type { VersionedBundle } from '../versioned-bundle.ts';
 import { buildPackageManifest } from './builder.ts';
 
@@ -20,40 +20,46 @@ const reservedAttributeNames = new Set([
     'version'
 ]);
 
-const packageNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);
-const filePathArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}\.(?:js|d\.ts)$/);
-const versionArbitrary = fc
-    .tuple(fc.integer({ min: 0, max: 9 }), fc.integer({ min: 0, max: 9 }), fc.integer({ min: 0, max: 9 }))
+const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
+const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.(?:js|d\.ts)$/);
+const versionArbitrary = fastCheck
+    .tuple(
+        fastCheck.integer({ min: 0, max: 9 }),
+        fastCheck.integer({ min: 0, max: 9 }),
+        fastCheck.integer({ min: 0, max: 9 })
+    )
     .map(function ([ major, minor, patch ]) {
         return `${major}.${minor}.${patch}`;
     });
-const dependencyRecordArbitrary = fc.dictionary(packageNameArbitrary, versionArbitrary, { maxKeys: 3 });
-const additionalAttributeKeyArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter(function (key) {
+const dependencyRecordArbitrary = fastCheck.dictionary(packageNameArbitrary, versionArbitrary, { maxKeys: 3 });
+const additionalAttributeKeyArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter(function (key) {
     return !reservedAttributeNames.has(key);
 });
 
-const additionalAttributesArbitrary: fc.Arbitrary<AdditionalPackageJsonAttributes> = fc.dictionary(
+const additionalAttributesArbitrary: fastCheck.Arbitrary<AdditionalPackageManifestAttributes> = fastCheck.dictionary(
     additionalAttributeKeyArbitrary,
-    fc.jsonValue(),
+    fastCheck.jsonValue(),
     { maxKeys: 3 }
-) as fc.Arbitrary<AdditionalPackageJsonAttributes>;
+) as fastCheck.Arbitrary<AdditionalPackageManifestAttributes>;
 
 type PackageManifest = ReturnType<typeof buildPackageManifest>;
 
-const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
+const bundleArbitrary: fastCheck.Arbitrary<VersionedBundle> = fastCheck
     .record({
         name: packageNameArbitrary,
         version: versionArbitrary,
         dependencies: dependencyRecordArbitrary,
         peerDependencies: dependencyRecordArbitrary,
         additionalAttributes: additionalAttributesArbitrary,
-        packageType: fc.constant<'module'>('module'),
+        packageType: fastCheck.constant<'module'>('module'),
         mainTargetFilePath: filePathArbitrary,
-        typesTargetFilePath: fc.option(fc.stringMatching(/^[a-z][\da-z-]{0,7}\.d\.ts$/), { nil: undefined })
+        typesTargetFilePath: fastCheck.option(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.d\.ts$/), {
+            nil: undefined
+        })
     })
     .filter(function (bundle) {
         return Object.keys(bundle.dependencies).every(function (name) {
-            return !hasProp(bundle.peerDependencies, name);
+            return !hasProperty(bundle.peerDependencies, name);
         });
     })
     .map(function (bundle): VersionedBundle {
@@ -66,15 +72,15 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             contents: [],
             roots: {
                 main: {
-                    js: {
-                        inputFilePath: `/src/${bundle.mainTargetFilePath}`,
+                    javaScript: {
+                        inputFilePath: `/source/${bundle.mainTargetFilePath}`,
                         targetFilePath: bundle.mainTargetFilePath,
                         content: '',
                         isExecutable: false
                     },
                     ...bundle.typesTargetFilePath === undefined ? {} : {
                         declarationFile: {
-                            inputFilePath: `/src/${bundle.typesTargetFilePath}`,
+                            inputFilePath: `/source/${bundle.typesTargetFilePath}`,
                             targetFilePath: bundle.typesTargetFilePath,
                             content: '',
                             isExecutable: false
@@ -90,7 +96,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
                 }
             },
             mainFile: {
-                inputFilePath: `/src/${bundle.mainTargetFilePath}`,
+                inputFilePath: `/source/${bundle.mainTargetFilePath}`,
                 targetFilePath: bundle.mainTargetFilePath,
                 content: '',
                 isExecutable: false
@@ -98,7 +104,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             typesMainFile: bundle.typesTargetFilePath === undefined
                 ? undefined
                 : {
-                    inputFilePath: `/src/${bundle.typesTargetFilePath}`,
+                    inputFilePath: `/source/${bundle.typesTargetFilePath}`,
                     targetFilePath: bundle.typesTargetFilePath,
                     content: '',
                     isExecutable: false
@@ -122,8 +128,8 @@ function assertManifestDependencyGroup(
 
 suite('builder', function () {
     test('buildPackageManifest() keeps generated manifest fields coherent with the bundle inputs', function () {
-        fc.assert(
-            fc.property(bundleArbitrary, function (bundle) {
+        fastCheck.assert(
+            fastCheck.property(bundleArbitrary, function (bundle) {
                 const manifest = buildPackageManifest(bundle);
 
                 assert.partialDeepStrictEqual(manifest, {
@@ -139,8 +145,8 @@ suite('builder', function () {
     });
 
     test('buildPackageManifest() preserves additional attributes without leaking dependency groups into each other', function () {
-        fc.assert(
-            fc.property(bundleArbitrary, function (bundle) {
+        fastCheck.assert(
+            fastCheck.property(bundleArbitrary, function (bundle) {
                 const manifest = buildPackageManifest(bundle);
 
                 Object.entries(bundle.additionalAttributes).forEach(function ([ key, value ]) {
@@ -148,10 +154,10 @@ suite('builder', function () {
                 });
 
                 Object.keys(bundle.dependencies).forEach(function (dependencyName) {
-                    assert.strictEqual(hasProp(manifest.peerDependencies ?? {}, dependencyName), false);
+                    assert.strictEqual(hasProperty(manifest.peerDependencies ?? {}, dependencyName), false);
                 });
                 Object.keys(bundle.peerDependencies).forEach(function (dependencyName) {
-                    assert.strictEqual(hasProp(manifest.dependencies ?? {}, dependencyName), false);
+                    assert.strictEqual(hasProperty(manifest.dependencies ?? {}, dependencyName), false);
                 });
             })
         );

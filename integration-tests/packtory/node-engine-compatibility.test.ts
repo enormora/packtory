@@ -4,7 +4,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { suite, test } from 'mocha';
 import type { Result } from 'true-myth';
-import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
+import type { PacktoryConfigurationWithoutRegistry } from '../../source/configuration/configuration.ts';
 import {
     buildAndPublishAll,
     packPackage,
@@ -13,7 +13,7 @@ import {
 
 type EngineFixture = {
     readonly folder: string;
-    readonly config: PacktoryConfigWithoutRegistry;
+    readonly configuration: PacktoryConfigurationWithoutRegistry;
 };
 
 async function writeEngineFixture(folder: string, sourcesFolder: string, entry: string): Promise<void> {
@@ -48,20 +48,23 @@ async function writeEngineFixture(folder: string, sourcesFolder: string, entry: 
 
 async function createEngineFixture(entry: string): Promise<EngineFixture> {
     const folder = await mkdtemp(path.join(tmpdir(), 'packtory-node-engine-'));
-    const sourcesFolder = path.join(folder, 'src');
+    const sourcesFolder = path.join(folder, 'source');
     await writeEngineFixture(folder, sourcesFolder, entry);
     return {
         folder,
-        config: {
+        configuration: {
             commonPackageSettings: {
                 sourcesFolder,
-                mainPackageJson: { type: 'module', dependencies: { direct: '*' } },
+                mainPackageManifest: { type: 'module', dependencies: { direct: '*' } },
                 publishSettings: { access: 'public' },
-                additionalPackageJsonAttributes: { engines: { node: '>=22' } },
+                additionalPackageManifestAttributes: { engines: { node: '>=22' } },
                 deadCodeElimination: { enabled: true, pureImports: [ { from: 'direct' } ] }
             },
             checks: { nodeEngineCompatibility: { enabled: true } },
-            packages: [ { name: 'engine-example', roots: { main: { js: path.join(sourcesFolder, 'index.js') } } } ]
+            packages: [ {
+                name: 'engine-example',
+                roots: { main: { javaScript: path.join(sourcesFolder, 'index.js') } }
+            } ]
         }
     };
 }
@@ -99,13 +102,13 @@ suite('Node engine compatibility in the package pipeline', function () {
     test('fails resolution and publication on an incompatible required transitive dependency', async function () {
         const fixture = await createEngineFixture('export { value } from "direct";\n');
         try {
-            const resolved = await resolveAndLinkAll(fixture.config);
+            const resolved = await resolveAndLinkAll(fixture.configuration);
             assertEngineFailure(resolved.result);
             const published = await buildAndPublishAll({
-                ...fixture.config,
+                ...fixture.configuration,
                 registrySettings: {
-                    registryUrl: 'http://127.0.0.1:1',
-                    auth: { type: 'bearer-token', token: 'unused-test-token' }
+                    registryAddress: 'http://127.0.0.1:1',
+                    authentication: { type: 'bearer-token', token: 'unused-test-token' }
                 }
             }, { dryRun: false, stage: false });
             assertEngineFailure(published.result);
@@ -118,7 +121,7 @@ suite('Node engine compatibility in the package pipeline', function () {
         const fixture = await createEngineFixture('export { value } from "direct";\n');
         const outputPath = path.join(fixture.folder, 'output');
         try {
-            const packed = await packPackage(fixture.config, {
+            const packed = await packPackage(fixture.configuration, {
                 packageName: 'engine-example',
                 format: 'folder',
                 outputPath,
@@ -139,7 +142,7 @@ suite('Node engine compatibility in the package pipeline', function () {
             'function removed() { return import("direct"); }\nexport const kept = 1;\n'
         );
         try {
-            const { result } = await resolveAndLinkAll(fixture.config);
+            const { result } = await resolveAndLinkAll(fixture.configuration);
             assertDeadDependencyRemoved(result);
         } finally {
             await rm(fixture.folder, { recursive: true, force: true });
@@ -150,9 +153,12 @@ suite('Node engine compatibility in the package pipeline', function () {
         const fixture = await createEngineFixture('export { value } from "direct";\n');
         try {
             const { result } = await resolveAndLinkAll({
-                ...fixture.config,
-                packages: fixture.config.packages.map(function (packageConfig) {
-                    return { ...packageConfig, additionalPackageJsonAttributes: { engines: { node: '>=24' } } };
+                ...fixture.configuration,
+                packages: fixture.configuration.packages.map(function (packageConfiguration) {
+                    return {
+                        ...packageConfiguration,
+                        additionalPackageManifestAttributes: { engines: { node: '>=24' } }
+                    };
                 })
             });
             assert.strictEqual(result.isOk, true);

@@ -1,22 +1,22 @@
 import path from 'node:path';
-import type { PrLogConfig, PrLogEngine } from '@pr-log/core';
+import type { PullRequestLogConfiguration, PullRequestLogEngine } from '../../changelog/pull-request-log.ts';
 import { safeParse } from '../../common/schema-validation.ts';
-import type { ChangelogOutput, ChangelogSettings } from '../../config/changelog-settings.ts';
-import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
+import type { ChangelogOutput, ChangelogSettings } from '../../configuration/changelog-settings.ts';
+import { packtoryConfigurationSchema } from '../../configuration/packtory-configuration-schema.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import * as generatedAttributionPaths from '../../packtory/generated-attribution-paths.ts';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
-import { createPrLogConfig } from './changelog-pr-log-config.ts';
+import { createPullRequestLogConfiguration } from './changelog-pull-request-log-configuration.ts';
 
-type PackagePathConfig = {
+type PackagePathConfiguration = {
     readonly name: string;
     readonly sourcesFolder?: string | undefined;
 };
 
-export type ChangelogConfig = {
+export type ChangelogConfiguration = {
     readonly changelog?: ChangelogSettings | undefined;
     readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined; } | undefined;
-    readonly packages: readonly PackagePathConfig[];
+    readonly packages: readonly PackagePathConfiguration[];
 };
 
 type ChangelogDestinationDependencies = {
@@ -47,14 +47,14 @@ type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
     readonly paths: Readonly<Record<string, string>>;
 };
 export type ChangelogGenerationOptions = {
-    readonly explicitBaseRef: string | undefined;
+    readonly explicitBaseReference: string | undefined;
     readonly packageTagFormat: string | undefined;
-    readonly prLogConfig: PrLogConfig;
+    readonly pullRequestLogConfiguration: PullRequestLogConfiguration;
     readonly targetScopedLabelPattern: string | undefined;
 };
 
-export function parseValidConfig(config: unknown): ChangelogConfig | undefined {
-    const result = safeParse(packtoryConfigSchema, config);
+export function parseValidConfiguration(configuration: unknown): ChangelogConfiguration | undefined {
+    const result = safeParse(packtoryConfigurationSchema, configuration);
     if (!result.success) {
         return undefined;
     }
@@ -65,12 +65,12 @@ export function parseValidConfig(config: unknown): ChangelogConfig | undefined {
     };
 }
 
-export function createChangelogGenerationOptions(config: ChangelogConfig): ChangelogGenerationOptions {
+export function createChangelogGenerationOptions(configuration: ChangelogConfiguration): ChangelogGenerationOptions {
     return {
-        explicitBaseRef: config.changelog?.explicitBaseRef,
-        packageTagFormat: config.changelog?.packageTagFormat,
-        prLogConfig: createPrLogConfig(config.changelog),
-        targetScopedLabelPattern: config.changelog?.targetScopedLabelPattern
+        explicitBaseReference: configuration.changelog?.explicitBaseReference,
+        packageTagFormat: configuration.changelog?.packageTagFormat,
+        pullRequestLogConfiguration: createPullRequestLogConfiguration(configuration.changelog),
+        targetScopedLabelPattern: configuration.changelog?.targetScopedLabelPattern
     };
 }
 
@@ -89,47 +89,52 @@ function toRepositoryRelativePath(workingDirectory: string, filePath: string): s
     return path.relative(workingDirectory, filePath).split(path.sep).join('/');
 }
 
-function resolvePackageSourcesFolder(packageConfig: PackagePathConfig, config: ChangelogConfig): string {
-    const sourcesFolder = packageConfig.sourcesFolder ?? config.commonPackageSettings?.sourcesFolder;
+function resolvePackageSourcesFolder(
+    packageConfiguration: PackagePathConfiguration,
+    configuration: ChangelogConfiguration
+): string {
+    const sourcesFolder = packageConfiguration.sourcesFolder ?? configuration.commonPackageSettings?.sourcesFolder;
     if (sourcesFolder === undefined) {
-        throw new Error(`Config for package "${packageConfig.name}" is missing the sources folder`);
+        throw new Error(`Config for package "${packageConfiguration.name}" is missing the sources folder`);
     }
     return sourcesFolder;
 }
 
 export function collectChangelogSourceFileRoots(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig
+    configuration: ChangelogConfiguration
 ): ReadonlyMap<string, readonly string[]> {
     return new Map(
-        config.packages.map(function (packageConfig) {
-            const sourcesFolder = resolvePackageSourcesFolder(packageConfig, config);
+        configuration.packages.map(function (packageConfiguration) {
+            const sourcesFolder = resolvePackageSourcesFolder(packageConfiguration, configuration);
             const absoluteSourceFolder = resolveRepositoryPath(dependencies, sourcesFolder);
             return [
-                packageConfig.name,
+                packageConfiguration.name,
                 [ toRepositoryRelativePath(dependencies.workingDirectory, absoluteSourceFolder) ]
             ] as const;
         })
     );
 }
 
-function mapPackageConfigByName(config: ChangelogConfig): ReadonlyMap<string, PackagePathConfig> {
+function mapPackageConfigurationByName(
+    configuration: ChangelogConfiguration
+): ReadonlyMap<string, PackagePathConfiguration> {
     return new Map(
-        config.packages.map(function (packageConfig) {
-            return [ packageConfig.name, packageConfig ];
+        configuration.packages.map(function (packageConfiguration) {
+            return [ packageConfiguration.name, packageConfiguration ];
         })
     );
 }
 
 function resolvePackageFilePath(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
-    packageConfig: PackagePathConfig,
+    configuration: ChangelogConfiguration,
+    packageConfiguration: PackagePathConfiguration,
     outputPath: string
 ): string {
     return path.resolve(
         dependencies.workingDirectory,
-        normalizeConfiguredPath(resolvePackageSourcesFolder(packageConfig, config)),
+        normalizeConfiguredPath(resolvePackageSourcesFolder(packageConfiguration, configuration)),
         normalizeConfiguredPath(outputPath)
     );
 }
@@ -152,9 +157,9 @@ function hasSharedPackagePath(output: PackageChangelogOutput): output is Package
 
 export function collectGeneratedAttributionPaths(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig
+    configuration: ChangelogConfiguration
 ): readonly string[] {
-    return generatedAttributionPaths.collectGeneratedAttributionPaths(dependencies.workingDirectory, config);
+    return generatedAttributionPaths.collectGeneratedAttributionPaths(dependencies.workingDirectory, configuration);
 }
 
 export function shouldPageGroupedChangelog(outputs: readonly ChangelogOutput[] | undefined): boolean {
@@ -196,18 +201,18 @@ function collectRepositoryOutputFilePaths(
 
 function collectPackageDestinationsWithSharedPath(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
+    configuration: ChangelogConfiguration,
     output: PackageChangelogOutputWithSharedPath,
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    const packageConfigsByName = mapPackageConfigByName(config);
+    const packageConfigurationsByName = mapPackageConfigurationByName(configuration);
     return Array.from(changelog.packageMarkdownByName, function ([ packageName, generatedMarkdown ]) {
-        const packageConfig = packageConfigsByName.get(packageName);
-        if (packageConfig === undefined) {
+        const packageConfiguration = packageConfigurationsByName.get(packageName);
+        if (packageConfiguration === undefined) {
             throw new Error(`Config for package "${packageName}" is missing`);
         }
         return {
-            filePath: resolvePackageFilePath(dependencies, config, packageConfig, output.path),
+            filePath: resolvePackageFilePath(dependencies, configuration, packageConfiguration, output.path),
             generatedMarkdown
         };
     });
@@ -215,13 +220,13 @@ function collectPackageDestinationsWithSharedPath(
 
 function collectPackageOutputFilePathsWithSharedPath(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
+    configuration: ChangelogConfiguration,
     output: PackageChangelogOutputWithSharedPath
 ): readonly ChangelogOutputFilePath[] {
-    return config.packages.map(function (packageConfig) {
+    return configuration.packages.map(function (packageConfiguration) {
         return {
-            filePath: resolvePackageFilePath(dependencies, config, packageConfig, output.path),
-            packageName: packageConfig.name
+            filePath: resolvePackageFilePath(dependencies, configuration, packageConfiguration, output.path),
+            packageName: packageConfiguration.name
         };
     });
 }
@@ -247,7 +252,7 @@ function collectPackageOutputFilePathsWithExplicitPaths(
 
 function collectPackageDestinations(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
+    configuration: ChangelogConfiguration,
     outputs: readonly ChangelogOutput[],
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
@@ -256,7 +261,7 @@ function collectPackageDestinations(
             return [];
         }
         if (hasSharedPackagePath(output)) {
-            return collectPackageDestinationsWithSharedPath(dependencies, config, output, changelog);
+            return collectPackageDestinationsWithSharedPath(dependencies, configuration, output, changelog);
         }
         return collectPackageDestinationsWithExplicitPaths(dependencies, output, changelog);
     });
@@ -264,7 +269,7 @@ function collectPackageDestinations(
 
 function collectPackageOutputFilePaths(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
+    configuration: ChangelogConfiguration,
     outputs: readonly ChangelogOutput[]
 ): readonly ChangelogOutputFilePath[] {
     return outputs.flatMap(function (output) {
@@ -272,7 +277,7 @@ function collectPackageOutputFilePaths(
             return [];
         }
         if (hasSharedPackagePath(output)) {
-            return collectPackageOutputFilePathsWithSharedPath(dependencies, config, output);
+            return collectPackageOutputFilePathsWithSharedPath(dependencies, configuration, output);
         }
         return collectPackageOutputFilePathsWithExplicitPaths(dependencies, output);
     });
@@ -280,15 +285,15 @@ function collectPackageOutputFilePaths(
 
 export function collectChangelogOutputFilePaths(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig
+    configuration: ChangelogConfiguration
 ): readonly ChangelogOutputFilePath[] {
-    const outputs = config.changelog?.outputs;
+    const outputs = configuration.changelog?.outputs;
     if (outputs === undefined) {
         return [];
     }
     return [
         ...collectRepositoryOutputFilePaths(dependencies, outputs),
-        ...collectPackageOutputFilePaths(dependencies, config, outputs)
+        ...collectPackageOutputFilePaths(dependencies, configuration, outputs)
     ];
 }
 
@@ -309,14 +314,14 @@ async function readChangelogMarkdown(fileManager: Pick<FileManager, 'readFile'>,
 
 async function buildChangelogFile(
     dependencies: Pick<ChangelogDestinationDependencies, 'fileManager'>,
-    prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
+    pullRequestLogEngine: Pick<PullRequestLogEngine, 'updateChangelog'>,
     destination: FileChangelogDestination
 ): Promise<WrittenChangelogFile | undefined> {
     if (destination.generatedMarkdown.length === 0) {
         return undefined;
     }
     const existingChangelogMarkdownValue = await readChangelogMarkdown(dependencies.fileManager, destination.filePath);
-    const content = prLogEngine.updateChangelog({
+    const content = pullRequestLogEngine.updateChangelog({
         existingChangelogMarkdown: existingChangelogMarkdownValue,
         generatedChangelogMarkdown: destination.generatedMarkdown
     });
@@ -325,29 +330,29 @@ async function buildChangelogFile(
 
 function collectChangelogDestinations(
     dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
-    config: ChangelogConfig,
+    configuration: ChangelogConfiguration,
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    const outputs = config.changelog?.outputs;
+    const outputs = configuration.changelog?.outputs;
     if (outputs === undefined) {
         return [];
     }
     return [
         ...collectRepositoryDestinations(dependencies, outputs, changelog),
-        ...collectPackageDestinations(dependencies, config, outputs, changelog)
+        ...collectPackageDestinations(dependencies, configuration, outputs, changelog)
     ];
 }
 
 export async function buildConfiguredChangelogFiles(
     dependencies: ChangelogDestinationDependencies,
-    config: ChangelogConfig,
-    prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
+    configuration: ChangelogConfiguration,
+    pullRequestLogEngine: Pick<PullRequestLogEngine, 'updateChangelog'>,
     changelog: GeneratedChangelog
 ): Promise<readonly WrittenChangelogFile[]> {
-    const destinations = collectChangelogDestinations(dependencies, config, changelog);
+    const destinations = collectChangelogDestinations(dependencies, configuration, changelog);
     const writtenFiles: WrittenChangelogFile[] = [];
     for (const destination of destinations) {
-        const writtenFile = await buildChangelogFile(dependencies, prLogEngine, destination);
+        const writtenFile = await buildChangelogFile(dependencies, pullRequestLogEngine, destination);
         if (writtenFile !== undefined) {
             writtenFiles.push(writtenFile);
         }
@@ -357,11 +362,16 @@ export async function buildConfiguredChangelogFiles(
 
 export async function writeConfiguredChangelogs(
     dependencies: WritableChangelogDestinationDependencies,
-    config: ChangelogConfig,
-    prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
+    configuration: ChangelogConfiguration,
+    pullRequestLogEngine: Pick<PullRequestLogEngine, 'updateChangelog'>,
     changelog: GeneratedChangelog
 ): Promise<readonly string[]> {
-    const writtenFiles = await buildConfiguredChangelogFiles(dependencies, config, prLogEngine, changelog);
+    const writtenFiles = await buildConfiguredChangelogFiles(
+        dependencies,
+        configuration,
+        pullRequestLogEngine,
+        changelog
+    );
     for (const file of writtenFiles) {
         await dependencies.fileManager.writeFile(file.filePath, file.content);
     }

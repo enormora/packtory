@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { BuildAndPublishOptions } from '../map-config.ts';
+import type { BuildAndPublishOptions } from '../map-configuration.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { createVersionProviderContext } from './version-provider-context.ts';
 
@@ -19,9 +19,9 @@ const readableAttributionDependencies = {
 function providerVersioningOptions(overrides: Partial<BuildAndPublishOptions>): BuildAndPublishOptions {
     return {
         additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
-        additionalPackageJsonAttributes: {},
+        additionalPackageManifestAttributes: {},
         ignoredAttributionPaths: [],
-        mainPackageJson: { type: 'module' },
+        mainPackageManifest: { type: 'module' },
         registrySettings: {},
         versioning: {
             automatic: false,
@@ -71,7 +71,7 @@ suite('version-provider-context', function () {
             providerVersioningOptions({
                 additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [ 'package-lock.json' ] },
                 ignoredAttributionPaths: [ 'CHANGELOG.md' ],
-                mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } }
+                mainPackageManifest: { type: 'module', dependencies: { commander: '^14.0.0' } }
             }),
             false
         );
@@ -84,7 +84,7 @@ suite('version-provider-context', function () {
             readableAttributionDependencies,
             analyzedBundle({ contents: [] }),
             providerVersioningOptions({
-                additionalPackageJsonAttributes: { engines: { node: '^24.0.0' } }
+                additionalPackageManifestAttributes: { engines: { node: '^24.0.0' } }
             }),
             false
         );

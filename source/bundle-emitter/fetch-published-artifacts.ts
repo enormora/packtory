@@ -1,5 +1,5 @@
 import { Maybe } from 'true-myth';
-import type { RegistrySettings } from '../config/registry-settings.ts';
+import type { RegistrySettings } from '../configuration/registry-settings.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { extractPackageTarball } from './extract-package-tarball.ts';
 import type { PackageReleaseMetadata } from './registry/package-metadata-fetcher.ts';
@@ -18,7 +18,7 @@ export async function fetchPublishedArtifactsFromMetadata(
     metadata: PackageReleaseMetadata
 ): Promise<PublishedReleaseArtifacts> {
     const tarball = await registryClient.fetchTarball(
-        metadata.tarballUrl,
+        metadata.tarballAddress,
         metadata.tarballIntegrity,
         registrySettings
     );

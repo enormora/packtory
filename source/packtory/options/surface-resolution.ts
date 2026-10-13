@@ -1,27 +1,27 @@
-import type { PackageConfig } from '../../config/config.ts';
+import type { PackageConfiguration } from '../../configuration/configuration.ts';
 import { explicitPackageSurface, implicitPackageSurface, type PackageSurface } from '../../package-surface/surface.ts';
 import { getRequiredValue } from './required-value-helpers.ts';
 
 function resolveDefaultModuleRoot(
-    rootIds: readonly [string, ...(readonly string[])],
-    packageConfig: PackageConfig
+    rootIdentifiers: readonly [string, ...(readonly string[])],
+    packageConfiguration: PackageConfiguration
 ): string {
-    const [ firstRootId, secondRootId ] = rootIds;
-    if (secondRootId === undefined) {
-        return firstRootId;
+    const [ firstRootIdentifier, secondRootIdentifier ] = rootIdentifiers;
+    if (secondRootIdentifier === undefined) {
+        return firstRootIdentifier;
     }
     return getRequiredValue(
-        packageConfig.defaultModuleRoot,
-        `Config for package "${packageConfig.name}" is missing defaultModuleRoot`
+        packageConfiguration.defaultModuleRoot,
+        `Config for package "${packageConfiguration.name}" is missing defaultModuleRoot`
     );
 }
 
 export function resolveSurface(
-    rootIds: readonly [string, ...(readonly string[])],
-    packageConfig: PackageConfig
+    rootIdentifiers: readonly [string, ...(readonly string[])],
+    packageConfiguration: PackageConfiguration
 ): PackageSurface {
-    if (packageConfig.packageInterface === undefined) {
-        return implicitPackageSurface(resolveDefaultModuleRoot(rootIds, packageConfig));
+    if (packageConfiguration.packageInterface === undefined) {
+        return implicitPackageSurface(resolveDefaultModuleRoot(rootIdentifiers, packageConfiguration));
     }
-    return explicitPackageSurface(packageConfig.packageInterface);
+    return explicitPackageSurface(packageConfiguration.packageInterface);
 }

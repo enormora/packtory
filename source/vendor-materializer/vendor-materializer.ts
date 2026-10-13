@@ -79,7 +79,7 @@ export type VendorMaterializer = {
     ) => Promise<Result<MaterializedExternals, VendorMaterializerFailure>>;
 };
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
-const peerDependencyMetaSchema = z.optional(
+const peerDependencyMetadataSchema = z.optional(
     z.record(
         z.string(),
         z.object({
@@ -88,15 +88,17 @@ const peerDependencyMetaSchema = z.optional(
     )
 );
 
+type OptionalPeerMetadata = Readonly<Record<string, { readonly optional?: boolean | undefined; }>> | undefined;
+
 function packageManifestSchema(): z.ZodMiniType<{
     readonly dependencies?: Readonly<Record<string, string>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
-    readonly peerDependenciesMeta?: Readonly<Record<string, { readonly optional?: boolean | undefined; }>> | undefined;
+    readonly peerDependenciesMeta?: OptionalPeerMetadata;
 }> {
     return z.object({
         dependencies: dependencyMapSchema,
         peerDependencies: dependencyMapSchema,
-        peerDependenciesMeta: peerDependencyMetaSchema
+        peerDependenciesMeta: peerDependencyMetadataSchema
     });
 }
 

@@ -48,7 +48,7 @@ async function scanDeclarationGraph(
         {
             includeSourceMapFiles: options.includeSourceMapFiles,
             resolveDeclarationFiles: true,
-            mainPackageJson: options.mainPackageJson
+            mainPackageManifest: options.mainPackageManifest
         }
     );
     return pendingEntryFiles.reduce(function (result, entryFile) {
@@ -68,18 +68,18 @@ function createDeclarationScanTracker(): DeclarationScanTracker {
     };
 }
 
-async function resolveJsDependencies(
+async function resolveJavaScriptDependencies(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
     const { dependencies, options } = context;
-    const { sourcesFolder, includeSourceMapFiles, mainPackageJson } = options;
-    const jsDependencyGraph = await dependencies.dependencyScanner.scan(root.js, sourcesFolder, {
+    const { sourcesFolder, includeSourceMapFiles, mainPackageManifest } = options;
+    const javaScriptDependencyGraph = await dependencies.dependencyScanner.scan(root.javaScript, sourcesFolder, {
         includeSourceMapFiles,
         resolveDeclarationFiles: false,
-        mainPackageJson
+        mainPackageManifest
     });
-    return jsDependencyGraph.flatten(root.js);
+    return javaScriptDependencyGraph.flatten(root.javaScript);
 }
 
 async function resolveRootDeclarationDependencies(
@@ -102,9 +102,9 @@ async function resolveDependenciesForRoot(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
-    const jsDependencies = await resolveJsDependencies(context, root);
+    const javaScriptDependencies = await resolveJavaScriptDependencies(context, root);
     const declarationDependencies = await resolveRootDeclarationDependencies(context, root);
-    return mergeDependencyFiles(jsDependencies, declarationDependencies);
+    return mergeDependencyFiles(javaScriptDependencies, declarationDependencies);
 }
 
 export async function resolveDependenciesForAllRoots(

@@ -28,7 +28,7 @@ type FlagRule = {
 };
 type GitHubReleaseClientContext = {
     readonly owner: string;
-    readonly repo: string;
+    readonly repository: string;
     readonly token: string;
 };
 
@@ -192,7 +192,7 @@ async function publishTargets(
         return [];
     }
     const changedTargetsByName = mapTargetsByName(changedTargets);
-    const outcome = await dependencies.packtory.buildAndPublishAll(planned.config, {
+    const outcome = await dependencies.packtory.buildAndPublishAll(planned.configuration, {
         dryRun: false,
         stage: false,
         collectReport: false
@@ -218,13 +218,13 @@ async function publishTargets(
     });
 }
 
-async function createGitHubClientAsync(dependencies: ReleaseHandlerDependencies): Promise<GitHubReleaseClient> {
+async function createGitHubClientAsynchronous(dependencies: ReleaseHandlerDependencies): Promise<GitHubReleaseClient> {
     const token = readGitHubToken(dependencies);
     if (token === undefined) {
         throw new Error('GH_TOKEN or GITHUB_TOKEN must be set to create release tags or GitHub releases');
     }
     return dependencies.createGitHubReleaseClient({
-        ...parseGitHubRepositoryParts(await dependencies.readPackageInfo()),
+        ...parseGitHubRepositoryParts(await dependencies.readPackageInformation()),
         token
     });
 }
@@ -242,7 +242,7 @@ async function preflightGitHubReleaseActions(
         requireTargetHead(target);
     }
     selectCurrentHeadPublishedTargets(planned.packages);
-    return await createGitHubClientAsync(dependencies);
+    return await createGitHubClientAsynchronous(dependencies);
 }
 
 async function ensureTags(client: GitHubReleaseClient, targets: readonly PublishedReleaseTarget[]): Promise<void> {
@@ -261,10 +261,10 @@ async function createGitHubReleases(
     planned: PlannedRelease,
     targets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
-    const changelog = await generateRequiredChangelog(dependencies, planned.config, planned.packages);
+    const changelog = await generateRequiredChangelog(dependencies, planned.configuration, planned.packages);
     const releaseNotesByPackageName = await collectGitHubReleaseNotes(
         dependencies,
-        changelog.config,
+        changelog.configuration,
         targets,
         changelog.changelog
     );

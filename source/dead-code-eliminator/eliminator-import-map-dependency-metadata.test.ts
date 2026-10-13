@@ -11,7 +11,7 @@ suite('eliminator import-map dependency metadata', function () {
             name: 'a',
             contents: [
                 {
-                    ...bundleResource('/src/index.js', {
+                    ...bundleResource('/source/index.js', {
                         content: 'import { api } from "#internal";\nexport const value = api;\n',
                         moduleReferences: [
                             {
@@ -26,7 +26,7 @@ suite('eliminator import-map dependency metadata', function () {
                     isSubstituted: false
                 },
                 {
-                    ...bundleResource('/src/internal.js', {
+                    ...bundleResource('/source/internal.js', {
                         content: 'export const api = 1;\n',
                         targetFilePath: 'internal.js'
                     }),

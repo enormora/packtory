@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { PullRequestChangedFile } from '@pr-log/core';
+import type { PullRequestChangedFile } from '../changelog/pull-request-log.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 
 export type ChangelogSourceFileHistoryInput = {

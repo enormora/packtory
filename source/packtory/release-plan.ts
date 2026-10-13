@@ -28,8 +28,8 @@ export type CollectReleaseArtifactFiles = (
 ) => readonly FileDescription[];
 
 type ChangelogSourceInputOptions = {
-    readonly additionalPackageJsonAttributes: Readonly<Record<string, unknown>>;
-    readonly mainPackageJson: Readonly<Record<string, unknown>>;
+    readonly additionalPackageManifestAttributes: Readonly<Record<string, unknown>>;
+    readonly mainPackageManifest: Readonly<Record<string, unknown>>;
     readonly additionalChangelogSourceFiles: {
         readonly packageFiles: readonly string[];
         readonly sharedFiles: readonly string[];
@@ -67,8 +67,8 @@ function collectReleasePlanManifestChangelogSourceFiles(
 ): readonly string[] {
     return collectManifestChangelogSourceFiles(
         {
-            ...resolveOptions.mainPackageJson,
-            additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes
+            ...resolveOptions.mainPackageManifest,
+            additionalPackageManifestAttributes: resolveOptions.additionalPackageManifestAttributes
         },
         collectReleasePlanChangelogSourceFiles(resolveOptions)
     );

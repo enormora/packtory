@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
-import type { MainPackageJson } from '../../config/package-json.ts';
+import type { MainPackageManifest } from '../../configuration/package-manifest.ts';
 import { groupExternalDependencies } from './external-dependency-classification.ts';
 
-function externalDep(name: string): ExternalDependency {
-    return { name, referencedFrom: [ '/src/a.ts' ] };
+function externalDependency(name: string): ExternalDependency {
+    return { name, referencedFrom: [ '/source/a.ts' ] };
 }
 
-const baseMainPackageJson: MainPackageJson = { type: 'module' };
+const baseMainPackageManifest: MainPackageManifest = { type: 'module' };
 const workspaceMalformedReason =
     'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace,' +
     ' not valid in a published manifest';
@@ -16,7 +16,7 @@ const workspaceMalformedReason =
 function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies returns empty groups when the bundle has no external dependencies', function () {
         assert.deepStrictEqual(
-            groupExternalDependencies({ externalDependencies: new Map() }, baseMainPackageJson, []),
+            groupExternalDependencies({ externalDependencies: new Map() }, baseMainPackageManifest, []),
             {
                 dependencies: {},
                 peerDependencies: {}
@@ -27,8 +27,8 @@ function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies routes a direct dependency version to dependencies', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
-                { ...baseMainPackageJson, dependencies: { 'left-pad': '^1.0.0' } },
+                { externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]) },
+                { ...baseMainPackageManifest, dependencies: { 'left-pad': '^1.0.0' } },
                 []
             ),
             { dependencies: { 'left-pad': '^1.0.0' }, peerDependencies: {} }
@@ -38,8 +38,8 @@ function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies routes a peer dependency version to peerDependencies', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
-                { ...baseMainPackageJson, peerDependencies: { react: '^19.0.0' } },
+                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+                { ...baseMainPackageManifest, peerDependencies: { react: '^19.0.0' } },
                 []
             ),
             { dependencies: {}, peerDependencies: { react: '^19.0.0' } }
@@ -49,9 +49,9 @@ function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies prefers peerDependencies over dependencies when the dep is in both', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
+                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
                 {
-                    ...baseMainPackageJson,
+                    ...baseMainPackageManifest,
                     dependencies: { react: '^18.0.0' },
                     peerDependencies: { react: '^19.0.0' }
                 },
@@ -64,8 +64,8 @@ function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies throws when an external dependency is missing from the main package.json', function () {
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
-                baseMainPackageJson,
+                { externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]) },
+                baseMainPackageManifest,
                 []
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
@@ -88,8 +88,11 @@ function registerExternalDependencyPolicyTests(): void {
             .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
-                { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' } },
+                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+                {
+                    ...baseMainPackageManifest,
+                    dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' }
+                },
                 []
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
@@ -107,8 +110,8 @@ function registerExternalDependencyPolicyTests(): void {
             .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'shared-utils', externalDep('shared-utils') ] ]) },
-                { ...baseMainPackageJson, dependencies: { 'shared-utils': 'workspace:*' } },
+                { externalDependencies: new Map([ [ 'shared-utils', externalDependency('shared-utils') ] ]) },
+                { ...baseMainPackageManifest, dependencies: { 'shared-utils': 'workspace:*' } },
                 []
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
@@ -122,12 +125,12 @@ function registerExternalDependencyPolicyTests(): void {
             groupExternalDependencies(
                 {
                     externalDependencies: new Map([
-                        [ 'shared-utils', externalDep('shared-utils') ],
-                        [ 'react', externalDep('react') ]
+                        [ 'shared-utils', externalDependency('shared-utils') ],
+                        [ 'react', externalDependency('react') ]
                     ])
                 },
                 {
-                    ...baseMainPackageJson,
+                    ...baseMainPackageManifest,
                     dependencies: {
                         'shared-utils': 'workspace:*',
                         react: 'git+https://github.com/foo/bar#v1'
@@ -144,8 +147,11 @@ function registerExternalDependencyPolicyTests(): void {
     test('groupExternalDependencies lets a mutable specifier through when its name is in allowMutableSpecifiers', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
-                { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' } },
+                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+                {
+                    ...baseMainPackageManifest,
+                    dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' }
+                },
                 [ 'react' ]
             ),
             {
@@ -159,13 +165,13 @@ function registerExternalDependencyPolicyTests(): void {
         const expected = [
             'Refusing to publish: 1 entry in dependencyPolicy.allowMutableSpecifiers is not in use:',
             '  - "old-vendored-pkg"',
-            'Remove unused entries — they reflect stale exceptions to the integrity policy.'
+            'Remove unused entries ; they reflect stale exceptions to the integrity policy.'
         ]
             .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
-                { ...baseMainPackageJson, dependencies: { 'left-pad': '^1.0.0' } },
+                { externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]) },
+                { ...baseMainPackageManifest, dependencies: { 'left-pad': '^1.0.0' } },
                 [ 'old-vendored-pkg' ]
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
@@ -177,8 +183,8 @@ function registerExternalDependencyPolicyTests(): void {
     test('groupExternalDependencies prefers a mutable error over an unused-allow-list error', function () {
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
-                { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/foo/bar#v1' } },
+                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+                { ...baseMainPackageManifest, dependencies: { react: 'git+https://github.com/foo/bar#v1' } },
                 [ 'old-vendored-pkg' ]
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');

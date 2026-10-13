@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createPrLogEngine } from '@pr-log/core';
+import { createPrLogEngine as createLibraryEngine } from '@pr-log/core';
+import { isTerminal } from '../../common/terminal.ts';
+import { createPullRequestLogEngineFactory } from '../../changelog/pull-request-log.ts';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
@@ -15,36 +17,38 @@ import {
     type TerminalSpinnerRenderer
 } from '../../command-line-interface/spinner/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner/spinner-worker-backend.ts';
-import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
-import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
+import { createConfigurationLoader } from '../../command-line-interface/configuration-loader.ts';
+import * as preview from '../../command-line-interface/preview-input-output/preview-input-output.ts';
 import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
 import type {
-    CommandLineInterfacePacktoryConfig
-} from '../../command-line-interface/runner/release-pull-request-config.ts';
-import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
-import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
+    CommandLineInterfacePacktoryConfiguration
+} from '../../command-line-interface/runner/release-pull-request-configuration.ts';
+import * as releaseGitHub from '../../command-line-interface/runner/release-pull-request-github-client.ts';
+import { readContinuousIntegrationEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
+
+const createPullRequestLogEngine = createPullRequestLogEngineFactory(createLibraryEngine);
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
 }
 
-function isPackageInfo(value: unknown): value is Record<string, unknown> {
+function isPackageInformation(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parsePackageInfo(content: string): Record<string, unknown> {
+function parsePackageInformation(content: string): Record<string, unknown> {
     const parsed: unknown = JSON.parse(content);
-    if (isPackageInfo(parsed)) {
+    if (isPackageInformation(parsed)) {
         return parsed;
     }
     throw new Error('package.json must contain an object');
 }
 
 function createSpinnerRenderer(): TerminalSpinnerRenderer {
-    if (!process.stdout.isTTY) {
+    if (!isTerminal(process.stdout)) {
         return createLineSpinnerRenderer({ log: console.log });
     }
 
@@ -55,22 +59,22 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
 
 const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
-const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 const workingDirectory = process.cwd();
-const previewIo = createDefaultPreviewIo({
+const previewInputOutput = preview.createDefaultPreviewInputOutput({
     async openFile(filePath) {
         const { default: open } = await import('open');
         await open(filePath, { wait: false });
     },
     shell: process.env.SHELL,
     pager: process.env.PAGER,
-    stdoutIsTTY: process.stdout.isTTY
+    standardOutputIsTerminal: isTerminal(process.stdout)
 });
 
 const promptForOneTimePassword = createOneTimePasswordPrompt({
     clock,
     isInteractiveTerminal() {
-        return process.stdin.isTTY && process.stdout.isTTY;
+        return isTerminal(process.stdin) && isTerminal(process.stdout);
     },
     stopSpinner() {
         spinnerRenderer.stopAll();
@@ -83,30 +87,30 @@ const promptForOneTimePassword = createOneTimePasswordPrompt({
     }
 });
 
-async function readPackageInfo(): Promise<Record<string, unknown>> {
-    return parsePackageInfo(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
+async function readPackageInformation(): Promise<Record<string, unknown>> {
+    return parsePackageInformation(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
 }
 
 const { packtory, progressBroadcaster } = buildPacktoryComposition({
     promptForOneTimePassword,
-    ciEnvironment: readCiEnvironment(process.env),
+    continuousIntegrationEnvironment: readContinuousIntegrationEnvironment(process.env),
     resolveVersionSource: createPullRequestLabelVersionSourceResolver({
-        createPrLogEngine,
+        createPullRequestLogEngine,
         readEnvironmentVariable(name) {
             return process.env[name];
         },
-        readPackageInfo,
+        readPackageInformation,
         workingDirectory
     })
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
-    createPrLogEngine,
+    createPullRequestLogEngine,
     createGitHubReleaseClient(context) {
         return createGitHubReleaseClient({ ...context, fetch });
     },
     createReleasePullRequestGitHubClient(context) {
-        return createReleasePullRequestGitHubClient({ ...context, fetch });
+        return releaseGitHub.createReleasePullRequestGitHubClient({ ...context, fetch });
     },
     currentDate() {
         return new Date(clock.getCurrentTimeInMilliseconds());
@@ -114,20 +118,20 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     packtory,
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
-    configLoader: createConfigLoader({ currentWorkingDirectory: workingDirectory, importModule }),
+    configurationLoader: createConfigurationLoader({ currentWorkingDirectory: workingDirectory, importModule }),
     fileManager,
     async pageOutput(content) {
-        const didPage = await previewIo.pagePreviewOutput(content);
+        const didPage = await previewInputOutput.pagePreviewOutput(content);
         if (!didPage) {
             console.log(content);
         }
     },
-    openFile: previewIo.openPreviewFile,
-    createTemporaryFilePath: previewIo.createTemporaryPreviewHtmlPath,
+    openFile: previewInputOutput.openPreviewFile,
+    createTemporaryFilePath: previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath,
     readEnvironmentVariable(name) {
         return process.env[name];
     },
-    readPackageInfo,
+    readPackageInformation,
     async sleep(milliseconds) {
         await delay(milliseconds);
     },
@@ -156,4 +160,4 @@ async function crash(error: unknown): Promise<void> {
 main().catch(crash);
 
 // eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
-export type PacktoryConfig = CommandLineInterfacePacktoryConfig;
+export type PacktoryConfiguration = CommandLineInterfacePacktoryConfiguration;

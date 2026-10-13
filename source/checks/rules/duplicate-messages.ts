@@ -1,6 +1,6 @@
-import type { OwnerInfo } from './file-ownership.ts';
+import type { OwnerInformation } from './file-ownership.ts';
 
-function ownerNames(owners: readonly OwnerInfo[]): readonly string[] {
+function ownerNames(owners: readonly OwnerInformation[]): readonly string[] {
     const bundleNames = owners.map(function (owner) {
         return owner.bundleName;
     });
@@ -12,7 +12,7 @@ function ownerNames(owners: readonly OwnerInfo[]): readonly string[] {
 export function formatSharedDeclarationsMessage(
     filePath: string,
     sharedDeclarations: ReadonlySet<string>,
-    owners: readonly OwnerInfo[]
+    owners: readonly OwnerInformation[]
 ): string {
     const ownersList = ownerNames(owners).join(', ');
     const sortedDeclarations = Array.from(sharedDeclarations).toSorted(function (left, right) {
@@ -27,6 +27,6 @@ export function formatSharedDeclarationsMessage(
     return lines.join('\n');
 }
 
-export function formatPathLevelMessage(filePath: string, owners: readonly OwnerInfo[]): string {
+export function formatPathLevelMessage(filePath: string, owners: readonly OwnerInformation[]): string {
     return `File "${filePath}" is included in multiple packages: ${ownerNames(owners).join(', ')}`;
 }

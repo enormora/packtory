@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'tstyche';
-import type { PacktoryConfig } from './command-line-interface.entry-point.ts';
+import type { PacktoryConfiguration } from './command-line-interface.entry-point.ts';
 
-describe('PacktoryConfig', function () {
+describe('PacktoryConfiguration', function () {
     test('accepts release pull request settings', function () {
-        const config: PacktoryConfig = {
+        const configuration: PacktoryConfiguration = {
             packages: [
                 {
                     name: 'package-a',
                     sourcesFolder: 'source',
-                    mainPackageJson: { type: 'module' },
-                    roots: { main: { js: 'index.js' } }
+                    mainPackageManifest: { type: 'module' },
+                    roots: { main: { javaScript: 'index.js' } }
                 }
             ],
             releasePullRequest: {
@@ -18,7 +18,7 @@ describe('PacktoryConfig', function () {
                 branch: 'release/packtory',
                 commitSubject: 'Release packages',
                 defaultBranch: 'main',
-                githubActionsCi: {
+                githubActionsContinuousIntegration: {
                     trigger: 'workflow-dispatch',
                     workflowFile: 'release.yml',
                     requiredStatusContexts: [ 'test' ],
@@ -29,11 +29,11 @@ describe('PacktoryConfig', function () {
             }
         };
 
-        expect(config).type.toBeAssignableTo<PacktoryConfig>();
+        expect(configuration).type.toBeAssignableTo<PacktoryConfiguration>();
     });
 
     test('exposes release pull request settings as a CLI config field', function () {
-        expect<keyof PacktoryConfig>().type.toBe<
+        expect<keyof PacktoryConfiguration>().type.toBe<
             'changelog' | 'checks' | 'commonPackageSettings' | 'packages' | 'registrySettings' | 'releasePullRequest'
         >();
     });

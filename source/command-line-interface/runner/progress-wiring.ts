@@ -8,9 +8,9 @@ function describeDoneStatus(status: string, version: string, publication: Public
     }
     if (publication.type === 'staged') {
         if (status === 'initial-version') {
-            return `First version ${version} staged (${publication.stageId})`;
+            return `First version ${version} staged (${publication.stageIdentifier})`;
         }
-        return `New version ${version} staged (${publication.stageId})`;
+        return `New version ${version} staged (${publication.stageIdentifier})`;
     }
     if (status === 'initial-version') {
         return `First version ${version} has been published`;

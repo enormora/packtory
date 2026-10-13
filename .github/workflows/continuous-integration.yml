@@ -1,0 +1,180 @@
+---
+name: Continuous integration
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        types: [opened, reopened, synchronize]
+    merge_group:
+
+permissions: {}
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        strategy:
+            matrix:
+                node-version: [24.x, 26.x]
+        name: Node.js v${{ matrix.node-version }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: ${{ matrix.node-version }}
+            - name: Install dependencies
+              run: npm clean-install --ignore-scripts
+            - name: Audit runtime dependencies
+              run: npm audit --omit=dev
+            - name: Static Code Analysis
+              run: npx just lint
+            - name: Compile Typescript
+              run: npx just compile
+            - name: Run tests
+              run: npx just test
+            - name: Dry-run publish
+              run: npx just publish-dry-run
+              env:
+                  NPM_TOKEN: dry-run
+
+    mutation-testing:
+        runs-on: ubuntu-latest
+        name: Mutation testing
+        timeout-minutes: 60
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 26.x
+            - name: Install dependencies
+              run: npm clean-install --ignore-scripts
+            - name: Run mutation tests
+              run: npx just test-mutation
+
+    benchmarks:
+        runs-on: ubuntu-latest
+        name: Benchmarks
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 26.x
+            - name: Install dependencies
+              run: npm clean-install --ignore-scripts
+            - name: Build benchmark native dependency
+              run: npm rebuild node-pty
+            - name: Run benchmarks
+              run: npx just benchmark
+
+    canaries:
+        runs-on: ubuntu-latest
+        name: Canary ${{ matrix.canary }}
+        continue-on-error: true
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        strategy:
+            fail-fast: false
+            matrix:
+                canary:
+                    - packtory
+                    - objectory
+                    - eslint-config
+                    - pr-log
+                    - overkill
+                    - eslint-plugin-mocha
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Detect canary-relevant changes
+              id: changes
+              env:
+                  BEFORE_SHA: ${{ github.event.before }}
+                  BASE_REF: ${{ github.base_ref }}
+                  CANARY_NAME: ${{ matrix.canary }}
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  if [ "$EVENT_NAME" = "pull_request" ]; then
+                    git fetch --no-tags --depth 1 origin "$BASE_REF"
+                    changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+                  elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+                    changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"
+                  else
+                    changed_files="$(git diff --name-only "HEAD^...HEAD")"
+                  fi
+
+                  if printf '%s\n' "$changed_files" | grep -Eq '^(source/|package\.json$|package-lock\.json$|packtory\.config\.js$|tsconfig|justfile$|canary-tests/|\.github/workflows/continuous-integration\.yml$)'; then
+                    echo "should_run=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "should_run=false" >> "$GITHUB_OUTPUT"
+                    {
+                      echo "## Packtory canary: $CANARY_NAME"
+                      echo
+                      echo "Skipped because this change does not touch canary-relevant paths."
+                    } >> "$GITHUB_STEP_SUMMARY"
+                  fi
+            - name: Use Node.js
+              if: steps.changes.outputs.should_run == 'true'
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 26.x
+            - name: Install dependencies
+              if: steps.changes.outputs.should_run == 'true'
+              run: npm clean-install --ignore-scripts
+            - name: Run canary
+              if: steps.changes.outputs.should_run == 'true'
+              env:
+                  CANARY_NAME: ${{ matrix.canary }}
+              run: >
+                  node --experimental-strip-types --enable-source-maps
+                  ./source/build-support/canaries/canaries.entry-point.ts
+                  --manifest canary-tests/canaries.json
+                  --name "$CANARY_NAME"
+                  --summary "$GITHUB_STEP_SUMMARY"
+
+    workflow-security:
+        runs-on: ubuntu-latest
+        name: Workflow security analysis
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+            security-events: write # required by zizmor-action to upload SARIF to code scanning
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Run zizmor
+              id: zizmor
+              uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+              with:
+                  version: 1.26.1
+                  persona: pedantic
+                  min-severity: informational
+                  min-confidence: low
+                  config: .github/zizmor.yml
+            - name: Fail if zizmor reported findings
+              env:
+                  SARIF_FILE: ${{ steps.zizmor.outputs.output-file }}
+              run: |
+                  count="$(jq '[.runs[].results[]] | length' "$SARIF_FILE")"
+                  echo "zizmor findings: $count"
+                  test "$count" -eq 0

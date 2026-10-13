@@ -1,9 +1,9 @@
 import { ModuleKind, ModuleResolutionKind, type CompilerOptions } from 'ts-morph';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { MainPackageManifest } from '../configuration/package-manifest.ts';
 
 export type AnalyzationOptions = {
     readonly resolveDeclarationFiles: boolean;
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
 };
 
 export function analyzationOptionsToCompilerOptions(options: AnalyzationOptions): CompilerOptions {

@@ -1,4 +1,4 @@
-import { Node as TsMorphNode, SyntaxKind, type BindingElement, type VariableDeclaration } from 'ts-morph';
+import { Node as TypeScriptMorphNode, SyntaxKind, type BindingElement, type VariableDeclaration } from 'ts-morph';
 
 export type VariableDeclarationBinding = {
     readonly name: string;
@@ -16,11 +16,11 @@ export function collectVariableDeclarationBindings(
         referenceNode: VariableDeclaration
     ) => readonly VariableDeclarationBinding[];
     const collectBindingsFromNameNode: BindingCollector = function (nameNode, declarationNode, referenceNode) {
-        if (TsMorphNode.isIdentifier(nameNode)) {
+        if (TypeScriptMorphNode.isIdentifier(nameNode)) {
             return [ { name: nameNode.getText(), declarationNode, referenceNode } ];
         }
         return nameNode.getElements().flatMap(function (element) {
-            if (!TsMorphNode.isBindingElement(element)) {
+            if (!TypeScriptMorphNode.isBindingElement(element)) {
                 return [];
             }
             return collectBindingsFromNameNode(

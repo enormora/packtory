@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { Result } from 'true-myth';
 import type { FileManager } from '../file-manager/file-manager.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { packPackageFailureType, type PackPackageFailure } from './packtory-results.ts';
 
@@ -97,7 +97,7 @@ async function preflightBatchOutputTarget(
 
 export async function preflightBatchOutputs(
     dependencies: PackOutputDependencies,
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     options: BatchOutputOptions
 ): Promise<Result<readonly BatchOutputTarget[], PackPackageFailure>> {
     const rootPreflight = await preflightBatchRoot(dependencies, options.outputPath);
@@ -106,8 +106,12 @@ export async function preflightBatchOutputs(
     }
 
     const targets: BatchOutputTarget[] = [];
-    for (const packageConfig of validated.packtoryConfig.packages) {
-        const targetResult = await preflightBatchOutputTarget(dependencies, options.outputPath, packageConfig.name);
+    for (const packageConfiguration of validated.packtoryConfiguration.packages) {
+        const targetResult = await preflightBatchOutputTarget(
+            dependencies,
+            options.outputPath,
+            packageConfiguration.name
+        );
         if (targetResult.isErr) {
             return Result.err(targetResult.error);
         }

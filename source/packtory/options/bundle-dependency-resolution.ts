@@ -1,8 +1,8 @@
 import {
     getBundledDependencies,
-    type PackageConfig,
-    type PackageConfigsByName
-} from '../../config/config.ts';
+    type PackageConfiguration,
+    type PackageConfigurationsByName
+} from '../../configuration/configuration.ts';
 import { packageNameMap } from '../../common/package-name-map.ts';
 
 function dependencyNamesToBundles<TBundle extends { readonly name: string; }>(
@@ -23,29 +23,35 @@ type ResolvedBundleDependencies<TBundle extends { readonly name: string; }> = {
     readonly bundlePeerDependencies: readonly TBundle[];
 };
 
-function packageConfigByName(packageName: string, packageConfigs: PackageConfigsByName): PackageConfig {
-    const packageConfig = packageConfigs[packageName];
-    if (packageConfig === undefined) {
+function packageConfigurationByName(
+    packageName: string,
+    packageConfigurations: PackageConfigurationsByName
+): PackageConfiguration {
+    const packageConfiguration = packageConfigurations[packageName];
+    if (packageConfiguration === undefined) {
         throw new Error(`Config for package "${packageName}" is missing`);
     }
-    return packageConfig;
+    return packageConfiguration;
 }
 
 export function resolveBundleDependencies<TBundle extends { readonly name: string; }>(
-    packageConfig: PackageConfig,
+    packageConfiguration: PackageConfiguration,
     existingBundles: readonly TBundle[]
 ): ResolvedBundleDependencies<TBundle> {
     const bundlesByName = packageNameMap(existingBundles);
 
     return {
-        bundleDependencies: dependencyNamesToBundles(packageConfig.bundleDependencies ?? [], bundlesByName),
-        bundlePeerDependencies: dependencyNamesToBundles(packageConfig.bundlePeerDependencies ?? [], bundlesByName)
+        bundleDependencies: dependencyNamesToBundles(packageConfiguration.bundleDependencies ?? [], bundlesByName),
+        bundlePeerDependencies: dependencyNamesToBundles(
+            packageConfiguration.bundlePeerDependencies ?? [],
+            bundlesByName
+        )
     };
 }
 
 function collectBundleDependencyClosureNames(
     packageName: string,
-    packageConfigs: PackageConfigsByName
+    packageConfigurations: PackageConfigurationsByName
 ): readonly string[] {
     const visitedNames = new Set([ packageName ]);
     const dependencyNames: string[] = [];
@@ -61,8 +67,8 @@ function collectBundleDependencyClosureNames(
     }
 
     for (const currentPackageName of pendingPackageNames) {
-        const packageConfig = packageConfigByName(currentPackageName, packageConfigs);
-        for (const dependencyName of getBundledDependencies(packageConfig)) {
+        const packageConfiguration = packageConfigurationByName(currentPackageName, packageConfigurations);
+        for (const dependencyName of getBundledDependencies(packageConfiguration)) {
             scheduleDependency(dependencyName);
         }
     }
@@ -70,10 +76,10 @@ function collectBundleDependencyClosureNames(
 }
 
 export function resolveBundleDependencyClosure<TBundle extends { readonly name: string; }>(
-    packageConfig: PackageConfig,
-    packageConfigs: PackageConfigsByName,
+    packageConfiguration: PackageConfiguration,
+    packageConfigurations: PackageConfigurationsByName,
     existingBundles: readonly TBundle[]
 ): readonly TBundle[] {
-    const dependencyNames = collectBundleDependencyClosureNames(packageConfig.name, packageConfigs);
+    const dependencyNames = collectBundleDependencyClosureNames(packageConfiguration.name, packageConfigurations);
     return dependencyNamesToBundles(dependencyNames, packageNameMap(existingBundles));
 }

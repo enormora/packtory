@@ -19,7 +19,7 @@ const entryDescription = createFileDescription('/entry.js', '');
 suite('resource-graph', function () {
     test('createGraphFromResolvedBundle() keeps only external dependencies referenced by each resource', function () {
         const root = {
-            js: entryDescription
+            javaScript: entryDescription
         } as const;
         const graph = createGraphFromResolvedBundle({
             name: 'package-a',
@@ -78,24 +78,24 @@ suite('resource-graph', function () {
             ])
         });
         const visited: {
-            readonly id: string;
+            readonly identifier: string;
             readonly externalDependencies: readonly { readonly name: string; }[];
         }[] = [];
 
         graph.visitBreadthFirstSearch('/entry.js', function (node) {
-            visited.push({ id: node.id, externalDependencies: node.data.externalDependencies });
+            visited.push({ identifier: node.identifier, externalDependencies: node.data.externalDependencies });
         });
 
         assert.deepStrictEqual(visited, [
             {
-                id: '/entry.js',
+                identifier: '/entry.js',
                 externalDependencies: [
                     { name: 'left-pad', sourceSpecifier: 'left-pad', emittedSpecifier: 'left-pad' },
                     { name: 'referenced', sourceSpecifier: 'referenced/source', emittedSpecifier: 'referenced' }
                 ]
             },
             {
-                id: '/other.js',
+                identifier: '/other.js',
                 externalDependencies: [
                     { name: 'referenced', sourceSpecifier: 'referenced/other', emittedSpecifier: 'referenced' }
                 ]
@@ -105,7 +105,7 @@ suite('resource-graph', function () {
 
     test('createGraphFromResolvedBundle() preserves the generated-manifest marker on resources', function () {
         const root = {
-            js: entryDescription
+            javaScript: entryDescription
         } as const;
         const graph = createGraphFromResolvedBundle({
             name: 'package-a',
@@ -131,7 +131,7 @@ suite('resource-graph', function () {
         const manifestNodeData: { readonly isGeneratedManifest?: true | undefined; }[] = [];
 
         graph.visitBreadthFirstSearch('/entry.js', function (node) {
-            if (node.id === '/package.json') {
+            if (node.identifier === '/package.json') {
                 manifestNodeData.push(node.data);
             }
         });

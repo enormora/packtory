@@ -1,33 +1,47 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
-import type { PackageJson } from 'type-fest';
-import { serializePackageJson } from './serialize.ts';
+import type { PackageJson as PackageManifest } from 'type-fest';
+import { serializePackageManifest } from './serialize.ts';
 
-type JsonPrimitive = boolean | number | string | null;
-type SortableJsonPrimitive = Exclude<JsonPrimitive, null>;
-type JsonValue = JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue; };
-type PackageJsonLike = Readonly<Record<string, JsonValue>>;
+type JavaScriptObjectNotationPrimitive = boolean | number | string | null;
+type SortableJavaScriptObjectNotationPrimitive = Exclude<JavaScriptObjectNotationPrimitive, null>;
+type JavaScriptObjectNotationValue = JavaScriptObjectNotationPrimitive | readonly JavaScriptObjectNotationValue[] | {
+    readonly [key: string]: JavaScriptObjectNotationValue;
+};
+type PackageManifestLike = Readonly<Record<string, JavaScriptObjectNotationValue>>;
 
-const primitiveArbitrary = fc.oneof(fc.boolean(), fc.constant(null), fc.integer(), fc.string());
+const primitiveArbitrary = fastCheck.oneof(
+    fastCheck.boolean(),
+    fastCheck.constant(null),
+    fastCheck.integer(),
+    fastCheck.string()
+);
 
-const jsonValueArbitrary = fc
+const javaScriptObjectNotationValueArbitrary = fastCheck
     .letrec(function (tie) {
         return {
-            value: fc.oneof(
+            value: fastCheck.oneof(
                 primitiveArbitrary,
-                fc.array(tie('value'), { maxLength: 5 }),
-                fc.dictionary(fc.string(), tie('value'), { maxKeys: 5 })
+                fastCheck.array(tie('value'), { maxLength: 5 }),
+                fastCheck.dictionary(fastCheck.string(), tie('value'), { maxKeys: 5 })
             )
         };
     })
-    .value as fc.Arbitrary<JsonValue>;
+    .value as fastCheck.Arbitrary<JavaScriptObjectNotationValue>;
 
-const packageJsonLikeArbitrary: fc.Arbitrary<PackageJsonLike> = fc.dictionary(fc.string(), jsonValueArbitrary, {
-    maxKeys: 5
-});
+const packageManifestLikeArbitrary: fastCheck.Arbitrary<PackageManifestLike> = fastCheck.dictionary(
+    fastCheck.string(),
+    javaScriptObjectNotationValueArbitrary,
+    {
+        maxKeys: 5
+    }
+);
 
-function compareSortableValues(left: SortableJsonPrimitive, right: SortableJsonPrimitive): number {
+function compareSortableValues(
+    left: SortableJavaScriptObjectNotationPrimitive,
+    right: SortableJavaScriptObjectNotationPrimitive
+): number {
     if (left < right) {
         return -1;
     }
@@ -39,7 +53,7 @@ function compareSortableValues(left: SortableJsonPrimitive, right: SortableJsonP
     return 0;
 }
 
-function isSortablePrimitive(value: JsonValue): value is SortableJsonPrimitive {
+function isSortablePrimitive(value: JavaScriptObjectNotationValue): value is SortableJavaScriptObjectNotationPrimitive {
     return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 }
 
@@ -48,9 +62,12 @@ function shouldPreserveArrayOrder(path: readonly string[]): boolean {
     return topLevelKey === 'imports' || topLevelKey === 'exports';
 }
 
-function canonicalizeValue(value: JsonValue, path: readonly string[] = []): JsonValue {
+function canonicalizeValue(
+    value: JavaScriptObjectNotationValue,
+    path: readonly string[] = []
+): JavaScriptObjectNotationValue {
     if (Array.isArray(value)) {
-        const items: readonly JsonValue[] = value;
+        const items: readonly JavaScriptObjectNotationValue[] = value;
         const mapped = items.map(function (item, index) {
             return canonicalizeValue(item, [ ...path, String(index) ]);
         });
@@ -83,24 +100,24 @@ function canonicalizeValue(value: JsonValue, path: readonly string[] = []): Json
 }
 
 suite('serialize', function () {
-    test('serializePackageJson() returns valid JSON with recursively sorted object keys', function () {
-        fc.assert(
-            fc.property(packageJsonLikeArbitrary, function (value) {
-                const result = serializePackageJson(value);
-                const parsed = JSON.parse(result) as JsonValue;
+    test('serializePackageManifest() returns valid JSON with recursively sorted object keys', function () {
+        fastCheck.assert(
+            fastCheck.property(packageManifestLikeArbitrary, function (value) {
+                const result = serializePackageManifest(value);
+                const parsed = JSON.parse(result) as JavaScriptObjectNotationValue;
 
                 assert.deepStrictEqual(parsed, canonicalizeValue(value));
             })
         );
     });
 
-    test('serializePackageJson() is stable once a package json has been serialized', function () {
-        fc.assert(
-            fc.property(packageJsonLikeArbitrary, function (value) {
-                const serialized = serializePackageJson(value);
-                const reparsed = JSON.parse(serialized) as PackageJsonLike;
+    test('serializePackageManifest() is stable once a package json has been serialized', function () {
+        fastCheck.assert(
+            fastCheck.property(packageManifestLikeArbitrary, function (value) {
+                const serialized = serializePackageManifest(value);
+                const reparsed = JSON.parse(serialized) as PackageManifestLike;
 
-                assert.strictEqual(serializePackageJson(reparsed as PackageJson), serialized);
+                assert.strictEqual(serializePackageManifest(reparsed as PackageManifest), serialized);
             })
         );
     });

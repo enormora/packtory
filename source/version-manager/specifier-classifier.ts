@@ -1,4 +1,4 @@
-import npa from 'npm-package-arg';
+import parsePackageArgument from 'npm-package-arg';
 import { match } from 'ts-pattern';
 
 export type MutableNpaType = 'directory' | 'file' | 'git' | 'remote';
@@ -14,7 +14,7 @@ type Classifications = readonly [
 
 export type Classification = Classifications[number];
 
-type NpaResultType = npa.Result['type'];
+type NpaResultType = parsePackageArgument.Result['type'];
 
 function workspaceMalformedReason(): string {
     return (
@@ -27,7 +27,7 @@ function portalMalformedReason(): string {
     return 'portal protocol is yarn-specific; resolved as a local symlink, not valid in a published manifest';
 }
 
-function classifyNpaResult(result: Readonly<npa.Result>): Classification {
+function classifyNpaResult(result: Readonly<parsePackageArgument.Result>): Classification {
     return match<NpaResultType, Classification>(result.type)
         .with('alias', 'range', 'tag', 'version', function () {
             return { kind: 'registry' };
@@ -55,7 +55,7 @@ export function classifySpecifier(name: string, specifier: string): Classificati
     }
 
     try {
-        const result = npa.resolve(name, specifier);
+        const result = parsePackageArgument.resolve(name, specifier);
         return classifyNpaResult(result);
     } catch (error: unknown) {
         return { kind: 'malformed', reason: String(error) };

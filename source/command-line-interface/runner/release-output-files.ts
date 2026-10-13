@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { collectChangelogOutputFilePaths, type ChangelogConfig } from './changelog-destinations.ts';
+import { collectChangelogOutputFilePaths, type ChangelogConfiguration } from './changelog-destinations.ts';
 
 type ReleaseOutputFilesInput = {
-    readonly config: ChangelogConfig;
+    readonly configuration: ChangelogConfiguration;
     readonly workingDirectory: string;
 };
 
@@ -15,14 +15,14 @@ function toRepositoryRelativePath(workingDirectory: string, filePath: string): s
 }
 
 export function collectReleaseOutputFiles(input: ReleaseOutputFilesInput): readonly string[] {
-    return collectChangelogOutputFilePaths({ workingDirectory: input.workingDirectory }, input.config).map(
+    return collectChangelogOutputFilePaths({ workingDirectory: input.workingDirectory }, input.configuration).map(
         function (output) {
             return toRepositoryRelativePath(input.workingDirectory, output.filePath);
         }
     );
 }
 
-export function releaseCommitFilePath(workingDirectory: string, filePath: string): string {
+function releaseCommitFilePath(workingDirectory: string, filePath: string): string {
     const normalizedWorkingDirectory = workingDirectory.replaceAll('\\', '/');
     const normalizedFilePath = filePath.replaceAll('\\', '/');
     const prefix = normalizedWorkingDirectory.endsWith('/')
@@ -32,4 +32,24 @@ export function releaseCommitFilePath(workingDirectory: string, filePath: string
         return normalizedFilePath.slice(prefix.length);
     }
     return normalizedFilePath;
+}
+
+export type PreparedReleaseFile = {
+    readonly contentBase64: string;
+    readonly path: string;
+};
+
+type WrittenReleaseChangelogFile = {
+    readonly content: string;
+    readonly filePath: string;
+};
+
+export function toPreparedReleaseFile(
+    workingDirectory: string,
+    file: WrittenReleaseChangelogFile
+): PreparedReleaseFile {
+    return {
+        contentBase64: Buffer.from(file.content).toString('base64'),
+        path: releaseCommitFilePath(workingDirectory, file.filePath)
+    };
 }

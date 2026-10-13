@@ -26,26 +26,26 @@ suite('file-ownership', function () {
 
     test('collectFileOwnership keys ownership entries by source file path', function () {
         const ownership = collectFileOwnership([
-            bundle('pkg-a', [ { inputFilePath: '/src/a.ts', survivingBindings: [ 'x' ] } ])
+            bundle('package-a', [ { inputFilePath: '/source/a.ts', survivingBindings: [ 'x' ] } ])
         ]);
-        assert.deepStrictEqual(Array.from(ownership.keys()), [ '/src/a.ts' ]);
+        assert.deepStrictEqual(Array.from(ownership.keys()), [ '/source/a.ts' ]);
     });
 
     test('collectFileOwnership accumulates one owner per bundle that contains the file', function () {
         const ownership = collectFileOwnership([
-            bundle('pkg-a', [ { inputFilePath: '/src/shared.ts', survivingBindings: [ 'x' ] } ]),
-            bundle('pkg-b', [ { inputFilePath: '/src/shared.ts', survivingBindings: [ 'y' ] } ])
+            bundle('package-a', [ { inputFilePath: '/source/shared.ts', survivingBindings: [ 'x' ] } ]),
+            bundle('package-b', [ { inputFilePath: '/source/shared.ts', survivingBindings: [ 'y' ] } ])
         ]);
 
-        const owners = ownership.get('/src/shared.ts');
+        const owners = ownership.get('/source/shared.ts');
         if (owners === undefined) {
-            assert.fail('expected ownership for /src/shared.ts');
+            assert.fail('expected ownership for /source/shared.ts');
         }
         assert.deepStrictEqual(
             owners.map(function (owner) {
                 return owner.bundleName;
             }),
-            [ 'pkg-a', 'pkg-b' ]
+            [ 'package-a', 'package-b' ]
         );
         assert.deepStrictEqual(Array.from(owners[0]?.survivingBindings ?? []), [ 'x' ]);
         assert.deepStrictEqual(Array.from(owners[1]?.survivingBindings ?? []), [ 'y' ]);

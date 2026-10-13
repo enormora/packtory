@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Server } from 'node:http';
 import getPort from 'get-port';
 import { runServer } from 'verdaccio';
-import type { RegistrySettings } from '../source/config/registry-settings.ts';
+import type { RegistrySettings } from '../source/configuration/registry-settings.ts';
 import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 
 const username = 'foo';
@@ -27,12 +27,12 @@ function isListenableServer(value: unknown): value is ListenableServer {
 
 async function startServer(server: ListenableServer, port: number): Promise<Server> {
     return new Promise(function (resolve, reject) {
-        const httpServer = server.listen(port, function () {
-            resolve(httpServer);
+        const webServer = server.listen(port, function () {
+            resolve(webServer);
         });
-        httpServer.keepAliveTimeout = registryKeepAliveTimeoutMilliseconds;
-        httpServer.headersTimeout = registryHeadersTimeoutMilliseconds;
-        httpServer.once('error', reject);
+        webServer.keepAliveTimeout = registryKeepAliveTimeoutMilliseconds;
+        webServer.headersTimeout = registryHeadersTimeoutMilliseconds;
+        webServer.once('error', reject);
     });
 }
 
@@ -61,7 +61,7 @@ async function createRegistryServer(storageDirectory: string): Promise<Listenabl
                 proxy: []
             }
         },
-        auth: {
+        authentication: {
             htpasswd: {
                 file: path.join(process.cwd(), 'integration-tests/fixtures/verdaccio-htpasswd'),
                 algorithm: 'bcrypt',
@@ -73,9 +73,9 @@ async function createRegistryServer(storageDirectory: string): Promise<Listenabl
             level: 'fatal'
         },
         security: {
-            api: {
+            applicationProgrammingInterface: {
                 legacy: false,
-                jwt: {
+                signedToken: {
                     sign: {
                         expiresIn: '1d'
                     }
@@ -96,9 +96,9 @@ function getRegistryToken(responseBody: unknown): string {
     return token;
 }
 
-async function createToken(registryUrl: string): Promise<string> {
+async function createToken(registryAddress: string): Promise<string> {
     const credentials = `${username}:${password}`;
-    const response = await fetch(`${registryUrl}/-/npm/v1/tokens`, {
+    const response = await fetch(`${registryAddress}/-/npm/v1/tokens`, {
         method: 'POST',
         body: JSON.stringify({
             password,
@@ -124,15 +124,15 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     const storageDirectory = await createTemporaryDirectory('packtory-benchmark-registry-');
     const server = await createRegistryServer(storageDirectory);
     const port = await getPort();
-    const registryUrl = `http://localhost:${port}`;
+    const registryAddress = `http://localhost:${port}`;
 
-    const httpServer = await startServer(server, port);
-    const token = await createToken(registryUrl);
+    const webServer = await startServer(server, port);
+    const token = await createToken(registryAddress);
 
     return {
         settings: {
-            registryUrl,
-            auth: {
+            registryAddress,
+            authentication: {
                 publish: {
                     type: 'bearer-token',
                     token
@@ -142,7 +142,7 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
         },
         async close() {
             try {
-                await stopServer(httpServer);
+                await stopServer(webServer);
             } finally {
                 await removeDirectory(storageDirectory);
             }

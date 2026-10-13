@@ -166,9 +166,9 @@ suite('tarball-builder', function () {
             [ { filePath: 'index.js', content: 'console.log(0);', isExecutable: false } ],
             [
                 {
-                    sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
-                    sourcePackageRootPath: '/repo/node_modules/pkg',
-                    targetRelativePath: 'node_modules/pkg/main.js',
+                    sourceAbsolutePath: '/repo/node_modules/package/dist/main.js',
+                    sourcePackageRootPath: '/repo/node_modules/package',
+                    targetRelativePath: 'node_modules/package/main.js',
                     isExecutable: false
                 }
             ]
@@ -178,9 +178,9 @@ suite('tarball-builder', function () {
         const names = entries.map(function (entry) {
             return entry.header.name;
         });
-        assert.deepStrictEqual(names, [ 'index.js', 'node_modules/pkg/main.js' ]);
+        assert.deepStrictEqual(names, [ 'index.js', 'node_modules/package/main.js' ]);
         const vendorEntry = entries.find(function (entry) {
-            return entry.header.name === 'node_modules/pkg/main.js';
+            return entry.header.name === 'node_modules/package/main.js';
         });
         if (vendorEntry === undefined) {
             assert.fail('Expected vendor entry');
@@ -206,7 +206,7 @@ suite('tarball-builder', function () {
                 {
                     sourceAbsolutePath: '/repo/bin/run.sh',
                     sourcePackageRootPath: '/repo',
-                    targetRelativePath: 'node_modules/pkg/bin/run.sh',
+                    targetRelativePath: 'node_modules/package/bin/run.sh',
                     isExecutable: true
                 }
             ]
@@ -226,7 +226,7 @@ suite('tarball-builder', function () {
         const vendorEntry = {
             sourceAbsolutePath: '/missing',
             sourcePackageRootPath: '/missing',
-            targetRelativePath: 'node_modules/pkg/lib.js',
+            targetRelativePath: 'node_modules/package/lib.js',
             isExecutable: false
         };
         let capturedMessage = '';

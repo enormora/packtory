@@ -56,12 +56,12 @@ suite('path-tree', function () {
     suite('ordering', function () {
         test('orders package.json before any directory or other file at the root', function () {
             const nodes = buildPathTree(
-                [ item('readme.md'), item('src/index.js'), item('package.json'), item('zoo.txt') ],
+                [ item('readme.md'), item('source/index.js'), item('package.json'), item('zoo.txt') ],
                 function (entry) {
                     return entry.path;
                 }
             );
-            assert.deepStrictEqual(namesOf(nodes), [ 'package.json', 'src', 'index.js', 'readme.md', 'zoo.txt' ]);
+            assert.deepStrictEqual(namesOf(nodes), [ 'package.json', 'source', 'index.js', 'readme.md', 'zoo.txt' ]);
         });
 
         test('orders directories before non-manifest sibling files at the same depth', function () {
@@ -93,11 +93,11 @@ suite('path-tree', function () {
         });
 
         test('keeps root files out of directory groups', function () {
-            const nodes = buildPathTree([ item('root.txt'), item('src/index.js') ], function (entry) {
+            const nodes = buildPathTree([ item('root.txt'), item('source/index.js') ], function (entry) {
                 return entry.path;
             });
 
-            assert.deepStrictEqual(namesOf(nodes), [ 'src', 'index.js', 'root.txt' ]);
+            assert.deepStrictEqual(namesOf(nodes), [ 'source', 'index.js', 'root.txt' ]);
         });
 
         test('keeps a directory literally named "package.json" sorted lexicographically among sibling directories', function () {
@@ -110,7 +110,7 @@ suite('path-tree', function () {
 
     suite('node metadata', function () {
         test('assigns increasing depth to nested directories and the leaf file', function () {
-            const nodes = buildPathTree([ item('src/lib/util.js') ], function (entry) {
+            const nodes = buildPathTree([ item('source/lib/utilities.js') ], function (entry) {
                 return entry.path;
             });
             const depths = nodes.map(function (node) {
@@ -131,20 +131,20 @@ suite('path-tree', function () {
         });
 
         test('builds the directory path by joining parent segments', function () {
-            const nodes = buildPathTree([ item('src/lib/util.js') ], function (entry) {
+            const nodes = buildPathTree([ item('source/lib/utilities.js') ], function (entry) {
                 return entry.path;
             });
-            const srcDirectory = nodes.find(function (node) {
-                return node.type === 'directory' && node.name === 'src';
+            const sourceDirectory = nodes.find(function (node) {
+                return node.type === 'directory' && node.name === 'source';
             });
-            const libDirectory = nodes.find(function (node) {
+            const libraryDirectory = nodes.find(function (node) {
                 return node.type === 'directory' && node.name === 'lib';
             });
-            if (srcDirectory === undefined || libDirectory === undefined) {
+            if (sourceDirectory === undefined || libraryDirectory === undefined) {
                 assert.fail('expected source and lib directories');
             }
-            assert.strictEqual(srcDirectory.path, 'src');
-            assert.strictEqual(libDirectory.path, 'src/lib');
+            assert.strictEqual(sourceDirectory.path, 'source');
+            assert.strictEqual(libraryDirectory.path, 'source/lib');
         });
     });
 });

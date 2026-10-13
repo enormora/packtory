@@ -23,11 +23,15 @@ import {
 } from '../rule.ts';
 
 const ruleName = 'nodeEngineCompatibility';
-type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof emptyPerPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 
-export type NodeEngineCompatibilityRule = CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig>;
+export type NodeEngineCompatibilityRule = CheckRuleDefinition<
+    typeof ruleName,
+    GlobalConfiguration,
+    PerPackageConfiguration
+>;
 export const nodeEngineCompatibilitySchemas = {
     globalSchema: enabledOnlyGlobalSchema,
     perPackageSchema: emptyPerPackageSchema
@@ -116,7 +120,7 @@ function generatedNode(input: RunInput, name: string): DependencyNode {
         identity: `generated:${name}`,
         folder: sourceFolder(input, name),
         bundle,
-        manifest: publishedPackage.packageJson
+        manifest: publishedPackage.packageManifest
     };
 }
 
@@ -232,7 +236,7 @@ export function createNodeEngineCompatibilityRule(
 
     async function checkPackage(input: RunInput, name: string): Promise<readonly string[]> {
         const publishedPackage = publishedPackageFor(input, name);
-        const range = publishedPackage.packageJson.engines?.node;
+        const range = publishedPackage.packageManifest.engines?.node;
         if (range === undefined) {
             return [];
         }

@@ -16,7 +16,7 @@ type TestFile = {
 function containingSourceFile(files: readonly TestFile[]): SourceFile {
     return createProject({
         withFiles: [
-            { filePath: '/project/src/index.ts', content: 'import { z } from "schema-lib";\nexport { z };' },
+            { filePath: '/project/source/index.ts', content: 'import { z } from "schema-lib";\nexport { z };' },
             {
                 filePath: '/project/node_modules/schema-lib/package.json',
                 content: '{"type":"module","exports":"./index.js"}'
@@ -24,13 +24,13 @@ function containingSourceFile(files: readonly TestFile[]): SourceFile {
             ...files
         ]
     })
-        .getSourceFileOrThrow('/project/src/index.ts');
+        .getSourceFileOrThrow('/project/source/index.ts');
 }
 
-function projectWithSchemaLib(content: string): Project {
+function projectWithSchemaLibrary(content: string): Project {
     return createProject({
         withFiles: [
-            { filePath: '/project/src/index.ts', content: 'import { z } from "schema-lib";\nexport { z };' },
+            { filePath: '/project/source/index.ts', content: 'import { z } from "schema-lib";\nexport { z };' },
             {
                 filePath: '/project/node_modules/schema-lib/package.json',
                 content: '{"type":"module","exports":"./index.js"}'
@@ -308,9 +308,9 @@ suite('external purity summary', function () {
     suite('fallbacks and cache', function () {
         test('exportPurityForOrigin returns unknown when the package cannot be resolved', function () {
             const containing = createProject({
-                withFiles: [ { filePath: '/project/src/index.ts', content: 'import { z } from "missing-lib";' } ]
+                withFiles: [ { filePath: '/project/source/index.ts', content: 'import { z } from "missing-lib";' } ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing), 'unknown');
             assert.strictEqual(
@@ -322,7 +322,7 @@ suite('external purity summary', function () {
         test('exportPurityForOrigin requires module package type for resolved js files', function () {
             const containing = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "schema-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "schema-lib";' },
                     {
                         filePath: '/project/node_modules/schema-lib/package.json',
                         content: '{"exports":"./index.js"}'
@@ -333,7 +333,7 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'unknown');
         });
@@ -341,7 +341,7 @@ suite('external purity summary', function () {
         test('exportPurityForOrigin accepts resolved mjs files without package type', function () {
             const containing = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "schema-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "schema-lib";' },
                     {
                         filePath: '/project/node_modules/schema-lib/package.json',
                         content: '{"exports":"./index.mjs"}'
@@ -352,7 +352,7 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'pure-object');
         });
@@ -360,7 +360,7 @@ suite('external purity summary', function () {
         test('exportPurityForOrigin rejects resolved ts files in module packages', function () {
             const containing = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "schema-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "schema-lib";' },
                     {
                         filePath: '/project/node_modules/schema-lib/package.json',
                         content: '{"type":"module","exports":"./index.ts"}'
@@ -371,7 +371,7 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'unknown');
         });
@@ -379,7 +379,7 @@ suite('external purity summary', function () {
         test('exportPurityForOrigin rejects declaration and commonjs resolution targets', function () {
             const declarationTarget = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "types-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "types-lib";' },
                     {
                         filePath: '/project/node_modules/types-lib/package.json',
                         content: '{"exports":"./index.d.ts"}'
@@ -390,10 +390,10 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
             const commonjsTarget = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "commonjs-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "commonjs-lib";' },
                     {
                         filePath: '/project/node_modules/commonjs-lib/package.json',
                         content: '{"exports":"./index.cjs"}'
@@ -404,7 +404,7 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(
                 exportPurityForOrigin({ from: 'types-lib', path: [ 'z' ] }, declarationTarget),
@@ -419,7 +419,7 @@ suite('external purity summary', function () {
         test('exportPurityForOrigin does not use package module field fallback', function () {
             const containing = createProject({
                 withFiles: [
-                    { filePath: '/project/src/index.ts', content: 'import { z } from "module-lib";' },
+                    { filePath: '/project/source/index.ts', content: 'import { z } from "module-lib";' },
                     {
                         filePath: '/project/node_modules/module-lib/package.json',
                         content: '{"module":"./module.mjs"}'
@@ -430,14 +430,14 @@ suite('external purity summary', function () {
                     }
                 ]
             })
-                .getSourceFileOrThrow('/project/src/index.ts');
+                .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(exportPurityForOrigin({ from: 'module-lib', path: [ 'z' ] }, containing), 'unknown');
         });
 
         test('exportPurityForOrigin reuses the cached source-file summary', function () {
-            const project = projectWithSchemaLib('export const z = { object() { return {}; } };');
-            const containing = project.getSourceFileOrThrow('/project/src/index.ts');
+            const project = projectWithSchemaLibrary('export const z = { object() { return {}; } };');
+            const containing = project.getSourceFileOrThrow('/project/source/index.ts');
             const implementation = project.getSourceFileOrThrow('/project/node_modules/schema-lib/index.js');
 
             assert.strictEqual(

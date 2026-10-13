@@ -1,8 +1,8 @@
 import { Result } from 'true-myth';
 import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
-import type { ConfigWithGraph } from '../config/validation.ts';
+import type { ConfigurationWithGraph } from '../configuration/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { PackageConfig } from '../config/config.ts';
+import type { PackageConfiguration } from '../configuration/configuration.ts';
 import type { PublishedReleaseStatus } from './published-release-state.ts';
 
 export type PartialError<TResult> = {
@@ -15,9 +15,9 @@ export type Scheduler = {
         TResult,
         TNext,
         TOptions,
-        TConfig extends { readonly packages: readonly PackageConfig[]; }
+        TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
     >(
-        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>
     ) => Promise<Result<readonly TResult[], PartialError<TResult>>>;
 };
 
@@ -69,10 +69,10 @@ function summarizeGenerationResults<TResult, TOptions>(
     return Result.ok(collected.succeeded);
 }
 
-type PackageExecutionContext<TNext, TConfig extends { readonly packages: readonly PackageConfig[]; }> = {
+type PackageExecutionContext<TNext, TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }> = {
     readonly packageName: string;
     readonly existing: readonly TNext[];
-    readonly config: ConfigWithGraph<TConfig>;
+    readonly configuration: ConfigurationWithGraph<TConfiguration>;
 };
 
 type PackageSuccess<TResult, TOptions> = {
@@ -112,10 +112,10 @@ type RunForEachScheduledPackageInput<
     TResult,
     TNext,
     TOptions,
-    TConfig extends { readonly packages: readonly PackageConfig[]; }
+    TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
 > = {
-    readonly config: ConfigWithGraph<TConfig>;
-    readonly createOptions: (context: PackageExecutionContext<TNext, TConfig>) => TOptions;
+    readonly configuration: ConfigurationWithGraph<TConfiguration>;
+    readonly createOptions: (context: PackageExecutionContext<TNext, TConfiguration>) => TOptions;
     readonly execute: (options: TOptions) => Promise<TResult>;
     readonly selectNext: (input: SelectNextInput<TResult, TOptions>) => TNext;
     readonly createProgressEvent?: CreateProgressEvent<TResult, TOptions> | undefined;
@@ -142,15 +142,15 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         TResult,
         TNext,
         TOptions,
-        TConfig extends { readonly packages: readonly PackageConfig[]; }
+        TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
     >(
         packageNames: readonly string[],
-        config: ConfigWithGraph<TConfig>,
+        configuration: ConfigurationWithGraph<TConfiguration>,
         existingItems: readonly TNext[],
-        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>
     ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
         const executePackage = async function (packageName: string): Promise<PackageSuccess<TResult, TOptions>> {
-            const options = input.createOptions({ packageName, existing: existingItems, config });
+            const options = input.createOptions({ packageName, existing: existingItems, configuration });
             const result = await executeAndReportError(packageName, options, input.execute);
             const progressEvent = input.createProgressEvent?.({ packageName, result, options });
             if (progressEvent !== undefined) {
@@ -163,18 +163,20 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         return summarizeGenerationResults(results);
     }
 
-    function emitScheduledEventForAllPackages<TConfig extends { readonly packages: readonly PackageConfig[]; }>(
-        config: ConfigWithGraph<TConfig>
+    function emitScheduledEventForAllPackages<
+        TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
+    >(
+        configuration: ConfigurationWithGraph<TConfiguration>
     ): void {
-        for (const packageConfig of config.packtoryConfig.packages) {
-            progressBroadcastProvider.emit('scheduled', { packageName: packageConfig.name });
+        for (const packageConfiguration of configuration.packtoryConfiguration.packages) {
+            progressBroadcastProvider.emit('scheduled', { packageName: packageConfiguration.name });
         }
     }
 
-    function getExecutionPlan<TConfig extends { readonly packages: readonly PackageConfig[]; }>(
-        config: ConfigWithGraph<TConfig>
+    function getExecutionPlan<TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }>(
+        configuration: ConfigurationWithGraph<TConfiguration>
     ): readonly (readonly string[])[] {
-        const reverseGraph = config.packageGraph.reverse.bind(config.packageGraph);
+        const reverseGraph = configuration.packageGraph.reverse.bind(configuration.packageGraph);
         return reverseGraph().getTopologicalGenerations();
     }
 
@@ -208,16 +210,16 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         TResult,
         TNext,
         TOptions,
-        TConfig extends { readonly packages: readonly PackageConfig[]; }
+        TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
     >(
-        config: ConfigWithGraph<TConfig>,
-        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
+        configuration: ConfigurationWithGraph<TConfiguration>,
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>
     ): Promise<Result<readonly TResult[], PartialError<TResult>>> {
         const nextItems: TNext[] = [];
         const succeededResults: TResult[] = [];
 
-        for (const generation of getExecutionPlan(config)) {
-            const generationResult = await runForGeneration(generation, config, nextItems, input);
+        for (const generation of getExecutionPlan(configuration)) {
+            const generationResult = await runForGeneration(generation, configuration, nextItems, input);
             if (generationResult.isErr) {
                 return failGeneration(succeededResults, generationResult.error);
             }
@@ -233,14 +235,14 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             TResult,
             TNext,
             TOptions,
-            TConfig extends { readonly packages: readonly PackageConfig[]; }
-        >(input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>) {
-            const { config } = input;
+            TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }
+        >(input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>) {
+            const { configuration } = input;
             if (shouldEmitScheduledEvents(input.emitScheduledEvents)) {
-                emitScheduledEventForAllPackages(config);
+                emitScheduledEventForAllPackages(configuration);
             }
 
-            return runExecutionPlan(config, input);
+            return runExecutionPlan(configuration, input);
         }
     };
 }
