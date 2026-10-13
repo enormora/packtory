@@ -275,7 +275,7 @@ suite('type-script-declaration-project', function () {
         ]);
     });
 
-    test('adds each virtual package file once per project', function () {
+    test('preserves the first virtual package file across duplicate package and resolution paths', function () {
         const createSourceFile = fake();
         const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
 
@@ -284,7 +284,11 @@ suite('type-script-declaration-project', function () {
             [
                 { filePath: 'package.json', content: '{"name":"pkg"}' },
                 { filePath: 'package.json', content: '{"name":"pkg"}' }
-            ]
+            ],
+            [ {
+                packageName: 'pkg',
+                packageFiles: [ { filePath: './package.json', content: '{"name":"replacement"}' } ]
+            } ]
         );
 
         assert.deepStrictEqual(createSourceFile.args, [

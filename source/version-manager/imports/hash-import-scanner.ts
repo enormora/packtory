@@ -9,14 +9,15 @@ function isHashSpecifier(specifier: string): boolean {
 export function collectHashImportSpecifiers(bundle: Pick<AnalyzedBundle, 'contents'>): ReadonlySet<string> {
     const importSpecifiers = new Set<string>();
 
-    for (const resource of bundle.contents) {
-        const { targetFilePath, content } = resource.fileDescription;
-        if (isCodeFile(targetFilePath)) {
-            const parsedFile = typescript.preProcessFile(content, true);
-            for (const literal of parsedFile.importedFiles) {
-                if (isHashSpecifier(literal.fileName)) {
-                    importSpecifiers.add(literal.fileName);
-                }
+    const codeResources = bundle.contents.filter(function isCodeResource(resource) {
+        return isCodeFile(resource.fileDescription.targetFilePath);
+    });
+    for (const resource of codeResources) {
+        const { content } = resource.fileDescription;
+        const parsedFile = typescript.preProcessFile(content, true);
+        for (const literal of parsedFile.importedFiles) {
+            if (isHashSpecifier(literal.fileName)) {
+                importSpecifiers.add(literal.fileName);
             }
         }
     }

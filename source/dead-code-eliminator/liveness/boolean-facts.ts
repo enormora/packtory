@@ -120,15 +120,15 @@ function collectConstBooleanFacts(statement: VariableStatement, facts: BooleanFa
     if (statement.getDeclarationKind() !== VariableDeclarationKind.Const) {
         return facts;
     }
-    const nextFacts = new Map(facts);
-    for (const declaration of statement.getDeclarations()) {
+    return statement.getDeclarations().reduce(function extendBooleanFacts(nextFacts, declaration) {
         const fact = collectBooleanFact(declaration, nextFacts);
-        if (fact !== undefined) {
-            const [ name, value ] = fact;
-            nextFacts.set(name, value);
+        if (fact === undefined) {
+            return nextFacts;
         }
-    }
-    return nextFacts;
+        const [ name, value ] = fact;
+        nextFacts.set(name, value);
+        return nextFacts;
+    }, new Map(facts));
 }
 
 export function factsAfterStatement(statement: Statement, facts: BooleanFacts): BooleanFacts {

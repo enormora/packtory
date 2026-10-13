@@ -163,15 +163,10 @@ export function collectSubstitutionExports(
     substitutionPublicModuleSourcePaths: ReadonlySet<string>
 ): Record<string, ExportEntry> {
     const lookups = createSubstitutionBundleLookups(bundle);
-    const substitutionExports: Record<string, ExportEntry> = {};
-
-    for (const inputFilePath of substitutionPublicModuleSourcePaths) {
-        const entry = buildSubstitutionExportEntry(bundle.name, lookups, inputFilePath);
-        if (entry !== undefined) {
-            const [ exportKey, exportEntry ] = entry;
-            substitutionExports[exportKey] = exportEntry;
-        }
-    }
-
-    return substitutionExports;
+    const entries = Array
+        .from(substitutionPublicModuleSourcePaths, function substitutionExport(inputFilePath) {
+            return buildSubstitutionExportEntry(bundle.name, lookups, inputFilePath);
+        })
+        .filter(isDefined);
+    return Object.fromEntries(entries);
 }

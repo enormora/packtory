@@ -187,11 +187,7 @@ function shouldKeepPackagePullRequest(
     pullRequest: PullRequestWithLabel,
     context: PullRequestTargetContext
 ): boolean {
-    if (context.dependencyPullRequestIds.has(pullRequest.id)) {
-        return true;
-    }
-
-    if (pullRequest.label !== dependencyUpdateLabel()) {
+    if (context.dependencyPullRequestIds.has(pullRequest.id) || pullRequest.label !== dependencyUpdateLabel()) {
         return true;
     }
 

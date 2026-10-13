@@ -111,6 +111,20 @@ suite('source-map-file-locator', function () {
                 assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
             });
 
+            test('rejects query strings and fragments even when the reference ends in a map extension', async function () {
+                for (const reference of [ '../maps?query/baz.map', '../maps#fragment/baz.map' ]) {
+                    const { locator, fileManager } = sourceMapFileLocatorFactory({
+                        readFileContent: `foo\n//# sourceMappingURL=${reference}`,
+                        isReadable: true
+                    });
+
+                    const result = await locator.locate('/foo/bar.js', '/');
+
+                    assert.deepStrictEqual(result, Maybe.nothing());
+                    assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
+                }
+            });
+
             test('returns nothing when the sourceMappingURL is URL-like', async function () {
                 const urlLikeReferences = [
                     'https://example.com/baz.map',

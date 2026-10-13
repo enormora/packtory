@@ -66,10 +66,7 @@ function importName(binding: ReturnType<ImportDeclaration['getNamedImports']>[nu
 }
 
 function hasRuntime(declaration: ImportDeclaration): boolean {
-    if (isDeclarationCodeTargetPath(declaration.getSourceFile().getFilePath())) {
-        return false;
-    }
-    if (declaration.isTypeOnly()) {
+    if (isDeclarationCodeTargetPath(declaration.getSourceFile().getFilePath()) || declaration.isTypeOnly()) {
         return false;
     }
     const runtimeNamedCount = declaration
