@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import { suite, test } from 'mocha';
 import sinon from 'sinon';
 import { throwNonError } from '../test-libraries/non-error-failures.ts';
@@ -66,6 +66,10 @@ type ExtractFakeTarLimits = {
     readonly maxExtractedBytes: number;
 };
 
+async function* singleTarChunk(chunk: unknown): AsyncGenerator {
+    yield chunk;
+}
+
 async function* fakeTarChunks(chunks: FakeTarEntryInput['chunks']): AsyncGenerator<FakeTarChunk> {
     for (const chunk of chunks) {
         const fakeChunk: FakeTarChunk = {
@@ -93,12 +97,7 @@ async function* fakeTarEntries(entries: readonly FakeTarEntryInput[]): AsyncGene
     }
 }
 
-function createFakeTarSource(entries: readonly FakeTarEntryInput[]): Readable {
-    const tarEntries = {
-        [Symbol.asyncIterator]() {
-            return fakeTarEntries(entries);
-        }
-    };
+function createFakeTarSource(tarEntries: AsyncIterable<unknown>): Readable {
     const intermediateStream = {
         pipe() {
             return tarEntries;
@@ -123,7 +122,7 @@ async function extractFakeTarEntries(
         Buffer.from('unused'),
         {
             createSource() {
-                return createFakeTarSource(entries);
+                return createFakeTarSource(fakeTarEntries(entries));
             }
         },
         limits
@@ -131,6 +130,24 @@ async function extractFakeTarEntries(
 }
 
 suite('extract-tar', function () {
+    test('rejects tar chunks without a numeric length or callable toString method', async function () {
+        for (const chunk of [ undefined, null, 0, 'unexpected', {}, { length: '3' }, { length: 3, toString: null } ]) {
+            const entries = Readable.from([ {
+                header: { name: 'invalid.txt' },
+                [Symbol.asyncIterator]() {
+                    return singleTarChunk(chunk);
+                }
+            } ]);
+            await expectFailure(async function () {
+                await extractTarEntries(Buffer.from('unused'), {
+                    createSource() {
+                        return createFakeTarSource(entries);
+                    }
+                });
+            }, /Expected tar stream to yield chunks with a numeric length and toString method/u);
+        }
+    });
+
     suite('successful extraction', function () {
         test('returns an empty array when the given tar buffer has no files', async function () {
             const builder = createTarballBuilder();
