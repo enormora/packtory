@@ -21,15 +21,15 @@ guarantees on top.
 ### Out of scope
 
 - **Malicious source code in your own repo.** Provenance signs _what
-  was built_, not _that the source was clean_ — an attacker who
-  compromises your repository (xz-utils-style) gets a packtory-signed
-  attestation for their payload. Code review is the defense.
+    was built_, not _that the source was clean_ — an attacker who
+    compromises your repository (xz-utils-style) gets a packtory-signed
+    attestation for their payload. Code review is the defense.
 - **A compromised build machine.** If the machine running
-  `packtory publish` is compromised, the publish is too. Hardening the
-  CI runner is your job, not packtory's.
+    `packtory publish` is compromised, the publish is too. Hardening the
+    CI runner is your job, not packtory's.
 - **Typosquatting and dependency confusion.** packtory does not check
-  name similarity or registry precedence; those are registry-side
-  concerns.
+    name similarity or registry precedence; those are registry-side
+    concerns.
 
 ### Comparison
 
@@ -233,47 +233,47 @@ but malformed or mismatched provided metadata fails the command.
 ### Tarball origin
 
 - `Refusing to download tarball from "<origin>" because it differs from the configured registry origin "<origin>". A tampered registry response could redirect the request and exfiltrate publish credentials.`
-  The registry returned a tarball URL on a different origin than the one
-  configured. Investigate the registry mirror or proxy in between; a
-  legitimate registry serves tarballs from its own origin.
+    The registry returned a tarball URL on a different origin than the one
+    configured. Investigate the registry mirror or proxy in between; a
+    legitimate registry serves tarballs from its own origin.
 - `Registry returned an invalid tarball URL: "<value>"` — the registry
-  response carried a non-URL `dist.tarball`. Almost always a registry
-  bug or a tampered response.
+    response carried a non-URL `dist.tarball`. Almost always a registry
+    bug or a tampered response.
 
 ### Tarball digest
 
 - `Downloaded tarball failed dist.integrity verification: <reason>`
-  The downloaded bytes do not match the registry's SRI metadata, or the
-  metadata is not valid strict SRI. Investigate the registry mirror or
-  proxy before retrying.
+    The downloaded bytes do not match the registry's SRI metadata, or the
+    metadata is not valid strict SRI. Investigate the registry mirror or
+    proxy before retrying.
 - `Downloaded tarball failed dist.shasum verification: expected <digest>, got <digest>`
-  The downloaded bytes do not match the registry's legacy SHA-1 digest.
+    The downloaded bytes do not match the registry's legacy SHA-1 digest.
 - `Registry returned invalid dist.shasum "<value>"`
-  The registry returned a malformed SHA-1 digest for the latest version.
+    The registry returned a malformed SHA-1 digest for the latest version.
 
 ### Provenance, auto mode
 
 - `Provenance auto mode requires GitHub Actions or GitLab CI. Detected CI: <name>. Use provenance: { type: 'file' } for other environments.`
-  — your CI is not natively supported by `auto` mode. Either run from
-  GitHub Actions / GitLab CI, or switch to
-  `provenance: { type: 'file', path }` and pre-generate the bundle.
+    — your CI is not natively supported by `auto` mode. Either run from
+    GitHub Actions / GitLab CI, or switch to
+    `provenance: { type: 'file', path }` and pre-generate the bundle.
 - `GitHub Actions provenance needs "permissions: id-token: write" on the workflow job.`
-  — add `id-token: write` to the workflow job that runs
-  `packtory publish`.
+    — add `id-token: write` to the workflow job that runs
+    `packtory publish`.
 - `GitLab CI provenance needs an "id_tokens" entry with audience "sigstore" exposed as SIGSTORE_ID_TOKEN.`
-  — declare the OIDC ID token for the job with audience `sigstore`.
+    — declare the OIDC ID token for the job with audience `sigstore`.
 
 ### Provenance, file mode
 
 - `Provenance bundle file "<path>" does not exist.` — generate the
-  bundle with your CI's attestation tooling before running packtory.
+    bundle with your CI's attestation tooling before running packtory.
 - `Provenance bundle file "<path>" is not a valid sigstore bundle.`
-  — the file is corrupted or was not produced by a supported sigstore
-  client. Re-generate it from the current build.
+    — the file is corrupted or was not produced by a supported sigstore
+    client. Re-generate it from the current build.
 - `Provenance bundle at "<path>" was signed against a different tarball than the one packtory built.`
-  — the bundle's signed digest does not match the tarball packtory
-  built. Re-generate the bundle from the current source so its digest
-  matches.
+    — the bundle's signed digest does not match the tarball packtory
+    built. Re-generate the bundle from the current source so its digest
+    matches.
 
 ## What packtory produces
 
@@ -283,15 +283,15 @@ compliance mapping (NTIA Minimum Elements, EU CRA Annex I, SLSA, etc.)
 — the matching is your obligation, not packtory's claim.
 
 - When provenance is enabled, a **sigstore-signed in-toto v1
-  statement** carrying the
-  [SLSA Provenance v1 predicate](https://slsa.dev/spec/v1.0/provenance),
-  recorded in the
-  [Rekor transparency log](https://docs.sigstore.dev/logging/overview/),
-  delivered via
-  [npm provenance](https://docs.npmjs.com/generating-provenance-statements).
+    statement** carrying the
+    [SLSA Provenance v1 predicate](https://slsa.dev/spec/v1.0/provenance),
+    recorded in the
+    [Rekor transparency log](https://docs.sigstore.dev/logging/overview/),
+    delivered via
+    [npm provenance](https://docs.npmjs.com/generating-provenance-statements).
 - When `provenance: { type: 'auto' }` is enabled, a coherence guarantee
-  that `package.json#repository` matches the CI-detected source
-  repository, enforced before signing.
+    that `package.json#repository` matches the CI-detected source
+    repository, enforced before signing.
 
 ## Repository release controls
 
