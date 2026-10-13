@@ -246,6 +246,6 @@ export function versionedBundleWithManifest(
     return {
         ...versionedBundle(rest),
         manifestFile: fileDescriptionFactory.build(manifestFile),
-        packageJson: bundlePackageJsonFactory.build(packageJson)
+        packageJson: { ...bundlePackageJsonFactory.build(), ...packageJson }
     };
 }
