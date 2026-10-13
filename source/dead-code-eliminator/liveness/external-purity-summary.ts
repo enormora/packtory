@@ -411,9 +411,9 @@ function addFunctionExport(statement: Statement, context: SummaryContext): void 
     if (!TypeScriptMorphNode.isFunctionDeclaration(statement) || !statement.isExported()) {
         return;
     }
-    const name = statement.getName();
+    const name = statement.getNameNode();
     if (name !== undefined) {
-        context.exportPurities.set(name, callablePurity(statement));
+        context.exportPurities.set(name.getText(), callablePurity(statement));
     }
 }
 

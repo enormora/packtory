@@ -451,4 +451,39 @@ suite('external purity summary', function () {
             );
         });
     });
+
+    suite('runtime source loading and export shapes', function () {
+        test('loads ESM runtime files from the project filesystem when they are not registered source files', async function () {
+            const project = projectWithSchemaLibrary('export function build() { return {}; }');
+            await project.save();
+            project.getSourceFileOrThrow('/project/node_modules/schema-lib/index.js').forget();
+            assert.strictEqual(
+                exportPurityForOrigin(
+                    { from: 'schema-lib', path: [ 'build' ] },
+                    project.getSourceFileOrThrow('/project/source/index.ts')
+                ),
+                'pure-callable'
+            );
+        });
+
+        test('handles named imports without treating them as namespace imports', function () {
+            assert.strictEqual(
+                purityFor([ 'build' ], [ {
+                    filePath: '/project/node_modules/schema-lib/index.js',
+                    content: 'import { value } from "./other.js"; export function build() { return {}; }'
+                }, { filePath: '/project/node_modules/schema-lib/other.js', content: 'export const value = 1;' } ]),
+                'pure-callable'
+            );
+        });
+
+        test('ignores anonymous default declarations while preserving named builder exports', function () {
+            assert.strictEqual(
+                purityFor([ 'build' ], [ {
+                    filePath: '/project/node_modules/schema-lib/index.js',
+                    content: 'export default function () { return {}; } export function build() { return {}; }'
+                } ]),
+                'pure-callable'
+            );
+        });
+    });
 });
