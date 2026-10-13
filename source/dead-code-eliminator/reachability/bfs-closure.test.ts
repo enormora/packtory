@@ -20,11 +20,13 @@ function runBfs(
 
 function fromGraph(graph: Readonly<Record<string, readonly string[]>>): (id: string) => readonly string[] {
     return function (id) {
+        assert.notStrictEqual(id, undefined);
         return graph[id] ?? [];
     };
 }
 
-function noNeighbors(): readonly string[] {
+function noNeighbors(id: string): readonly string[] {
+    assert.notStrictEqual(id, undefined);
     return [];
 }
 
@@ -83,12 +85,116 @@ suite('bfs-closure', function () {
         );
     });
 
+    suite('allocation and traversal contracts', function () {
+        test('bfsClosure allocates for reachable nodes independently of the traversal budget', function () {
+            assert.deepStrictEqual(
+                runBfs([ 'root' ], fromGraph({ root: [ 'leaf' ], leaf: [] }), new Set<string>(), 1_000_000),
+                new Set([ 'root', 'leaf' ])
+            );
+        });
+
+        test('bfsClosure traverses wide graphs with deep branches in breadth-first order', function () {
+            const branches = Array.from({ length: 10_000 }, function (_value, index) {
+                return `branch-${index}`;
+            });
+            const expanded: string[] = [];
+            const result = runBfs(
+                [ 'root' ],
+                function (id) {
+                    expanded.push(id);
+                    if (id === 'root') {
+                        return branches;
+                    }
+                    return id.startsWith('branch-') ? [ `leaf-${id}` ] : [];
+                },
+                new Set<string>(),
+                1_000_000
+            );
+
+            const expected = [
+                'root',
+                ...branches,
+                ...branches.map(function (id) {
+                    return `leaf-${id}`;
+                })
+            ];
+            assert.deepStrictEqual(expanded, expected);
+            assert.deepStrictEqual(result, new Set(expected));
+        });
+
+        test('bfsClosure preserves seed order and reports each newly discovered neighbor once', function () {
+            const expanded: string[] = [];
+            const added: (readonly string[])[] = [];
+            const initialVisited = new Set([ 'previous' ]);
+            const result = bfsClosure(
+                [ 'a', 'b', 'a' ],
+                function (id) {
+                    expanded.push(id);
+                    return fromGraph({ a: [ 'c', 'previous', 'c' ], b: [ 'c', 'd' ], c: [ 'a' ] })(id);
+                },
+                initialVisited,
+                {
+                    maximumNodeCount: 4,
+                    dependencies: {
+                        visitedHas: defaultDependencies.visitedHas,
+                        neighborAdded(current, neighbor) {
+                            added.push([ current, neighbor ]);
+                        }
+                    }
+                }
+            );
+
+            assert.deepStrictEqual(expanded, [ 'a', 'b', 'a', 'c', 'd' ]);
+            assert.deepStrictEqual(added, [ [ 'a', 'c' ], [ 'b', 'd' ] ]);
+            assert.deepStrictEqual(result, new Set([ 'previous', 'a', 'b', 'c', 'd' ]));
+            assert.deepStrictEqual(initialVisited, new Set([ 'previous' ]));
+            result.add('later');
+            assert.deepStrictEqual(initialVisited, new Set([ 'previous' ]));
+        });
+
+        test('bfsClosure uses custom equality for neighbors with distinct identities', function () {
+            const root = { id: 'root' };
+            const leaf = { id: 'leaf' };
+            const expanded: string[] = [];
+            const result = bfsClosure(
+                [ root ],
+                function (node) {
+                    expanded.push(node.id);
+                    return node.id === 'root' ? [ leaf, { id: 'leaf' } ] : [ { id: 'root' } ];
+                },
+                new Set([ { id: 'previous' } ]),
+                {
+                    maximumNodeCount: 3,
+                    dependencies: {
+                        visitedHas(visited, node) {
+                            return Array.from(visited).some(function (candidate) {
+                                return candidate.id === node.id;
+                            });
+                        },
+                        neighborAdded: undefined
+                    }
+                }
+            );
+
+            assert.deepStrictEqual(expanded, [ 'root', 'leaf' ]);
+            assert.deepStrictEqual(Array.from(result), [ { id: 'previous' }, root, leaf ]);
+        });
+
+        test('bfsClosure succeeds when the queue empties on the final allowed expansion', function () {
+            assert.deepStrictEqual(
+                runBfs([ 'root' ], fromGraph({ root: [ 'leaf' ], leaf: [] }), new Set<string>(), 1),
+                new Set([ 'root', 'leaf' ])
+            );
+        });
+    });
+
     test('bfsClosure throws when the iteration budget is exhausted', function () {
         let nextId = 0;
-        try {
+        assert.throws(function () {
             runBfs(
                 [ 'root' ],
                 function () {
+                    assert.ok(nextId < 5, 'Traversal must stop after five expansions');
                     const next = String(nextId);
                     nextId += 1;
                     return [ next ];
@@ -96,13 +202,8 @@ suite('bfs-closure', function () {
                 new Set<string>(),
                 2
             );
-            assert.fail('Expected bfsClosure() to throw but it did not');
-        } catch (error: unknown) {
-            assert.strictEqual(
-                (error as Error).message,
-                'Reachability traversal exceeded 5 attempts'
-            );
-        }
+        }, { message: 'Reachability traversal exceeded 5 attempts' });
+        assert.strictEqual(nextId, 5);
     });
 
     test('bfsClosure throws when one expansion would exceed the exact iteration budget', function () {

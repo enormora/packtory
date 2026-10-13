@@ -1,3 +1,5 @@
+import { createWorklist, type Worklist } from '../../common/worklist.ts';
+
 export type BfsClosureDependencies<T> = {
     readonly visitedHas: (visited: ReadonlySet<T>, value: T) => boolean;
     readonly neighborAdded: ((current: T, neighbor: T) => void) | undefined;
@@ -9,81 +11,42 @@ type BfsClosureOptions<T> = {
 };
 
 type TraversalState<T> = {
-    readonly current: T | undefined;
-    readonly pending: readonly T[];
+    readonly pending: Worklist<T>;
     readonly visited: ReadonlySet<T>;
+    readonly scheduleNeighbor: (neighbor: T) => void;
 };
-type ActiveTraversalState<T> = TraversalState<T> & {
-    readonly current: T;
-};
-
-function initialTraversalState<T>(initialVisited: ReadonlySet<T>, seedList: readonly T[]): TraversalState<T> {
-    const [ current, ...pending ] = seedList;
-    return { current, pending, visited: new Set([ ...initialVisited, ...seedList ]) };
-}
 
 function enqueueNeighbor<T>(
-    state: TraversalState<T>,
     current: T,
     neighbor: T,
+    state: TraversalState<T>,
     dependencies: BfsClosureDependencies<T>
-): TraversalState<T> {
+): void {
     if (dependencies.visitedHas(state.visited, neighbor)) {
-        return state;
+        return;
     }
     if (dependencies.neighborAdded !== undefined) {
         dependencies.neighborAdded(current, neighbor);
     }
-    return {
-        current: state.current,
-        pending: [ ...state.pending, neighbor ],
-        visited: new Set([ ...state.visited, neighbor ])
-    };
-}
-
-function visitCurrent<T>(
-    state: ActiveTraversalState<T>,
-    expand: (current: T) => Iterable<T>,
-    dependencies: BfsClosureDependencies<T>
-): TraversalState<T> {
-    let nextState: TraversalState<T> = state;
-    for (const neighbor of expand(state.current)) {
-        nextState = enqueueNeighbor(nextState, state.current, neighbor, dependencies);
-    }
-    const [ current, ...pending ] = nextState.pending;
-    return { current, pending, visited: nextState.visited };
-}
-
-function attemptIndexes(maximumAttempts: number): readonly number[] {
-    return Array.from({ length: maximumAttempts }, function (_value, index) {
-        return index;
-    });
+    state.scheduleNeighbor(neighbor);
 }
 
 function traverseUntilExhausted<T>(
-    state: ActiveTraversalState<T>,
+    state: TraversalState<T>,
     expand: (current: T) => Iterable<T>,
     maximumAttempts: number,
-    options: BfsClosureOptions<T>
-): Set<T> {
-    let traversalState: TraversalState<T> = state;
-    let current: T = state.current;
+    dependencies: BfsClosureDependencies<T>
+): void {
     let attemptsUsed = 0;
-
-    for (const attempt of attemptIndexes(maximumAttempts)) {
-        attemptsUsed = attempt + 1;
-        traversalState = visitCurrent(
-            { current, pending: traversalState.pending, visited: traversalState.visited },
-            expand,
-            options.dependencies
-        );
-        if (traversalState.current === undefined) {
-            return new Set(traversalState.visited);
+    for (let current = state.pending.takeNext(); current !== undefined; current = state.pending.takeNext()) {
+        if (attemptsUsed >= maximumAttempts) {
+            throw new Error(`Reachability traversal exceeded ${attemptsUsed} attempts`);
         }
-        current = traversalState.current;
+        attemptsUsed += 1;
+        for (const neighbor of expand(current)) {
+            enqueueNeighbor(current, neighbor, state, dependencies);
+        }
     }
-
-    throw new Error(`Reachability traversal exceeded ${attemptsUsed} attempts`);
 }
 
 export function bfsClosure<T>(
@@ -94,10 +57,23 @@ export function bfsClosure<T>(
 ): Set<T> {
     const seedList = Array.from(seeds);
     const maximumAttempts = initialVisited.size + seedList.length + options.maximumNodeCount * options.maximumNodeCount;
-    const state = initialTraversalState(initialVisited, seedList);
-
-    if (state.current === undefined) {
-        return new Set(state.visited);
+    const pending = createWorklist(seedList);
+    const visited = new Set(initialVisited);
+    for (const seed of seedList) {
+        visited.add(seed);
     }
-    return traverseUntilExhausted({ ...state, current: state.current }, expand, maximumAttempts, options);
+    traverseUntilExhausted(
+        {
+            pending,
+            visited,
+            scheduleNeighbor(neighbor) {
+                visited.add(neighbor);
+                pending.schedule(neighbor);
+            }
+        },
+        expand,
+        maximumAttempts,
+        options.dependencies
+    );
+    return visited;
 }
