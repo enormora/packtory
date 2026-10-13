@@ -27,6 +27,10 @@ function packagePlan(
     };
 }
 
+function changedFile(path: string, status: PullRequestChangedFileShape['status']): PullRequestChangedFileShape {
+    return pullRequestChangedFileFactory.build({ path, status });
+}
+
 function changedFilesByPullRequest(
     entries: readonly (readonly [number, PullRequestChangedFileShape])[]
 ): ReadonlyMap<number, readonly PullRequestChangedFileShape[]> {
@@ -124,24 +128,15 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/other/unrelated.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/other/unrelated.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/current-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/current-rule.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/subsumed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/rules/subsumed-rule.ts', 'deleted')
                 ]
             ])
         );
@@ -155,17 +150,11 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/current-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/current-rule.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/subsumed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/rules/subsumed-rule.ts', 'deleted')
                 ]
             ]),
             [ 'target/build/source' ]
@@ -180,17 +169,11 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/current-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/current-rule.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/subsumed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/rules/subsumed-rule.ts', 'deleted')
                 ]
             ]),
             [ 'target/build/source' ]
@@ -205,10 +188,7 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/removed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/rules/removed-rule.ts', 'deleted')
                 ]
             ]),
             [ 'target/build/source' ]
@@ -223,10 +203,7 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/other/removed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/other/removed-rule.ts', 'deleted')
                 ]
             ]),
             [ 'target/build/source' ]
@@ -241,17 +218,11 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'target/build/source/current-rule.js',
-                        status: 'modified'
-                    })
+                    changedFile('target/build/source/current-rule.js', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'target/build/source/subsumed-rule.js',
-                        status: 'deleted'
-                    })
+                    changedFile('target/build/source/subsumed-rule.js', 'deleted')
                 ]
             ]),
             [ 'target/build/source' ]
@@ -269,17 +240,11 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/unrelated-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/unrelated-rule.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/subsumed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/rules/subsumed-rule.ts', 'deleted')
                 ]
             ])
         );
@@ -293,17 +258,11 @@ function registerTargetAttachedDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/current-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/current-rule.ts', 'modified')
                 ],
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/other/subsumed-rule.ts',
-                        status: 'deleted'
-                    })
+                    changedFile('source/other/subsumed-rule.ts', 'deleted')
                 ]
             ])
         );
@@ -319,10 +278,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('source/rules/removed-rule.ts', 'removed')
                 ]
             ])
         );
@@ -336,10 +292,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('source/rules/removed-rule.ts', 'removed')
                 ]
             ])
         );
@@ -353,10 +306,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules/modified-rule.ts',
-                        status: 'modified'
-                    })
+                    changedFile('source/rules/modified-rule.ts', 'modified')
                 ]
             ])
         );
@@ -370,10 +320,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'source/rules-old/removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('source/rules-old/removed-rule.ts', 'removed')
                 ]
             ])
         );
@@ -387,10 +334,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'packages/pkg-a/rules/removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('packages/pkg-a/rules/removed-rule.ts', 'removed')
                 ]
             ]),
             [ 'source/rules', 'packages/pkg-a/rules' ]
@@ -405,10 +349,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: 'removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('removed-rule.ts', 'removed')
                 ]
             ]),
             [ '' ]
@@ -423,10 +364,7 @@ function registerPureDeleteTests(): void {
             changedFilesByPullRequest([
                 [
                     1,
-                    pullRequestChangedFileFactory.build({
-                        path: '///source/rules/removed-rule.ts',
-                        status: 'removed'
-                    })
+                    changedFile('///source/rules/removed-rule.ts', 'removed')
                 ]
             ])
         );
