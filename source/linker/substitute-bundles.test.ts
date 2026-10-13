@@ -6,7 +6,15 @@ import { bundleResource, versionedBundleWithManifest } from '../test-libraries/b
 import { createProject } from '../test-libraries/typescript-project.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createGraphFromResolvedBundle, type ResourceGraph } from './resource-graph.ts';
+import type { LinkedBundle } from './linked-bundle.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
+
+type EntrySubstitutionExpectation = {
+    readonly contents: readonly unknown[];
+    readonly externalDependencies: LinkedBundle['externalDependencies'];
+    readonly linkedBundleDependencies: LinkedBundle['linkedBundleDependencies'];
+    readonly substitutedInputFilePathsByPackageName: LinkedBundle['substitutedInputFilePathsByPackageName'];
+};
 
 type ResolvedContentDescription = {
     readonly source: string;
@@ -162,7 +170,7 @@ function substitutedEntryContent(packageName: string): unknown {
     };
 }
 
-function substitutedEntryResult(packageName: string): unknown {
+function substitutedEntryResult(packageName: string): EntrySubstitutionExpectation {
     return {
         contents: [ substitutedEntryContent(packageName) ],
         externalDependencies: new Map(),
@@ -211,9 +219,11 @@ function buildEntryFooLicenseGraph(): ResourceGraph {
 }
 
 function entryWithLicenseResult(packageName: string): unknown {
+    const entryResult = substitutedEntryResult(packageName);
     return {
+        ...entryResult,
         contents: [
-            substitutedEntryContent(packageName),
+            ...entryResult.contents,
             {
                 directDependencies: new Set(),
                 fileDescription: {
@@ -226,21 +236,7 @@ function entryWithLicenseResult(packageName: string): unknown {
                 isExplicitlyIncluded: true,
                 moduleReferences: []
             }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [
-            packageName,
-            {
-                name: packageName,
-                referencedFrom: [ 'entry.js' ],
-                references: [ {
-                    targetFilePath: 'entry.js',
-                    sourceSpecifier: './foo.js',
-                    emittedSpecifier: packageName
-                } ]
-            }
-        ] ]),
-        substitutedInputFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
+        ]
     };
 }
 
