@@ -34,14 +34,19 @@ async function assertEquivalent(program: GeneratedDeadCodeEliminationProgram): P
 suite('dead code elimination equivalence', function () {
     suite('core module graphs', function () {
         for (const kind of deadCodeEliminationCoreCaseKinds) {
-            test(`preserves behavior for generated ${kind} cases`, async function () {
-                await fastCheck.assert(
-                    fastCheck.asyncProperty(deadCodeEliminationCoreProgramArbitraryFor(kind), async function (program) {
-                        await assertEquivalent(program);
-                    }),
-                    { numRuns: coreRunsPerCaseKind }
-                );
-            });
+            for (let run = 0; run < coreRunsPerCaseKind; run += 1) {
+                test(`preserves behavior for generated ${kind} cases, run ${run + 1}`, async function () {
+                    await fastCheck.assert(
+                        fastCheck.asyncProperty(
+                            deadCodeEliminationCoreProgramArbitraryFor(kind),
+                            async function (program) {
+                                await assertEquivalent(program);
+                            }
+                        ),
+                        { numRuns: 1 }
+                    );
+                });
+            }
         }
     });
 
