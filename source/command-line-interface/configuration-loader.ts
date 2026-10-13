@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { hasProp as hasProperty, isPlainObject } from 'remeda';
+import { normalizePublishedConfiguration } from './published-configuration.ts';
 
 export type ConfigurationLoaderDependencies = {
     readonly currentWorkingDirectory: string;
@@ -16,6 +17,21 @@ function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';
 }
 
+function unwrapPublishedConfigurationModule(module: Readonly<Record<PropertyKey, unknown>>): unknown {
+    if (hasProperty(module, 'config')) {
+        return module.config;
+    }
+    if (hasProperty(module, 'buildConfig')) {
+        const { buildConfig: buildPublishedConfiguration } = module;
+        if (isFunction(buildPublishedConfiguration)) {
+            return buildPublishedConfiguration();
+        }
+        throw new Error('Published configuration builder is not a function');
+    }
+
+    throw new Error('Config file doesn’t have a named export "configuration" nor "buildConfiguration"');
+}
+
 function unwrapConfigurationModule(module: Readonly<Record<PropertyKey, unknown>>): unknown {
     if (hasProperty(module, 'configuration')) {
         return module.configuration;
@@ -30,7 +46,7 @@ function unwrapConfigurationModule(module: Readonly<Record<PropertyKey, unknown>
         throw new Error('Named export of "buildConfiguration" config file is not a function');
     }
 
-    throw new Error('Config file doesn’t have a named export "configuration" nor "buildConfiguration"');
+    return unwrapPublishedConfigurationModule(module);
 }
 
 async function loadConfigurationModule(
@@ -43,7 +59,7 @@ async function loadConfigurationModule(
         throw new Error('Invalid config file');
     }
 
-    return unwrapConfigurationModule(module);
+    return normalizePublishedConfiguration(await unwrapConfigurationModule(module));
 }
 
 export function createConfigurationLoader(dependencies: ConfigurationLoaderDependencies): ConfigurationLoader {

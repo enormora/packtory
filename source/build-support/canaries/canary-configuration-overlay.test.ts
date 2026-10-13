@@ -12,6 +12,7 @@ import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.
 type OverlayFixture = {
     readonly originalSource: string;
     readonly expected: unknown;
+    readonly expectedPublished: unknown;
 };
 
 function overlayFixture(spelling: string): OverlayFixture {
@@ -30,23 +31,52 @@ function overlayFixture(spelling: string): OverlayFixture {
         ? `export async function ${spelling}() { return ${JSON.stringify(configuration)}; }`
         : `export const ${spelling} = ${JSON.stringify(configuration)};`;
     const publishSettings = {
-        ...settings,
-        [billOfMaterialsField]: { enabled: false, format: 'json' }
+        registry: 'https://example.com',
+        softwareBillOfMaterials: { enabled: false, format: 'json' }
     };
     const expected = {
         commonPackageSettings: { deadCodeElimination: { enabled: true }, publishSettings },
         packages: [ { name: 'sample', deadCodeElimination: { enabled: true }, publishSettings } ]
     };
-    return { originalSource, expected };
+    const publishedSettings = { registry: 'https://example.com', sbom: { enabled: false, format: 'json' } };
+    const expectedPublished = {
+        commonPackageSettings: { deadCodeElimination: { enabled: true }, publishSettings: publishedSettings },
+        packages: [ { name: 'sample', deadCodeElimination: { enabled: true }, publishSettings: publishedSettings } ]
+    };
+    return { originalSource, expected, expectedPublished };
 }
 
-async function assertOverlaySettings(cloneFolder: string, expected: unknown): Promise<void> {
+function overlayWithoutBillFixture(): OverlayFixture {
+    const originalSource =
+        'export const config = {commonPackageSettings: {publishSettings: {access: "public"}}, packages: [{name: "sample"}]};';
+    const expected = {
+        commonPackageSettings: {
+            deadCodeElimination: { enabled: true },
+            publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: false } }
+        },
+        packages: [ { name: 'sample' } ]
+    };
+    const expectedPublished = {
+        commonPackageSettings: {
+            deadCodeElimination: { enabled: true },
+            publishSettings: { access: 'public', sbom: { enabled: false } }
+        },
+        packages: [ { name: 'sample' } ]
+    };
+    return { originalSource, expected, expectedPublished };
+}
+
+async function assertOverlaySettings(
+    cloneFolder: string,
+    expected: unknown,
+    expectedPublished: unknown
+): Promise<void> {
     const overlay = await import(pathToFileAddress(path.join(cloneFolder, 'packtory.config.js')).href) as {
         readonly buildConfiguration: () => Promise<unknown>;
         readonly buildConfig: () => Promise<unknown>;
     };
     assert.deepStrictEqual(await overlay.buildConfiguration(), expected);
-    assert.deepStrictEqual(await overlay.buildConfig(), expected);
+    assert.deepStrictEqual(await overlay.buildConfig(), expectedPublished);
 }
 
 suite('canary-config-overlay', function () {
@@ -68,12 +98,12 @@ suite('canary-config-overlay', function () {
         test(`executes the overlay for ${spelling} without losing original settings`, async function () {
             const cloneFolder = await mkdtemp(path.join(temporaryDirectory(), 'packtory-overlay-'));
             const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
-            const { originalSource, expected } = overlayFixture(spelling);
+            const { originalSource, expected, expectedPublished } = overlayFixture(spelling);
             try {
                 await fileManager.writeFile(path.join(cloneFolder, 'package.json'), '{"type":"module"}');
                 await fileManager.writeFile(path.join(cloneFolder, 'packtory.config.js'), originalSource);
                 await writeCanaryConfigurationOverlay({ cloneFolder, fileManager });
-                await assertOverlaySettings(cloneFolder, expected);
+                await assertOverlaySettings(cloneFolder, expected, expectedPublished);
                 assert.strictEqual(
                     await fileManager.readFile(path.join(cloneFolder, 'packtory.config.canary-original.js')),
                     originalSource
@@ -83,4 +113,18 @@ suite('canary-config-overlay', function () {
             }
         });
     }
+
+    test('uses each tool schema when bill-of-material settings are absent', async function () {
+        const fixture = overlayWithoutBillFixture();
+        const cloneFolder = await mkdtemp(path.join(temporaryDirectory(), 'packtory-overlay-'));
+        const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+        try {
+            await fileManager.writeFile(path.join(cloneFolder, 'package.json'), '{"type":"module"}');
+            await fileManager.writeFile(path.join(cloneFolder, 'packtory.config.js'), fixture.originalSource);
+            await writeCanaryConfigurationOverlay({ cloneFolder, fileManager });
+            await assertOverlaySettings(cloneFolder, fixture.expected, fixture.expectedPublished);
+        } finally {
+            await rm(cloneFolder, { recursive: true, force: true });
+        }
+    });
 });

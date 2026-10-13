@@ -48,7 +48,9 @@ suite('config-loader', function () {
                 fastCheck.dictionary(fastCheck.string(), fastCheck.anything(), { maxKeys: 4 }),
                 async function (moduleValue) {
                     if (
-                        Object.hasOwn(moduleValue, 'configuration') || Object.hasOwn(moduleValue, 'buildConfiguration')
+                        [ 'configuration', 'buildConfiguration', 'config', 'buildConfig' ].some(function (name) {
+                            return Object.hasOwn(moduleValue, name);
+                        })
                     ) {
                         return;
                     }

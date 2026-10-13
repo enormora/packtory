@@ -114,4 +114,59 @@ suite('config-loader', function () {
 
         assert.strictEqual(result, 'the-value-from-async-function');
     });
+
+    suite('published configuration exports', function () {
+        for (
+            const moduleValue of [
+                { config: { commonPackageSettings: { mainPackageJson: { name: 'sample' } } } },
+                {
+                    buildConfig() {
+                        return { commonPackageSettings: { mainPackageJson: { name: 'sample' } } };
+                    }
+                },
+                {
+                    async buildConfig() {
+                        return { commonPackageSettings: { mainPackageJson: { name: 'sample' } } };
+                    }
+                }
+            ]
+        ) {
+            test('loads and translates a published configuration export', async function () {
+                const loader = configurationLoaderFactory({ importModule: fake.resolves(moduleValue) });
+                assert.deepStrictEqual(await loader.load(), {
+                    commonPackageSettings: { mainPackageManifest: { name: 'sample' } }
+                });
+            });
+        }
+
+        test('prefers owned exports over published aliases', async function () {
+            const loader = configurationLoaderFactory({
+                importModule: fake.resolves({
+                    configuration: 'owned',
+                    config: 'published',
+                    buildConfig() {
+                        return 'builder';
+                    }
+                })
+            });
+            assert.strictEqual(await loader.load(), 'owned');
+        });
+
+        test('prefers published values over published builders', async function () {
+            const loader = configurationLoaderFactory({
+                importModule: fake.resolves({
+                    config: 'published',
+                    buildConfig() {
+                        return 'builder';
+                    }
+                })
+            });
+            assert.strictEqual(await loader.load(), 'published');
+        });
+
+        test('rejects a malformed published builder', async function () {
+            const loader = configurationLoaderFactory({ importModule: fake.resolves({ buildConfig: 42 }) });
+            await assert.rejects(loader.load(), { message: 'Published configuration builder is not a function' });
+        });
+    });
 });

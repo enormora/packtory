@@ -208,7 +208,7 @@ For a deeper look at the pipeline, the package graph, parallel scheduling, the t
 
 Export `configuration` or an asynchronous `buildConfiguration` function from `packtory.config.js`.
 
-Configuration names now use full spellings. Existing configurations need these updates:
+Configuration names use full spellings. The loader translates published configuration exports and fields at its boundary. Use these names in owned configuration code:
 
 | Previous name                                        | Current name                                                 |
 | ---------------------------------------------------- | ------------------------------------------------------------ |
