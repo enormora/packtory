@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
 import { analyzedBundle } from '../../test-libraries/bundle-fixtures.ts';
@@ -29,7 +30,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: undefined,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { mainPackageJson: { devDependencies: { leaked: '1.0.0' } } } }
             });
 
@@ -40,7 +41,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: { noDevDependencyImports: { enabled: false } },
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { mainPackageJson: { devDependencies: { leaked: '1.0.0' } } } }
             });
 
@@ -51,7 +52,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -61,7 +62,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {}
             });
 
@@ -72,7 +73,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: {} }
             });
 
@@ -85,7 +86,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leaked' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { mainPackageJson: { devDependencies: { leaked: '1.0.0' } } } }
             });
 
@@ -98,7 +99,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'shared' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {
                     a: {
                         mainPackageJson: {
@@ -116,7 +117,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'peer' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {
                     a: {
                         mainPackageJson: {
@@ -134,7 +135,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'unknown' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { mainPackageJson: {} } }
             });
 
@@ -145,7 +146,7 @@ suite('no-dev-dependency-imports', function () {
             const result = await noDevDependencyImportsRule.run({
                 bundles: [ bundleWithExternals('a', [ 'leak-a' ]), bundleWithExternals('b', [ 'fine' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {
                     a: { mainPackageJson: { devDependencies: { 'leak-a': '1.0.0' } } },
                     b: { mainPackageJson: { dependencies: { fine: '1.0.0' } } }

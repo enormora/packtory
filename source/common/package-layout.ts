@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { FileManager } from '../file-manager/file-manager.ts';
 
 export const packageManifestFilePath = 'package.json';
 export const sbomArtifactFilePath = 'sbom.cdx.json';
@@ -78,4 +79,20 @@ export function ancestorInstalledDependencyPathCandidates(
     );
 
     return candidates;
+}
+
+export type InstalledPackageFileManager = Pick<FileManager, 'checkReadability' | 'getRealPath' | 'readFile'>;
+
+export async function resolveInstalledPackage(
+    fileManager: Pick<InstalledPackageFileManager, 'checkReadability' | 'getRealPath'>,
+    packageName: string,
+    startFolder: string
+): Promise<string | undefined> {
+    for (const candidatePath of ancestorInstalledDependencyPathCandidates(startFolder, packageName)) {
+        const readability = await fileManager.checkReadability(candidatePath);
+        if (readability.isReadable) {
+            return await fileManager.getRealPath(candidatePath);
+        }
+    }
+    return undefined;
 }

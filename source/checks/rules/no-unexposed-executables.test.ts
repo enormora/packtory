@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     analyzedBundle,
@@ -62,7 +63,7 @@ async function checkBundlesWithSettings(
         bundles,
         publishedPackages: packages,
         settings,
-        perPackageSettings: new Map()
+        ...emptyCheckContext()
     });
 }
 
@@ -96,7 +97,7 @@ suite('no-unexposed-executables', function () {
             bundles: [ packageBundle('pkg', [ packagedFile('/repo/src/hidden.js', 'hidden.js', true) ]) ],
             publishedPackages: publishedPackages([ publishedPackage('pkg', undefined) ]),
             settings: undefined,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(issues, []);
@@ -109,7 +110,7 @@ suite('no-unexposed-executables', function () {
                     bundles: [],
                     publishedPackages: undefined,
                     settings: enabledSettings,
-                    perPackageSettings: new Map()
+                    ...emptyCheckContext()
                 });
             },
             { message: 'Published packages missing for unexposed executable checks' }

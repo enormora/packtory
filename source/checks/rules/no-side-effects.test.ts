@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { safeParse } from '../../common/schema-validation.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
@@ -62,6 +63,7 @@ async function runWithInitSideEffect(
             ])
         ],
         settings,
+        sourceFolders: new Map(),
         perPackageSettings
     });
 }
@@ -83,7 +85,7 @@ suite('no-side-effects', function () {
                     ])
                 ],
                 settings: undefined,
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -97,7 +99,7 @@ suite('no-side-effects', function () {
                     ])
                 ],
                 settings: { noSideEffects: { enabled: false } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -107,7 +109,7 @@ suite('no-side-effects', function () {
             const result = await noSideEffectsRule.run({
                 bundles: [ bundleWithImpureResources('a', [ analyzedBundleResource('/a.ts') ]) ],
                 settings: { noSideEffects: { enabled: true, allowList: [] } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -124,7 +126,7 @@ suite('no-side-effects', function () {
                     ])
                 ],
                 settings: { noSideEffects: { enabled: true, allowList: [] } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, [
@@ -169,7 +171,7 @@ suite('no-side-effects', function () {
                     ])
                 ],
                 settings: { noSideEffects: { enabled: true, allowList: [] } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.strictEqual(result.length, 1);
@@ -186,7 +188,7 @@ suite('no-side-effects', function () {
                     bundleWithImpureResources('b', [ impureResource('/b.ts', [ { line: 1, kind: 'if statement' } ]) ])
                 ],
                 settings: { noSideEffects: { enabled: true, allowList: [] } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.strictEqual(result.length, 2);
@@ -215,6 +217,7 @@ suite('no-side-effects', function () {
                     ])
                 ],
                 settings: { noSideEffects: { enabled: true, allowList: [] } },
+                sourceFolders: new Map(),
                 perPackageSettings: consentMap([ [ 'a', [ '/shared.ts' ] ] ])
             });
 

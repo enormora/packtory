@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
-import { checkBundle, checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
+import { emptyCheckContext, checkBundle, checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
 import type { PackageResolutionReport } from './type-script-package-resolution.ts';
 import {
     createTypeScriptIntegrityRule,
@@ -53,7 +53,7 @@ async function runRule(options: RunOptions): Promise<readonly string[]> {
         }),
         publishedPackages: options.publishedPackages,
         settings: options.settings,
-        perPackageSettings: new Map(),
+        ...emptyCheckContext(),
         packageConfigs: {}
     });
 }
@@ -67,7 +67,7 @@ async function runRuleForBundles(
         bundles,
         publishedPackages,
         settings: { typeScriptIntegrity: { enabled: true } },
-        perPackageSettings: new Map(),
+        ...emptyCheckContext(),
         packageConfigs: {}
     });
 }

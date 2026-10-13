@@ -35,6 +35,7 @@ export type RulePackageConfig = {
 
 export type RuleRunInput<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
     readonly bundles: readonly AnalyzedBundle[];
+    readonly sourceFolders: ReadonlyMap<string, string>;
     readonly publishedPackages?: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: Readonly<Partial<Readonly<Record<TName, TGlobal | undefined>>>> | undefined;
     readonly perPackageSettings: ReadonlyMap<

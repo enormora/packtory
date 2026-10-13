@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageChecksSettings } from '../../config/config.ts';
-import { checkBundle as bundle } from '../../test-libraries/check-fixtures.ts';
+import { emptyCheckContext, checkBundle as bundle } from '../../test-libraries/check-fixtures.ts';
 import { requiredFilesRule } from './required-files.ts';
 
 function packageRequiring(files: readonly string[]): PackageChecksSettings {
@@ -18,7 +18,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: undefined,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -28,7 +28,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: { requiredFiles: { enabled: false, files: [ 'LICENSE' ] } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -38,7 +38,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', [ 'LICENSE' ]), bundle('b', []) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [ 'Package "b" is missing required file "LICENSE"' ]);
@@ -48,7 +48,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', [ 'LICENSE', 'readme.md' ]), bundle('b', [ 'LICENSE', 'readme.md' ]) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -58,6 +58,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', [ 'LICENSE' ]) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', packageRequiring([ 'CHANGELOG.md' ]) ] ])
         });
 
@@ -68,6 +69,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', packageRequiring([ 'LICENSE' ]) ] ])
         });
 
@@ -78,6 +80,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: { requiredFiles: { enabled: true } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', packageRequiring([ 'LICENSE' ]) ] ])
         });
 
@@ -88,7 +91,7 @@ suite('required-files', function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [

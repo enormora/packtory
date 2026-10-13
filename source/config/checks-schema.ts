@@ -1,39 +1,33 @@
 import { z } from 'zod/mini';
-import { maxBundleSizeRule } from '../checks/rules/max-bundle-size.ts';
-import { noDevDependencyImportsRule } from '../checks/rules/no-dev-dependency-imports.ts';
-import { noDuplicatedFilesRule } from '../checks/rules/no-duplicated-files.ts';
-import { noSideEffectsRule } from '../checks/rules/no-side-effects.ts';
-import { noUnexposedExecutablesRule } from '../checks/rules/no-unexposed-executables.ts';
-import { noUnusedBundleDependenciesRule } from '../checks/rules/no-unused-bundle-dependencies.ts';
-import { requiredFilesRule } from '../checks/rules/required-files.ts';
-import { typeScriptIntegritySchemas } from '../checks/rules/type-script-integrity.ts';
-import { uniqueTargetPathsRule } from '../checks/rules/unique-target-paths.ts';
+import { checkRuleSchemas } from '../checks/rules/registry.ts';
 
 export const checksSchema = z.readonly(
     z.strictObject({
-        typeScriptIntegrity: z.optional(typeScriptIntegritySchemas.globalSchema),
-        noDuplicatedFiles: z.optional(noDuplicatedFilesRule.globalSchema),
-        requiredFiles: z.optional(requiredFilesRule.globalSchema),
-        maxBundleSize: z.optional(maxBundleSizeRule.globalSchema),
-        noUnusedBundleDependencies: z.optional(noUnusedBundleDependenciesRule.globalSchema),
-        noDevDependencyImports: z.optional(noDevDependencyImportsRule.globalSchema),
-        uniqueTargetPaths: z.optional(uniqueTargetPathsRule.globalSchema),
-        noSideEffects: z.optional(noSideEffectsRule.globalSchema),
-        noUnexposedExecutables: z.optional(noUnexposedExecutablesRule.globalSchema)
+        typeScriptIntegrity: z.optional(checkRuleSchemas.typeScriptIntegrity.globalSchema),
+        noDuplicatedFiles: z.optional(checkRuleSchemas.noDuplicatedFiles.globalSchema),
+        requiredFiles: z.optional(checkRuleSchemas.requiredFiles.globalSchema),
+        maxBundleSize: z.optional(checkRuleSchemas.maxBundleSize.globalSchema),
+        noUnusedBundleDependencies: z.optional(checkRuleSchemas.noUnusedBundleDependencies.globalSchema),
+        noDevDependencyImports: z.optional(checkRuleSchemas.noDevDependencyImports.globalSchema),
+        uniqueTargetPaths: z.optional(checkRuleSchemas.uniqueTargetPaths.globalSchema),
+        noSideEffects: z.optional(checkRuleSchemas.noSideEffects.globalSchema),
+        noUnexposedExecutables: z.optional(checkRuleSchemas.noUnexposedExecutables.globalSchema),
+        nodeEngineCompatibility: z.optional(checkRuleSchemas.nodeEngineCompatibility.globalSchema)
     })
 );
 
 export const checksPerPackageSchema = z.readonly(
     z.strictObject({
-        typeScriptIntegrity: z.optional(typeScriptIntegritySchemas.perPackageSchema),
-        noDuplicatedFiles: z.optional(noDuplicatedFilesRule.perPackageSchema),
-        requiredFiles: z.optional(requiredFilesRule.perPackageSchema),
-        maxBundleSize: z.optional(maxBundleSizeRule.perPackageSchema),
-        noUnusedBundleDependencies: z.optional(noUnusedBundleDependenciesRule.perPackageSchema),
-        noDevDependencyImports: z.optional(noDevDependencyImportsRule.perPackageSchema),
-        uniqueTargetPaths: z.optional(uniqueTargetPathsRule.perPackageSchema),
-        noSideEffects: z.optional(noSideEffectsRule.perPackageSchema),
-        noUnexposedExecutables: z.optional(noUnexposedExecutablesRule.perPackageSchema)
+        typeScriptIntegrity: z.optional(checkRuleSchemas.typeScriptIntegrity.perPackageSchema),
+        noDuplicatedFiles: z.optional(checkRuleSchemas.noDuplicatedFiles.perPackageSchema),
+        requiredFiles: z.optional(checkRuleSchemas.requiredFiles.perPackageSchema),
+        maxBundleSize: z.optional(checkRuleSchemas.maxBundleSize.perPackageSchema),
+        noUnusedBundleDependencies: z.optional(checkRuleSchemas.noUnusedBundleDependencies.perPackageSchema),
+        noDevDependencyImports: z.optional(checkRuleSchemas.noDevDependencyImports.perPackageSchema),
+        uniqueTargetPaths: z.optional(checkRuleSchemas.uniqueTargetPaths.perPackageSchema),
+        noSideEffects: z.optional(checkRuleSchemas.noSideEffects.perPackageSchema),
+        noUnexposedExecutables: z.optional(checkRuleSchemas.noUnexposedExecutables.perPackageSchema),
+        nodeEngineCompatibility: z.optional(checkRuleSchemas.nodeEngineCompatibility.perPackageSchema)
     })
 );
 

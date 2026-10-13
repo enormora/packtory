@@ -1,8 +1,10 @@
 import { fake } from 'sinon';
+import type { PackageChecksSettings } from '../config/config.ts';
 import { createCheckRunner, type CheckRunner } from '../checks/check-runner.ts';
 import { createAllRules, type AllCheckRules, type CheckRuleDependencies } from '../checks/rules/registry.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
+import { createFakeFileManager } from './fake-file-manager.ts';
 import { analyzedBundle, analyzedBundleResource, versionedBundleWithManifest } from './bundle-fixtures.ts';
 
 export function checkBundle(name: string, filePaths: readonly string[]): AnalyzedBundle {
@@ -31,6 +33,7 @@ export function checkPublishedPackage(
 
 export function fakeCheckRuleDependencies(): CheckRuleDependencies {
     return {
+        fileManager: createFakeFileManager(),
         analyzePackageResolution: fake.resolves({ kind: 'analyzed', entrypoints: [], problems: [] }),
         summarizeDeclarationIntegrity: fake.returns([])
     };
@@ -42,4 +45,13 @@ export function fakeCheckRules(): AllCheckRules {
 
 export function fakeCheckRunner(): CheckRunner {
     return createCheckRunner({ rules: fakeCheckRules() });
+}
+
+type EmptyCheckContext = {
+    readonly sourceFolders: ReadonlyMap<string, string>;
+    readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings>;
+};
+
+export function emptyCheckContext(): EmptyCheckContext {
+    return { sourceFolders: new Map(), perPackageSettings: new Map() };
 }

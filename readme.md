@@ -357,9 +357,30 @@ checks: {
     noDevDependencyImports: { enabled: true },
     uniqueTargetPaths: { enabled: true },
     noSideEffects: { enabled: true },
-    noUnexposedExecutables: { enabled: true }
+    noUnexposedExecutables: { enabled: true },
+    nodeEngineCompatibility: { enabled: true }
 }
 ```
+
+### `nodeEngineCompatibility`
+
+Validates the Node support declared by each generated package against its required dependency tree.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}`.
+- Packages without `engines.node` in their final generated manifest are skipped.
+- The package's Node range must be a subset of every required direct, transitive, and peer dependency's range. Dependencies without `engines.node` impose no constraint, but their required dependencies are still checked.
+- Development dependency edges, optional dependencies and peers, and dependencies fully removed by DCE are excluded. Declaration-only dependencies emitted in the manifest are included. A package reachable through a required path is checked even if it also has an optional path.
+- Generated sibling packages use their generated manifests. External packages use locally resolved manifests, including nested and symlinked installations. Missing required packages, unreadable or malformed manifests, and invalid Node ranges fail the check.
+- Checks use npm's prerelease-inclusive range semantics. No package code runs and no dependency installation or registry lookup occurs.
+
+For example, a package advertising `>=22` fails when a required dependency declares `>=24`:
+
+```text
+Package "example" failed Node engine compatibility via example -> dependency@1.0.0: engines.node ">=22" is not a subset of ">=24"
+```
+
+Change the dependency or explicitly adjust the published support range. The check never rewrites engine requirements. It validates the currently installed tree and declared metadata, not future dependency resolutions or actual execution on every supported Node version. DCE exclusions apply to Packtory's generated artifacts; retained external packages keep their declared required dependency trees.
 
 ### `typeScriptIntegrity`
 

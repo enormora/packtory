@@ -6,6 +6,7 @@ import {
 } from '@arethetypeswrong/core/problems';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { Project } from 'ts-morph';
+import type { FileManager } from '../file-manager/file-manager.ts';
 import { createCheckRunner, type CheckRunner } from '../checks/check-runner.ts';
 import { createAllRules } from '../checks/rules/registry.ts';
 import { createDeclarationIntegritySummarizer } from '../checks/rules/type-script-declaration-integrity.ts';
@@ -25,9 +26,10 @@ export type PacktoryComposition = {
     readonly progressBroadcaster: ProgressBroadcaster;
 };
 
-function buildCheckRunner(repositoryFolder: string): CheckRunner {
+function buildCheckRunner(repositoryFolder: string, fileManager: FileManager): CheckRunner {
     const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
     const rules = createAllRules({
+        fileManager,
         analyzePackageResolution: createPackageResolutionAnalyzer({
             Package,
             checkPackage,
@@ -63,7 +65,7 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             fileManager: parts.fileManager,
             repositoryFolder: parts.repositoryFolder,
             versionManager: parts.versionManager,
-            runChecks: buildCheckRunner(parts.repositoryFolder),
+            runChecks: buildCheckRunner(parts.repositoryFolder, parts.fileManager),
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,
             readCurrentGitHead: parts.readCurrentGitHead,

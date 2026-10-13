@@ -9,6 +9,7 @@ export type CheckRunnerDependencies = {
 
 type CheckRunnerInput = {
     readonly bundles: readonly AnalyzedBundle[];
+    readonly sourceFolders: ReadonlyMap<string, string>;
     readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: ChecksSettings | undefined;
     readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings | undefined>;

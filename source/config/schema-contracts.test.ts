@@ -248,7 +248,8 @@ suite('schema-contracts', function () {
                 'noDevDependencyImports',
                 'uniqueTargetPaths',
                 'noSideEffects',
-                'noUnexposedExecutables'
+                'noUnexposedExecutables',
+                'nodeEngineCompatibility'
             ],
             commonShapeKeys: [
                 'sourcesFolder',
