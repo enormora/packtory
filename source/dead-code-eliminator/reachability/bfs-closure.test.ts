@@ -20,11 +20,13 @@ function runBfs(
 
 function fromGraph(graph: Readonly<Record<string, readonly string[]>>): (id: string) => readonly string[] {
     return function (id) {
+        assert.notStrictEqual(id, undefined);
         return graph[id] ?? [];
     };
 }
 
-function noNeighbors(): readonly string[] {
+function noNeighbors(id: string): readonly string[] {
+    assert.notStrictEqual(id, undefined);
     return [];
 }
 
@@ -188,10 +190,11 @@ suite('bfs-closure', function () {
 
     test('bfsClosure throws when the iteration budget is exhausted', function () {
         let nextId = 0;
-        try {
+        assert.throws(function () {
             runBfs(
                 [ 'root' ],
                 function () {
+                    assert.ok(nextId < 5, 'Traversal must stop after five expansions');
                     const next = String(nextId);
                     nextId += 1;
                     return [ next ];
@@ -199,13 +202,8 @@ suite('bfs-closure', function () {
                 new Set<string>(),
                 2
             );
-            assert.fail('Expected bfsClosure() to throw but it did not');
-        } catch (error: unknown) {
-            assert.strictEqual(
-                (error as Error).message,
-                'Reachability traversal exceeded 5 attempts'
-            );
-        }
+        }, { message: 'Reachability traversal exceeded 5 attempts' });
+        assert.strictEqual(nextId, 5);
     });
 
     test('bfsClosure throws when one expansion would exceed the exact iteration budget', function () {

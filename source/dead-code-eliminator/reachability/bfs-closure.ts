@@ -37,18 +37,15 @@ function traverseUntilExhausted<T>(
     maximumAttempts: number,
     dependencies: BfsClosureDependencies<T>
 ): void {
-    let current = state.pending.takeNext();
     let attemptsUsed = 0;
-    while (current !== undefined && attemptsUsed < maximumAttempts) {
+    for (let current = state.pending.takeNext(); current !== undefined; current = state.pending.takeNext()) {
+        if (attemptsUsed >= maximumAttempts) {
+            throw new Error(`Reachability traversal exceeded ${attemptsUsed} attempts`);
+        }
         attemptsUsed += 1;
         for (const neighbor of expand(current)) {
             enqueueNeighbor(current, neighbor, state, dependencies);
         }
-        current = state.pending.takeNext();
-    }
-
-    if (current !== undefined) {
-        throw new Error(`Reachability traversal exceeded ${attemptsUsed} attempts`);
     }
 }
 
