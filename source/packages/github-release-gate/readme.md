@@ -114,6 +114,7 @@ The package ships a `github-release-gate` executable that writes its decision to
 - `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are required.
 - `GITHUB_OUTPUT` is required when used as a GitHub Actions step.
 - `CI_WORKFLOW_FILE` defaults to `ci.yml`.
+- `CHECKED_OUT_HEAD_SHA`, when set, must match the main HEAD checked by the gate. Pass the checked-out commit to prevent analysis and CI checks from using different commits.
 - `DEFAULT_BRANCH` defaults to `main`.
 - `GITHUB_API_BASE_URL` defaults to `https://api.github.com`.
 - `DEPENDENCY_ONLY_MIN_AGE_DAYS` defaults to `7`.

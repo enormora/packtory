@@ -5,7 +5,6 @@ import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts'
 import {
     errorWithStatus,
     expectFailure,
-    type FakeNpmFetch,
     registryClientFactory
 } from '../../test-libraries/registry-client-test-support.ts';
 
@@ -61,25 +60,14 @@ suite('registry-client metadata no retry', function () {
     });
 
     test('fetchTarball() also retries metadata auto with publish auth on a 401 challenge', async function () {
-        const error = errorWithStatus('auth required', 401);
         let callCount = 0;
-        const npmFetch = Object.assign(
-            fake(async function () {
-                callCount += 1;
-                if (callCount === 1) {
-                    throw error;
-                }
-
-                return {
-                    buffer: fake.resolves(Buffer.from([ 1, 2, 3 ]))
-                };
-            }),
-            {
-                json: Object.assign(fake(), { stream: fake() }),
-                pickRegistry: fake()
-            }
-        ) as unknown as FakeNpmFetch;
-        const registryClient = registryClientFactory({ npmFetch });
+        const fetchImplementation = fake(async function () {
+            callCount += 1;
+            return callCount === 1
+                ? new Response(null, { status: 401 })
+                : new Response(new Uint8Array([ 1, 2, 3 ]));
+        });
+        const registryClient = registryClientFactory({ fetch: fetchImplementation });
 
         const result = await registryClient.fetchTarball(
             'https://registry.example.test/pkg.tgz',
@@ -94,17 +82,16 @@ suite('registry-client metadata no retry', function () {
         );
 
         assert.deepStrictEqual(result, Buffer.from([ 1, 2, 3 ]));
-        assertDeepSubset(npmFetch, {
+        assertDeepSubset(fetchImplementation, {
             callCount: 2,
             secondCall: {
                 args: [
                     'https://registry.example.test/pkg.tgz',
                     {
-                        alwaysAuth: true,
-                        registry: 'https://registry.example.test/',
-                        forceAuth: {
-                            _auth: Buffer.from('reader:reader-secret', 'utf8').toString('base64')
-                        }
+                        headers: {
+                            Authorization: `Basic ${Buffer.from('reader:reader-secret').toString('base64')}`
+                        },
+                        redirect: 'manual'
                     }
                 ]
             }

@@ -2,8 +2,7 @@ import type { RegistrySettings } from '../../config/registry-settings.ts';
 import {
     buildAuthOptions,
     resolvePublishAuth,
-    type AuthResolution,
-    type NpmFetchOptions
+    type AuthResolution
 } from './registry-auth-config.ts';
 
 const unauthorizedStatusCode = 401;
@@ -19,10 +18,10 @@ function isAuthFailure(error: unknown): boolean {
 export async function retryWithFallbackAuth<T>(
     registrySettings: Readonly<RegistrySettings>,
     auth: AuthResolution,
-    run: (options: NpmFetchOptions) => Promise<T>
+    run: (auth: AuthResolution) => Promise<T>
 ): Promise<T> {
     try {
-        return await run(auth.options);
+        return await run(auth);
     } catch (error: unknown) {
         if (!auth.allowsAutomaticRetry || !isAuthFailure(error)) {
             throw error;
@@ -33,6 +32,6 @@ export async function retryWithFallbackAuth<T>(
             throw error;
         }
 
-        return run(buildAuthOptions(publishAuth, registrySettings).options);
+        return run(buildAuthOptions(publishAuth, registrySettings));
     }
 }

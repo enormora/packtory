@@ -1,4 +1,3 @@
-import type _npmFetch from 'npm-registry-fetch';
 import type { Maybe } from 'true-myth';
 import type { Clock } from '../../common/clock.ts';
 import type { PublishSettings } from '../../config/publish-settings.ts';
@@ -7,16 +6,16 @@ import { publishedToRegistry, stagedForApproval, type PublicationOutcome } from 
 import { createOidcTokenExchanger } from './oidc-token-exchange.ts';
 import {
     fetchLatestPackageReleaseMetadata,
-    fetchPackageTarball,
     fetchLatestPackageVersion,
     fetchPackageVersionReleaseMetadata,
     fetchStagedPackageVersions,
+    type NpmFetch,
     type PackageReleaseMetadata,
     type PackageVersionDetails,
     type PackageVersionReleaseMetadata
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
-import type { TarballIntegrity } from './tarball-integrity.ts';
+import { fetchPackageTarball, type TarballFetcher } from './package-tarball-fetcher.ts';
 
 type PublishManifest = Readonly<Record<string, unknown>> & {
     readonly name: string;
@@ -39,7 +38,7 @@ type PublishPackageArguments = readonly [
 ];
 
 export type RegistryClientDependencies = {
-    readonly npmFetch: typeof _npmFetch;
+    readonly npmFetch: NpmFetch;
     readonly publish: (manifest: PublishManifest, tarData: Buffer, options?: PublishLibraryOptions) => Promise<unknown>;
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
@@ -60,7 +59,7 @@ export type RegistryClient = {
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
     publishPackage: (...publishArguments: PublishPackageArguments) => Promise<PublicationOutcome>;
-    fetchTarball: (tarballUrl: string, tarballIntegrity: TarballIntegrity, config: RegistrySettings) => Promise<Buffer>;
+    readonly fetchTarball: TarballFetcher;
 };
 
 function isStageIdRecord(response: unknown): response is Readonly<Record<'stageId', unknown>> {
@@ -117,7 +116,12 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
     return {
         async fetchTarball(tarballUrl, tarballIntegrity, registrySettings) {
-            return fetchPackageTarball(npmFetch, tarballUrl, tarballIntegrity, registrySettings);
+            return fetchPackageTarball(
+                { fetch: fetchImplementation, clock },
+                tarballUrl,
+                tarballIntegrity,
+                registrySettings
+            );
         },
 
         async publishPackage(...[ manifest, tarData, registrySettings, publishSettings, stage ]) {

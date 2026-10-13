@@ -11,6 +11,7 @@ export const npmRegistryUrl = 'https://registry.npmjs.org/';
 export type NpmFetchOptions = Readonly<NonNullable<Parameters<typeof _npmFetch>[1]>>;
 
 export type AuthResolution = {
+    readonly authorization: string | undefined;
     readonly allowsAutomaticRetry: boolean;
     readonly registry: string | undefined;
     readonly options: NpmFetchOptions;
@@ -58,6 +59,7 @@ export function buildAuthOptions(
 
     if (auth.type === 'bearer-token') {
         return {
+            authorization: `Bearer ${auth.token}`,
             allowsAutomaticRetry: false,
             registry,
             options: {
@@ -69,13 +71,15 @@ export function buildAuthOptions(
         };
     }
 
+    const encodedCredentials = Buffer.from(`${auth.username}:${auth.password}`).toString('base64');
     return {
+        authorization: `Basic ${encodedCredentials}`,
         allowsAutomaticRetry: false,
         registry,
         options: {
             ...options,
             forceAuth: {
-                _auth: Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
+                _auth: encodedCredentials
             },
             ...auth.email === undefined ? undefined : { email: auth.email }
         }
@@ -84,6 +88,7 @@ export function buildAuthOptions(
 
 function createAnonymousAuthResolution(registrySettings: Readonly<RegistrySettings>): AuthResolution {
     return {
+        authorization: undefined,
         allowsAutomaticRetry: false,
         registry: resolveRegistryUrl(registrySettings),
         options: createBaseOptions(registrySettings)

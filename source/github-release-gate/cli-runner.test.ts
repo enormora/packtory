@@ -89,6 +89,35 @@ async function expectReleaseAnalysisFailure(input: ReleaseAnalysisFailureExpecta
 }
 
 suite('github-release-gate-cli-runner', function () {
+    test('rejects a checkout that differs from the main commit checked by the gate', async function () {
+        await withGitHubApiServer(createBaseRoutes(), async function (apiBaseUrl) {
+            const fileManager = createFakeFileManager();
+            const loadPacktoryConfig = fake.resolves({});
+            const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
+            await assert.rejects(
+                runGitHubReleaseGate({
+                    analyzeReleaseAgainstLatestPublished,
+                    fetch,
+                    fileManager,
+                    getEnvironmentVariable: createEnvironmentVariableReader(createBaseEnvironment({
+                        GITHUB_API_BASE_URL: apiBaseUrl,
+                        CHECKED_OUT_HEAD_SHA: 'different-head',
+                        QUIET_PERIOD_MINUTES: '0'
+                    })),
+                    loadPacktoryConfig,
+                    now() {
+                        return new Date('2026-05-20T12:00:00.000Z');
+                    },
+                    stdoutWrite: fake()
+                }),
+                /^Error: Checked-out commit different-head differs from main HEAD abc123; retry from main$/u
+            );
+            assert.strictEqual(loadPacktoryConfig.callCount, 0);
+            assert.strictEqual(analyzeReleaseAgainstLatestPublished.callCount, 0);
+            assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
+        });
+    });
+
     test('runGitHubReleaseGate writes a closed-gate result when recent PR activity is inside the quiet period', async function () {
         await withDeadline(
             withGitHubApiServer(createBaseRoutes(), async function (apiBaseUrl) {
@@ -103,7 +132,8 @@ suite('github-release-gate-cli-runner', function () {
                     fileManager,
                     getEnvironmentVariable: createEnvironmentVariableReader(
                         createBaseEnvironment({
-                            GITHUB_API_BASE_URL: apiBaseUrl
+                            GITHUB_API_BASE_URL: apiBaseUrl,
+                            CHECKED_OUT_HEAD_SHA: 'abc123'
                         })
                     ),
                     loadPacktoryConfig,

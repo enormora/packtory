@@ -2,13 +2,15 @@ import fs from 'node:fs';
 import { execFile, type ExecFileException } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { RealFileSystemHost } from '@ts-morph/common';
+import { InMemoryFileSystemHost, RealFileSystemHost, type FileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
+import { getProxyForUrl } from 'proxy-from-env';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
+import { createRegistryJsonFetch, withRegistryTransport } from '../bundle-emitter/registry/registry-transport.ts';
 import { createPackEmitter, type PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import { createVendorMaterializer, type VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
@@ -157,8 +159,16 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
 
 function buildRegistryClient(options: PackageProcessorCompositionOptions, clock: Clock): RegistryClient {
     return createRegistryClient({
-        npmFetch,
-        publish,
+        npmFetch: createRegistryJsonFetch({ npmFetch, resolveProxy: getProxyForUrl, clock }),
+        async publish(manifest, tarData, publishOptions) {
+            return withRegistryTransport(
+                { resolveProxy: getProxyForUrl, clock },
+                publishOptions ?? {},
+                async function (requestOptions) {
+                    return publish(manifest, tarData, requestOptions);
+                }
+            );
+        },
         fetch,
         clock,
         resolveIdToken: createNpmOidcIdTokenResolver({
@@ -192,22 +202,27 @@ function buildBundleEmitter(
     });
 }
 
+function createDeadCodeEliminationProject(fileSystem: FileSystemHost): Project {
+    return new Project({
+        compilerOptions: {
+            allowJs: true,
+            module: ModuleKind.Node16,
+            esModuleInterop: true,
+            noLib: true,
+            target: ScriptTarget.ES2022,
+            moduleResolution: ModuleResolutionKind.Node16
+        },
+        skipLoadingLibFiles: true,
+        fileSystem
+    });
+}
+
 function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
         trace: undefined,
         createProject() {
-            return new Project({
-                compilerOptions: {
-                    allowJs: true,
-                    module: ModuleKind.Node16,
-                    esModuleInterop: true,
-                    noLib: true,
-                    target: ScriptTarget.ES2022,
-                    moduleResolution: ModuleResolutionKind.Node16
-                },
-                skipLoadingLibFiles: true
-            });
+            return createDeadCodeEliminationProject(new RealFileSystemHost());
         }
     });
 }
@@ -268,6 +283,9 @@ export function buildPackageProcessorComposition(
         deadCodeEliminator: parts.deadCodeEliminator,
         fileManager: parts.fileManager,
         publishedArtifactSmokeGate: createPublishedArtifactSmokeGate({
+            createProject() {
+                return createDeadCodeEliminationProject(new InMemoryFileSystemHost());
+            },
             collectContents: parts.artifactsBuilder.collectContents,
             fileManager: parts.fileManager,
             createTemporaryFolder,

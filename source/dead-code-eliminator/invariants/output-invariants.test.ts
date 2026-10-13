@@ -6,6 +6,7 @@ import {
     analyzedBundleResource,
     externalDependency
 } from '../../test-libraries/bundle-fixtures.ts';
+import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectDeadCodeEliminationOutputIssues } from './output-invariants.ts';
 
 function resource(inputFilePath: string, targetFilePath: string, content: string): AnalyzedBundleResource {
@@ -29,7 +30,7 @@ function bundleWith(
 }
 
 function issues(bundle: AnalyzedBundle): readonly string[] {
-    return collectDeadCodeEliminationOutputIssues([ bundle ]);
+    return collectDeadCodeEliminationOutputIssues([ bundle ], createProject);
 }
 
 function assertNoIssues(bundle: AnalyzedBundle): void {
@@ -48,6 +49,38 @@ function assertExactIssues(bundle: AnalyzedBundle, expected: readonly string[]):
 }
 
 suite('dead code elimination output invariants', function () {
+    suite('compiler project isolation', function () {
+        test('validates emitted content instead of preloaded compiler content', function () {
+            const emittedBundle = bundleWith([
+                resource('/src/index.js', 'index.js', 'export const value = 1;')
+            ]);
+
+            assert.deepStrictEqual(
+                collectDeadCodeEliminationOutputIssues([ emittedBundle ], function () {
+                    return createProject({
+                        withFiles: [ { filePath: '/pkg/index.js', content: 'import "./missing.js";' } ]
+                    });
+                }),
+                []
+            );
+        });
+
+        test('rejects targets present only in the injected compiler project', function () {
+            const emittedBundle = bundleWith([
+                resource('/src/index.js', 'index.js', 'import { value } from "./missing.js";')
+            ]);
+
+            assert.deepStrictEqual(
+                collectDeadCodeEliminationOutputIssues([ emittedBundle ], function () {
+                    return createProject({
+                        withFiles: [ { filePath: '/pkg/missing.js', content: 'export const value = 1;' } ]
+                    });
+                }),
+                [ 'pkg: index.js imports ./missing.js in runtime mode, but no emitted target remains' ]
+            );
+        });
+    });
+
     suite('accepted graphs', function () {
         test('accepts runtime imports and re-exports that preserve exported bindings', function () {
             assertNoIssues(bundleWith([

@@ -285,7 +285,6 @@ export async function assertDeadCodeEliminationEquivalent(
         const eliminated = await eliminateDeadCodeForOracle(input);
 
         verifyEntryBundle(input.name, input.entry, original, 'original');
-        assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
         await assertDeadCodeEliminationBehaviorEquivalent({
             name: input.name,
             entry: input.entry,

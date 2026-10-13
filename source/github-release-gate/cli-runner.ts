@@ -117,6 +117,12 @@ async function loadGitHubTimeGateDecision(
 export async function runGitHubReleaseGate(dependencies: GitHubReleaseGateRunnerDependencies): Promise<void> {
     const config = readGitHubReleaseGateRunnerConfig(dependencies.getEnvironmentVariable);
     const { decision: timeGateDecision, mainHeadSha, now } = await loadGitHubTimeGateDecision(dependencies, config);
+    const checkedOutHeadSha = dependencies.getEnvironmentVariable('CHECKED_OUT_HEAD_SHA');
+    if (checkedOutHeadSha !== undefined && checkedOutHeadSha !== mainHeadSha) {
+        throw new Error(
+            `Checked-out commit ${checkedOutHeadSha} differs from main HEAD ${mainHeadSha}; retry from main`
+        );
+    }
 
     if (!timeGateDecision.shouldPublish) {
         await writeDecision(

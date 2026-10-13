@@ -1,10 +1,7 @@
 import path from 'node:path';
 import {
-    ModuleKind,
-    ModuleResolutionKind,
     Node as TsMorphNode,
-    Project,
-    ScriptTarget,
+    type Project,
     type ExportDeclaration,
     type ImportDeclaration,
     type SourceFile,
@@ -12,6 +9,7 @@ import {
 } from 'ts-morph';
 import { getModuleReferenceLiterals } from '../../dependency-scanner/source-file-references.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../analyzed-bundle.ts';
+import type { CreateProject } from '../load-bundle.ts';
 import {
     isCodeTargetPath,
     isDeclarationCodeTargetPath
@@ -82,17 +80,6 @@ const localDeclarationMethods = [
     'getTypeAlias',
     'getVariableDeclaration'
 ] as const;
-
-function createInvariantProject(): Project {
-    return new Project({
-        compilerOptions: {
-            allowJs: true,
-            module: ModuleKind.Node16,
-            target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node16
-        }
-    });
-}
 
 function normalizeTargetPath(targetFilePath: string): string {
     return path.posix.normalize(targetFilePath);
@@ -468,13 +455,13 @@ function indexResource(build: IndexBuild, resource: AnalyzedBundleResource): voi
     });
 }
 
-function createBundleIndex(issues: IssueRecorder, bundle: AnalyzedBundle): BundleIndex {
+function createBundleIndex(issues: IssueRecorder, bundle: AnalyzedBundle, project: Project): BundleIndex {
     const resourcesByTargetPath = new Map<string, IndexedResource>();
     const targetPaths = new Set<string>();
     const build: IndexBuild = {
         issues,
         bundle,
-        project: createInvariantProject(),
+        project,
         addTargetPath(targetFilePath) {
             targetPaths.add(targetFilePath);
         },
@@ -495,8 +482,8 @@ function createBundleIndex(issues: IssueRecorder, bundle: AnalyzedBundle): Bundl
     };
 }
 
-function checkBundle(issues: IssueRecorder, bundle: AnalyzedBundle): void {
-    const index = createBundleIndex(issues, bundle);
+function checkBundle(issues: IssueRecorder, bundle: AnalyzedBundle, createProject: CreateProject): void {
+    const index = createBundleIndex(issues, bundle, createProject());
     for (const [ targetPath, resource ] of index.resourcesByTargetPath) {
         const { sourceFile } = resource;
         if (sourceFile !== undefined) {
@@ -506,7 +493,10 @@ function checkBundle(issues: IssueRecorder, bundle: AnalyzedBundle): void {
     checkMetadata(issues, index);
 }
 
-export function collectDeadCodeEliminationOutputIssues(bundles: readonly AnalyzedBundle[]): readonly string[] {
+export function collectDeadCodeEliminationOutputIssues(
+    bundles: readonly AnalyzedBundle[],
+    createProject: CreateProject
+): readonly string[] {
     const issues: string[] = [];
     const recorder: IssueRecorder = {
         add(issue) {
@@ -514,7 +504,7 @@ export function collectDeadCodeEliminationOutputIssues(bundles: readonly Analyze
         }
     };
     for (const bundle of bundles) {
-        checkBundle(recorder, bundle);
+        checkBundle(recorder, bundle, createProject);
     }
     return issues;
 }
