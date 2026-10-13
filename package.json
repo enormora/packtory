@@ -111,7 +111,7 @@
     "overrides": {
         "@schema-hub/zod-error-formatter": "0.0.19",
         "eslint-plugin-functional": {
-            "deepmerge-ts": "8.0.0"
+            "deepmerge-ts": "8.0.2"
         },
         "get-uri": {
             "basic-ftp": "6.2.3"
