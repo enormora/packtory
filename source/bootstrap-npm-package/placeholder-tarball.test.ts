@@ -21,14 +21,15 @@ async function extractTarball(tarball: Buffer): Promise<readonly ExtractedEntry[
     const collection = new Promise<readonly ExtractedEntry[]>(function (resolve, reject) {
         extract.on('entry', function (header, stream, next) {
             const chunks: Buffer[] = [];
-            stream.on('data', function (chunk: Buffer) {
+            stream.on('data', function (chunk: unknown) {
+                assert.ok(Buffer.isBuffer(chunk));
                 chunks.push(Buffer.from(chunk));
             });
             stream.on('end', function () {
                 extracted.push({
                     name: header.name,
                     content: Buffer.concat(chunks).toString('utf8'),
-                    mode: header.mode ?? 0
+                    mode: header.mode
                 });
                 next();
             });

@@ -6,7 +6,7 @@ function tarEntryToFileDescription(tarEntry: TarEntry): FileDescription {
     return {
         filePath: tarEntry.header.name,
         content: tarEntry.content,
-        isExecutable: isExecutableFileMode(Number(tarEntry.header.mode))
+        isExecutable: isExecutableFileMode(tarEntry.header.mode)
     };
 }
 

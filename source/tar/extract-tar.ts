@@ -1,6 +1,6 @@
 import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
-import { extract, type Headers as TarEntryHeaders } from 'tar-stream';
+import { extract, type Header as TarEntryHeaders } from 'tar-stream';
 
 export type TarEntry = {
     readonly header: TarEntryHeaders;
@@ -41,7 +41,17 @@ function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
 
-type TarStreamEntry = AsyncIterable<Buffer> & {
+type TarStreamChunk = {
+    readonly length: number;
+    readonly toString: () => string;
+};
+
+function isTarStreamChunk(chunk: unknown): chunk is TarStreamChunk {
+    return typeof chunk === 'object' && chunk !== null &&
+        typeof Reflect.get(chunk, 'length') === 'number' && typeof chunk.toString === 'function';
+}
+
+type TarStreamEntry = AsyncIterable<unknown> & {
     readonly header: TarEntryHeaders;
 };
 
@@ -78,6 +88,9 @@ async function readEntryContent(
     let extractedBytes = currentExtractedBytes;
 
     for await (const chunk of entry) {
+        if (!isTarStreamChunk(chunk)) {
+            throw new TypeError('Expected tar stream to yield chunks with a numeric length and toString method');
+        }
         extractedBytes += chunk.length;
         assertWithinExtractedSizeLimit(extractedBytes, limits);
         result += chunk.toString();
@@ -156,7 +169,7 @@ export async function extractTarEntries(
     const extractStream = extract();
     const source = createSource(buffer);
     const gunzip = createGunzip();
-    const tarEntries = source.pipe(gunzip).pipe(extractStream) as AsyncIterable<TarStreamEntry>;
+    const tarEntries = source.pipe(gunzip).pipe(extractStream);
 
     try {
         return await raceExtractionOutcomes({ extractStream, gunzip, source, tarEntries }, limits);
