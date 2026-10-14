@@ -425,7 +425,7 @@ suite('packtory-pack', function () {
             assert.deepStrictEqual(extraFiles, []);
         });
 
-        test('strips vendored manifest dependencies while preserving package export and import array order', async function () {
+        test('preserves vendored peers and export order while stripping runtime dependencies', async function () {
             const { fixture, result } = await runVendoredPackageWithManifest(JSON.stringify({
                 name: 'pkg-a',
                 dependencies: { left: '1.0.0' },
@@ -442,7 +442,8 @@ suite('packtory-pack', function () {
                     exports: [ './z.js', './a.js' ],
                     imports: [ '#z', '#a' ],
                     keywords: [ 'a', 'z' ],
-                    name: 'pkg-a'
+                    name: 'pkg-a',
+                    peerDependencies: { right: '1.0.0' }
                 }
             );
         });

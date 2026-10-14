@@ -263,7 +263,7 @@ function stripVendoredManifestFields(manifest: Readonly<Record<string, unknown>>
     const slimManifest: Record<string, unknown> = {};
 
     for (const [ key, value ] of Object.entries(manifest)) {
-        if (key !== 'dependencies' && key !== 'peerDependencies') {
+        if (key !== 'dependencies') {
             slimManifest[key] = value;
         }
     }
