@@ -5,7 +5,7 @@ import { benchmarkMeasuredIterations, benchmarkWarmupIterations } from './tinybe
 
 function hasStatistics(
     result: Task['result']
-): result is Extract<Task['result'], { readonly state: 'aborted-with-stats' | 'completed'; }> {
+): result is Extract<Task['result'], { readonly state: 'aborted-with-statistics' | 'completed'; }> {
     return result.state === 'aborted-with-statistics' || result.state === 'completed';
 }
 
