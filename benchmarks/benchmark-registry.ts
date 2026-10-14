@@ -61,7 +61,7 @@ async function createRegistryServer(storageDirectory: string): Promise<Listenabl
                 proxy: []
             }
         },
-        authentication: {
+        auth: {
             htpasswd: {
                 file: path.join(process.cwd(), 'integration-tests/fixtures/verdaccio-htpasswd'),
                 algorithm: 'bcrypt',
@@ -73,9 +73,9 @@ async function createRegistryServer(storageDirectory: string): Promise<Listenabl
             level: 'fatal'
         },
         security: {
-            applicationProgrammingInterface: {
+            api: {
                 legacy: false,
-                signedToken: {
+                jwt: {
                     sign: {
                         expiresIn: '1d'
                     }
@@ -112,6 +112,7 @@ async function createToken(registryAddress: string): Promise<string> {
     });
 
     const body: unknown = await response.json();
+    assert.ok(response.ok, `Benchmark registry token request failed with HTTP ${response.status}`);
     return getRegistryToken(body);
 }
 
@@ -120,6 +121,14 @@ export type RegistryHandle = {
     close: () => Promise<void>;
 };
 
+async function releaseRegistry(server: Server, storageDirectory: string): Promise<void> {
+    try {
+        await stopServer(server);
+    } finally {
+        await removeDirectory(storageDirectory);
+    }
+}
+
 export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     const storageDirectory = await createTemporaryDirectory('packtory-benchmark-registry-');
     const server = await createRegistryServer(storageDirectory);
@@ -127,25 +136,22 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     const registryAddress = `http://localhost:${port}`;
 
     const webServer = await startServer(server, port);
-    const token = await createToken(registryAddress);
-
-    return {
-        settings: {
-            registryAddress,
-            authentication: {
-                publish: {
-                    type: 'bearer-token',
-                    token
-                },
-                metadata: 'anonymous'
+    try {
+        const token = await createToken(registryAddress);
+        return {
+            settings: {
+                registryAddress,
+                authentication: {
+                    publish: { type: 'bearer-token', token },
+                    metadata: 'anonymous'
+                }
+            },
+            async close() {
+                await releaseRegistry(webServer, storageDirectory);
             }
-        },
-        async close() {
-            try {
-                await stopServer(webServer);
-            } finally {
-                await removeDirectory(storageDirectory);
-            }
-        }
-    };
+        };
+    } catch (error: unknown) {
+        await releaseRegistry(webServer, storageDirectory);
+        throw error;
+    }
 }
