@@ -141,7 +141,7 @@ function registerValidationTests(): void {
                 publishSettings: { access: 'public' },
                 deadCodeElimination: {
                     enabled: true,
-                    pureImports: [ { from: 'zod/mini' } ],
+                    pureImports: [ { from: 'builder-library' } ],
                     pureConstructors: [ 'Set' ]
                 }
             }
@@ -149,7 +149,7 @@ function registerValidationTests(): void {
 
         assert.deepStrictEqual(result.deadCodeElimination, {
             enabled: false,
-            pureImports: [ { from: 'zod/mini' } ],
+            pureImports: [ { from: 'builder-library' } ],
             pureConstructors: [ 'Map' ]
         });
     });

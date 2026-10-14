@@ -85,6 +85,22 @@ function reexportFiles(): readonly TestFile[] {
 
 suite('external purity summary', function () {
     suite('local exports', function () {
+        test('distinguishes arrow expression returns from block bodies', function () {
+            const files = [ {
+                filePath: '/project/node_modules/schema-lib/index.js',
+                content: [
+                    'export const expression = () => ({});',
+                    'export const block = () => { record(); return {}; };',
+                    'export const empty = () => {};'
+                ]
+                    .join('\n')
+            } ];
+
+            assert.strictEqual(purityFor([ 'expression' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'block' ], files), 'unknown');
+            assert.strictEqual(purityFor([ 'empty' ], files), 'unknown');
+        });
+
         test('exportPurityForOrigin summarizes object builder surfaces and returned object methods', function () {
             const files = [ {
                 filePath: '/project/node_modules/schema-lib/index.js',
@@ -166,6 +182,55 @@ suite('external purity summary', function () {
     });
 
     suite('re-exports', function () {
+        test('summarizes multiple named and local namespace re-exports', function () {
+            const files = [
+                {
+                    filePath: '/project/node_modules/schema-lib/index.js',
+                    content: [
+                        'export { first, second } from "./builders.js";',
+                        'import * as builders from "./builders.js";',
+                        'import * as other from "./builders.js";',
+                        'import { first as local } from "./builders.js";',
+                        'export { builders, builders as alias, other, local };'
+                    ]
+                        .join('\n')
+                },
+                {
+                    filePath: '/project/node_modules/schema-lib/builders.js',
+                    content: [
+                        'export function first() { return {}; }',
+                        'export function second() { return []; }',
+                        'export default function () { return {}; }'
+                    ]
+                        .join('\n')
+                }
+            ];
+
+            assert.strictEqual(purityFor([ 'first' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'second' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'builders', 'first' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'alias', 'second' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'other', 'first' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'local' ], files), 'unknown');
+            assert.strictEqual(purityFor([ 'builders', 'default' ], files), 'unknown');
+        });
+
+        test('loads runtime re-exports that have not been added to the compiler project', async function () {
+            const sourceFile = containingSourceFile([ {
+                filePath: '/project/node_modules/schema-lib/index.js',
+                content: 'export { make } from "./builder.js";'
+            } ]);
+            await sourceFile.getProject().getFileSystem().writeFile(
+                '/project/node_modules/schema-lib/builder.js',
+                'export function make() { return {}; }'
+            );
+
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'schema-lib', path: [ 'make' ] }, sourceFile),
+                'pure-callable'
+            );
+        });
+
         test('exportPurityForOrigin follows named and star re-exports', function () {
             const files = reexportFiles();
 

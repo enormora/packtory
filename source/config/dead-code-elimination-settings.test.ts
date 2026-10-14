@@ -12,13 +12,13 @@ suite('dead-code-elimination-settings', function () {
 
     test('resolveDeadCodeEliminationSettings() defaults enabled to true when settings exist but do not set it', function () {
         const packageSettings = {
-            pureImports: [ { from: 'zod/mini' } ],
+            pureImports: [ { from: 'builder-library' } ],
             pureConstructors: [ 'Set' ]
         } as unknown as Parameters<typeof resolveDeadCodeEliminationSettings>[0];
 
         assert.deepStrictEqual(resolveDeadCodeEliminationSettings(packageSettings, undefined), {
             enabled: true,
-            pureImports: [ { from: 'zod/mini' } ],
+            pureImports: [ { from: 'builder-library' } ],
             pureConstructors: [ 'Set' ]
         });
     });
@@ -27,11 +27,11 @@ suite('dead-code-elimination-settings', function () {
         assert.deepStrictEqual(
             resolveDeadCodeEliminationSettings(
                 { enabled: false, pureConstructors: [ 'Map' ] },
-                { enabled: true, pureImports: [ { from: 'yoctocolors' } ], pureConstructors: [ 'Set' ] }
+                { enabled: true, pureImports: [ { from: 'formatting-library' } ], pureConstructors: [ 'Set' ] }
             ),
             {
                 enabled: false,
-                pureImports: [ { from: 'yoctocolors' } ],
+                pureImports: [ { from: 'formatting-library' } ],
                 pureConstructors: [ 'Map' ]
             }
         );
@@ -40,7 +40,7 @@ suite('dead-code-elimination-settings', function () {
     test('deadCodeEliminationSettingsSchema accepts the documented enabled/pureImports/pureConstructors shape', function () {
         const result = deadCodeEliminationSettingsSchema.safeParse({
             enabled: true,
-            pureImports: [ { from: 'zod/mini', imports: [ 'z' ] } ],
+            pureImports: [ { from: 'builder-library', imports: [ 'builder' ] } ],
             pureConstructors: [ 'Set' ]
         });
         assert.strictEqual(result.success, true);

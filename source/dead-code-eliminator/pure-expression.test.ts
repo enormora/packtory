@@ -1,7 +1,6 @@
 import assert from 'node:assert';
-import path from 'node:path';
 import { suite, test } from 'mocha';
-import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, SyntaxKind, type Expression } from 'ts-morph';
+import { SyntaxKind, type Expression } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
@@ -15,27 +14,6 @@ function initializerFromProjectFiles(
         .getSourceFileOrThrow('/project/src/index.ts')
         .getVariableDeclarationOrThrow('schema')
         .getInitializerOrThrow();
-}
-
-function initializerFromRealProject(content: string): Expression {
-    const project = new Project({
-        compilerOptions: {
-            allowJs: true,
-            esModuleInterop: true,
-            module: ModuleKind.Node16,
-            moduleResolution: ModuleResolutionKind.Node16,
-            target: ScriptTarget.ES2022,
-            noLib: true,
-            types: []
-        },
-        skipLoadingLibFiles: true
-    });
-    const sourceFile = project.createSourceFile(
-        path.join(process.cwd(), 'target/dead-code-elimination-zod-entry.ts'),
-        content,
-        { overwrite: true }
-    );
-    return sourceFile.getVariableDeclarationOrThrow('schema').getInitializerOrThrow();
 }
 
 function variableInitializer(content: string, name: string): Expression {
@@ -325,14 +303,6 @@ suite('pure-expression', function () {
                         content: 'export const z = { string() { return {}; }, object(shape) { return {}; } };'
                     }
                 ]);
-
-                assert.strictEqual(isPureExpression(expression, undefined), true);
-            });
-
-            test('isPureExpression returns true for zod mini schema construction through runtime ESM resolution', function () {
-                const expression = initializerFromRealProject(
-                    'import { z } from "zod/mini";\nconst schema = z.object({ value: z.string() });'
-                );
 
                 assert.strictEqual(isPureExpression(expression, undefined), true);
             });
