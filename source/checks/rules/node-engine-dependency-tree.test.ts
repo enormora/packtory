@@ -11,16 +11,27 @@ import { createNodeEngineCompatibilityRule } from './node-engine-compatibility.t
 suite('node-engine dependency tree', function () {
     test('terminates cycles and reads shared installed manifests once per root', async function () {
         const reads: string[] = [];
+        const resolutions: string[] = [];
+        const fileManager = engineFileManager(
+            {
+                '/repo/node_modules/a': { dependencies: { b: '*', shared: '*' } },
+                '/repo/node_modules/b': { dependencies: { a: '*', shared: '*' } },
+                '/repo/node_modules/shared': { engines: { node: '>=24' } }
+            },
+            {},
+            reads
+        );
         const rule = createNodeEngineCompatibilityRule({
-            fileManager: engineFileManager(
-                {
-                    '/repo/node_modules/a': { dependencies: { b: '*', shared: '*' } },
-                    '/repo/node_modules/b': { dependencies: { a: '*', shared: '*' } },
-                    '/repo/node_modules/shared': { engines: { node: '>=24' } }
-                },
-                {},
-                reads
-            )
+            fileManager: {
+                ...fileManager,
+                async getRealPath(folder) {
+                    resolutions.push(folder);
+                    if (resolutions.length > 5) {
+                        throw new Error('Dependency cycle was traversed repeatedly');
+                    }
+                    return fileManager.getRealPath(folder);
+                }
+            }
         });
         const issues = await rule.run(engineCheckInput({ engines: { node: '>=22' }, dependencies: { a: '*' } }));
         assert.deepStrictEqual(issues, [
@@ -31,6 +42,13 @@ suite('node-engine dependency tree', function () {
             '/repo/node_modules/a/package.json',
             '/repo/node_modules/b/package.json',
             '/repo/node_modules/shared/package.json'
+        ]);
+        assert.deepStrictEqual(resolutions, [
+            '/repo/node_modules/a',
+            '/repo/node_modules/b',
+            '/repo/node_modules/shared',
+            '/repo/node_modules/a',
+            '/repo/node_modules/shared'
         ]);
     });
 
