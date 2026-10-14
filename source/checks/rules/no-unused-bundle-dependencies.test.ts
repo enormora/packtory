@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
 import { analyzedBundle } from '../../test-libraries/bundle-fixtures.ts';
@@ -29,7 +30,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: undefined,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
@@ -40,7 +41,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: { noUnusedBundleDependencies: { enabled: false } },
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
@@ -51,7 +52,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -61,7 +62,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {}
             });
 
@@ -72,7 +73,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: {} }
             });
 
@@ -85,7 +86,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
@@ -96,7 +97,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { bundlePeerDependencies: [ 'unused-peer' ] } }
             });
 
@@ -107,7 +108,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: { a: { bundleDependencies: [ 'used' ] } }
             });
 
@@ -118,7 +119,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {
                     a: { bundleDependencies: [ 'used', 'orphan' ], bundlePeerDependencies: [ 'orphan-peer' ] }
                 }
@@ -134,7 +135,7 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []), bundleWithLinkedDependencies('b', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 packageConfigs: {
                     a: { bundleDependencies: [ 'unused-a' ] },
                     b: { bundleDependencies: [ 'used' ] }

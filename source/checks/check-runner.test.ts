@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { checkBundle, fakeCheckRules } from '../test-libraries/check-fixtures.ts';
+import { emptyCheckContext, checkBundle, fakeCheckRules } from '../test-libraries/check-fixtures.ts';
 import { createCheckRunner, type CheckRunner } from './check-runner.ts';
 
 type CheckRunnerInput = Parameters<CheckRunner>[0];
@@ -9,7 +9,7 @@ function checkInput(overrides: Partial<CheckRunnerInput> = {}): CheckRunnerInput
     return {
         settings: {},
         publishedPackages: undefined,
-        perPackageSettings: new Map(),
+        ...emptyCheckContext(),
         packageConfigs: {},
         bundles: [ checkBundle('a', [ 'shared.ts' ]), checkBundle('b', [ 'shared.ts' ]) ],
         ...overrides
@@ -36,6 +36,7 @@ suite('check-runner', function () {
         const issues = await createCheckRunner({ rules: fakeCheckRules() })(
             checkInput({
                 settings: { noDuplicatedFiles: { enabled: true } },
+                sourceFolders: new Map(),
                 perPackageSettings: new Map([
                     [ 'a', consent ],
                     [ 'b', consent ]

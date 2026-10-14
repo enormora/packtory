@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { uniqueTargetPathsRule } from './unique-target-paths.ts';
@@ -30,7 +31,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: undefined,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -45,7 +46,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: { uniqueTargetPaths: { enabled: false } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -60,7 +61,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -75,7 +76,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [ 'Package "a" maps multiple sources to "collide.js": /src/a.js, /src/b.js' ]);
@@ -94,7 +95,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [
@@ -113,7 +114,7 @@ suite('unique-target-paths', function () {
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [

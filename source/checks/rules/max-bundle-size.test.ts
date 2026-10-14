@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { maxBundleSizeRule } from './max-bundle-size.ts';
@@ -22,7 +23,7 @@ suite('max-bundle-size', function () {
             const result = await maxBundleSizeRule.run({
                 bundles: [ bundleWithBytes('a', 100) ],
                 settings: undefined,
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -32,7 +33,7 @@ suite('max-bundle-size', function () {
             const result = await maxBundleSizeRule.run({
                 bundles: [ bundleWithBytes('a', 100) ],
                 settings: { maxBundleSize: { enabled: false, bytes: 10 } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -42,7 +43,7 @@ suite('max-bundle-size', function () {
             const result = await maxBundleSizeRule.run({
                 bundles: [ bundleWithBytes('a', 100) ],
                 settings: { maxBundleSize: { enabled: true } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -54,7 +55,7 @@ suite('max-bundle-size', function () {
             const result = await maxBundleSizeRule.run({
                 bundles: [ bundleWithBytes('a', 100) ],
                 settings: { maxBundleSize: { enabled: true, bytes: 50 } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, [
@@ -66,7 +67,7 @@ suite('max-bundle-size', function () {
             const result = await maxBundleSizeRule.run({
                 bundles: [ bundleWithBytes('a', 100) ],
                 settings: { maxBundleSize: { enabled: true, bytes: 100 } },
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
@@ -77,6 +78,7 @@ suite('max-bundle-size', function () {
         return await maxBundleSizeRule.run({
             bundles: [ bundleWithBytes('a', 100) ],
             settings: { maxBundleSize: { enabled: true, bytes: globalBytes } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', { maxBundleSize: { bytes: override } } ] ])
         });
     }
@@ -95,6 +97,7 @@ suite('max-bundle-size', function () {
         const result = await maxBundleSizeRule.run({
             bundles: [ bundleWithBytes('a', 100), bundleWithBytes('b', 100) ],
             settings: { maxBundleSize: { enabled: true } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', { maxBundleSize: { bytes: 50 } } ] ])
         });
 
@@ -105,6 +108,7 @@ suite('max-bundle-size', function () {
         const result = await maxBundleSizeRule.run({
             bundles: [ bundleWithBytes('a', 100) ],
             settings: { maxBundleSize: { enabled: true, bytes: 50 } },
+            sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', {} ] ])
         });
 
@@ -123,7 +127,7 @@ suite('max-bundle-size', function () {
         const result = await maxBundleSizeRule.run({
             bundles: [ bundle ],
             settings: { maxBundleSize: { enabled: true, bytes: 3 } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [ 'Package "multi" exceeds the maximum bundle size: 4 bytes (limit: 3 bytes)' ]);

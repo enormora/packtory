@@ -25,7 +25,10 @@ export type CheckEvaluationDependencies = {
     readonly runChecks: CheckRunner;
 };
 
-type StaticCheckInputs = Pick<Parameters<CheckRunner>[0], 'bundles' | 'packageConfigs' | 'perPackageSettings'>;
+type StaticCheckInputs = Pick<
+    Parameters<CheckRunner>[0],
+    'bundles' | 'packageConfigs' | 'perPackageSettings' | 'sourceFolders'
+>;
 
 const checkManifestVersion = '0.0.0';
 
@@ -78,7 +81,8 @@ function executableChecksNeedPublishedPackages(config: PacktoryConfigWithoutRegi
 }
 
 function checksNeedPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
-    return typeScriptIntegrityNeedsPublishedPackages(config) || executableChecksNeedPublishedPackages(config);
+    return typeScriptIntegrityNeedsPublishedPackages(config) || executableChecksNeedPublishedPackages(config) ||
+        config.checks?.nodeEngineCompatibility?.enabled === true;
 }
 
 function maybeBuildPublishedPackagesForChecks(
@@ -136,7 +140,10 @@ function createStaticCheckInputs(
         return resolvedPackage.analyzedBundle;
     });
 
-    return { bundles, packageConfigs, perPackageSettings };
+    const sourceFolders = new Map(resolvedPackages.map(function (resolvedPackage) {
+        return [ resolvedPackage.name, resolvedPackage.resolveOptions.sourcesFolder ];
+    }));
+    return { bundles, sourceFolders, packageConfigs, perPackageSettings };
 }
 
 export async function buildChecksResult(
@@ -155,6 +162,7 @@ export async function buildChecksResult(
         perPackageSettings: checkInputs.perPackageSettings,
         packageConfigs: checkInputs.packageConfigs,
         bundles: checkInputs.bundles,
+        sourceFolders: checkInputs.sourceFolders,
         publishedPackages: publishedPackagesResult.value
     });
 

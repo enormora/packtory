@@ -4,8 +4,8 @@ import { Result, tryOr } from 'true-myth/result';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import {
-    ancestorInstalledDependencyPathCandidates,
     installedDependenciesFolderName,
+    resolveInstalledPackage,
     packageManifestPathIn
 } from '../common/package-layout.ts';
 import { createWorklist, type Worklist } from '../common/worklist.ts';
@@ -380,16 +380,6 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return parseManifestSummary(packageName, content);
     }
 
-    async function findPackageRealPath(packageName: string, startFolder: string): Promise<string | undefined> {
-        for (const candidatePath of ancestorInstalledDependencyPathCandidates(startFolder, packageName)) {
-            const readability = await fileManager.checkReadability(candidatePath);
-            if (readability.isReadable) {
-                return await fileManager.getRealPath(candidatePath);
-            }
-        }
-        return undefined;
-    }
-
     async function ingestResolvedPackage(
         closure: Closure,
         name: string,
@@ -428,7 +418,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         closure: Closure,
         item: QueueItem
     ): Promise<Result<undefined, VendorMaterializerFailure>> {
-        const realPath = await findPackageRealPath(item.name, item.fromFolder);
+        const realPath = await resolveInstalledPackage(fileManager, item.name, item.fromFolder);
         if (realPath === undefined) {
             if (item.required) {
                 return Result.err({

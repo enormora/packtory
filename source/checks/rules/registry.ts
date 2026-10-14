@@ -1,3 +1,9 @@
+import {
+    createNodeEngineCompatibilityRule,
+    nodeEngineCompatibilitySchemas,
+    type NodeEngineCompatibilityDependencies,
+    type NodeEngineCompatibilityRule
+} from './node-engine-compatibility.ts';
 import { maxBundleSizeRule } from './max-bundle-size.ts';
 import { noDevDependencyImportsRule } from './no-dev-dependency-imports.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
@@ -7,12 +13,26 @@ import { noUnusedBundleDependenciesRule } from './no-unused-bundle-dependencies.
 import { requiredFilesRule } from './required-files.ts';
 import {
     createTypeScriptIntegrityRule,
+    typeScriptIntegritySchemas,
     type TypeScriptIntegrityDependencies,
     type TypeScriptIntegrityRule
 } from './type-script-integrity.ts';
 import { uniqueTargetPathsRule } from './unique-target-paths.ts';
 
-export type CheckRuleDependencies = TypeScriptIntegrityDependencies;
+export const checkRuleSchemas = {
+    typeScriptIntegrity: typeScriptIntegritySchemas,
+    noDuplicatedFiles: noDuplicatedFilesRule,
+    requiredFiles: requiredFilesRule,
+    maxBundleSize: maxBundleSizeRule,
+    noUnusedBundleDependencies: noUnusedBundleDependenciesRule,
+    noDevDependencyImports: noDevDependencyImportsRule,
+    uniqueTargetPaths: uniqueTargetPathsRule,
+    noSideEffects: noSideEffectsRule,
+    noUnexposedExecutables: noUnexposedExecutablesRule,
+    nodeEngineCompatibility: nodeEngineCompatibilitySchemas
+};
+
+export type CheckRuleDependencies = NodeEngineCompatibilityDependencies & TypeScriptIntegrityDependencies;
 
 export type AllCheckRules = readonly [
     TypeScriptIntegrityRule,
@@ -23,7 +43,8 @@ export type AllCheckRules = readonly [
     typeof noDevDependencyImportsRule,
     typeof uniqueTargetPathsRule,
     typeof noSideEffectsRule,
-    typeof noUnexposedExecutablesRule
+    typeof noUnexposedExecutablesRule,
+    NodeEngineCompatibilityRule
 ];
 
 export function createAllRules(dependencies: CheckRuleDependencies): AllCheckRules {
@@ -36,6 +57,7 @@ export function createAllRules(dependencies: CheckRuleDependencies): AllCheckRul
         noDevDependencyImportsRule,
         uniqueTargetPathsRule,
         noSideEffectsRule,
-        noUnexposedExecutablesRule
+        noUnexposedExecutablesRule,
+        createNodeEngineCompatibilityRule(dependencies)
     ];
 }
