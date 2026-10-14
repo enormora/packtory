@@ -66,12 +66,12 @@ function parseHistogram(value: unknown): EventLoopProbeReport['histogram'] {
     }
 
     return {
-        minimum: readNumberField(value, 'min'),
+        minimum: readNumberField(value, 'minimum'),
         mean: readNumberField(value, 'mean'),
         p50: readNumberField(value, 'p50'),
         p90: readNumberField(value, 'p90'),
         p99: readNumberField(value, 'p99'),
-        maximum: readNumberField(value, 'max')
+        maximum: readNumberField(value, 'maximum')
     };
 }
 
