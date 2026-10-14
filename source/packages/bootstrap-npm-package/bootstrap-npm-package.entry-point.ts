@@ -3,14 +3,12 @@
 import operatingSystem from 'node:os';
 import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
-import { binary, positional, run, string } from 'cmd-ts';
+import { binary, command as createLibraryCommand, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
 import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
 import { loginWeb, webAuthOpener as webAuthenticationOpener } from 'npm-profile';
 import open from 'open';
 import tar from 'tar-stream';
-import { defineCommand } from '../../command-line-interface/command-definition.ts';
-import { isTerminal } from '../../common/terminal.ts';
 import {
     createBootstrapRunner,
     type BootstrapInput,
@@ -66,8 +64,12 @@ async function askOneTimePassword(prompt: readline.Interface): Promise<string> {
     }
 }
 
+function isInteractiveTerminal(): boolean {
+    return process.stdin.isTTY && process.stdout.isTTY;
+}
+
 async function promptForOneTimePasswordViaTerminal(): Promise<string> {
-    if (!isTerminal(process.stdin) || !isTerminal(process.stdout)) {
+    if (!isInteractiveTerminal()) {
         throw new Error('The npm registry requested a one-time password, but stdin is not an interactive terminal');
     }
     const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -121,18 +123,30 @@ function createComposedRunner(): BootstrapRunner {
     return createBootstrapRunner(createDependencies());
 }
 
-const bootstrapCommand = defineCommand({
-    name: 'bootstrap-npm-package',
-    description: 'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
-        'a Trusted Publisher can subsequently be configured for the name.',
-    arguments: {
-        packageName: positional({ type: string, displayName: 'package-name' })
-    },
-    async handler(commandInput) {
-        const runner = createComposedRunner();
-        const input: BootstrapInput = { packageName: commandInput.packageName, hostname: operatingSystem.hostname() };
-        await runner.run(input);
-    }
-});
+type BootstrapCommandInput = {
+    readonly packageName: string;
+};
 
-await run(binary(bootstrapCommand), process.argv);
+async function publishPlaceholder(commandInput: BootstrapCommandInput): Promise<void> {
+    const runner = createComposedRunner();
+    const input: BootstrapInput = { packageName: commandInput.packageName, hostname: operatingSystem.hostname() };
+    await runner.run(input);
+}
+
+const bootstrapCommandArguments = {
+    packageName: positional({ type: string, displayName: 'package-name' })
+};
+
+function createBootstrapCommand(): ReturnType<
+    typeof createLibraryCommand<typeof bootstrapCommandArguments, typeof publishPlaceholder>
+> {
+    return createLibraryCommand({
+        name: 'bootstrap-npm-package',
+        description: 'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
+            'a Trusted Publisher can subsequently be configured for the name.',
+        args: bootstrapCommandArguments,
+        handler: publishPlaceholder
+    });
+}
+
+await run(binary(createBootstrapCommand()), process.argv);

@@ -2,7 +2,6 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
-import { toGitHubRequest } from '../common/github-request.ts';
 import {
     selectPullRequestActivityAt,
     type MainContinuousIntegrationRunStatus,
@@ -85,7 +84,7 @@ async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
 type RepositoryRequestContext = {
     readonly headers: Readonly<Record<string, string>>;
     readonly owner: string;
-    readonly repository: string;
+    readonly repo: string;
 };
 
 function createRequestHeaders(context: GitHubRepositoryContext): Readonly<Record<string, string>> {
@@ -105,23 +104,23 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
     const requestContext: RepositoryRequestContext = {
         headers: createRequestHeaders(context),
         owner: context.owner,
-        repository: context.repository
+        repo: context.repository
     };
-    const octokit = new GitHubWebClient(toGitHubRequest({
-        baseAddress: context.applicationProgrammingInterfaceBaseAddress,
+    const octokit = new GitHubWebClient({
+        baseUrl: context.applicationProgrammingInterfaceBaseAddress,
         request: {
             fetch: fetchImplementation,
             headers: requestContext.headers
         }
-    }));
+    });
 
     return {
         async getMainBranchHeadHash() {
             const branch = await resolveGitHubResponse<{ readonly data: BranchResponse; }>(
-                octokit.rest.repos.getBranch(toGitHubRequest({
+                octokit.rest.repos.getBranch({
                     ...requestContext,
                     branch: context.defaultBranch
-                }))
+                })
             );
 
             return branch.data.commit.sha;
@@ -129,14 +128,14 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
 
         async getMainContinuousIntegrationRunStatus(continuousIntegrationWorkflowFile, headHash) {
             const response = await resolveGitHubResponse<{ readonly data: WorkflowRunsResponse; }>(
-                octokit.rest.actions.listWorkflowRuns(toGitHubRequest({
+                octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
                     workflow_id: continuousIntegrationWorkflowFile,
                     branch: context.defaultBranch,
                     event: 'push',
                     head_sha: headHash,
                     per_page: 100
-                }))
+                })
             );
             const matchingRuns = response.data.workflow_runs.filter(function (run) {
                 return run.head_sha === headHash && run.event === 'push';
@@ -170,12 +169,12 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
             const openPullRequests = await resolveGitHubResponse<readonly PullRequest[]>(
                 octokit.paginate(
                     octokit.rest.pulls.list,
-                    toGitHubRequest({
+                    {
                         ...requestContext,
                         state: 'open',
                         base: context.defaultBranch,
                         per_page: 100
-                    })
+                    }
                 )
             );
 
@@ -184,11 +183,11 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
                     const timeline = await resolveGitHubResponse<readonly RawTimelineEvent[]>(
                         octokit.paginate(
                             octokit.rest.issues.listEventsForTimeline,
-                            toGitHubRequest({
+                            {
                                 ...requestContext,
                                 issue_number: pullRequest.number,
                                 per_page: 100
-                            })
+                            }
                         )
                     );
                     const timelineEvents = timeline
