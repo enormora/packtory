@@ -1,5 +1,5 @@
-import { Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import { classifySideEffects } from '../side-effect-classifier.ts';
 
 export function collectImpureStatements(
@@ -11,6 +11,6 @@ export function collectImpureStatements(
         impureLines.add(statement.line);
     }
     return sourceFile.getStatements().filter(function (statement) {
-        return impureLines.has(statement.getStartLineNumber()) && !TsMorphNode.isImportDeclaration(statement);
+        return impureLines.has(statement.getStartLineNumber()) && !TypeScriptMorphNode.isImportDeclaration(statement);
     });
 }

@@ -25,7 +25,7 @@ suite('Node engine traversal diagnostics', function () {
                 analyzedBundle({ name: 'first' }),
                 analyzedBundle({ name: 'second' })
             ],
-            sourceFolders: new Map([ [ 'root', '/repo/src' ], [ 'first', '/first' ], [ 'second', '/second' ] ]),
+            sourceFolders: new Map([ [ 'root', '/repo/source' ], [ 'first', '/first' ], [ 'second', '/second' ] ]),
             publishedPackages: new Map([
                 [ 'root', enginePublishedPackage('root', fields) ],
                 [ 'first', enginePublishedPackage('first', {}) ],
@@ -54,7 +54,7 @@ suite('Node engine traversal diagnostics', function () {
         const issues = await rule.run({
             ...engineCheckInput({}),
             bundles: [ analyzedBundle({ name: 'b' }), analyzedBundle({ name: 'a' }) ],
-            sourceFolders: new Map([ [ 'a', '/a/src' ], [ 'b', '/b/src' ] ]),
+            sourceFolders: new Map([ [ 'a', '/a/source' ], [ 'b', '/b/source' ] ]),
             publishedPackages: new Map([
                 [ 'a', enginePublishedPackage('a', fields) ],
                 [ 'b', enginePublishedPackage('b', fields) ]

@@ -16,18 +16,18 @@ export function enginePublishedPackage(
 ): PublishedPackageWithManifest {
     return {
         ...versionedBundleWithManifest({ name }),
-        packageJson: { name, version: '1.0.0', ...fields }
+        packageManifest: { name, version: '1.0.0', ...fields }
     };
 }
 
 export function engineCheckInput(fields: Readonly<Record<string, unknown>>): EngineCheckInput {
     return {
         bundles: [ analyzedBundle({ name: 'root' }) ],
-        sourceFolders: new Map([ [ 'root', '/repo/src' ] ]),
+        sourceFolders: new Map([ [ 'root', '/repo/source' ] ]),
         publishedPackages: new Map([ [ 'root', enginePublishedPackage('root', fields) ] ]),
         settings: { nodeEngineCompatibility: { enabled: true } },
         perPackageSettings: new Map(),
-        packageConfigs: {}
+        packageConfigurations: {}
     };
 }
 

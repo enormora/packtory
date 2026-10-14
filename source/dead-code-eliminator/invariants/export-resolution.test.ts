@@ -22,7 +22,7 @@ function createProject(): Project {
 }
 
 function sourceFile(content: string): SourceFile {
-    return createProject().createSourceFile('/pkg/index.js', content);
+    return createProject().createSourceFile('/package/index.js', content);
 }
 
 function sourceFiles(files: Readonly<Record<string, string | undefined>>): SourceByPath {
@@ -31,7 +31,7 @@ function sourceFiles(files: Readonly<Record<string, string | undefined>>): Sourc
         Object.entries(files).map(function ([ targetPath, content ]) {
             return [
                 targetPath,
-                content === undefined ? undefined : project.createSourceFile(`/pkg/${targetPath}`, content)
+                content === undefined ? undefined : project.createSourceFile(`/package/${targetPath}`, content)
             ];
         })
     );

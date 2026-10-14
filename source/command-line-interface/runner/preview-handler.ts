@@ -1,12 +1,12 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument, type PreviewDocument } from '../../report/preview/preview-document.ts';
-import { renderHtmlReport } from '../../report/html-renderer/html-renderer.ts';
+import * as webReport from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 import {
     renderFailureOnlyTerminalPreview,
     renderTerminalPreview
 } from '../../report/terminal-renderer/terminal-preview-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { createEmptyReport } from './report-persistence.ts';
 
@@ -19,7 +19,7 @@ export type PreviewHandlerDependencies = {
     readonly createTemporaryFilePath: () => string;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly flags: { readonly open: boolean; };
 };
@@ -29,7 +29,7 @@ async function renderOpenedReport(
     document: PreviewDocument
 ): Promise<void> {
     const filePath = dependencies.createTemporaryFilePath();
-    await dependencies.fileManager.writeFile(filePath, renderHtmlReport(document));
+    await dependencies.fileManager.writeFile(filePath, webReport.renderHypertextMarkupLanguageReport(document));
     const opened = await dependencies.openFile(filePath);
     if (!opened) {
         dependencies.log(filePath);
@@ -56,9 +56,13 @@ async function renderDocument(dependencies: PreviewHandlerDependencies, document
 }
 
 async function preview(dependencies: PreviewHandlerDependencies): Promise<number> {
-    const { packtory, spinnerRenderer, configLoader, fileManager } = dependencies;
-    const config = await configLoader.load();
-    const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, stage: false, collectReport: true });
+    const { packtory, spinnerRenderer, configurationLoader, fileManager } = dependencies;
+    const configuration = await configurationLoader.load();
+    const outcome = await packtory.buildAndPublishAll(configuration, {
+        dryRun: true,
+        stage: false,
+        collectReport: true
+    });
     spinnerRenderer.stopAll();
     const report = outcome.getReport() ?? createEmptyReport();
     const document = await buildPreviewDocument({

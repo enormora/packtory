@@ -1,14 +1,14 @@
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { packageNameMap } from '../common/package-name-map.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import { packPackageFailureType, type PackageTreeResult, type ResolveAndLinkFailure } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigWithoutRegistryResult
+    configuration: ValidConfigurationWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 type PackageTreeDependencies = {
@@ -37,10 +37,10 @@ function inspectTreePackage(
     const versionedBundle = dependencies.versionManager.addVersion({
         bundle: analyzedBundle,
         version: treeManifestVersion,
-        mainPackageJson: resolveOptions.mainPackageJson,
+        mainPackageManifest: resolveOptions.mainPackageManifest,
         bundleDependencies: versionedDependenciesForTree(resolveOptions.bundleDependencies),
         bundlePeerDependencies: versionedDependenciesForTree(resolveOptions.bundlePeerDependencies),
-        additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes,
+        additionalPackageManifestAttributes: resolveOptions.additionalPackageManifestAttributes,
         allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers,
         substitutionPublicModuleSourcePaths
     });
@@ -50,7 +50,7 @@ function inspectTreePackage(
 export function createInspectPackageTreeValidated(
     dependencies: PackageTreeDependencies
 ): (
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     packageName: string,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated,
     selectEntries: (packageName: string) => PackageTreeResult

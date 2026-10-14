@@ -1,11 +1,11 @@
 import { formatPathLevelMessage, formatSharedDeclarationsMessage } from './duplicate-messages.ts';
-import type { OwnerInfo } from './file-ownership.ts';
+import type { OwnerInformation } from './file-ownership.ts';
 
-export type MultipleOwners = readonly [OwnerInfo, OwnerInfo, ...(readonly OwnerInfo[])];
+export type MultipleOwners = readonly [OwnerInformation, OwnerInformation, ...(readonly OwnerInformation[])];
 
 const minimumOwnerCountForDuplicate = 2;
 
-export function hasMultipleOwners(owners: readonly OwnerInfo[]): owners is MultipleOwners {
+export function hasMultipleOwners(owners: readonly OwnerInformation[]): owners is MultipleOwners {
     return owners.length >= minimumOwnerCountForDuplicate;
 }
 

@@ -26,14 +26,14 @@ export type PruneKind = PruneKinds[number];
 type BindingRemovedTraceEvent = {
     readonly type: 'binding-removed';
     readonly bundleName: string;
-    readonly bindingId: string;
+    readonly bindingIdentifier: string;
     readonly inputFilePath: string;
 };
 
 type CrossBundleSeedTraceEvent = {
     readonly type: 'cross-bundle-seed-added';
     readonly bundleName: string;
-    readonly bindingId: string;
+    readonly bindingIdentifier: string;
     readonly sourceBundleName: string;
     readonly inputFilePath: string;
     readonly line: number;
@@ -44,8 +44,8 @@ type CrossBundleSeedTraceEvent = {
 type EdgeTraceEvent = {
     readonly type: 'edge-added';
     readonly bundleName: string;
-    readonly fromBindingId: string;
-    readonly toBindingId: string;
+    readonly fromBindingIdentifier: string;
+    readonly toBindingIdentifier: string;
     readonly reason: 'identifier-reference';
 };
 
@@ -77,7 +77,7 @@ type ImportStatementRepairedTraceEvent = {
 type LocalSeedTraceEvent = {
     readonly type: 'local-seed-added';
     readonly bundleName: string;
-    readonly bindingId: string;
+    readonly bindingIdentifier: string;
     readonly inputFilePath: string;
     readonly line: number;
     readonly reason: LocalSeedReason;

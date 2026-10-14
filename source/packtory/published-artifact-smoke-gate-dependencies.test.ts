@@ -13,7 +13,7 @@ import {
     type SmokeGateContext,
     temporaryFolderPath,
     verify,
-    withPackageJson
+    withPackageManifest
 } from '../test-libraries/published-artifact-smoke-gate-fixtures.ts';
 
 type PackageSourceDependencyContext = {
@@ -38,7 +38,7 @@ function createPackageSourceDependencyContext(
     const checkReadability = fake(async function (sourcePath: string) {
         return { isReadable: sourcePath === dependencyPath };
     });
-    const targetBundle = withPackageJson(
+    const targetBundle = withPackageManifest(
         bundle({
             contents: [ sourceResource(inputFilePath, 'index.js') ]
         }),
@@ -59,7 +59,7 @@ function createPackageSourceDependencyContext(
 
 suite('published artifact smoke gate dependency staging', function () {
     test('stages bundle dependencies and symlinks generated external dependencies', async function () {
-        const targetBundle = withPackageJson(bundle(), {
+        const targetBundle = withPackageManifest(bundle(), {
             dependencies: {
                 'package-b': '1.0.0',
                 external: '^2.0.0'
@@ -93,10 +93,10 @@ suite('published artifact smoke gate dependency staging', function () {
     });
 
     test('stages transitive bundle dependencies', async function () {
-        const targetBundle = withPackageJson(bundle(), {
+        const targetBundle = withPackageManifest(bundle(), {
             dependencies: { 'package-b': '1.0.0' }
         });
-        const dependencyBundle = withPackageJson(
+        const dependencyBundle = withPackageManifest(
             bundle({
                 name: 'package-b',
                 contents: [ resource('dependency.js') ],
@@ -131,10 +131,10 @@ suite('published artifact smoke gate dependency staging', function () {
     });
 
     test('links shared external dependencies once across staged packages', async function () {
-        const targetBundle = withPackageJson(bundle(), {
+        const targetBundle = withPackageManifest(bundle(), {
             dependencies: { external: '^2.0.0' }
         });
-        const dependencyBundle = withPackageJson(
+        const dependencyBundle = withPackageManifest(
             bundle({
                 name: 'package-b',
                 contents: [ resource('dependency.js') ],
@@ -169,7 +169,7 @@ suite('published artifact smoke gate dependency staging', function () {
     test('links external dependencies from the package source tree', async function () {
         const dependencyPath = path.join('/fixture', 'node_modules', 'external');
         const { checkReadability, context, targetBundle } = createPackageSourceDependencyContext(
-            '/fixture/src/index.js',
+            '/fixture/source/index.js',
             dependencyPath
         );
 
@@ -177,10 +177,10 @@ suite('published artifact smoke gate dependency staging', function () {
 
         assertReadabilityPaths(checkReadability, [
             path.join('/repo', 'node_modules', 'external'),
-            path.join('/fixture', 'src', 'node_modules', 'external'),
+            path.join('/fixture', 'source', 'node_modules', 'external'),
             dependencyPath,
             path.join('/repo', 'node_modules', 'external'),
-            path.join('/fixture', 'src', 'node_modules', 'external'),
+            path.join('/fixture', 'source', 'node_modules', 'external'),
             dependencyPath
         ]);
         assert.deepStrictEqual(context.linkDirectory.firstCall.args, [
@@ -193,7 +193,7 @@ suite('published artifact smoke gate dependency staging', function () {
     test('stops package source dependency lookup at the repository root', async function () {
         const dependencyPath = path.join('/repo', 'fixture', 'node_modules', 'external');
         const { checkReadability, context, targetBundle } = createPackageSourceDependencyContext(
-            '/repo/fixture/src/index.js',
+            '/repo/fixture/source/index.js',
             dependencyPath
         );
 
@@ -201,10 +201,10 @@ suite('published artifact smoke gate dependency staging', function () {
 
         assertReadabilityPaths(checkReadability, [
             path.join('/repo', 'node_modules', 'external'),
-            path.join('/repo', 'fixture', 'src', 'node_modules', 'external'),
+            path.join('/repo', 'fixture', 'source', 'node_modules', 'external'),
             dependencyPath,
             path.join('/repo', 'node_modules', 'external'),
-            path.join('/repo', 'fixture', 'src', 'node_modules', 'external'),
+            path.join('/repo', 'fixture', 'source', 'node_modules', 'external'),
             path.join('/repo', 'fixture', 'node_modules', 'external')
         ]);
         assert.deepStrictEqual(context.linkDirectory.firstCall.args, [
@@ -215,7 +215,7 @@ suite('published artifact smoke gate dependency staging', function () {
     });
 
     test('reports missing generated dependencies before staging', async function () {
-        const targetBundle = withPackageJson(bundle(), {
+        const targetBundle = withPackageManifest(bundle(), {
             dependencies: { missing: '^1.0.0' },
             peerDependencies: { 'missing-peer': '^2.0.0' }
         });

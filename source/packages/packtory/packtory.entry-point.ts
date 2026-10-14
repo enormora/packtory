@@ -1,5 +1,5 @@
-import type { PacktoryConfig as PublicPacktoryConfig } from '../../config/config.ts';
-import type { VersionProviderInput as PublicVersionProviderInput } from '../../config/manual-versioning-settings.ts';
+import type { PacktoryConfiguration as PublicPacktoryConfiguration } from '../../configuration/configuration.ts';
+import type * as versioning from '../../configuration/manual-versioning-settings.ts';
 import type {
     BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     BuildReport as PublicBuildReport,
@@ -35,12 +35,12 @@ import type {
     ResolveAndLinkFailure as PublicResolveAndLinkFailure
 } from '../../packtory/packtory.ts';
 import type { ResolvedPackage as PublicResolvedPackage } from '../../packtory/resolved-package.ts';
-import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
+import { readContinuousIntegrationEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 
 const { packtory, progressBroadcaster } = buildPacktoryComposition({
-    ciEnvironment: readCiEnvironment(process.env)
+    continuousIntegrationEnvironment: readContinuousIntegrationEnvironment(process.env)
 });
 
 export const {
@@ -56,8 +56,8 @@ export const {
 } = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
-export type PacktoryConfig = PublicPacktoryConfig;
-export type VersionProviderInput = PublicVersionProviderInput;
+export type PacktoryConfiguration = PublicPacktoryConfiguration;
+export type VersionProviderInput = versioning.VersionProviderInput;
 export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
 export type PackageDependencyInspection = PublicPackageDependencyInspection;

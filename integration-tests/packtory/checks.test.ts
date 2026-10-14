@@ -1,33 +1,36 @@
 import path from 'node:path';
 import assert from 'node:assert';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { loadPackageJson } from '../load-package-json.ts';
-import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
+import type {
+    PackageConfiguration,
+    PacktoryConfigurationWithoutRegistry
+} from '../../source/configuration/configuration.ts';
 
-async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+async function createBaseConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' }
         },
         packages: [
             {
-                name: 'pkg-a',
+                name: 'package-a',
                 roots: {
                     main: {
-                        js: path.join(fixturePath, 'src/pkg-a/index.js')
+                        javaScript: path.join(fixturePath, 'source/package-a/index.js')
                     }
                 }
             },
             {
-                name: 'pkg-b',
+                name: 'package-b',
                 roots: {
                     main: {
-                        js: path.join(fixturePath, 'src/pkg-b/index.js')
+                        javaScript: path.join(fixturePath, 'source/package-b/index.js')
                     }
                 }
             }
@@ -35,12 +38,15 @@ async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWith
     };
 }
 
-function packageConfigAt(config: PacktoryConfigWithoutRegistry, index: number): PackageConfig {
-    const packageConfig = config.packages[index];
-    if (packageConfig === undefined) {
+function packageConfigurationAt(
+    configuration: PacktoryConfigurationWithoutRegistry,
+    index: number
+): PackageConfiguration {
+    const packageConfiguration = configuration.packages[index];
+    if (packageConfiguration === undefined) {
         assert.fail('expected package config');
     }
-    return packageConfig;
+    return packageConfiguration;
 }
 
 function firstIssue(issues: readonly string[]): string {
@@ -58,8 +64,8 @@ type ExecutableFixture = {
 };
 
 async function createExecutableFixture(): Promise<ExecutableFixture> {
-    const fixturePath = await mkdtemp(path.join(tmpdir(), 'packtory-unexposed-executable-'));
-    const sourceFolder = path.join(fixturePath, 'src');
+    const fixturePath = await mkdtemp(path.join(temporaryDirectory(), 'packtory-unexposed-executable-'));
+    const sourceFolder = path.join(fixturePath, 'source');
     const entryFilePath = path.join(sourceFolder, 'index.js');
     const hiddenFilePath = path.join(sourceFolder, 'hidden.js');
 
@@ -73,22 +79,22 @@ async function createExecutableFixture(): Promise<ExecutableFixture> {
 }
 
 async function unexposedExecutableIssues(fixture: ExecutableFixture): Promise<readonly string[]> {
-    const config: PacktoryConfigWithoutRegistry = {
+    const configuration: PacktoryConfigurationWithoutRegistry = {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixture.fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixture.fixturePath),
+            sourcesFolder: path.join(fixture.fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixture.fixturePath),
             publishSettings: { access: 'public' }
         },
         checks: { noUnexposedExecutables: { enabled: true } },
         packages: [
             {
-                name: 'pkg',
-                roots: { main: { js: fixture.entryFilePath } }
+                name: 'package',
+                roots: { main: { javaScript: fixture.entryFilePath } }
             }
         ]
     };
 
-    const { result } = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(configuration);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because an executable file is not exposed through bin');
@@ -101,41 +107,41 @@ async function unexposedExecutableIssues(fixture: ExecutableFixture): Promise<re
     return result.error.issues;
 }
 
-async function maxBundleOverrideConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
-    const baseConfig = await createBaseConfig(fixturePath);
+async function maximumBundleOverrideConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
+    const baseConfiguration = await createBaseConfiguration(fixturePath);
     return {
-        ...baseConfig,
-        checks: { maxBundleSize: { enabled: true, bytes: 10_000 } },
+        ...baseConfiguration,
+        checks: { maximumBundleSize: { enabled: true, bytes: 10_000 } },
         packages: [
             {
-                ...packageConfigAt(baseConfig, 0),
-                checks: { maxBundleSize: { bytes: 1 } }
+                ...packageConfigurationAt(baseConfiguration, 0),
+                checks: { maximumBundleSize: { bytes: 1 } }
             },
-            packageConfigAt(baseConfig, 1)
+            packageConfigurationAt(baseConfiguration, 1)
         ]
     };
 }
 
-async function duplicateConsentConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
-    const baseConfig = await createBaseConfig(fixturePath);
-    const sharedFile = `${fixturePath}/src/shared/util.js`;
+async function duplicateConsentConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
+    const baseConfiguration = await createBaseConfiguration(fixturePath);
+    const sharedFile = `${fixturePath}/source/shared/utilities.js`;
     return {
-        ...baseConfig,
+        ...baseConfiguration,
         checks: { noDuplicatedFiles: { enabled: true } },
         packages: [
             {
-                ...packageConfigAt(baseConfig, 0),
+                ...packageConfigurationAt(baseConfiguration, 0),
                 checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
             },
-            packageConfigAt(baseConfig, 1)
+            packageConfigurationAt(baseConfiguration, 1)
         ]
     };
 }
 
-async function duplicatedFilesCheckConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
-    const baseConfig = await createBaseConfig(fixturePath);
+async function duplicatedFilesCheckConfiguration(fixturePath: string): Promise<PacktoryConfigurationWithoutRegistry> {
+    const baseConfiguration = await createBaseConfiguration(fixturePath);
     return {
-        ...baseConfig,
+        ...baseConfiguration,
         checks: { noDuplicatedFiles: { enabled: true } }
     };
 }
@@ -143,9 +149,9 @@ async function duplicatedFilesCheckConfig(fixturePath: string): Promise<Packtory
 suite('checks', function () {
     test('resolveAndLinkAll() reports duplicated files when the rule is enabled', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const config = await duplicatedFilesCheckConfig(fixturePath);
+        const configuration = await duplicatedFilesCheckConfiguration(fixturePath);
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because of duplicated files');
@@ -155,8 +161,9 @@ suite('checks', function () {
         if (result.error.type === 'checks') {
             assert.deepStrictEqual(result.error.issues, [
                 [
-                    `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
-                    '  - "sharedValue" → pkg-a, pkg-b'
+                    `File "${fixturePath}/source/shared/utilities.js" ` +
+                    'has shared declarations across multiple packages:',
+                    '  - "sharedValue" → package-a, package-b'
                 ]
                     .join('\n')
             ]);
@@ -167,9 +174,9 @@ suite('checks', function () {
 
     test('resolveAndLinkAll succeeds when checks are disabled', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const config = await createBaseConfig(fixturePath);
+        const configuration = await createBaseConfiguration(fixturePath);
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isOk) {
             assert.fail('Duplicated file rule should not run when disabled');
@@ -180,45 +187,45 @@ suite('checks', function () {
 
     test('resolveAndLinkAll retains private imports without adding substitution exports', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/substitution-type-check');
-        const config: PacktoryConfigWithoutRegistry = {
+        const configuration: PacktoryConfigurationWithoutRegistry = {
             commonPackageSettings: {
-                sourcesFolder: path.join(fixturePath, 'src'),
-                mainPackageJson: await loadPackageJson(fixturePath),
+                sourcesFolder: path.join(fixturePath, 'source'),
+                mainPackageManifest: await loadPackageManifest(fixturePath),
                 publishSettings: { access: 'public' }
             },
             checks: { typeScriptIntegrity: { enabled: true } },
             packages: [
                 {
-                    name: 'pkg-a',
+                    name: 'package-a',
                     packageInterface: { modules: [ { export: '.', root: 'main' } ] },
                     roots: {
                         main: {
-                            js: path.join(fixturePath, 'src/a-entry.js'),
-                            declarationFile: path.join(fixturePath, 'src/a-entry.d.ts')
+                            javaScript: path.join(fixturePath, 'source/a-entry.js'),
+                            declarationFile: path.join(fixturePath, 'source/a-entry.d.ts')
                         }
                     }
                 },
                 {
-                    name: 'pkg-b',
+                    name: 'package-b',
                     roots: {
                         main: {
-                            js: path.join(fixturePath, 'src/b-entry.js'),
-                            declarationFile: path.join(fixturePath, 'src/b-entry.d.ts')
+                            javaScript: path.join(fixturePath, 'source/b-entry.js'),
+                            declarationFile: path.join(fixturePath, 'source/b-entry.d.ts')
                         }
                     },
-                    bundleDependencies: [ 'pkg-a' ]
+                    bundleDependencies: [ 'package-a' ]
                 }
             ]
         };
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         assert.strictEqual(result.isOk, true);
         const consumer = result.value.find(function (resolvedPackage) {
-            return resolvedPackage.name === 'pkg-b';
+            return resolvedPackage.name === 'package-b';
         });
         if (consumer === undefined) {
-            assert.fail('Expected pkg-b to be resolved');
+            assert.fail('Expected package-b to be resolved');
         }
         assert.partialDeepStrictEqual(consumer.analyzedBundle, {
             linkedBundleDependencies: new Map(),
@@ -236,14 +243,14 @@ suite('checks', function () {
     suite('duplicate consent', function () {
         test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async function () {
             const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-            const baseConfig = await createBaseConfig(fixturePath);
-            const sharedFile = `${fixturePath}/src/shared/util.js`;
-            const config = {
-                ...baseConfig,
+            const baseConfiguration = await createBaseConfiguration(fixturePath);
+            const sharedFile = `${fixturePath}/source/shared/utilities.js`;
+            const configuration = {
+                ...baseConfiguration,
                 checks: { noDuplicatedFiles: { enabled: true, allowList: [ sharedFile ] } }
             };
 
-            const { result } = await resolveAndLinkAll(config);
+            const { result } = await resolveAndLinkAll(configuration);
 
             if (!result.isOk) {
                 assert.fail('Globally allow-listed shared file should not fail checks');
@@ -254,20 +261,20 @@ suite('checks', function () {
 
         test('resolveAndLinkAll succeeds when every owner consents to the duplicated file', async function () {
             const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-            const baseConfig = await createBaseConfig(fixturePath);
-            const sharedFile = `${fixturePath}/src/shared/util.js`;
-            const config = {
-                ...baseConfig,
+            const baseConfiguration = await createBaseConfiguration(fixturePath);
+            const sharedFile = `${fixturePath}/source/shared/utilities.js`;
+            const configuration = {
+                ...baseConfiguration,
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: baseConfig.packages.map(function (packageConfig) {
+                packages: baseConfiguration.packages.map(function (packageConfiguration) {
                     return {
-                        ...packageConfig,
+                        ...packageConfiguration,
                         checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
                     };
                 })
             };
 
-            const { result } = await resolveAndLinkAll(config);
+            const { result } = await resolveAndLinkAll(configuration);
 
             if (!result.isOk) {
                 assert.fail('Owners that all consent to the shared file should not fail checks');
@@ -279,25 +286,25 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports an external dependency that is only declared in devDependencies', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
-        const config: PacktoryConfigWithoutRegistry = {
+        const configuration: PacktoryConfigurationWithoutRegistry = {
             commonPackageSettings: {
-                sourcesFolder: path.join(fixturePath, 'src'),
-                mainPackageJson: {
+                sourcesFolder: path.join(fixturePath, 'source'),
+                mainPackageManifest: {
                     type: 'module',
                     devDependencies: { 'example-module': '1.2.3' }
                 },
                 publishSettings: { access: 'public' }
             },
-            checks: { noDevDependencyImports: { enabled: true } },
+            checks: { noDevelopmentDependencyImports: { enabled: true } },
             packages: [
                 {
                     name: 'leaky',
-                    roots: { main: { js: path.join(fixturePath, 'src/entry.js') } }
+                    roots: { main: { javaScript: path.join(fixturePath, 'source/entry.js') } }
                 }
             ]
         };
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because example-module is dev-only');
@@ -315,26 +322,26 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports a declared bundleDependency that is never imported', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/independent-packages');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const config = {
-            ...baseConfig,
+        const baseConfiguration = await createBaseConfiguration(fixturePath);
+        const configuration = {
+            ...baseConfiguration,
             checks: { noUnusedBundleDependencies: { enabled: true } },
             packages: [
-                packageConfigAt(baseConfig, 1),
-                { ...packageConfigAt(baseConfig, 0), bundleDependencies: [ 'pkg-b' ] }
+                packageConfigurationAt(baseConfiguration, 1),
+                { ...packageConfigurationAt(baseConfiguration, 0), bundleDependencies: [ 'package-b' ] }
             ]
         };
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
-            assert.fail('Expected resolveAndLinkAll to fail because pkg-a does not import from pkg-b');
+            assert.fail('Expected resolveAndLinkAll to fail because package-a does not import from package-b');
             return;
         }
 
         if (result.error.type === 'checks') {
             assert.deepStrictEqual(result.error.issues, [
-                'Unused bundle dependency "pkg-b" declared by package "pkg-a"'
+                'Unused bundle dependency "package-b" declared by package "package-a"'
             ]);
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -343,12 +350,12 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports a per-package bundle size override that is exceeded', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const config = await maxBundleOverrideConfig(fixturePath);
+        const configuration = await maximumBundleOverrideConfiguration(fixturePath);
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
-            assert.fail('Expected resolveAndLinkAll to fail because pkg-a exceeds its size override');
+            assert.fail('Expected resolveAndLinkAll to fail because package-a exceeds its size override');
             return;
         }
 
@@ -356,7 +363,7 @@ suite('checks', function () {
             assert.strictEqual(result.error.issues.length, 1);
             assert.match(
                 firstIssue(result.error.issues),
-                /^Package "pkg-a" exceeds the maximum bundle size: \d+ bytes \(limit: 1 bytes\)$/u
+                /^Package "package-a" exceeds the maximum bundle size: \d+ bytes \(limit: 1 bytes\)$/u
             );
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -365,13 +372,13 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports a missing required file for every bundle that lacks it', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const config = {
-            ...baseConfig,
+        const baseConfiguration = await createBaseConfiguration(fixturePath);
+        const configuration = {
+            ...baseConfiguration,
             checks: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } }
         };
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because of missing required files');
@@ -380,8 +387,8 @@ suite('checks', function () {
 
         if (result.error.type === 'checks') {
             assert.deepStrictEqual(result.error.issues, [
-                'Package "pkg-a" is missing required file "LICENSE"',
-                'Package "pkg-b" is missing required file "LICENSE"'
+                'Package "package-a" is missing required file "LICENSE"',
+                'Package "package-b" is missing required file "LICENSE"'
             ]);
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -390,20 +397,21 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports the duplicate when one owner does not consent', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const config = await duplicateConsentConfig(fixturePath);
+        const configuration = await duplicateConsentConfiguration(fixturePath);
 
-        const { result } = await resolveAndLinkAll(config);
+        const { result } = await resolveAndLinkAll(configuration);
 
         if (!result.isErr) {
-            assert.fail('Expected resolveAndLinkAll to fail because pkg-b did not consent');
+            assert.fail('Expected resolveAndLinkAll to fail because package-b did not consent');
             return;
         }
 
         if (result.error.type === 'checks') {
             assert.deepStrictEqual(result.error.issues, [
                 [
-                    `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
-                    '  - "sharedValue" → pkg-a, pkg-b'
+                    `File "${fixturePath}/source/shared/utilities.js" ` +
+                    'has shared declarations across multiple packages:',
+                    '  - "sharedValue" → package-a, package-b'
                 ]
                     .join('\n')
             ]);
@@ -417,7 +425,7 @@ suite('checks', function () {
         try {
             assert.deepStrictEqual(await unexposedExecutableIssues(fixture), [
                 [
-                    `Package "pkg" ships executable file "hidden.js" from "${fixture.hiddenFilePath}" `,
+                    `Package "package" ships executable file "hidden.js" from "${fixture.hiddenFilePath}" `,
                     'that is not exposed through bin'
                 ]
                     .join('')

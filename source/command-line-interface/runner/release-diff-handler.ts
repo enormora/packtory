@@ -5,7 +5,7 @@ import {
     renderFailureOnlyTerminalReleaseDiff,
     renderTerminalReleaseDiff
 } from '../../report/terminal-renderer/terminal-release-diff-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 
 type Logger = (message: string) => void;
@@ -19,7 +19,7 @@ export type ReleaseDiffHandlerDependencies = {
     readonly pageOutput: (content: string) => Promise<void>;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly flags: ReleaseDiffFlags;
 };
 
@@ -37,9 +37,9 @@ async function renderDocument(
 }
 
 async function releaseDiff(dependencies: ReleaseDiffHandlerDependencies): Promise<number> {
-    const { packtory, spinnerRenderer, configLoader } = dependencies;
-    const config = await configLoader.load();
-    const outcome = await packtory.diffAgainstLatestPublished(config);
+    const { packtory, spinnerRenderer, configurationLoader } = dependencies;
+    const configuration = await configurationLoader.load();
+    const outcome = await packtory.diffAgainstLatestPublished(configuration);
     spinnerRenderer.stopAll();
     const document = buildReleaseDiffDocument({
         report: outcome.getReport(),

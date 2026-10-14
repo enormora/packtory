@@ -2,7 +2,7 @@ import type { Project, SourceFile } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { getEntryRootIds } from '../package-surface/root-registry.ts';
+import { getEntryRootIdentifiers } from '../package-surface/root-registry.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
 import type { FileBindings } from './reachability/local-seed-gathering.ts';
@@ -106,14 +106,14 @@ function substitutionPublicModuleTargetPathsFor(
     );
 }
 
-function rootFilePathsFor(bundle: LinkedBundle, rootId: string): readonly string[] {
-    const root = bundle.roots[rootId];
+function rootFilePathsFor(bundle: LinkedBundle, rootIdentifier: string): readonly string[] {
+    const root = bundle.roots[rootIdentifier];
     if (root === undefined) {
-        throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its entry surface`);
+        throw new Error(`Bundle "${bundle.name}" is missing root "${rootIdentifier}" referenced by its entry surface`);
     }
     return root.declarationFile === undefined
-        ? [ root.js.targetFilePath ]
-        : [ root.js.targetFilePath, root.declarationFile.targetFilePath ];
+        ? [ root.javaScript.targetFilePath ]
+        : [ root.javaScript.targetFilePath, root.declarationFile.targetFilePath ];
 }
 
 function entryRootFilePathsFor(
@@ -122,8 +122,8 @@ function entryRootFilePathsFor(
 ): ReadonlySet<string> {
     const targetPathsByInputPath = targetFilePathByInputFilePath(bundle.contents);
     return new Set([
-        ...Array.from(getEntryRootIds(bundle)).flatMap(function (rootId) {
-            return rootFilePathsFor(bundle, rootId);
+        ...Array.from(getEntryRootIdentifiers(bundle)).flatMap(function (rootIdentifier) {
+            return rootFilePathsFor(bundle, rootIdentifier);
         }),
         ...substitutionPublicModuleTargetPathsFor(substitutionPublicModuleInputFilePaths, targetPathsByInputPath)
     ]);

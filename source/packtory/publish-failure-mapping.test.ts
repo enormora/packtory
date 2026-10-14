@@ -4,7 +4,7 @@ import { mapResolveFailureToPublishFailure } from './publish-failure-mapping.ts'
 
 suite('publish-failure-mapping', function () {
     test('mapResolveFailureToPublishFailure passes config failures through unchanged', function () {
-        const failure = { type: 'config', issues: [ 'bad' ] } as const;
+        const failure = { type: 'configuration', issues: [ 'bad' ] } as const;
         assert.strictEqual(mapResolveFailureToPublishFailure(failure), failure);
     });
 

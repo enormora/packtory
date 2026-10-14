@@ -1,5 +1,5 @@
 import path from 'node:path';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
 import type { DeadCodeEliminationOracleEntry } from './dead-code-elimination-oracle-test-support.ts';
@@ -72,26 +72,26 @@ function objectExpression(values: readonly [GeneratedExpression, GeneratedExpres
     return { source: `({ alpha: ${values[0].source}, beta: ${values[1].source} })` };
 }
 
-const deadCodeEliminationSimpleExpressionArbitrary: fc.Arbitrary<GeneratedExpression> = fc.oneof(
-    fc.string({ maxLength: 12 }).map(stringExpression),
-    fc.integer({ min: -100, max: 100 }).map(numberExpression),
-    fc.boolean().map(booleanExpression)
+const deadCodeEliminationSimpleExpressionArbitrary: fastCheck.Arbitrary<GeneratedExpression> = fastCheck.oneof(
+    fastCheck.string({ maxLength: 12 }).map(stringExpression),
+    fastCheck.integer({ min: -100, max: 100 }).map(numberExpression),
+    fastCheck.boolean().map(booleanExpression)
 );
 
-export const deadCodeEliminationExpressionArbitrary: fc.Arbitrary<GeneratedExpression> = fc.oneof(
+export const deadCodeEliminationExpressionArbitrary: fastCheck.Arbitrary<GeneratedExpression> = fastCheck.oneof(
     deadCodeEliminationSimpleExpressionArbitrary,
-    fc
+    fastCheck
         .tuple(deadCodeEliminationSimpleExpressionArbitrary, deadCodeEliminationSimpleExpressionArbitrary)
         .map(arrayExpression),
-    fc
+    fastCheck
         .tuple(deadCodeEliminationSimpleExpressionArbitrary, deadCodeEliminationSimpleExpressionArbitrary)
         .map(objectExpression)
 );
 
-export const deadCodeEliminationEventNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9]{0,7}$/);
+export const deadCodeEliminationEventNameArbitrary = fastCheck.stringMatching(/^[a-z][a-z0-9]{0,7}$/);
 
 function deadCodeEliminationSourcePathFor(targetFilePath: string): string {
-    return `/src/${targetFilePath}`;
+    return `/source/${targetFilePath}`;
 }
 
 export function deadCodeEliminationTargetModuleSpecifier(
@@ -190,7 +190,7 @@ function deadCodeEliminationLinkedBundleFrom(
         contents: contents.map(generatedFileToResource),
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: rootRuntime.content,
                     isExecutable: false,
                     inputFilePath: rootRuntime.inputFilePath,

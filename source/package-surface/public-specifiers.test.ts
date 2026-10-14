@@ -4,7 +4,7 @@ import { rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import type { BundleLike } from './package-shape.ts';
 import { getPublicModuleSpecifierForSourcePath, resolvePublicModuleInputFilePath } from './public-specifiers.ts';
 
-const mainRoots = { main: rootWithSource('/src/index.js', 'index.js') };
+const mainRoots = { main: rootWithSource('/source/index.js', 'index.js') };
 
 const explicitBundle: BundleLike = {
     name: 'package-a',
@@ -25,19 +25,22 @@ const implicitBundle: BundleLike = {
 
 suite('public-specifiers', function () {
     test('getPublicModuleSpecifierForSourcePath dispatches to the explicit builder for explicit surfaces', function () {
-        assert.strictEqual(getPublicModuleSpecifierForSourcePath(explicitBundle, '/src/index.js'), 'package-a/entry');
+        assert.strictEqual(
+            getPublicModuleSpecifierForSourcePath(explicitBundle, '/source/index.js'),
+            'package-a/entry'
+        );
     });
 
     test('getPublicModuleSpecifierForSourcePath dispatches to the implicit builder for implicit surfaces', function () {
-        assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/src/index.js'), 'package-a');
+        assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/source/index.js'), 'package-a');
     });
 
     test('resolvePublicModuleInputFilePath dispatches to the explicit resolver for explicit surfaces', function () {
-        assert.strictEqual(resolvePublicModuleInputFilePath(explicitBundle, 'package-a/entry'), '/src/index.js');
+        assert.strictEqual(resolvePublicModuleInputFilePath(explicitBundle, 'package-a/entry'), '/source/index.js');
     });
 
     test('resolvePublicModuleInputFilePath dispatches to the implicit resolver for implicit surfaces', function () {
-        assert.strictEqual(resolvePublicModuleInputFilePath(implicitBundle, 'package-a'), '/src/index.js');
+        assert.strictEqual(resolvePublicModuleInputFilePath(implicitBundle, 'package-a'), '/source/index.js');
     });
 
     test('explicit and implicit dispatch keep different public-specifier shapes', function () {

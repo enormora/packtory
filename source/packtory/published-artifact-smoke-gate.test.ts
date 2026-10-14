@@ -34,7 +34,7 @@ async function assertVerifyRejectsWithMessages(
 suite('published artifact smoke gate', function () {
     suite('target validation', function () {
         suite('exports', function () {
-            test('imports public runtime exports and validates bins without executing them', async function () {
+            test('imports public runtime exports and validates executables without executing them', async function () {
                 const targetBundle = bundle({
                     contents: [
                         resource('index.js'),
@@ -46,7 +46,7 @@ suite('published artifact smoke gate', function () {
                         './feature': { import: './feature.js' },
                         './package.json': './package.json'
                     },
-                    binField: { 'package-a': './cli.js' }
+                    executableField: { 'package-a': './cli.js' }
                 });
                 const context = createContext();
 
@@ -83,7 +83,7 @@ suite('published artifact smoke gate', function () {
                     packageName: 'package-a',
                     specifier: 'package-a',
                     targetFilePath: 'index.mjs',
-                    timeoutMs: 10_000
+                    timeoutMilliseconds: 10_000
                 });
             });
 
@@ -127,7 +127,7 @@ suite('published artifact smoke gate', function () {
                     packageName: 'package-a',
                     specifier: 'package-a',
                     targetFilePath: 'index.js',
-                    timeoutMs: 10_000
+                    timeoutMilliseconds: 10_000
                 });
             });
 
@@ -248,23 +248,23 @@ suite('published artifact smoke gate', function () {
             });
         });
 
-        suite('bins', function () {
+        suite('executables', function () {
             test('accepts string bin targets and ignores non-string bin map values', async function () {
-                const stringBinBundle = bundle({
+                const stringExecutableBundle = bundle({
                     contents: [ resource('index.js'), resource('cli.js') ],
-                    binField: './cli.js'
+                    executableField: './cli.js'
                 });
-                const objectBinBundle = bundle({
+                const objectExecutableBundle = bundle({
                     contents: [ resource('index.js'), resource('cli.js') ],
-                    binField: {
+                    executableField: {
                         'package-a': './cli.js',
                         ignored: false
-                    } as unknown as VersionedBundleWithManifest['binField']
+                    } as unknown as VersionedBundleWithManifest['executableField']
                 });
                 const context = createContext();
 
-                await verify(context.gate, stringBinBundle);
-                await verify(context.gate, objectBinBundle);
+                await verify(context.gate, stringExecutableBundle);
+                await verify(context.gate, objectExecutableBundle);
 
                 assert.deepStrictEqual([
                     context.setExecutable.getCall(0).args[0],
@@ -282,18 +282,18 @@ suite('published artifact smoke gate', function () {
             });
 
             test('skips invalid bin fields', async function () {
-                const invalidBinBundle = bundle({
+                const invalidExecutableBundle = bundle({
                     exportsField: false as unknown as VersionedBundleWithManifest['exportsField'],
-                    binField: false as unknown as VersionedBundleWithManifest['binField']
+                    executableField: false as unknown as VersionedBundleWithManifest['executableField']
                 });
-                const invalidBinArrayBundle = bundle({
+                const invalidExecutableArrayBundle = bundle({
                     exportsField: false as unknown as VersionedBundleWithManifest['exportsField'],
-                    binField: [ './cli.js' ] as unknown as VersionedBundleWithManifest['binField']
+                    executableField: [ './cli.js' ] as unknown as VersionedBundleWithManifest['executableField']
                 });
                 const context = createContext();
 
-                await verify(context.gate, invalidBinBundle);
-                await verify(context.gate, invalidBinArrayBundle);
+                await verify(context.gate, invalidExecutableBundle);
+                await verify(context.gate, invalidExecutableArrayBundle);
 
                 assert.deepStrictEqual([
                     context.createTemporaryFolder.callCount,
@@ -304,7 +304,7 @@ suite('published artifact smoke gate', function () {
 
             test('reports missing string bin targets', async function () {
                 const targetBundle = bundle({
-                    binField: './missing-cli.js'
+                    executableField: './missing-cli.js'
                 });
                 const context = createContext();
 
@@ -321,7 +321,7 @@ suite('published artifact smoke gate', function () {
                 exportsField: {
                     '.': { import: './missing-export.js' }
                 },
-                binField: { 'package-a': './missing-bin.js' }
+                executableField: { 'package-a': './missing-bin.js' }
             });
             const context = createContext();
 

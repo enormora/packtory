@@ -6,7 +6,7 @@ import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-hel
 import { createPackageReleaseDiff, textModifiedFileFactory } from '../../test-libraries/release-diff-fixtures.ts';
 import {
     createRunner,
-    expectCommandLoadsConfig,
+    expectCommandLoadsConfiguration,
     expectHelp,
     expectSubcommandHelp
 } from '../../test-libraries/runner-test-support.ts';
@@ -34,14 +34,14 @@ async function runWithBuildAndLog(
     return { buildAndPublishAll, exitCode, log };
 }
 
-function createConfigInspectLoadConfig(): SinonSpy {
+function createConfigurationInspectLoadConfiguration(): SinonSpy {
     return fake.resolves({
         commonPackageSettings: {
             sourcesFolder: 'dist',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
-        packages: [ { name: 'package-a', roots: { main: { js: 'index.js' } } } ]
+        packages: [ { name: 'package-a', roots: { main: { javaScript: 'index.js' } } } ]
     });
 }
 
@@ -74,7 +74,7 @@ function assertPackageOperationsSkipped(spies: PackageOperationSpies): void {
 suite('runner command routing', function () {
     suite('publish and preview options', function () {
         test('publish command loads the config file and passes it to buildAndPublishAll()', async function () {
-            await expectCommandLoadsConfig('publish');
+            await expectCommandLoadsConfiguration('publish');
         });
 
         test('publish command runs in dry-run mode per default', async function () {
@@ -120,7 +120,7 @@ suite('runner command routing', function () {
         });
 
         test('preview command loads the config file and passes it to buildAndPublishAll()', async function () {
-            await expectCommandLoadsConfig('preview');
+            await expectCommandLoadsConfiguration('preview');
         });
 
         test('preview command always runs in dry-run mode with collectReport enabled', async function () {
@@ -136,37 +136,37 @@ suite('runner command routing', function () {
             });
         });
 
-        test('config inspect command loads config without running package operations', async function () {
-            const loadConfig = createConfigInspectLoadConfig();
+        test('configuration inspect command loads config without running package operations', async function () {
+            const loadConfiguration = createConfigurationInspectLoadConfiguration();
             const spies = createPackageOperationSpies();
             const runner = createRunner({
-                loadConfig,
+                loadConfiguration,
                 ...spies
             });
 
-            const exitCode = await runner.run([ 'foo', 'bar', 'config', 'inspect' ]);
+            const exitCode = await runner.run([ 'foo', 'bar', 'configuration', 'inspect' ]);
 
             assert.strictEqual(exitCode, 0);
-            assert.strictEqual(loadConfig.callCount, 1);
+            assert.strictEqual(loadConfiguration.callCount, 1);
             assertPackageOperationsSkipped(spies);
         });
 
         test('inspect side-effects command loads config and passes the selected package', async function () {
-            const loadConfig = fake.resolves('the-config');
+            const loadConfiguration = fake.resolves('the-config');
             const inspectPackageSideEffects = fake.resolves({
                 result: Result.ok({
-                    packageName: 'pkg-a',
-                    packageJsonDecision: { type: 'side-effects-false' },
+                    packageName: 'package-a',
+                    packageManifestDecision: { type: 'side-effects-false' },
                     impureFiles: []
                 })
             });
-            const runner = createRunner({ loadConfig, inspectPackageSideEffects });
+            const runner = createRunner({ loadConfiguration, inspectPackageSideEffects });
 
-            const exitCode = await runner.run([ 'foo', 'bar', 'inspect', 'side-effects', 'pkg-a' ]);
+            const exitCode = await runner.run([ 'foo', 'bar', 'inspect', 'side-effects', 'package-a' ]);
 
             assert.strictEqual(exitCode, 0);
-            assert.strictEqual(loadConfig.callCount, 1);
-            assert.deepStrictEqual(inspectPackageSideEffects.firstCall.args, [ 'the-config', 'pkg-a' ]);
+            assert.strictEqual(loadConfiguration.callCount, 1);
+            assert.deepStrictEqual(inspectPackageSideEffects.firstCall.args, [ 'the-config', 'package-a' ]);
         });
 
         test('release-diff files-only mode suppresses text hunks from parsed CLI arguments', async function () {
@@ -207,7 +207,7 @@ suite('runner command routing', function () {
         });
 
         test('returns exit code 1 when publish command has errors', async function () {
-            const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'config', issues: [] })));
+            const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'configuration', issues: [] })));
             const runner = createRunner({ buildAndPublishAll });
 
             const exitCode = await runner.run([ 'foo', 'bar', 'publish' ]);
@@ -293,8 +293,11 @@ suite('runner command routing', function () {
                 'Expected help output to include the release command description'
             );
             assert.ok(help.includes('changelog'), 'Expected help output to include the changelog command');
-            assert.ok(help.includes('config'), 'Expected help output to include the config command');
-            assert.ok(help.includes('release-pr'), 'Expected help output to include the release-pr command');
+            assert.ok(help.includes('configuration'), 'Expected help output to include the config command');
+            assert.ok(
+                help.includes('release-pull-request'),
+                'Expected help output to include the release-pull-request command'
+            );
             assert.ok(help.includes('--trace'), 'Expected help output to include the trace flag');
         });
 
@@ -331,10 +334,10 @@ suite('runner command routing', function () {
             assert.match(help, /--no-dry-run/);
         });
 
-        test('prints nested config inspect help', async function () {
-            const help = await expectSubcommandHelp('config', 'inspect');
+        test('prints nested configuration inspect help', async function () {
+            const help = await expectSubcommandHelp('configuration', 'inspect');
 
-            assert.match(help, /packtory config inspect/u);
+            assert.match(help, /packtory configuration inspect/u);
             assert.match(help, /Validates packtory\.config\.js and prints a compact package summary\./u);
         });
 

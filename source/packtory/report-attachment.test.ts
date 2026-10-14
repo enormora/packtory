@@ -1,23 +1,23 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PacktoryConfig } from '../config/config.ts';
+import type { PacktoryConfiguration } from '../configuration/configuration.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
-import { emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
+import { emitEffectiveConfigurationPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 
-function createMinimalConfig(packageNames: readonly string[]): PacktoryConfig {
+function createMinimalConfiguration(packageNames: readonly string[]): PacktoryConfiguration {
     return {
         registrySettings: {
-            registryUrl: 'https://registry.example.com',
-            auth: { type: 'bearer-token', token: 'secret' }
+            registryAddress: 'https://registry.example.com',
+            authentication: { type: 'bearer-token', token: 'secret' }
         },
         packages: packageNames.map(function (name) {
             return {
                 name,
-                roots: { main: { js: `${name}/index.js` } }
+                roots: { main: { javaScript: `${name}/index.js` } }
             };
         })
-    } as unknown as PacktoryConfig;
+    } as unknown as PacktoryConfiguration;
 }
 
 function registerAggregatorAttachmentTests(): void {
@@ -86,16 +86,16 @@ function registerAggregatorAttachmentTests(): void {
 
         const attachment = maybeAttachAggregator(broadcaster, true);
         broadcaster.provider.emit('stageTimed', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             stage: 'resolveAndLink',
-            durationMs: 12
+            durationMilliseconds: 12
         });
 
         const report = attachment.getReport();
         if (report === undefined) {
             assert.fail('expected a BuildReport');
         }
-        assert.deepStrictEqual(report.packages['pkg-a']?.timings, { resolveAndLink: 12 });
+        assert.deepStrictEqual(report.packages['package-a']?.timings, { resolveAndLink: 12 });
     });
 
     test('maybeAttachAggregator() dispose unsubscribes the aggregator', function () {
@@ -109,41 +109,41 @@ function registerAggregatorAttachmentTests(): void {
     });
 }
 
-function registerEffectiveConfigEmissionTests(): void {
-    test('emitEffectiveConfigPerPackage() does not emit when no subscriber is registered', function () {
+function registerEffectiveConfigurationEmissionTests(): void {
+    test('emitEffectiveConfigurationPerPackage() does not emit when no subscriber is registered', function () {
         const wrapped = createSpyingBroadcaster();
 
-        emitEffectiveConfigPerPackage(wrapped, createMinimalConfig([ 'pkg-a', 'pkg-b' ]));
+        emitEffectiveConfigurationPerPackage(wrapped, createMinimalConfiguration([ 'package-a', 'package-b' ]));
 
         assert.strictEqual(wrapped.emitSpy.callCount, 0);
     });
 
-    test('emitEffectiveConfigPerPackage() emits one effectiveConfigResolved per package when a subscriber is registered', function () {
+    test('emitEffectiveConfigurationPerPackage() emits one effectiveConfigurationResolved per package when a subscriber is registered', function () {
         const broadcaster = createProgressBroadcaster();
         const received: string[] = [];
-        broadcaster.consumer.on('effectiveConfigResolved', function (payload) {
+        broadcaster.consumer.on('effectiveConfigurationResolved', function (payload) {
             received.push(payload.packageName);
         });
 
-        emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig([ 'pkg-a', 'pkg-b' ]));
+        emitEffectiveConfigurationPerPackage(broadcaster, createMinimalConfiguration([ 'package-a', 'package-b' ]));
 
-        assert.deepStrictEqual(received, [ 'pkg-a', 'pkg-b' ]);
+        assert.deepStrictEqual(received, [ 'package-a', 'package-b' ]);
     });
 
-    test('emitEffectiveConfigPerPackage() emits a redacted config with the package name', function () {
+    test('emitEffectiveConfigurationPerPackage() emits a redacted config with the package name', function () {
         const broadcaster = createProgressBroadcaster();
-        const received: { readonly packageName: string; readonly configName: string; }[] = [];
-        broadcaster.consumer.on('effectiveConfigResolved', function (payload) {
-            received.push({ packageName: payload.packageName, configName: String(payload.config.name) });
+        const received: { readonly packageName: string; readonly configurationName: string; }[] = [];
+        broadcaster.consumer.on('effectiveConfigurationResolved', function (payload) {
+            received.push({ packageName: payload.packageName, configurationName: String(payload.configuration.name) });
         });
 
-        emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig([ 'only-pkg' ]));
+        emitEffectiveConfigurationPerPackage(broadcaster, createMinimalConfiguration([ 'only-pkg' ]));
 
-        assert.deepStrictEqual(received, [ { packageName: 'only-pkg', configName: 'only-pkg' } ]);
+        assert.deepStrictEqual(received, [ { packageName: 'only-pkg', configurationName: 'only-pkg' } ]);
     });
 }
 
 suite('report-attachment', function () {
     registerAggregatorAttachmentTests();
-    registerEffectiveConfigEmissionTests();
+    registerEffectiveConfigurationEmissionTests();
 });

@@ -119,11 +119,11 @@ function referenceSpecifiers(importValue: string): Pick<ModuleReference, 'emitte
 
 function classifyLocalReference(
     resolvedFilePath: string,
-    packageJsonPath: string,
+    packageManifestPath: string,
     importValue: string
 ): ModuleReference {
     const specifiers = referenceSpecifiers(importValue);
-    if (path.resolve(resolvedFilePath) === path.resolve(packageJsonPath)) {
+    if (path.resolve(resolvedFilePath) === path.resolve(packageManifestPath)) {
         return { kind: moduleReferenceKind.generatedManifest, filePath: resolvedFilePath, ...specifiers };
     }
 
@@ -137,13 +137,13 @@ function classifyLocalReference(
 function resolveWasmReference(
     importValue: string,
     containingSourceFile: Readonly<SourceFile>,
-    packageJsonPath: string
+    packageManifestPath: string
 ): Readonly<ModuleReference | undefined> {
     if (isRelativeOrAbsoluteSpecifier(importValue)) {
         const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
         const candidatePath = path.resolve(path.dirname(containingSourceFile.getFilePath()), importValue);
         return moduleResolutionHost.fileExists(candidatePath)
-            ? classifyLocalReference(candidatePath, packageJsonPath, importValue)
+            ? classifyLocalReference(candidatePath, packageManifestPath, importValue)
             : undefined;
     }
 
@@ -170,7 +170,7 @@ function resolveWasmReference(
 function resolveModuleReferenceForImport(
     importValue: string,
     containingSourceFile: Readonly<SourceFile>,
-    packageJsonPath: string
+    packageManifestPath: string
 ): Readonly<ModuleReference | undefined> {
     const resolvedFilePath = resolveTypescriptModuleFilePath({
         moduleSpecifier: importValue,
@@ -190,49 +190,50 @@ function resolveModuleReferenceForImport(
             };
         }
 
-        return classifyLocalReference(resolvedFilePath, packageJsonPath, importValue);
+        return classifyLocalReference(resolvedFilePath, packageManifestPath, importValue);
     }
 
     return importValue.endsWith('.wasm')
-        ? resolveWasmReference(importValue, containingSourceFile, packageJsonPath)
+        ? resolveWasmReference(importValue, containingSourceFile, packageManifestPath)
         : undefined;
 }
 
-function invalidImportMetaResolveUsage(sourceFile: Readonly<SourceFile>): Error {
+function invalidImportMetadataResolveUsage(sourceFile: Readonly<SourceFile>): Error {
     return new Error(
         oneLine`Invalid import.meta.resolve() usage in file "${sourceFile.getFilePath()}":
             only a single static string literal argument is supported`
     );
 }
 
-function isImportMetaResolveCallee(callee: Readonly<PropertyAccessExpression>): boolean {
-    const metaProperty = callee.getExpression().asKind(SyntaxKind.MetaProperty);
-    return metaProperty?.getKeywordToken() === SyntaxKind.ImportKeyword && callee.getNameNode().getText() === 'resolve';
+function isImportMetadataResolveCallee(callee: Readonly<PropertyAccessExpression>): boolean {
+    const metadataProperty = callee.getExpression().asKind(SyntaxKind.MetaProperty);
+    return metadataProperty?.getKeywordToken() === SyntaxKind.ImportKeyword &&
+        callee.getNameNode().getText() === 'resolve';
 }
 
-function collectImportMetaResolveLiteral(
+function collectImportMetadataResolveLiteral(
     callExpression: Readonly<CallExpression>,
     sourceFile: Readonly<SourceFile>
 ): StringLiteral | undefined {
     const callee = callExpression.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
-    if (callee === undefined || !isImportMetaResolveCallee(callee)) {
+    if (callee === undefined || !isImportMetadataResolveCallee(callee)) {
         return undefined;
     }
     const [ first, second ] = callExpression.getArguments();
     if (first === undefined || second !== undefined) {
-        throw invalidImportMetaResolveUsage(sourceFile);
+        throw invalidImportMetadataResolveUsage(sourceFile);
     }
     const literal = first.asKind(SyntaxKind.StringLiteral);
     if (literal === undefined) {
-        throw invalidImportMetaResolveUsage(sourceFile);
+        throw invalidImportMetadataResolveUsage(sourceFile);
     }
     return literal;
 }
 
-function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
+function getImportMetadataResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
     const literals: StringLiteral[] = [];
     for (const callExpression of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-        const literal = collectImportMetaResolveLiteral(callExpression, sourceFile);
+        const literal = collectImportMetadataResolveLiteral(callExpression, sourceFile);
         if (literal !== undefined) {
             literals.push(literal);
         }
@@ -243,21 +244,21 @@ function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonl
 export function getModuleReferenceLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
     return [
         ...sourceFile.getImportStringLiterals(),
-        ...getImportMetaResolveLiterals(sourceFile),
+        ...getImportMetadataResolveLiterals(sourceFile),
         ...getInjectedDynamicImportLiterals(sourceFile)
     ];
 }
 
 export function getReferencedModules(
     sourceFile: Readonly<SourceFile>,
-    packageJsonPath: string
+    packageManifestPath: string
 ): readonly Readonly<ModuleReference>[] {
     const referencedModules: ModuleReference[] = [];
     const allLiterals = getModuleReferenceLiterals(sourceFile);
 
     for (const literal of allLiterals) {
         const importValue = literal.getLiteralValue();
-        const referencedModule = resolveModuleReferenceForImport(importValue, sourceFile, packageJsonPath);
+        const referencedModule = resolveModuleReferenceForImport(importValue, sourceFile, packageManifestPath);
 
         if (referencedModule !== undefined) {
             referencedModules.push(referencedModule);

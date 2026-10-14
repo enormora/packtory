@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
-import type { ValidConfigResult } from '../../config/validation.ts';
+import type { ValidConfigurationResult } from '../../configuration/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { canonicalizeReleaseArtifactFiles } from '../../bundle-emitter/release-artifact-canonicalizer.ts';
 import {
@@ -25,12 +25,12 @@ export type ReleaseDiffStageDependencies = {
 
 export type ReleaseDiffStageResult = Result<readonly PackageReleaseDiff[], PartialError<PackageReleaseDiff>>;
 
-type ExecOptions = {
+type ExecuteOptions = {
     readonly packageName: string;
     readonly buildResult: BuildAndPublishResult | undefined;
 };
 
-type ExecResult = PackageReleaseDiff | undefined;
+type ExecuteResult = PackageReleaseDiff | undefined;
 
 function emptyFileSetDiff(): FileSetDiff {
     return { added: [], removed: [], modified: [], unchanged: [] };
@@ -92,21 +92,21 @@ function classifyDiff(
     return diffEntry(packageName, packageReleaseDiffState.changed, files, versionFields);
 }
 
-function isDiffEntry(entry: ExecResult): entry is PackageReleaseDiff {
+function isDiffEntry(entry: ExecuteResult): entry is PackageReleaseDiff {
     return entry !== undefined;
 }
 
-function toReleaseDiffs(entries: readonly ExecResult[]): readonly PackageReleaseDiff[] {
+function toReleaseDiffs(entries: readonly ExecuteResult[]): readonly PackageReleaseDiff[] {
     return entries.filter(isDiffEntry);
 }
 
-function toPartialFailure(error: PartialError<ExecResult>): PartialError<PackageReleaseDiff> {
+function toPartialFailure(error: PartialError<ExecuteResult>): PartialError<PackageReleaseDiff> {
     return { succeeded: toReleaseDiffs(error.succeeded), failures: error.failures };
 }
 
 export async function runReleaseDiffStage(
     dependencies: ReleaseDiffStageDependencies,
-    config: ValidConfigResult,
+    configuration: ValidConfigurationResult,
     succeededResults: readonly BuildAndPublishResult[]
 ): Promise<ReleaseDiffStageResult> {
     const successByName = new Map(
@@ -116,12 +116,12 @@ export async function runReleaseDiffStage(
     );
 
     const stageResult = await dependencies.scheduler.runForEachScheduledPackage<
-        ExecResult,
+        ExecuteResult,
         string,
-        ExecOptions,
-        typeof config.packtoryConfig
+        ExecuteOptions,
+        typeof configuration.packtoryConfiguration
     >({
-        config,
+        configuration,
         createOptions(context) {
             return {
                 packageName: context.packageName,

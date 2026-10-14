@@ -7,7 +7,7 @@ import {
     createRetryingMetadataFetch,
     errorWithStatus,
     expectFailure,
-    metadataAutoBearerAuth,
+    metadataAutomaticBearerAuthentication,
     registryClientFactory
 } from '../../test-libraries/registry-client-test-support.ts';
 import type { PackageVersionDetails } from './package-metadata-fetcher.ts';
@@ -19,7 +19,7 @@ function expectLatestVersion(result: Maybe<PackageVersionDetails>): void {
         result,
         Maybe.just({
             version: '1',
-            tarballUrl: 'https://registry.example.test/pkg.tgz',
+            tarballAddress: 'https://registry.example.test/pkg.tgz',
             tarballIntegrity: emptyTarballIntegrity,
             gitHead: undefined
         })
@@ -28,16 +28,18 @@ function expectLatestVersion(result: Maybe<PackageVersionDetails>): void {
 
 suite('registry-client metadata auto retry', function () {
     test('metadata auto retries with publish auth on a 401 challenge', async function () {
-        const npmFetchJson = createRetryingMetadataFetch(401);
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = createRetryingMetadataFetch(401);
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
-        const result = await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+        const result = await registryClient.fetchLatestVersion('the-name', {
+            authentication: metadataAutomaticBearerAuthentication
+        });
 
         expectLatestVersion(result);
-        assertDeepSubset(npmFetchJson, {
+        assertDeepSubset(npmFetchJavaScriptObjectNotation, {
             callCount: 2,
             firstCall: {
-                args: [
+                arguments: [
                     '/the-name',
                     {
                         alwaysAuth: true,
@@ -47,7 +49,7 @@ suite('registry-client metadata auto retry', function () {
                 ]
             },
             secondCall: {
-                args: [
+                arguments: [
                     '/the-name',
                     {
                         alwaysAuth: true,
@@ -61,75 +63,85 @@ suite('registry-client metadata auto retry', function () {
     });
 
     test('metadata auto retries with publish auth on a 403 challenge', async function () {
-        const npmFetchJson = createRetryingMetadataFetch(403);
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = createRetryingMetadataFetch(403);
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
-        const result = await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+        const result = await registryClient.fetchLatestVersion('the-name', {
+            authentication: metadataAutomaticBearerAuthentication
+        });
 
         expectLatestVersion(result);
-        assert.strictEqual(npmFetchJson.callCount, 2);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 2);
     });
 
     test('metadata auto does not retry when the registry returns 404', async function () {
-        const npmFetchJson = fake.rejects(errorWithStatus('not found', 404));
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(errorWithStatus('not found', 404));
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
-        const result = await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+        const result = await registryClient.fetchLatestVersion('the-name', {
+            authentication: metadataAutomaticBearerAuthentication
+        });
 
         assert.deepStrictEqual(result, Maybe.nothing());
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('metadata auto does not retry when publish auth uses npm oidc', async function () {
-        const npmFetchJson = fake.rejects(errorWithStatus('auth required', 401));
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(errorWithStatus('auth required', 401));
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: {
-                    publish: { type: 'npm-oidc', provider: 'env' },
-                    metadata: 'auto'
+                authentication: {
+                    publish: { type: 'npm-open-identity-connect', provider: 'environment' },
+                    metadata: 'automatic'
                 }
             });
         }, /^Error: auth required$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('metadata auto does not retry when the registry returns a non-auth error', async function () {
-        const npmFetchJson = fake.rejects(errorWithStatus('server error', 500));
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(errorWithStatus('server error', 500));
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
-            await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+            await registryClient.fetchLatestVersion('the-name', {
+                authentication: metadataAutomaticBearerAuthentication
+            });
         }, /^Error: server error$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('metadata auto rethrows non-object errors without retrying', async function () {
-        const npmFetchJson = fake(async function () {
+        const npmFetchJavaScriptObjectNotation = fake(async function () {
             return new Promise(function (_resolve, reject) {
                 Reflect.apply(reject, undefined, [ 'server-error' ]);
             });
         });
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
-            await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+            await registryClient.fetchLatestVersion('the-name', {
+                authentication: metadataAutomaticBearerAuthentication
+            });
         }, /^server-error$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('metadata auto rethrows object errors without statusCode without retrying', async function () {
-        const npmFetchJson = fake.rejects(new Error('server-error'));
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(new Error('server-error'));
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
-            await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
+            await registryClient.fetchLatestVersion('the-name', {
+                authentication: metadataAutomaticBearerAuthentication
+            });
         }, /^Error: server-error$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 });

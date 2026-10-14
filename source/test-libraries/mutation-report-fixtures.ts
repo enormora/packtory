@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 
 export const killedMutant = { status: 'Killed', location: { start: { line: 1, column: 2 } } };
@@ -18,7 +18,7 @@ export async function withTemporaryReportDirectory<T>(
     contents: string,
     action: (reportPath: string, directory: string) => Promise<T>
 ): Promise<T> {
-    const directory = await mkdtemp(path.join(tmpdir(), 'packtory-mutation-check-'));
+    const directory = await mkdtemp(path.join(temporaryDirectory(), 'packtory-mutation-check-'));
     const reportPath = path.join(directory, relativePath);
 
     try {

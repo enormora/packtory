@@ -1,0 +1,223 @@
+import assert from 'node:assert';
+import { suite, test } from 'mocha';
+import {
+    buildLatestVersionFetchJavaScriptObjectNotation,
+    registryClientFactory
+} from '../../test-libraries/registry-client-test-support.ts';
+import type { RegistryClient } from './registry-client.ts';
+
+suite('registry-client metadata auth', function () {
+    test('fetchLatestVersion() uses shorthand auth for metadata by default', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: { type: 'bearer-token', token: 'the-token' }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: { token: 'the-token' },
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() uses explicit metadata auth when configured', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: {
+                publish: { type: 'bearer-token', token: 'writer-token' },
+                metadata: { type: 'basic', username: 'reader', password: 'reader-secret' }
+            }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: {
+                    _auth: Buffer.from('reader:reader-secret', 'utf8').toString('base64')
+                },
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() uses explicit bearer metadata auth when configured', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: {
+                publish: { type: 'basic', username: 'writer', password: 'writer-secret' },
+                metadata: { type: 'bearer-token', token: 'reader-token' }
+            }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: { token: 'reader-token' },
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() inherits publish auth for metadata by default when expanded auth omits metadata', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: {
+                publish: { type: 'bearer-token', token: 'writer-token' }
+            }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: { token: 'writer-token' },
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    suite('full metadata endpoint', function () {
+        for (
+            const scenario of [
+                {
+                    name: 'latest release metadata',
+                    async fetch(registryClient: RegistryClient) {
+                        await registryClient.fetchLatestReleaseMetadata('the-name', {
+                            authentication: { type: 'bearer-token', token: 'the-token' }
+                        });
+                    }
+                },
+                {
+                    name: 'exact version release metadata',
+                    async fetch(registryClient: RegistryClient) {
+                        await registryClient.fetchVersionReleaseMetadata('the-name', '1', {
+                            authentication: { type: 'bearer-token', token: 'the-token' }
+                        });
+                    }
+                }
+            ] as const
+        ) {
+            test(`${scenario.name} uses inherited metadata auth`, async function () {
+                const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+                const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+                await scenario.fetch(registryClient);
+
+                assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+                    '/the-name',
+                    {
+                        alwaysAuth: true,
+                        registry: undefined,
+                        forceAuth: { token: 'the-token' },
+                        headers: undefined
+                    }
+                ]);
+            });
+        }
+    });
+
+    test('fetchLatestVersion() uses anonymous metadata access by default for explicit npm oidc auth', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: {
+                publish: { type: 'npm-open-identity-connect' }
+            }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() uses shorthand npm oidc auth without attaching metadata credentials', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: { type: 'npm-open-identity-connect', provider: 'environment' }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() uses anonymous metadata access by default for shorthand npm oidc auth', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: { type: 'npm-open-identity-connect' }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() uses anonymous metadata access when explicitly configured', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('the-name', {
+            authentication: {
+                publish: { type: 'bearer-token', token: 'writer-token' },
+                metadata: 'anonymous'
+            }
+        });
+
+        assert.deepStrictEqual(npmFetchJavaScriptObjectNotation.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                headers: { accept: 'application/vnd.npm.install-v1+json' }
+            }
+        ]);
+    });
+
+    test('fetchLatestVersion() escapes scoped package names', async function () {
+        const npmFetchJavaScriptObjectNotation = buildLatestVersionFetchJavaScriptObjectNotation();
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
+
+        await registryClient.fetchLatestVersion('@the/name', {
+            authentication: { type: 'bearer-token', token: 'the-token' }
+        });
+
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.firstCall.firstArg, '/@the%2Fname');
+    });
+});

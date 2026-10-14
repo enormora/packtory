@@ -20,7 +20,7 @@ import {
 suite('runner report and preview', function () {
     const sampleReport = createBuildReportFixture({
         packages: {
-            'pkg-a': createPackageReportFixture({
+            'package-a': createPackageReportFixture({
                 outputs: {
                     tarball: {
                         totalBytes: 20,
@@ -88,11 +88,11 @@ suite('runner report and preview', function () {
             await expectCollectReportFlag('--report-html');
         });
 
-        async function runPublishWithReport(extraArgs: readonly string[]): Promise<FakeFileManager> {
+        async function runPublishWithReport(extraArguments: readonly string[]): Promise<FakeFileManager> {
             const fileManager = createFakeFileManager();
             const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
             const runner = createRunner({ buildAndPublishAll, fileManager });
-            await runner.run([ 'foo', 'bar', 'publish', ...extraArgs ]);
+            await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
             return fileManager;
         }
 
@@ -152,7 +152,7 @@ suite('runner report and preview', function () {
         test('publish writes the report even when the build failed', async function () {
             const fileManager = createFakeFileManager();
             const buildAndPublishAll = fake.resolves(
-                createOutcomeWithReport(Result.err({ type: 'config', issues: [ 'boom' ] }))
+                createOutcomeWithReport(Result.err({ type: 'configuration', issues: [ 'boom' ] }))
             );
             const runner = createRunner({ buildAndPublishAll, fileManager });
 
@@ -179,8 +179,8 @@ suite('runner report and preview', function () {
             const report = {
                 ...sampleReport,
                 packages: {
-                    'pkg-a': {
-                        ...sampleReport.packages['pkg-a'],
+                    'package-a': {
+                        ...sampleReport.packages['package-a'],
                         outputs: {
                             tarball: {
                                 totalBytes: 20,
@@ -251,7 +251,7 @@ suite('runner report and preview', function () {
             assertDeepSubset(openFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/workspace/packtory-preview-test.html' ]
+                    arguments: [ '/workspace/packtory-preview-test.html' ]
                 }
             });
             assert.strictEqual(log.callCount, 0);
@@ -276,7 +276,7 @@ suite('runner report and preview', function () {
             assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/workspace/packtory-preview-test.html' ]
+                    arguments: [ '/workspace/packtory-preview-test.html' ]
                 }
             });
         });
@@ -316,8 +316,8 @@ suite('runner report and preview', function () {
         test('preview stops all spinners when config loading fails before the build starts', async function () {
             const stopAll = fake();
             const log = fake();
-            const loadConfig = fake.rejects(new Error('config boom'));
-            const runner = createRunner({ loadConfig, log, spinnerRenderer: { stopAll } });
+            const loadConfiguration = fake.rejects(new Error('config boom'));
+            const runner = createRunner({ loadConfiguration, log, spinnerRenderer: { stopAll } });
 
             const exitCode = await runner.run([ 'foo', 'bar', 'preview' ]);
 

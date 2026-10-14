@@ -1,9 +1,12 @@
-import type { RegistrySettings } from '../../config/registry-settings.ts';
+import type { RegistrySettings } from '../../configuration/registry-settings.ts';
 import type { Clock } from '../../common/clock.ts';
-import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
-import { resolveMetadataAuthOptions, type AuthResolution } from './registry-auth-config.ts';
+import { retryWithFallbackAuthentication } from './metadata-authentication-retry.ts';
+import {
+    resolveMetadataAuthenticationOptions,
+    type AuthenticationResolution
+} from './registry-authentication-configuration.ts';
 import { assertTarballIntegrity, type TarballIntegrity } from './tarball-integrity.ts';
-import { maxDownloadedTarballBytes, readTarballResponse } from './tarball-response.ts';
+import { maximumDownloadedTarballBytes, readTarballResponse } from './tarball-response.ts';
 import { assertTarballOriginMatchesRegistry } from './validate-tarball-host.ts';
 
 const maximumRedirects = 20;
@@ -22,14 +25,14 @@ const redirectStatuses: ReadonlySet<number> = new Set([
 ]);
 
 export type TarballFetcher = (
-    url: string,
+    address: string,
     integrity: TarballIntegrity,
     settings: RegistrySettings
 ) => Promise<Buffer>;
 
 type TarballRequest = {
-    readonly url: string;
-    readonly auth: AuthResolution;
+    readonly address: string;
+    readonly authentication: AuthenticationResolution;
     readonly registrySettings: Readonly<RegistrySettings>;
     readonly signal: AbortSignal;
 };
@@ -39,13 +42,13 @@ type TarballFetchDependencies = {
     readonly clock: Pick<Clock, 'clearTimeout' | 'setTimeout'>;
 };
 
-async function redirectedTarballUrl(response: Response, url: string): Promise<string> {
+async function redirectedTarballAddress(response: Response, address: string): Promise<string> {
     await response.body?.cancel();
     const location = response.headers.get('location');
     if (location === null) {
         throw new Error('Registry tarball redirect is missing a Location header');
     }
-    const { href } = new URL(location, url);
+    const { href } = new URL(location, address);
     return href;
 }
 
@@ -62,11 +65,13 @@ async function requestTarball(
     fetchImplementation: typeof globalThis.fetch,
     request: TarballRequest
 ): Promise<Response> {
-    let { url } = request;
+    let { address } = request;
     for (let redirects = 0; redirects <= maximumRedirects; redirects += 1) {
-        assertTarballOriginMatchesRegistry(url, request.registrySettings);
-        const response = await fetchImplementation(url, {
-            headers: request.auth.authorization === undefined ? {} : { Authorization: request.auth.authorization },
+        assertTarballOriginMatchesRegistry(address, request.registrySettings);
+        const response = await fetchImplementation(address, {
+            headers: request.authentication.authorization === undefined
+                ? {}
+                : { Authorization: request.authentication.authorization },
             redirect: 'manual',
             signal: request.signal
         });
@@ -74,36 +79,36 @@ async function requestTarball(
             await assertTarballResponseSuccess(response);
             return response;
         }
-        url = await redirectedTarballUrl(response, url);
+        address = await redirectedTarballAddress(response, address);
     }
     throw new Error(`Registry tarball download exceeded ${maximumRedirects} redirects`);
 }
 
 export async function fetchPackageTarball(
     dependencies: TarballFetchDependencies,
-    tarballUrl: string,
+    tarballAddress: string,
     tarballIntegrity: TarballIntegrity,
     registrySettings: Readonly<RegistrySettings>
 ): Promise<Buffer> {
-    assertTarballOriginMatchesRegistry(tarballUrl, registrySettings);
+    assertTarballOriginMatchesRegistry(tarballAddress, registrySettings);
     const controller = new AbortController();
     const timeout = dependencies.clock.setTimeout(function () {
         controller.abort(new Error(`Registry tarball download exceeded ${tarballRequestTimeoutMilliseconds} ms`));
     }, tarballRequestTimeoutMilliseconds);
     try {
-        const response = await retryWithFallbackAuth(
+        const response = await retryWithFallbackAuthentication(
             registrySettings,
-            resolveMetadataAuthOptions(registrySettings),
-            async function (auth) {
+            resolveMetadataAuthenticationOptions(registrySettings),
+            async function (authentication) {
                 return requestTarball(dependencies.fetch, {
-                    url: tarballUrl,
-                    auth,
+                    address: tarballAddress,
+                    authentication,
                     registrySettings,
                     signal: controller.signal
                 });
             }
         );
-        const tarball = await readTarballResponse(response, maxDownloadedTarballBytes);
+        const tarball = await readTarballResponse(response, maximumDownloadedTarballBytes);
         assertTarballIntegrity(tarball, tarballIntegrity);
         return tarball;
     } finally {

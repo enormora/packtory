@@ -5,11 +5,11 @@ import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
-import { packageConfigFixture, validConfigFixture } from '../../test-libraries/config-fixtures.ts';
+import { packageConfigurationFixture, validConfigurationFixture } from '../../test-libraries/configuration-fixtures.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { ValidConfigResult } from '../../config/validation.ts';
+import type { ValidConfigurationResult } from '../../configuration/validation.ts';
 import { createIteratingScheduler, type IteratingSchedulerCapture } from '../../test-libraries/iterating-scheduler.ts';
-import { buildSbomFixtureContent } from '../../test-libraries/sbom-fixtures.ts';
+import { buildSoftwareBillOfMaterialsFixtureContent } from '../../test-libraries/software-bill-of-materials-fixtures.ts';
 import { versionedBundleWithManifest } from '../../test-libraries/bundle-fixtures.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
@@ -20,10 +20,10 @@ type ArtifactsBuilderStub = {
     readonly collectContents: SinonSpy;
 };
 
-function configFor(packageNames: readonly string[]): ValidConfigResult {
-    return validConfigFixture({
+function configurationFor(packageNames: readonly string[]): ValidConfigurationResult {
+    return validConfigurationFixture({
         packages: packageNames.map(function (name) {
-            return packageConfigFixture({ name });
+            return packageConfigurationFixture({ name });
         })
     });
 }
@@ -47,17 +47,17 @@ function artifactsBuilderReturning(files: readonly FileDescription[]): Artifacts
     return { collectContents: fake.returns(files) };
 }
 
-async function runPkgAStage(
+async function runPackageAStage(
     files: readonly FileDescription[],
     buildResultOverrides: Partial<BuildAndPublishResult> = {}
 ): ReturnType<typeof runReleaseDiffStage> {
     return runReleaseDiffStage(
         {
             artifactsBuilder: artifactsBuilderReturning(files),
-            scheduler: createIteratingScheduler([ 'pkg-a' ])
+            scheduler: createIteratingScheduler([ 'package-a' ])
         },
-        configFor([ 'pkg-a' ]),
-        [ buildResultFor('pkg-a', buildResultOverrides) ]
+        configurationFor([ 'package-a' ]),
+        [ buildResultFor('package-a', buildResultOverrides) ]
     );
 }
 
@@ -76,21 +76,32 @@ function expectFirstEntry(result: ReleaseDiffStageResult): PackageReleaseDiff {
     return first;
 }
 
-async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<FileSetDiff> {
+async function runSoftwareBillOfMaterialsDiff(
+    previousSoftwareBillOfMaterials: string,
+    currentSoftwareBillOfMaterials: string
+): Promise<FileSetDiff> {
     const newFiles: readonly FileDescription[] = [
-        { filePath: 'sbom.cdx.json', content: currentSbom, isExecutable: false }
+        {
+            filePath: 'software-bill-of-materials.cyclonedx.json',
+            content: currentSoftwareBillOfMaterials,
+            isExecutable: false
+        }
     ];
     const previousFiles: readonly FileDescription[] = [
-        { filePath: 'sbom.cdx.json', content: previousSbom, isExecutable: false }
+        {
+            filePath: 'software-bill-of-materials.cyclonedx.json',
+            content: previousSoftwareBillOfMaterials,
+            isExecutable: false
+        }
     ];
     const result = await runReleaseDiffStage(
         {
             artifactsBuilder: artifactsBuilderReturning(newFiles),
-            scheduler: createIteratingScheduler([ 'pkg-a' ])
+            scheduler: createIteratingScheduler([ 'package-a' ])
         },
-        configFor([ 'pkg-a' ]),
+        configurationFor([ 'package-a' ]),
         [
-            buildResultFor('pkg-a', {
+            buildResultFor('package-a', {
                 previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: previousFiles })
             })
         ]
@@ -102,17 +113,17 @@ async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<F
     return entry.files;
 }
 
-async function runAlreadyPublishedPkgAStage(
+async function runAlreadyPublishedPackageAStage(
     artifactsBuilder: ArtifactsBuilderStub
 ): ReturnType<typeof runReleaseDiffStage> {
     return runReleaseDiffStage(
         {
             artifactsBuilder,
-            scheduler: createIteratingScheduler([ 'pkg-a' ])
+            scheduler: createIteratingScheduler([ 'package-a' ])
         },
-        configFor([ 'pkg-a' ]),
+        configurationFor([ 'package-a' ]),
         [
-            buildResultFor('pkg-a', {
+            buildResultFor('package-a', {
                 status: 'already-published',
                 previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: [] })
             })
@@ -125,20 +136,20 @@ function registerBasicDiffTests(): void {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning([]),
-                scheduler: createIteratingScheduler([ 'pkg-a', 'pkg-broken' ])
+                scheduler: createIteratingScheduler([ 'package-a', 'package-broken' ])
             },
-            configFor([ 'pkg-a', 'pkg-broken' ]),
-            [ buildResultFor('pkg-a') ]
+            configurationFor([ 'package-a', 'package-broken' ]),
+            [ buildResultFor('package-a') ]
         );
 
         const names = expectOk(result).map(function (entry) {
             return entry.name;
         });
-        assert.deepStrictEqual(names, [ 'pkg-a' ]);
+        assert.deepStrictEqual(names, [ 'package-a' ]);
     });
 
     test('produces an unchanged entry with all four file buckets empty when the BuildAndPublishResult is already-published', async function () {
-        const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
+        const result = await runAlreadyPublishedPackageAStage(artifactsBuilderReturning([]));
 
         const first = expectFirstEntry(result);
         assert.partialDeepStrictEqual(first, {
@@ -149,7 +160,7 @@ function registerBasicDiffTests(): void {
     });
 
     test('produces a first-publish state with all bundled files in `added`, empty `removed`/`modified`/`unchanged`', async function () {
-        const result = await runPkgAStage([
+        const result = await runPackageAStage([
             { filePath: 'package.json', content: '{}', isExecutable: false },
             { filePath: 'bin/cli.js', content: '#!/usr/bin/env node\n', isExecutable: true }
         ]);
@@ -171,7 +182,7 @@ function registerBasicDiffTests(): void {
     });
 
     test('measures added-file sizes in UTF-8 bytes', async function () {
-        const result = await runPkgAStage([ { filePath: 'r.md', content: 'á', isExecutable: false } ]);
+        const result = await runPackageAStage([ { filePath: 'r.md', content: 'á', isExecutable: false } ]);
 
         const first = expectFirstEntry(result);
         const [ added ] = first.files.added;
@@ -183,18 +194,22 @@ function registerBasicDiffTests(): void {
 
     test('passes the bundle, the "package" target tag, and the extraFiles to artifactsBuilder.collectContents', async function () {
         const collectContents = fake.returns([]);
-        const extraFile: FileDescription = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+        const extraFile: FileDescription = {
+            filePath: 'software-bill-of-materials.cyclonedx.json',
+            content: '{}',
+            isExecutable: false
+        };
         const bundle = versionedBundleWithManifest({
-            name: 'pkg-a',
+            name: 'package-a',
             version: '1.0.0'
         });
 
         await runReleaseDiffStage(
             {
                 artifactsBuilder: { collectContents },
-                scheduler: createIteratingScheduler([ 'pkg-a' ])
+                scheduler: createIteratingScheduler([ 'package-a' ])
             },
-            configFor([ 'pkg-a' ]),
+            configurationFor([ 'package-a' ]),
             [
                 {
                     status: 'new-version',
@@ -209,14 +224,14 @@ function registerBasicDiffTests(): void {
         assertDeepSubset(collectContents, {
             callCount: 1,
             firstCall: {
-                args: [ bundle, 'package', [ extraFile ] ]
+                arguments: [ bundle, 'package', [ extraFile ] ]
             }
         });
     });
 
     test('does not call artifactsBuilder.collectContents for an already-published package', async function () {
         const collectContents = fake.returns([]);
-        await runAlreadyPublishedPkgAStage({ collectContents });
+        await runAlreadyPublishedPackageAStage({ collectContents });
         assert.strictEqual(collectContents.callCount, 0);
     });
 }
@@ -238,8 +253,8 @@ function registerSchedulerTests(): void {
                 artifactsBuilder: artifactsBuilderReturning([]),
                 scheduler: failingScheduler
             },
-            configFor([ 'pkg-a' ]),
-            [ buildResultFor('pkg-a') ]
+            configurationFor([ 'package-a' ]),
+            [ buildResultFor('package-a') ]
         );
 
         if (result.isOk) {
@@ -260,10 +275,10 @@ function registerSchedulerTests(): void {
         await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning([]),
-                scheduler: createIteratingScheduler([ 'pkg-a' ], capture)
+                scheduler: createIteratingScheduler([ 'package-a' ], capture)
             },
-            configFor([ 'pkg-a' ]),
-            [ buildResultFor('pkg-a') ]
+            configurationFor([ 'package-a' ]),
+            [ buildResultFor('package-a') ]
         );
         assert.strictEqual(capture.emitScheduledEvents, false);
     });
@@ -275,12 +290,12 @@ function registerSchedulerTests(): void {
         await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning([]),
-                scheduler: createIteratingScheduler([ 'pkg-a', 'pkg-b' ], capture)
+                scheduler: createIteratingScheduler([ 'package-a', 'package-b' ], capture)
             },
-            configFor([ 'pkg-a', 'pkg-b' ]),
-            [ buildResultFor('pkg-a'), buildResultFor('pkg-b') ]
+            configurationFor([ 'package-a', 'package-b' ]),
+            [ buildResultFor('package-a'), buildResultFor('package-b') ]
         );
-        assert.deepStrictEqual(capture.selected, [ 'pkg-a', 'pkg-b' ]);
+        assert.deepStrictEqual(capture.selected, [ 'package-a', 'package-b' ]);
     });
 }
 
@@ -299,16 +314,16 @@ function registerChangedDiffTests(): void {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning(newFiles),
-                scheduler: createIteratingScheduler([ 'pkg-a' ])
+                scheduler: createIteratingScheduler([ 'package-a' ])
             },
-            configFor([ 'pkg-a' ]),
+            configurationFor([ 'package-a' ]),
             [
-                buildResultFor('pkg-a', {
+                buildResultFor('package-a', {
                     bundle: {
-                        ...versionedBundleWithManifest({ name: 'pkg-a', version: '1.0.1' }),
+                        ...versionedBundleWithManifest({ name: 'package-a', version: '1.0.1' }),
                         manifestFile: {
                             filePath: 'package.json',
-                            content: '{"name":"pkg-a","version":"1.0.1"}\n',
+                            content: '{"name":"package-a","version":"1.0.1"}\n',
                             isExecutable: false
                         }
                     },
@@ -334,28 +349,36 @@ function registerChangedDiffTests(): void {
     });
 
     test('classifies an SBOM that differs only in the packtory tool version as unchanged', async function () {
-        const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
-        const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
-        const files = await runSbomDiff(previousSbom, currentSbom);
+        const previousSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({
+            packtoryVersion: '1.2.3'
+        });
+        const currentSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '9.9.9' });
+        const files = await runSoftwareBillOfMaterialsDiff(
+            previousSoftwareBillOfMaterials,
+            currentSoftwareBillOfMaterials
+        );
         assert.deepStrictEqual(
             { modified: files.modified.length, unchanged: files.unchanged.length },
             { modified: 0, unchanged: 1 }
         );
-        assert.strictEqual(files.unchanged[0]?.path, 'sbom.cdx.json');
+        assert.strictEqual(files.unchanged[0]?.path, 'software-bill-of-materials.cyclonedx.json');
     });
 
     test('still flags an SBOM as modified when it has changes beyond the packtory tool version', async function () {
-        const previousSbom = buildSbomFixtureContent({
+        const previousSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({
             packtoryVersion: '1.2.3',
             dependencyComponents: [ { name: 'old-dependency', version: '1.0.0' } ]
         });
-        const currentSbom = buildSbomFixtureContent({
+        const currentSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({
             packtoryVersion: '9.9.9',
             dependencyComponents: [ { name: 'new-dependency', version: '2.0.0' } ]
         });
-        const files = await runSbomDiff(previousSbom, currentSbom);
+        const files = await runSoftwareBillOfMaterialsDiff(
+            previousSoftwareBillOfMaterials,
+            currentSoftwareBillOfMaterials
+        );
         assert.strictEqual(files.modified.length, 1);
-        assert.strictEqual(files.modified[0]?.path, 'sbom.cdx.json');
+        assert.strictEqual(files.modified[0]?.path, 'software-bill-of-materials.cyclonedx.json');
     });
 }
 

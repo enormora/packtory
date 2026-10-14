@@ -6,7 +6,7 @@ import { buildModuleAnalysis } from './module-analysis.ts';
 
 function moduleKindFor(targetFilePath: string): string {
     const analysis = buildModuleAnalysis({
-        inputFilePath: `/src/${targetFilePath}`,
+        inputFilePath: `/source/${targetFilePath}`,
         targetFilePath,
         sourceFile: undefined,
         bindings: [],
@@ -27,7 +27,7 @@ suite('liveness module analysis', function () {
 
     test('buildModuleAnalysis records no effects when no source file is available', function () {
         const analysis = buildModuleAnalysis({
-            inputFilePath: '/src/LICENSE',
+            inputFilePath: '/source/LICENSE',
             targetFilePath: 'LICENSE',
             sourceFile: undefined,
             bindings: [],
@@ -46,7 +46,7 @@ suite('liveness module analysis', function () {
         });
         const sourceFile = project.getSourceFileOrThrow('index.ts');
         const analysis = buildModuleAnalysis({
-            inputFilePath: '/src/index.ts',
+            inputFilePath: '/source/index.ts',
             targetFilePath: 'index.ts',
             sourceFile,
             bindings: extractTopLevelBindings(sourceFile),

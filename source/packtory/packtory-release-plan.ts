@@ -1,5 +1,5 @@
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.ts';
+import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import {
     partialFailureType,
@@ -21,7 +21,7 @@ import { classifyPackageRelease } from './release-analysis.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigResult
+    configuration: ValidConfigurationResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 type ReleasePlanArtifactDependencies = {
@@ -148,7 +148,7 @@ function toFinalReleasePlanResult(
 export function createPlanReleaseAgainstLatestPublishedValidated(
     dependencies: ReleasePlanDependencies
 ): (
-    validated: ValidConfigResult,
+    validated: ValidConfigurationResult,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<ReleasePlanResult> {
     return async function planReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated) {

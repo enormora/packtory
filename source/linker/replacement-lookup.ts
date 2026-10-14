@@ -4,7 +4,10 @@ import {
     declarationCompanionCandidates,
     isDeclarationCompanionFilePath
 } from '../common/declaration-companion-paths.ts';
-import { bfsClosure, type BfsClosureDependencies } from '../dead-code-eliminator/reachability/bfs-closure.ts';
+import {
+    breadthFirstClosure,
+    type BreadthFirstClosureDependencies
+} from '../dead-code-eliminator/reachability/breadth-first-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { indexPublicModules, rootInputFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
@@ -148,7 +151,7 @@ function declarationInputFilePaths(
     return exportedInputFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
 }
 
-const pathClosureDependencies: BfsClosureDependencies<string> = {
+const pathClosureDependencies: BreadthFirstClosureDependencies<string> = {
     visitedHas(visited, value): boolean {
         return visited.has(value);
     },
@@ -163,7 +166,7 @@ function inputFilePathForState(state: ExportState): string {
     return state.inputFilePath;
 }
 
-const exportClosureDependencies: BfsClosureDependencies<ExportState> = {
+const exportClosureDependencies: BreadthFirstClosureDependencies<ExportState> = {
     visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
         return Array.from(visited).some(function (state) {
             return exportStateValue(state, 'inputFilePath') === exportStateValue(value, 'inputFilePath') &&
@@ -211,7 +214,7 @@ function publicModuleCanExport(
     request: ImportPathReplacementRequest,
     exportName: string | undefined
 ): boolean {
-    const closure = bfsClosure(
+    const closure = breadthFirstClosure(
         rootInputFilePathsForModule.map(function (inputFilePath) {
             return { inputFilePath, exportName };
         }),
@@ -231,7 +234,7 @@ function publicModuleReachesSourceFile(
     lookup: ContentLookup,
     request: ImportPathReplacementRequest
 ): boolean {
-    const closure = bfsClosure(
+    const closure = breadthFirstClosure(
         rootInputFilePathsForModule,
         function (inputFilePath) {
             const content = lookup.contentBySourcePath.get(inputFilePath);
@@ -308,7 +311,7 @@ function getImplicitPublicModuleSpecifierForSourcePath(
     }
 
     for (const root of Object.values(bundle.roots)) {
-        const candidate = toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`);
+        const candidate = toPackageSpecifier(bundle.name, `./${root.javaScript.targetFilePath}`);
         if (publicModuleCanSatisfyRequest(rootInputFilePaths(root), lookup, request)) {
             specifiers.push(candidate);
         }

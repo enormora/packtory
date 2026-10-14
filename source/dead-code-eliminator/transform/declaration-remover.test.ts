@@ -19,7 +19,7 @@ function transform(
     const project = createProject({ withFiles: [ { filePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(filePath);
     const result = applyRemovalPlan(sourceFile, {
-        bundleName: 'pkg',
+        bundleName: 'package',
         inputFilePath: filePath,
         targetFilePath: filePath,
         survivingNames: surviving,

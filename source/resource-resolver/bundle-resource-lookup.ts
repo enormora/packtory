@@ -32,12 +32,15 @@ export function buildResolvedRoots(
 ): ResolvedBundle['roots'] {
     const resolvedRoots: Record<
         string,
-        { readonly js: TransferableFileDescription; readonly declarationFile: TransferableFileDescription | undefined; }
+        {
+            readonly javaScript: TransferableFileDescription;
+            readonly declarationFile: TransferableFileDescription | undefined;
+        }
     > = {};
-    for (const [ rootId, root ] of Object.entries(normalized.roots)) {
-        const jsResource = requireFileDescriptionBySourcePath(root.js, contents);
+    for (const [ rootIdentifier, root ] of Object.entries(normalized.roots)) {
+        const javaScriptResource = requireFileDescriptionBySourcePath(root.javaScript, contents);
         const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
-        resolvedRoots[rootId] = { js: jsResource, declarationFile };
+        resolvedRoots[rootIdentifier] = { javaScript: javaScriptResource, declarationFile };
     }
 
     return resolvedRoots;

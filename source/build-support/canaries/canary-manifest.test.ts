@@ -9,7 +9,7 @@ const validManifest = [
         installCommand: 'npm clean-install --ignore-scripts',
         name: 'sample',
         publishCommand: 'npx just packtory-dry-run',
-        ref: 'main',
+        reference: 'main',
         repository: 'https://github.com/enormora/objectory.git'
     }
 ] as const;

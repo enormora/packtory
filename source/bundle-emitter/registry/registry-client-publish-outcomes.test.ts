@@ -13,7 +13,7 @@ suite('registry-client publish outcomes', function () {
         const publish = fake.resolves(undefined);
         const registryClient = registryClientFactory({ publish });
 
-        await publishWithBearerToken(registryClient, { access: 'public', provenance: { type: 'auto' } }, false);
+        await publishWithBearerToken(registryClient, { access: 'public', provenance: { type: 'automatic' } }, false);
 
         const publishOptions = publish.firstCall.args.at(-1) as Record<string, unknown>;
         assert.partialDeepStrictEqual(publishOptions, {
@@ -33,7 +33,11 @@ suite('registry-client publish outcomes', function () {
         const registryClient = registryClientFactory({ publish });
 
         try {
-            await publishWithBearerToken(registryClient, { access: 'public', provenance: { type: 'auto' } }, false);
+            await publishWithBearerToken(
+                registryClient,
+                { access: 'public', provenance: { type: 'automatic' } },
+                false
+            );
             assert.fail('Expected publishPackage() to throw');
         } catch (error: unknown) {
             assert.ok(error instanceof Error, 'Expected the thrown value to be an Error');

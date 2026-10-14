@@ -1,5 +1,5 @@
 import type { DeadCodeEliminator } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
 import { resolveDeadCodeEliminationByName } from '../options/dead-code-elimination-resolution.ts';
 import { createResolvedPackage, type ResolvedPackage } from '../resolved-package.ts';
 import type { LinkedPackage } from './package-resolution-stage.ts';
@@ -58,10 +58,10 @@ function substitutionPublicModuleInputFilePathsFor(
 
 export async function analyzeResolvedPackages(
     dependencies: PackageAnalysisDependencies,
-    config: ValidConfigWithoutRegistryResult,
+    configuration: ValidConfigurationWithoutRegistryResult,
     linkedPackages: readonly LinkedPackage[]
 ): Promise<readonly ResolvedPackage[]> {
-    const deadCodeEliminationByName = resolveDeadCodeEliminationByName(config);
+    const deadCodeEliminationByName = resolveDeadCodeEliminationByName(configuration);
     const publicSubstitutionPathsByName = collectSubstitutionPublicModuleInputFilePaths(linkedPackages);
     const analyzedBundles = await dependencies.deadCodeEliminator.eliminate(
         linkedPackages.map(function (linkedPackage) {

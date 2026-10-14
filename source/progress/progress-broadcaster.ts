@@ -55,14 +55,14 @@ type EliminationBundleResult = {
 export type VersionTrigger = 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned';
 
 export type FieldProvenance = {
-    readonly source: 'additionalAttributes' | 'derived' | 'mainPackageJson';
+    readonly source: 'additionalAttributes' | 'derived' | 'mainPackageManifest';
     readonly note?: string;
 };
 
 export type ArtifactEntry = {
     readonly path: string;
     readonly sizeBytes: number;
-    readonly kind: 'additional' | 'manifest' | 'sbom' | 'source';
+    readonly kind: 'additional' | 'manifest' | 'software-bill-of-materials' | 'source';
     readonly sourcePath?: string | undefined;
     readonly status: ArtifactStatus;
     readonly badges: readonly ArtifactBadge[];
@@ -75,7 +75,7 @@ export type EliminatedSourceFile = {
     readonly outputBytes?: number | undefined;
 };
 
-export type RedactedConfig = Readonly<Record<string, unknown>>;
+export type RedactedConfiguration = Readonly<Record<string, unknown>>;
 
 type ProgressEventPayload = {
     readonly packageName: string;
@@ -113,9 +113,9 @@ type InputsResolvedPayload = {
     readonly siblingVersions: Readonly<Record<string, string>>;
 };
 
-type EffectiveConfigResolvedPayload = {
+type EffectiveConfigurationResolvedPayload = {
     readonly packageName: string;
-    readonly config: RedactedConfig;
+    readonly configuration: RedactedConfiguration;
 };
 
 type ScanCompletedPayload = {
@@ -140,7 +140,7 @@ type VersionDeterminedPayload = {
     readonly trigger: VersionTrigger;
 };
 
-type PackageJsonAssembledPayload = {
+type PackageManifestAssembledPayload = {
     readonly packageName: string;
     readonly fields: Readonly<Record<string, FieldProvenance>>;
 };
@@ -153,7 +153,7 @@ type ArtifactsCollectedPayload = {
 type StageTimedPayload = {
     readonly packageName: string;
     readonly stage: StageName;
-    readonly durationMs: number;
+    readonly durationMilliseconds: number;
 };
 
 type PackageFailedPayload = {
@@ -172,12 +172,12 @@ type Events = {
     readonly done: DonePayload;
     readonly error: ErrorPayload;
     readonly inputsResolved: InputsResolvedPayload;
-    readonly effectiveConfigResolved: EffectiveConfigResolvedPayload;
+    readonly effectiveConfigurationResolved: EffectiveConfigurationResolvedPayload;
     readonly scanCompleted: ScanCompletedPayload;
     readonly linkingCompleted: LinkingCompletedPayload;
     readonly eliminationCompleted: EliminationCompletedPayload;
     readonly versionDetermined: VersionDeterminedPayload;
-    readonly packageJsonAssembled: PackageJsonAssembledPayload;
+    readonly packageManifestAssembled: PackageManifestAssembledPayload;
     readonly artifactsCollected: ArtifactsCollectedPayload;
     readonly stageTimed: StageTimedPayload;
     readonly packageFailed: PackageFailedPayload;
@@ -241,12 +241,12 @@ function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<
         done: new Set(),
         error: new Set(),
         inputsResolved: new Set(),
-        effectiveConfigResolved: new Set(),
+        effectiveConfigurationResolved: new Set(),
         scanCompleted: new Set(),
         linkingCompleted: new Set(),
         eliminationCompleted: new Set(),
         versionDetermined: new Set(),
-        packageJsonAssembled: new Set(),
+        packageManifestAssembled: new Set(),
         artifactsCollected: new Set(),
         stageTimed: new Set(),
         packageFailed: new Set()

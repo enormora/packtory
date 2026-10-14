@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
@@ -12,13 +12,13 @@ function runtimeResource(
     moduleReferences: readonly ArtifactModuleReference[]
 ): BundleResource & { readonly isSubstituted: false; } {
     return {
-        ...bundleResource('/src/index.js', { content, moduleReferences, targetFilePath: 'index.js' }),
+        ...bundleResource('/source/index.js', { content, moduleReferences, targetFilePath: 'index.js' }),
         isSubstituted: false
     };
 }
 
 async function productionFilesIn(folder: string): Promise<readonly string[]> {
-    const names = await fs.promises.readdir(folder);
+    const names = await fileSystem.promises.readdir(folder);
     return names
         .filter(function (name) {
             return name.endsWith('.ts') && !name.endsWith('.test.ts');
@@ -32,7 +32,7 @@ suite('artifact module reference contract', function () {
     test('dead code elimination rejects emitted module literals without artifact references', async function () {
         const eliminator = createTestEliminator();
         const bundle = linkedBundle({
-            name: 'pkg',
+            name: 'package',
             contents: [
                 runtimeResource(
                     [
@@ -50,14 +50,14 @@ suite('artifact module reference contract', function () {
             async function () {
                 await eliminator.eliminate(inputs(bundle));
             },
-            /pkg: index\.js is missing artifact module reference for "\.\/shared\.js"[\s\S]+pkg: index\.js is missing artifact module reference for "\.\/lazy\.js"[\s\S]+pkg: index\.js is missing artifact module reference for "\.\/data\.json"/u
+            /package: index\.js is missing artifact module reference for "\.\/shared\.js"[\s\S]+package: index\.js is missing artifact module reference for "\.\/lazy\.js"[\s\S]+package: index\.js is missing artifact module reference for "\.\/data\.json"/u
         );
     });
 
     test('dead code elimination rejects emitted module literals with only wrong artifact references', async function () {
         const eliminator = createTestEliminator();
         const bundle = linkedBundle({
-            name: 'pkg',
+            name: 'package',
             contents: [
                 runtimeResource(
                     'export { shared } from "./shared.js";\n',
@@ -77,14 +77,14 @@ suite('artifact module reference contract', function () {
             async function () {
                 await eliminator.eliminate(inputs(bundle));
             },
-            /pkg: index\.js is missing artifact module reference for "\.\/shared\.js"/u
+            /package: index\.js is missing artifact module reference for "\.\/shared\.js"/u
         );
     });
 
     test('dead code elimination allows node builtins without artifact references', async function () {
         const eliminator = createTestEliminator();
         const bundle = linkedBundle({
-            name: 'pkg',
+            name: 'package',
             contents: [ runtimeResource('import fs from "node:fs";\nexport const api = fs.existsSync;\n', []) ]
         });
 
@@ -100,7 +100,7 @@ suite('artifact module reference contract', function () {
         ];
         const offenders: string[] = [];
         for (const filePath of files) {
-            const content = await fs.promises.readFile(filePath, 'utf8');
+            const content = await fileSystem.promises.readFile(filePath, 'utf8');
             if (/from ['"]node:path['"]|path\.(?:join|resolve|dirname)|\bdirname\(/u.test(content)) {
                 offenders.push(filePath);
             }

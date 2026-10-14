@@ -1,7 +1,7 @@
 import { isDefined, pickBy } from 'remeda';
 import { noPublication, publishedToRegistry } from '../bundle-emitter/publication-outcome.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
-import type { BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishOptions } from './map-configuration.ts';
 import { createVersionProviderContext } from './options/version-provider-context.ts';
 import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
 import type { PublishDependencies } from './package-processor-publish-dependencies.ts';
@@ -55,9 +55,9 @@ type ConfirmedPublishInput = PublishRecoveryInput & {
 };
 const unconfirmedPublishRecovery = Symbol('unconfirmedPublishRecovery');
 type PublishRecoveryAttempt = BuildAndPublishResult | typeof unconfirmedPublishRecovery;
-function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
-    if (mainPackageJson.type !== 'module') {
-        throw new Error('mainPackageJson.type must be "module"');
+function assertEcmaScriptModuleMainPackageManifest(mainPackageManifest: MainPackageTypeField): void {
+    if (mainPackageManifest.type !== 'module') {
+        throw new Error('mainPackageManifest.type must be "module"');
     }
 }
 
@@ -103,7 +103,7 @@ async function generateExtraFiles(
     versionedBundle: VersionedBundleWithManifest,
     buildOptions: BuildAndPublishOptions
 ): Promise<ExtraFiles> {
-    const result = await dependencies.sbomFileBuilder.generate(
+    const result = await dependencies.softwareBillOfMaterialsFileBuilder.generate(
         versionedBundle,
         siblingsFromOptions(buildOptions),
         buildOptions.publishSettings
@@ -335,7 +335,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         stage: boolean,
         substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined
     ): Promise<VersionedBundleBuildContext> {
-        assertEsmMainPackageJson(options.mainPackageJson);
+        assertEcmaScriptModuleMainPackageManifest(options.mainPackageManifest);
         const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
             name: analyzedBundle.name,
             registrySettings: options.registrySettings,
@@ -500,7 +500,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
-        assertEsmMainPackageJson(options.buildOptions.mainPackageJson);
+        assertEcmaScriptModuleMainPackageManifest(options.buildOptions.mainPackageManifest);
         const currentHeadPublishAttempt = await tryFinalizePublishedCurrentHead(dependencies, options);
         if (currentHeadPublishAttempt === false) {
             return verifyPreparedPublish({ dependencies, options, result: await buildPendingPublish(options) });

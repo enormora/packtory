@@ -1,5 +1,5 @@
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { BundleLinker } from '../linker/linker.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
@@ -7,7 +7,7 @@ import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts
 import { inspectLinkerRewrites } from '../report/inspectors/inspect-linker-rewrites.ts';
 import { inspectScanResults, type ScanInspectionInput } from '../report/inspectors/inspect-scan-results.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
-import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
+import type { BuildOptions, ResolveAndLinkOptions } from './map-configuration.ts';
 
 type LinkedBundle = Awaited<ReturnType<BundleLinker['linkBundle']>>;
 type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
@@ -21,9 +21,9 @@ export type ResolveAndBuildDependencies = {
     readonly versionManager: VersionManager;
 };
 
-function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
-    if (mainPackageJson.type !== 'module') {
-        throw new Error('mainPackageJson.type must be "module"');
+function assertEcmaScriptModuleMainPackageManifest(mainPackageManifest: MainPackageTypeField): void {
+    if (mainPackageManifest.type !== 'module') {
+        throw new Error('mainPackageManifest.type must be "module"');
     }
 }
 
@@ -100,7 +100,7 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         options: ResolveAndLinkOptions,
         resolveBundle: () => Promise<ResolvedBundle>
     ): Promise<LinkedBundle> {
-        assertEsmMainPackageJson(options.mainPackageJson);
+        assertEcmaScriptModuleMainPackageManifest(options.mainPackageManifest);
         dependencies.progressBroadcaster.emit('resolving', { packageName: options.name });
         return await linkResolvedBundle(options, await resolveBundle());
     }
@@ -134,7 +134,7 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
     }
 
     async function build(options: BuildOptions): Promise<VersionedBundleWithManifest> {
-        assertEsmMainPackageJson(options.mainPackageJson);
+        assertEcmaScriptModuleMainPackageManifest(options.mainPackageManifest);
         const {
             additionalFiles,
             bundleDependencies,
@@ -151,9 +151,9 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
             surface: normalizedResolveInputs.surface,
             includeSourceMapFiles,
             additionalFiles,
-            mainPackageJson: options.mainPackageJson,
+            mainPackageManifest: options.mainPackageManifest,
             additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
-            additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+            additionalPackageManifestAttributes: options.additionalPackageManifestAttributes,
             allowMutableSpecifiers: options.allowMutableSpecifiers,
             bundleDependencies,
             bundlePeerDependencies
@@ -169,10 +169,10 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         return dependencies.versionManager.addVersion({
             bundle: analyzedBundle,
             version: options.version,
-            mainPackageJson: options.mainPackageJson,
+            mainPackageManifest: options.mainPackageManifest,
             bundleDependencies: options.bundleDependencies,
             bundlePeerDependencies: options.bundlePeerDependencies,
-            additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+            additionalPackageManifestAttributes: options.additionalPackageManifestAttributes,
             allowMutableSpecifiers: options.allowMutableSpecifiers
         });
     }

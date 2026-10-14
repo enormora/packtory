@@ -2,33 +2,36 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
-import type { ChangelogConfig } from './changelog-destinations.ts';
+import type { ChangelogConfiguration } from './changelog-destinations.ts';
 import { collectGitHubReleaseNotes } from './github-release-notes.ts';
 
 const target = {
-    name: 'pkg-a',
-    tagName: 'pkg-a@1.0.1',
+    name: 'package-a',
+    tagName: 'package-a@1.0.1',
     version: '1.0.1'
 };
 const secondTarget = {
-    name: 'pkg-b',
-    tagName: 'pkg-b@1.0.1',
+    name: 'package-b',
+    tagName: 'package-b@1.0.1',
     version: '1.0.1'
 };
 
-const config: ChangelogConfig = {
+const configuration: ChangelogConfiguration = {
     changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
-    packages: [ { name: 'pkg-a', sourcesFolder: 'packages/pkg-a' } ]
+    packages: [ { name: 'package-a', sourcesFolder: 'packages/package-a' } ]
 };
-const explicitPathConfig: ChangelogConfig = {
+const explicitPathConfiguration: ChangelogConfiguration = {
     changelog: {
         outputs: [
-            { kind: 'package-file', paths: { 'pkg-a': 'changelogs/pkg-a.md', 'pkg-b': 'changelogs/pkg-b.md' } }
+            {
+                kind: 'package-file',
+                paths: { 'package-a': 'changelogs/package-a.md', 'package-b': 'changelogs/package-b.md' }
+            }
         ]
     },
     packages: [
-        { name: 'pkg-a', sourcesFolder: 'packages/pkg-a' },
-        { name: 'pkg-b', sourcesFolder: 'packages/pkg-b' }
+        { name: 'package-a', sourcesFolder: 'packages/package-a' },
+        { name: 'package-b', sourcesFolder: 'packages/package-b' }
     ]
 };
 
@@ -47,29 +50,31 @@ suite('github-release-notes', function () {
 
             const notes = await collectGitHubReleaseNotes(
                 { fileManager: { readFile }, workingDirectory: '/repo' },
-                config,
+                configuration,
                 [ target ],
-                generatedChangelog(new Map([ [ 'pkg-a', '## pkg-a 1.0.1\n\n* Generated' ] ]))
+                generatedChangelog(new Map([ [ 'package-a', '## package-a 1.0.1\n\n* Generated' ] ]))
             );
 
-            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Generated');
+            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Generated');
             assert.strictEqual(readFile.callCount, 0);
         });
     });
 
     suite('recovery', function () {
         test('recovers missing package release notes from the configured package changelog', async function () {
-            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1\n\n* Recovered\n\n## pkg-a 1.0.0\n\n* Old');
+            const readFile = fake.resolves(
+                '# Changelog\n\n## package-a 1.0.1\n\n* Recovered\n\n## package-a 1.0.0\n\n* Old'
+            );
 
             const notes = await collectGitHubReleaseNotes(
                 { fileManager: { readFile }, workingDirectory: '/repo' },
-                config,
+                configuration,
                 [ target ],
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Recovered');
-            assert.strictEqual(readFile.firstCall.args[0], '/repo/packages/pkg-a/CHANGELOG.md');
+            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/packages/package-a/CHANGELOG.md');
         });
 
         test('recovers release notes with a version-only heading', async function () {
@@ -77,40 +82,40 @@ suite('github-release-notes', function () {
 
             const notes = await collectGitHubReleaseNotes(
                 { fileManager: { readFile }, workingDirectory: '/repo' },
-                config,
+                configuration,
                 [ target ],
-                generatedChangelog(new Map([ [ 'pkg-a', ' '.repeat(3) ] ]))
+                generatedChangelog(new Map([ [ 'package-a', ' '.repeat(3) ] ]))
             );
 
-            assert.strictEqual(notes.get('pkg-a'), '## 1.0.1 (2026-06-13)\n\n* Recovered');
+            assert.strictEqual(notes.get('package-a'), '## 1.0.1 (2026-06-13)\n\n* Recovered');
         });
 
         test('recovers release notes from the matching explicit package changelog path', async function () {
-            const readFile = fake.resolves('## pkg-a 1.0.1\n\n* Recovered');
+            const readFile = fake.resolves('## package-a 1.0.1\n\n* Recovered');
 
             const notes = await collectGitHubReleaseNotes(
                 { fileManager: { readFile }, workingDirectory: '/repo' },
-                explicitPathConfig,
+                explicitPathConfiguration,
                 [ target ],
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Recovered');
-            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/pkg-a.md');
+            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/package-a.md');
         });
 
         test('selects the matching explicit path for later package outputs', async function () {
-            const readFile = fake.resolves('## pkg-b 1.0.1\n\n* Recovered');
+            const readFile = fake.resolves('## package-b 1.0.1\n\n* Recovered');
 
             const notes = await collectGitHubReleaseNotes(
                 { fileManager: { readFile }, workingDirectory: '/repo' },
-                explicitPathConfig,
+                explicitPathConfiguration,
                 [ secondTarget ],
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('pkg-b'), '## pkg-b 1.0.1\n\n* Recovered');
-            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/pkg-b.md');
+            assert.strictEqual(notes.get('package-b'), '## package-b 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/package-b.md');
         });
     });
 
@@ -121,26 +126,26 @@ suite('github-release-notes', function () {
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    { changelog: { outputs: [ { kind: 'github-release' } ] }, packages: [ { name: 'pkg-a' } ] },
+                    { changelog: { outputs: [ { kind: 'github-release' } ] }, packages: [ { name: 'package-a' } ] },
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
             assert.strictEqual(readFile.callCount, 0);
         });
 
         test('rejects configured changelogs without a matching release heading', async function () {
-            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.0\n\n* Old');
+            const readFile = fake.resolves('# Changelog\n\n## package-a 1.0.0\n\n* Old');
 
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
         });
 
@@ -150,25 +155,25 @@ suite('github-release-notes', function () {
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
         });
 
         test('rejects configured changelogs whose matching release heading has only whitespace', async function () {
-            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1\n  \n## pkg-a 1.0.0\n\n* Old');
+            const readFile = fake.resolves('# Changelog\n\n## package-a 1.0.1\n  \n## package-a 1.0.0\n\n* Old');
 
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
         });
 
@@ -179,11 +184,11 @@ suite('github-release-notes', function () {
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
         });
 
@@ -194,7 +199,7 @@ suite('github-release-notes', function () {
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
@@ -203,16 +208,16 @@ suite('github-release-notes', function () {
         });
 
         test('rejects targets without generated or configured release notes', async function () {
-            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1');
+            const readFile = fake.resolves('# Changelog\n\n## package-a 1.0.1');
 
             await assert.rejects(
                 collectGitHubReleaseNotes(
                     { fileManager: { readFile }, workingDirectory: '/repo' },
-                    config,
+                    configuration,
                     [ target ],
                     generatedChangelog(new Map())
                 ),
-                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+                /GitHub release notes for "package-a@1.0.1" could not be generated/u
             );
         });
     });

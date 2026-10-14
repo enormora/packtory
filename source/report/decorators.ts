@@ -15,7 +15,7 @@ function emitTiming(
     progressBroadcaster.emit('stageTimed', {
         packageName,
         stage,
-        durationMs: performance.now() - start
+        durationMilliseconds: performance.now() - start
     });
 }
 

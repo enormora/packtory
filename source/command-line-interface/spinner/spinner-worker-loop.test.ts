@@ -13,8 +13,8 @@ import {
 } from './spinner-worker-loop.ts';
 
 const escapeCodePoint = 27;
-const escapeChar = String.fromCodePoint(escapeCodePoint);
-const clearLineSequence = `${escapeChar}[2K\r`;
+const escapeCharacter = String.fromCodePoint(escapeCodePoint);
+const clearLineSequence = `${escapeCharacter}[2K\r`;
 const successSymbolPattern = /✔/u;
 const failureSymbolPattern = /✖/u;
 const cursorUpLineCountPattern = /\[(?<lineCount>\d+)A/u;
@@ -66,23 +66,23 @@ function noop(): void {
 
 function buildInput(
     slotCount: number,
-    stdoutFileDescriptor = 1
+    standardOutputFileDescriptor = 1
 ): WorkerInputFixture {
     const layout = createSpinnerSharedLayout(slotCount);
     const buffer = new SharedArrayBuffer(layout.bufferByteLength);
     const accessors = createSpinnerSharedAccessors(buffer, layout);
-    return { input: { buffer, slotCount, stdoutFileDescriptor }, accessors };
+    return { input: { buffer, slotCount, standardOutputFileDescriptor }, accessors };
 }
 
-function createHarness(slotCount: number, stdoutFileDescriptor = 1): Harness {
-    const { input, accessors } = buildInput(slotCount, stdoutFileDescriptor);
+function createHarness(slotCount: number, standardOutputFileDescriptor = 1): Harness {
+    const { input, accessors } = buildInput(slotCount, standardOutputFileDescriptor);
     const captured: CapturedInterval = {};
     const writes: string[] = [];
     const clearIntervalCalls: unknown[] = [];
 
     const dependencies: SpinnerWorkerDependencies<string> = {
         write(fileDescriptor, chunk) {
-            assert.strictEqual(fileDescriptor, stdoutFileDescriptor);
+            assert.strictEqual(fileDescriptor, standardOutputFileDescriptor);
             writes.push(chunk);
         },
         setInterval(callback) {
@@ -127,7 +127,7 @@ function extractGlyph(chunk: string): string {
 function setupRunningSlotHarnessAndTick(): RunningSlotHarness {
     const harness = createHarness(1);
     harness.accessors.setColumns(80);
-    harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
+    harness.accessors.writeSlot(0, 'running', 'package', 'msg');
 
     harness.tick();
 
@@ -137,7 +137,7 @@ function setupRunningSlotHarnessAndTick(): RunningSlotHarness {
 function setupShutdownHarness(): ShutdownHarness {
     const harness = createHarness(1);
     harness.accessors.setColumns(80);
-    harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
+    harness.accessors.writeSlot(0, 'running', 'package', 'msg');
     harness.accessors.bumpSlotGeneration(0);
     const runningMutation = harness.accessors.markMutation();
 
@@ -153,36 +153,36 @@ suite('spinner-worker-loop', function () {
     suite('startup and glyphs', function () {
         test('startSpinnerWorker schedules the ticker with the interval stored in the shared buffer', function () {
             const { input, accessors } = buildInput(1);
-            accessors.setIntervalMs(40);
-            let capturedMs: number | null = null;
+            accessors.setIntervalMilliseconds(40);
+            let capturedMilliseconds: number | null = null;
 
             startSpinnerWorker(input, {
                 write: noop,
-                setInterval(_callback, ms) {
-                    capturedMs = ms;
+                setInterval(_callback, milliseconds) {
+                    capturedMilliseconds = milliseconds;
                     return 'ticker-handle';
                 },
                 clearInterval: noop
             });
 
-            assert.strictEqual(capturedMs, 40);
+            assert.strictEqual(capturedMilliseconds, 40);
         });
 
         test('startSpinnerWorker writes the running slot label and message to the configured stdout file descriptor', function () {
             const harness = createHarness(2, 7);
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'running', 'pkg', 'starting');
+            harness.accessors.writeSlot(0, 'running', 'package', 'starting');
 
             harness.tick();
 
             const written = harness.writes().join('');
-            assert.match(written, /pkg: starting/u);
+            assert.match(written, /package: starting/u);
         });
 
         test('startSpinnerWorker draws the success symbol for slots that have succeeded', function () {
             const harness = createHarness(1);
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'succeeded', 'pkg', 'done');
+            harness.accessors.writeSlot(0, 'succeeded', 'package', 'done');
 
             harness.tick();
 
@@ -192,7 +192,7 @@ suite('spinner-worker-loop', function () {
         test('startSpinnerWorker draws the failure symbol for failed slots', function () {
             const harness = createHarness(1);
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'failed', 'pkg', 'oops');
+            harness.accessors.writeSlot(0, 'failed', 'package', 'oops');
 
             harness.tick();
 
@@ -202,7 +202,7 @@ suite('spinner-worker-loop', function () {
         test('startSpinnerWorker draws the failure symbol for canceled slots', function () {
             const harness = createHarness(1);
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'canceled', 'pkg', 'aborted');
+            harness.accessors.writeSlot(0, 'canceled', 'package', 'aborted');
 
             harness.tick();
 
@@ -297,10 +297,10 @@ suite('spinner-worker-loop', function () {
 
             harness.tick();
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'running', 'pkg', 'starting');
+            harness.accessors.writeSlot(0, 'running', 'package', 'starting');
             harness.tick();
 
-            assert.match(harness.writes().join(''), /pkg: starting/u);
+            assert.match(harness.writes().join(''), /package: starting/u);
         });
 
         test('startSpinnerWorker acknowledges a pending mutation even when there is nothing to render', function () {
@@ -326,7 +326,7 @@ suite('spinner-worker-loop', function () {
         test('startSpinnerWorker keeps refreshing the rendered block once a slot was drawn even if it goes empty', function () {
             const harness = createHarness(1);
             harness.accessors.setColumns(80);
-            harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
+            harness.accessors.writeSlot(0, 'running', 'package', 'msg');
 
             harness.tick();
             harness.accessors.writeSlot(0, 'empty', '', '');
@@ -350,7 +350,7 @@ suite('spinner-worker-loop', function () {
             const layout = createSpinnerSharedLayout(1);
             const buffer = new SharedArrayBuffer(layout.bufferByteLength);
 
-            assert.strictEqual(isSpinnerWorkerInput({ buffer, slotCount: 1, stdoutFileDescriptor: 1 }), true);
+            assert.strictEqual(isSpinnerWorkerInput({ buffer, slotCount: 1, standardOutputFileDescriptor: 1 }), true);
         });
 
         test('isSpinnerWorkerInput rejects non-objects', function () {
@@ -360,7 +360,7 @@ suite('spinner-worker-loop', function () {
 
         test('isSpinnerWorkerInput rejects payloads with a buffer that is not a SharedArrayBuffer', function () {
             assert.strictEqual(
-                isSpinnerWorkerInput({ buffer: new ArrayBuffer(8), slotCount: 1, stdoutFileDescriptor: 1 }),
+                isSpinnerWorkerInput({ buffer: new ArrayBuffer(8), slotCount: 1, standardOutputFileDescriptor: 1 }),
                 false
             );
         });
@@ -369,14 +369,20 @@ suite('spinner-worker-loop', function () {
             const layout = createSpinnerSharedLayout(1);
             const buffer = new SharedArrayBuffer(layout.bufferByteLength);
 
-            assert.strictEqual(isSpinnerWorkerInput({ buffer, slotCount: '1', stdoutFileDescriptor: 1 }), false);
+            assert.strictEqual(
+                isSpinnerWorkerInput({ buffer, slotCount: '1', standardOutputFileDescriptor: 1 }),
+                false
+            );
         });
 
-        test('isSpinnerWorkerInput rejects payloads with a non-numeric stdoutFileDescriptor', function () {
+        test('isSpinnerWorkerInput rejects payloads with a non-numeric standardOutputFileDescriptor', function () {
             const layout = createSpinnerSharedLayout(1);
             const buffer = new SharedArrayBuffer(layout.bufferByteLength);
 
-            assert.strictEqual(isSpinnerWorkerInput({ buffer, slotCount: 1, stdoutFileDescriptor: '1' }), false);
+            assert.strictEqual(
+                isSpinnerWorkerInput({ buffer, slotCount: 1, standardOutputFileDescriptor: '1' }),
+                false
+            );
         });
     });
 });

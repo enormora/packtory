@@ -4,7 +4,7 @@ import { createServer, type RequestListener } from 'node:http';
 
 export async function withRegistryServer(
     handleRequest: RequestListener,
-    run: (registryUrl: string) => Promise<void>
+    run: (registryAddress: string) => Promise<void>
 ): Promise<void> {
     const server = createServer(handleRequest);
     server.listen(0, '127.0.0.1');

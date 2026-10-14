@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 suite('package-types', function () {
@@ -15,14 +15,14 @@ suite('package-types', function () {
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/entry.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -31,7 +31,7 @@ suite('package-types', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     dependencies: { 'example-module': '1.2.3' },
                     name: 'the-package-name',
                     sideEffects: false,
@@ -45,11 +45,11 @@ suite('package-types', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -57,12 +57,12 @@ suite('package-types', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/bar.js') ]),
                         fileDescription: {
                             content:
                                 "import { bar } from './bar.js';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'source/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -74,7 +74,7 @@ suite('package-types', function () {
                         fileDescription: {
                             content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/bar.js'),
+                            inputFilePath: path.join(fixture, 'source/bar.js'),
                             targetFilePath: 'bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -88,7 +88,7 @@ suite('package-types', function () {
                 mainFile: {
                     content: "import { foo } from './foo.js';\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -106,14 +106,14 @@ suite('package-types', function () {
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/entry.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -122,7 +122,7 @@ suite('package-types', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     peerDependencies: { 'example-module': '1.2.3' },
                     name: 'the-package-name',
                     sideEffects: false,
@@ -140,7 +140,7 @@ suite('package-types', function () {
                         fileDescription: {
                             content: "import { example } from 'example-module';\nexport const foo = example;\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -152,7 +152,7 @@ suite('package-types', function () {
                 mainFile: {
                     content: "import { example } from 'example-module';\nexport const foo = example;\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

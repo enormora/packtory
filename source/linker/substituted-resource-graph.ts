@@ -204,7 +204,7 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
 
             for (const rootFilePath of rootFilePaths) {
                 graph.visitBreadthFirstSearch(rootFilePath, function (node) {
-                    collect(node.id, node.data, node.adjacentNodeIds, targetPaths);
+                    collect(node.identifier, node.data, node.adjacentNodeIdentifiers, targetPaths);
                 });
             }
 
@@ -212,7 +212,7 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 return data.isExplicitlyIncluded;
             });
             for (const [ filePath, data ] of includedNodes) {
-                const directDependencies = graph.getAdjacentIds(filePath);
+                const directDependencies = graph.getAdjacentIdentifiers(filePath);
                 collect(filePath, data, directDependencies, targetPaths);
             }
 

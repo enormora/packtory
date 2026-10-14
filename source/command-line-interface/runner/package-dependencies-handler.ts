@@ -1,5 +1,5 @@
 import {
-    configErrorType,
+    configurationErrorType,
     packPackageFailureType,
     partialFailureType,
     type PackageDependencyInspectionFailure
@@ -8,7 +8,7 @@ import type { Packtory } from '../../packtory/packtory.ts';
 import {
     renderTerminalPackageDependencies
 } from '../../report/terminal-renderer/terminal-package-dependencies-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runPackageInspectionHandler } from './package-inspection-handler.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
@@ -24,12 +24,12 @@ export type PackageDependenciesHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly flags: PackageDependenciesFlags;
 };
 
-function formatConfigFailure(
-    error: Extract<PackageDependencyInspectionFailure, { readonly type: typeof configErrorType; }>
+function formatConfigurationFailure(
+    error: Extract<PackageDependencyInspectionFailure, { readonly type: typeof configurationErrorType; }>
 ): string {
     return [
         'Packtory dependency reasons [Dry run]',
@@ -55,8 +55,8 @@ function formatPartialFailure(
 }
 
 function formatPackageDependenciesFailure(error: PackageDependencyInspectionFailure, trace: boolean): string {
-    if (error.type === configErrorType) {
-        return formatConfigFailure(error);
+    if (error.type === configurationErrorType) {
+        return formatConfigurationFailure(error);
     }
 
     if (error.type === partialFailureType) {
@@ -73,12 +73,12 @@ function formatPackageDependenciesFailure(error: PackageDependencyInspectionFail
 export async function runPackageDependenciesHandler(
     dependencies: PackageDependenciesHandlerDependencies
 ): Promise<number> {
-    const { configLoader, flags, log, packtory, spinnerRenderer } = dependencies;
+    const { configurationLoader, flags, log, packtory, spinnerRenderer } = dependencies;
     return await runPackageInspectionHandler({
         log,
         spinnerRenderer,
         async inspect() {
-            return await packtory.inspectPackageDependencies(await configLoader.load(), flags.packageName);
+            return await packtory.inspectPackageDependencies(await configurationLoader.load(), flags.packageName);
         },
         renderFailure(error) {
             return formatPackageDependenciesFailure(error, flags.trace);

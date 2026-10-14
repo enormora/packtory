@@ -1,45 +1,45 @@
 import type { Except } from 'type-fest';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
+import type { AdditionalPackageManifestAttributes, MainPackageManifest } from '../configuration/package-manifest.ts';
 import type {
     PublishedPackage,
-    PublishedPackageJson,
+    PublishedPackageManifest,
     PublishedPackageWithManifest
 } from '../published-package/published-package.ts';
-import { buildBinField } from '../package-surface/bin-field.ts';
+import { buildExecutableField } from '../package-surface/executable-field.ts';
 import { buildExportsField } from '../package-surface/export-map.ts';
 import { buildOptionalVersionedBundleFields } from './optional-bundle-fields.ts';
 import { resolveRepresentativeRoot } from './representative-root.ts';
 import { distributeDependencies } from './dependencies/versioned-bundle-dependencies.ts';
 import { buildImportsField } from './imports/versioned-bundle-imports.ts';
 
-export type BundlePackageJson = PublishedPackageJson;
+export type BundlePackageManifest = PublishedPackageManifest;
 type VersionedDependency = Pick<PublishedPackage, 'name' | 'version'>;
 
 export type VersionedBundle = Except<PublishedPackage, 'contents'> & Pick<AnalyzedBundle, 'contents'>;
-type VersionedBundleManifestFields = Pick<PublishedPackageWithManifest, 'manifestFile' | 'packageJson'>;
+type VersionedBundleManifestFields = Pick<PublishedPackageWithManifest, 'manifestFile' | 'packageManifest'>;
 export type VersionedBundleWithManifest = VersionedBundle & VersionedBundleManifestFields;
 
 export type BuildVersionedBundleOptions = {
     readonly bundle: AnalyzedBundle;
     readonly version: string;
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
     readonly bundleDependencies: readonly VersionedDependency[];
     readonly bundlePeerDependencies: readonly VersionedDependency[];
-    readonly additionalPackageJsonAttributes: AdditionalPackageJsonAttributes;
+    readonly additionalPackageManifestAttributes: AdditionalPackageManifestAttributes;
     readonly allowMutableSpecifiers: readonly string[];
     readonly substitutionPublicModuleSourcePaths?: ReadonlySet<string> | undefined;
 };
 
 export function buildVersionedBundle(options: BuildVersionedBundleOptions): VersionedBundle {
-    const { bundle, version, mainPackageJson, additionalPackageJsonAttributes } = options;
+    const { bundle, version, mainPackageManifest, additionalPackageManifestAttributes } = options;
 
     const distributedDependencies = distributeDependencies(options);
-    const importsField = buildImportsField(bundle, mainPackageJson);
+    const importsField = buildImportsField(bundle, mainPackageManifest);
     const exportsField = buildExportsField(bundle, options.substitutionPublicModuleSourcePaths ?? new Set<string>());
-    const binField = buildBinField(bundle);
+    const executableField = buildExecutableField(bundle);
     const representativeRoot = resolveRepresentativeRoot(bundle);
-    const mainFile = representativeRoot.js;
+    const mainFile = representativeRoot.javaScript;
     const typesMainFile = representativeRoot.declarationFile;
 
     return {
@@ -52,9 +52,9 @@ export function buildVersionedBundle(options: BuildVersionedBundleOptions): Vers
         exportsField,
         contents: bundle.contents,
         mainFile,
-        additionalAttributes: additionalPackageJsonAttributes,
-        packageType: mainPackageJson.type,
+        additionalAttributes: additionalPackageManifestAttributes,
+        packageType: mainPackageManifest.type,
         sideEffectsField: bundle.sideEffectsField,
-        ...buildOptionalVersionedBundleFields({ importsField, binField, typesMainFile })
+        ...buildOptionalVersionedBundleFields({ importsField, executableField, typesMainFile })
     };
 }

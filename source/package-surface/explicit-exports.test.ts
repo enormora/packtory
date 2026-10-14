@@ -28,13 +28,16 @@ suite('explicit-exports', function () {
     });
 
     test("maps a subpath export to its root's import target", function () {
-        const bundle = { name: 'package-a', roots: { main: plainRoot('index.js'), cli: plainRoot('cli.js') } };
+        const bundle = {
+            name: 'package-a',
+            roots: { main: plainRoot('index.js'), commandLineInterface: plainRoot('cli.js') }
+        };
         const surface: ExplicitSurface = {
             mode: 'explicit',
             packageInterface: {
                 modules: [
                     { root: 'main', export: '.' },
-                    { root: 'cli', export: './cli' }
+                    { root: 'commandLineInterface', export: './cli' }
                 ]
             }
         };
@@ -42,11 +45,11 @@ suite('explicit-exports', function () {
         assert.deepStrictEqual(buildExplicitExportsField(bundle, surface)['./cli'], { import: './cli.js' });
     });
 
-    test('returns an empty record when packageInterface declares only bins and no modules', function () {
-        const bundle = { name: 'package-a', roots: { cli: plainRoot('cli.js') } };
+    test('returns an empty record when packageInterface declares only executables and no modules', function () {
+        const bundle = { name: 'package-a', roots: { commandLineInterface: plainRoot('cli.js') } };
         const surface: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] }
+            packageInterface: { executables: [ { root: 'commandLineInterface', name: 'package-a' } ] }
         };
 
         assert.deepStrictEqual(buildExplicitExportsField(bundle, surface), {});
@@ -64,18 +67,18 @@ suite('explicit-exports', function () {
     test('emits a type-only root export when a bin-only package root has a declaration file', function () {
         const bundle = {
             name: 'package-a',
-            roots: { cli: rootWithDeclaration('', 'cli.js', '', 'cli.d.ts') }
+            roots: { commandLineInterface: rootWithDeclaration('', 'cli.js', '', 'cli.d.ts') }
         };
         const surface: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] }
+            packageInterface: { executables: [ { root: 'commandLineInterface', name: 'package-a' } ] }
         };
 
         assert.deepStrictEqual(buildExplicitExportsField(bundle, surface), { '.': { types: './cli.d.ts' } });
     });
 
-    test('includes the package.json export when exportPackageJson is true', function () {
-        const result = buildExplicitExportsField({ ...mainOnlyBundle, exportPackageJson: true }, rootSurface);
+    test('includes the package.json export when exportPackageManifest is true', function () {
+        const result = buildExplicitExportsField({ ...mainOnlyBundle, exportPackageManifest: true }, rootSurface);
 
         assert.strictEqual(result['./package.json'], './package.json');
     });

@@ -6,14 +6,14 @@ import { safeParse } from '../common/schema-validation.ts';
 import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
 import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import { packageNameMap } from '../common/package-name-map.ts';
-import { serializeStableJson } from '../common/stable-json.ts';
+import { serializeStableJavaScriptObjectNotation } from '../common/stable-structured-data.ts';
 import { createWorklist } from '../common/worklist.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PackEmitter, PackFormat } from '../pack-emitter/pack-emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import {
     vendorMaterializerFailureType,
     type VendorMaterializer,
@@ -49,7 +49,7 @@ export type PackAllOptions = {
 export type InternalPackFailure = InternalResolveAndLinkFailure | PackPackageFailure;
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigWithoutRegistryResult
+    configuration: ValidConfigurationWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>>;
 
 export type PackRunDependencies = {
@@ -66,7 +66,7 @@ type VersionedDependency = {
     readonly version: string;
 };
 
-function shouldPreservePackageJsonArrayOrder(propertyPath: readonly string[]): boolean {
+function shouldPreservePackageManifestArrayOrder(propertyPath: readonly string[]): boolean {
     const [ topLevelKey ] = propertyPath;
     return topLevelKey === 'imports' || topLevelKey === 'exports';
 }
@@ -89,10 +89,10 @@ function buildVersionedBundle(
     return versionManager.addVersion({
         bundle: target.analyzedBundle,
         version,
-        mainPackageJson: target.resolveOptions.mainPackageJson,
+        mainPackageManifest: target.resolveOptions.mainPackageManifest,
         bundleDependencies: versionedDependenciesForPack(target.resolveOptions.bundleDependencies, version),
         bundlePeerDependencies: versionedDependenciesForPack(target.resolveOptions.bundlePeerDependencies, version),
-        additionalPackageJsonAttributes: target.resolveOptions.additionalPackageJsonAttributes,
+        additionalPackageManifestAttributes: target.resolveOptions.additionalPackageManifestAttributes,
         allowMutableSpecifiers: target.resolveOptions.allowMutableSpecifiers,
         substitutionPublicModuleSourcePaths: collectPublicModuleUsage(resolvedPackages.map(function (entry) {
             return entry.analyzedBundle;
@@ -101,7 +101,7 @@ function buildVersionedBundle(
     });
 }
 
-type BundleDepClosure = {
+type BundleDependencyClosure = {
     readonly extraFiles: readonly FileDescription[];
     readonly packageNames: ReadonlySet<string>;
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
@@ -125,7 +125,7 @@ function collectBundleDependencies(
     resolvedPackages: readonly ResolvedPackage[],
     versionManager: VersionManager,
     fallbackVersion: string
-): BundleDepClosure {
+): BundleDependencyClosure {
     const resolvedByName = new Map(packageNameMap(resolvedPackages));
     const closure = {
         extraFiles: [] as FileDescription[],
@@ -236,7 +236,7 @@ function buildUnsatisfiedPeers(
 }
 
 function buildVendoredClosureCheck(
-    bundleClosure: BundleDepClosure,
+    bundleClosure: BundleDependencyClosure,
     built: VersionedBundleWithManifest,
     target: ResolvedPackage,
     materializedExternals: MaterializedExternals
@@ -244,7 +244,7 @@ function buildVendoredClosureCheck(
     const closurePackageNames = new Set<string>([
         built.name,
         ...Object.keys(built.peerDependencies),
-        ...Object.keys(target.resolveOptions.mainPackageJson.peerDependencies ?? {}),
+        ...Object.keys(target.resolveOptions.mainPackageManifest.peerDependencies ?? {}),
         ...bundleClosure.packageNames,
         ...materializedExternals.packageNames
     ]);
@@ -277,8 +277,8 @@ function serializeVendoredManifest(bundle: VersionedBundleWithManifest): string 
         return undefined;
     }
 
-    return serializeStableJson(stripVendoredManifestFields(parsedManifest.data), {
-        shouldPreserveArrayOrder: shouldPreservePackageJsonArrayOrder
+    return serializeStableJavaScriptObjectNotation(stripVendoredManifestFields(parsedManifest.data), {
+        shouldPreserveArrayOrder: shouldPreservePackageManifestArrayOrder
     });
 }
 
@@ -307,7 +307,7 @@ function prepareVendoredArtifactFailure(
 
 function prepareVendoredArtifactSuccess(
     built: VersionedBundleWithManifest,
-    bundleClosure: BundleDepClosure,
+    bundleClosure: BundleDependencyClosure,
     materializedExternals: MaterializedExternals
 ): Result<PreparedArtifact, PackPackageFailure> {
     return Result.ok({
@@ -498,7 +498,7 @@ async function packAllWithResolved(
 export function createRunPackValidated(
     dependencies: PackRunDependencies
 ): (
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     options: PackOptions,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<Result<undefined, InternalPackFailure>> {
@@ -514,7 +514,7 @@ export function createRunPackValidated(
 export function createRunPackAllValidated(
     dependencies: PackRunDependencies
 ): (
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     options: PackAllOptions,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<Result<PackAllSuccess, InternalPackFailure>> {

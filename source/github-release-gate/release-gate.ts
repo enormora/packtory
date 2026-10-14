@@ -1,4 +1,4 @@
-import { maxDate } from '../common/max-date.ts';
+import { maximumDate } from '../common/maximum-date.ts';
 
 export type PullRequestTimelineEvent = {
     readonly createdAt: Date;
@@ -7,29 +7,42 @@ export type PullRequestTimelineEvent = {
 
 export type PullRequestActivity = {
     readonly activityAt: Date;
-    readonly htmlUrl: string;
+    readonly hypertextMarkupLanguageAddress: string;
     readonly number: number;
 };
 
-type SuccessfulMainCiRun = {
-    readonly htmlUrl: string;
+type SuccessfulMainContinuousIntegrationRun = {
+    readonly hypertextMarkupLanguageAddress: string;
     readonly updatedAt: Date;
 };
 
-type MainCiRunInProgressStatus = { readonly kind: 'in_progress'; };
-type MainCiRunMissingStatus = { readonly kind: 'missing'; };
-type MainCiRunSuccessStatus = { readonly kind: 'success'; readonly run: SuccessfulMainCiRun; };
+type MainContinuousIntegrationRunInProgressStatus = { readonly kind: 'in_progress'; };
+type MainContinuousIntegrationRunMissingStatus = { readonly kind: 'missing'; };
+type MainContinuousIntegrationRunSuccessStatus = {
+    readonly kind: 'success';
+    readonly run: SuccessfulMainContinuousIntegrationRun;
+};
 
-export type MainCiRunStatus = MainCiRunInProgressStatus | MainCiRunMissingStatus | MainCiRunSuccessStatus;
+type MainWorkflowStatuses = {
+    readonly running: MainContinuousIntegrationRunInProgressStatus;
+    readonly missing: MainContinuousIntegrationRunMissingStatus;
+    readonly succeeded: MainContinuousIntegrationRunSuccessStatus;
+};
+export type MainContinuousIntegrationRunStatus = MainWorkflowStatuses[keyof MainWorkflowStatuses];
 
-type CiDecisionReason = 'activity_not_stale' | 'ci_in_progress' | 'ci_not_green';
+type ContinuousIntegrationDecisionReason = 'activity_not_stale' | 'ci_in_progress' | 'ci_not_green';
 type DependencyPolicyDecisionReason = keyof {
-    readonly dependency_only_min_age_elapsed: true;
-    readonly dependency_only_min_age_not_elapsed: true;
+    readonly dependency_only_minimum_age_elapsed: true;
+    readonly dependency_only_minimum_age_not_elapsed: true;
     readonly dependency_only_published_at_unknown: true;
 };
 type PublishWindowDecisionReason = 'max_latency_elapsed' | 'quiet_period_elapsed' | 'release_unchanged';
-type GitHubReleaseGateDecisionReason = CiDecisionReason | DependencyPolicyDecisionReason | PublishWindowDecisionReason;
+type GateDecisionReasons = {
+    readonly continuousIntegration: ContinuousIntegrationDecisionReason;
+    readonly dependencyPolicy: DependencyPolicyDecisionReason;
+    readonly publishWindow: PublishWindowDecisionReason;
+};
+type GitHubReleaseGateDecisionReason = GateDecisionReasons[keyof GateDecisionReasons];
 
 export type GitHubReleaseGateDecision = {
     readonly logs: readonly string[];
@@ -38,11 +51,11 @@ export type GitHubReleaseGateDecision = {
 };
 
 export type GitHubReleaseGateInput = {
-    readonly ciWorkflowFile: string;
+    readonly continuousIntegrationWorkflowFile: string;
     readonly mainBranch: string;
-    readonly mainCiRunStatus: MainCiRunStatus;
-    readonly mainHeadSha: string;
-    readonly maxLatencyHours: number;
+    readonly mainContinuousIntegrationRunStatus: MainContinuousIntegrationRunStatus;
+    readonly mainHeadHash: string;
+    readonly maximumLatencyHours: number;
     readonly now: Date;
     readonly pullRequestActivities: readonly PullRequestActivity[];
     readonly quietPeriodMinutes: number;
@@ -54,14 +67,14 @@ const millisecondsPerHour = 3_600_000;
 type DecisionLogContext = {
     readonly input: GitHubReleaseGateInput;
     readonly lastRelevantActivityAt: Date;
-    readonly mainHeadCiSuccessAt: Date;
-    readonly mainHeadCiSuccessHtmlUrl: string;
-    readonly maxLatencyElapsed: boolean;
+    readonly mainHeadContinuousIntegrationSuccessAt: Date;
+    readonly mainHeadContinuousIntegrationSuccessHypertextMarkupLanguageAddress: string;
+    readonly maximumLatencyElapsed: boolean;
     readonly quietPeriodElapsed: boolean;
 };
 
 type ElapsedFlags = {
-    readonly maxLatencyElapsed: boolean;
+    readonly maximumLatencyElapsed: boolean;
     readonly quietPeriodElapsed: boolean;
 };
 
@@ -78,43 +91,49 @@ function createDecision(
     };
 }
 
-function createMainCiSuccessLog(context: DecisionLogContext): string {
-    return `main CI success: ${context.mainHeadCiSuccessAt.toISOString()} (${context.mainHeadCiSuccessHtmlUrl})`;
+function createMainContinuousIntegrationSuccessLog(context: DecisionLogContext): string {
+    const address = context.mainHeadContinuousIntegrationSuccessHypertextMarkupLanguageAddress;
+    return `main CI success: ${context.mainHeadContinuousIntegrationSuccessAt.toISOString()} (${address})`;
 }
 
 function buildDecisionLogs(context: DecisionLogContext): readonly string[] {
     const logs = [
-        `main HEAD: ${context.input.mainHeadSha}`,
-        createMainCiSuccessLog(context),
+        `main HEAD: ${context.input.mainHeadHash}`,
+        createMainContinuousIntegrationSuccessLog(context),
         `open PRs targeting ${context.input.mainBranch}: ${context.input.pullRequestActivities.length}`
     ];
 
     for (const pullRequestActivity of context.input.pullRequestActivities) {
         const activityAt = pullRequestActivity.activityAt.toISOString();
-        logs.push(`PR #${pullRequestActivity.number} activity: ${activityAt} ${pullRequestActivity.htmlUrl}`);
+        const address = pullRequestActivity.hypertextMarkupLanguageAddress;
+        logs.push(
+            `PR #${pullRequestActivity.number} activity: ${activityAt} ${address}`
+        );
     }
 
     logs.push(
         `last relevant activity: ${context.lastRelevantActivityAt.toISOString()}`,
         `quiet period elapsed: ${context.quietPeriodElapsed}`,
-        `max latency elapsed: ${context.maxLatencyElapsed}`
+        `max latency elapsed: ${context.maximumLatencyElapsed}`
     );
 
     return logs;
 }
 
-function createMissingCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
-    const missingCiLog =
-        `Skipping publish: no successful ${input.ciWorkflowFile} push run found for ${input.mainBranch} ` +
-        `HEAD ${input.mainHeadSha}.`;
+function createMissingContinuousIntegrationDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
+    const missingContinuousIntegrationLog =
+        `Skipping publish: no successful ${input.continuousIntegrationWorkflowFile} push run ` +
+        `found for ${input.mainBranch} ` +
+        `HEAD ${input.mainHeadHash}.`;
 
-    return createDecision(false, 'ci_not_green', [], missingCiLog);
+    return createDecision(false, 'ci_not_green', [], missingContinuousIntegrationLog);
 }
 
-function createInProgressCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
+function createInProgressContinuousIntegrationDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
     const inProgressLog =
-        `Skipping publish: a ${input.ciWorkflowFile} push run is still in progress for ${input.mainBranch} ` +
-        `HEAD ${input.mainHeadSha}.`;
+        `Skipping publish: a ${input.continuousIntegrationWorkflowFile} push run is still in progress ` +
+        `for ${input.mainBranch} ` +
+        `HEAD ${input.mainHeadHash}.`;
 
     return createDecision(false, 'ci_in_progress', [], inProgressLog);
 }
@@ -125,7 +144,7 @@ function hasElapsed(now: Date, since: Date, elapsedMilliseconds: number): boolea
 
 function getElapsedFlags(
     input: GitHubReleaseGateInput,
-    mainHeadCiSuccessAt: Date,
+    mainHeadContinuousIntegrationSuccessAt: Date,
     lastRelevantActivityAt: Date
 ): ElapsedFlags {
     return {
@@ -134,7 +153,11 @@ function getElapsedFlags(
             lastRelevantActivityAt,
             input.quietPeriodMinutes * millisecondsPerMinute
         ),
-        maxLatencyElapsed: hasElapsed(input.now, mainHeadCiSuccessAt, input.maxLatencyHours * millisecondsPerHour)
+        maximumLatencyElapsed: hasElapsed(
+            input.now,
+            mainHeadContinuousIntegrationSuccessAt,
+            input.maximumLatencyHours * millisecondsPerHour
+        )
     };
 }
 
@@ -145,7 +168,7 @@ function isBranchActivityEvent(eventName: string | undefined): boolean {
     );
 }
 
-function lastRelevantActivityAtFor(input: GitHubReleaseGateInput, mainHeadCiSuccessAt: Date): Date {
+function lastRelevantActivityAtFor(input: GitHubReleaseGateInput, mainHeadContinuousIntegrationSuccessAt: Date): Date {
     const otherActivityDates: Date[] = Array.from(
         input.pullRequestActivities,
         function (pullRequestActivity) {
@@ -153,7 +176,7 @@ function lastRelevantActivityAtFor(input: GitHubReleaseGateInput, mainHeadCiSucc
         }
     );
 
-    return maxDate(mainHeadCiSuccessAt, otherActivityDates);
+    return maximumDate(mainHeadContinuousIntegrationSuccessAt, otherActivityDates);
 }
 
 export function selectPullRequestActivityAt(
@@ -167,30 +190,31 @@ export function selectPullRequestActivityAt(
         }
     }
 
-    return maxDate(pullRequestCreatedAt, branchActivityDates);
+    return maximumDate(pullRequestCreatedAt, branchActivityDates);
 }
 
-function evaluateGreenCiGate(
+function evaluateGreenContinuousIntegrationGate(
     input: GitHubReleaseGateInput,
-    successfulMainCiRun: SuccessfulMainCiRun
+    successfulMainContinuousIntegrationRun: SuccessfulMainContinuousIntegrationRun
 ): GitHubReleaseGateDecision {
-    const mainHeadCiSuccessAt = successfulMainCiRun.updatedAt;
-    const lastRelevantActivityAt = lastRelevantActivityAtFor(input, mainHeadCiSuccessAt);
-    const { quietPeriodElapsed, maxLatencyElapsed } = getElapsedFlags(
+    const mainHeadContinuousIntegrationSuccessAt = successfulMainContinuousIntegrationRun.updatedAt;
+    const lastRelevantActivityAt = lastRelevantActivityAtFor(input, mainHeadContinuousIntegrationSuccessAt);
+    const { quietPeriodElapsed, maximumLatencyElapsed } = getElapsedFlags(
         input,
-        mainHeadCiSuccessAt,
+        mainHeadContinuousIntegrationSuccessAt,
         lastRelevantActivityAt
     );
     const logs = buildDecisionLogs({
         input,
-        mainHeadCiSuccessAt,
-        mainHeadCiSuccessHtmlUrl: successfulMainCiRun.htmlUrl,
+        mainHeadContinuousIntegrationSuccessAt,
+        mainHeadContinuousIntegrationSuccessHypertextMarkupLanguageAddress: successfulMainContinuousIntegrationRun
+            .hypertextMarkupLanguageAddress,
         lastRelevantActivityAt,
         quietPeriodElapsed,
-        maxLatencyElapsed
+        maximumLatencyElapsed
     });
 
-    if (!quietPeriodElapsed && !maxLatencyElapsed) {
+    if (!quietPeriodElapsed && !maximumLatencyElapsed) {
         return createDecision(
             false,
             'activity_not_stale',
@@ -208,13 +232,13 @@ function evaluateGreenCiGate(
 }
 
 export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
-    if (input.mainCiRunStatus.kind === 'in_progress') {
-        return createInProgressCiDecision(input);
+    if (input.mainContinuousIntegrationRunStatus.kind === 'in_progress') {
+        return createInProgressContinuousIntegrationDecision(input);
     }
 
-    if (input.mainCiRunStatus.kind === 'missing') {
-        return createMissingCiDecision(input);
+    if (input.mainContinuousIntegrationRunStatus.kind === 'missing') {
+        return createMissingContinuousIntegrationDecision(input);
     }
 
-    return evaluateGreenCiGate(input, input.mainCiRunStatus.run);
+    return evaluateGreenContinuousIntegrationGate(input, input.mainContinuousIntegrationRunStatus.run);
 }

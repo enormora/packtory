@@ -4,42 +4,42 @@
         "small": {
             "clusterCount": 1,
             "packageCount": 3,
-            "jsFileCount": 6,
+            "javaScriptFileCount": 6,
             "declarationFileCount": 7,
             "sourceMapFileCount": 6,
-            "maxImportFanOut": 2
+            "maximumImportFanOut": 2
         },
         "medium": {
             "clusterCount": 2,
             "packageCount": 6,
-            "jsFileCount": 12,
+            "javaScriptFileCount": 12,
             "declarationFileCount": 14,
             "sourceMapFileCount": 12,
-            "maxImportFanOut": 2
+            "maximumImportFanOut": 2
         },
         "large": {
             "clusterCount": 4,
             "packageCount": 12,
-            "jsFileCount": 24,
+            "javaScriptFileCount": 24,
             "declarationFileCount": 28,
             "sourceMapFileCount": 24,
-            "maxImportFanOut": 2
+            "maximumImportFanOut": 2
         }
     },
-    "cliWorkloads": {
+    "commandLineInterfaceWorkloads": {
         "medium": {
             "packageCount": 8,
-            "jsFileCount": 248,
+            "javaScriptFileCount": 248,
             "declarationFileCount": 152,
             "sourceMapFileCount": 248,
-            "maxImportFanOut": 13
+            "maximumImportFanOut": 13
         },
         "large": {
             "packageCount": 17,
-            "jsFileCount": 527,
+            "javaScriptFileCount": 527,
             "declarationFileCount": 323,
             "sourceMapFileCount": 527,
-            "maxImportFanOut": 13
+            "maximumImportFanOut": 13
         }
     }
 }

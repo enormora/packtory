@@ -6,8 +6,8 @@ suite('inspect-scan-results', function () {
     test('inspectScanResults returns included files with reason "reachable-from-entry"', function () {
         const bundle = {
             contents: [
-                { fileDescription: { inputFilePath: '/src/a.ts' } },
-                { fileDescription: { inputFilePath: '/src/b.ts' } }
+                { fileDescription: { inputFilePath: '/source/a.ts' } },
+                { fileDescription: { inputFilePath: '/source/b.ts' } }
             ],
             externalDependencies: new Map<string, unknown>()
         };
@@ -15,8 +15,8 @@ suite('inspect-scan-results', function () {
         const { included } = inspectScanResults(bundle);
 
         assert.deepStrictEqual(included, [
-            { path: '/src/a.ts', reason: 'reachable-from-entry' },
-            { path: '/src/b.ts', reason: 'reachable-from-entry' }
+            { path: '/source/a.ts', reason: 'reachable-from-entry' },
+            { path: '/source/b.ts', reason: 'reachable-from-entry' }
         ]);
     });
 

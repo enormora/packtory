@@ -1,17 +1,17 @@
 export const unsupportedProviderMarker = 'not supported for provider:';
 
-export const githubActionsIdTokenMessage =
+export const githubActionsIdentifierTokenMessage =
     'GitHub Actions provenance needs "permissions: id-token: write" on the workflow job. ' +
     'See the packtory readme for the workflow snippet.';
 
-export const gitlabSigstoreIdTokenMessage =
+export const gitlabSigstoreIdentifierTokenMessage =
     'GitLab CI provenance needs an "id_tokens" entry with audience "sigstore" ' +
     'exposed as SIGSTORE_ID_TOKEN. See the packtory readme for the workflow snippet.';
 
-export function buildUnsupportedProviderMessage(ciName: string): string {
+export function buildUnsupportedProviderMessage(continuousIntegrationName: string): string {
     return (
         'Provenance auto mode requires GitHub Actions or GitLab CI. ' +
-        `Detected CI: ${ciName}. ` +
+        `Detected CI: ${continuousIntegrationName}. ` +
         "Use provenance: { type: 'file' } for other environments."
     );
 }

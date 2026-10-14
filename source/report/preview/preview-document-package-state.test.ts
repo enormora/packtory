@@ -107,7 +107,7 @@ suite('preview-document package state', function () {
             const document = await buildPreviewDocument({
                 report: createBuildReportFixture({
                     packages: {
-                        'pkg-a': createPackageReport([
+                        'package-a': createPackageReport([
                             createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
                         ])
                     }
@@ -126,7 +126,7 @@ suite('preview-document package state', function () {
             const document = await buildPreviewDocument({
                 report: createBuildReportFixture({
                     packages: {
-                        'pkg-a': {
+                        'package-a': {
                             decisions: {},
                             failure: { stage: 'publish', message: 'boom' },
                             timings: {}

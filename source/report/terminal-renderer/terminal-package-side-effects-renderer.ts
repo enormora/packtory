@@ -10,7 +10,7 @@ type TerminalPackageSideEffectsRendererOptions = {
     readonly color?: boolean | undefined;
 };
 
-function renderJsonValue(value: unknown): string {
+function renderJavaScriptObjectNotationValue(value: unknown): string {
     return JSON.stringify(value);
 }
 
@@ -20,7 +20,7 @@ function renderGeneratedDecision(decision: GeneratedPackageSideEffectsDecision):
     }
 
     if (decision.type === 'side-effects-list') {
-        return renderJsonValue(decision.paths);
+        return renderJavaScriptObjectNotationValue(decision.paths);
     }
 
     return 'omitted (every runtime file has side effects)';
@@ -32,7 +32,7 @@ function renderDecision(decision: PackageSideEffectsDecision): readonly string[]
     }
 
     return [
-        `package.json sideEffects: user-provided ${renderJsonValue(decision.providedValue)}`,
+        `package.json sideEffects: user-provided ${renderJavaScriptObjectNotationValue(decision.providedValue)}`,
         `Generated package.json sideEffects without override: ${renderGeneratedDecision(decision.generated)}`
     ];
 }
@@ -74,7 +74,7 @@ export function renderTerminalPackageSideEffects(
     const lines = [
         'Packtory side effects [Dry run]',
         colors.bold(inspection.packageName),
-        ...renderDecision(inspection.packageJsonDecision),
+        ...renderDecision(inspection.packageManifestDecision),
         ...renderImpureFiles(inspection.impureFiles, colors)
     ];
     return `${lines.join('\n')}\n`;

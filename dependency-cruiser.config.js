@@ -1,4 +1,4 @@
-const configFiles = [
+const configurationFiles = [
     '^dependency-cruiser\\.config\\.js$',
     '^eslint\\.config\\.js$',
     '^mocha\\.config\\..*\\.js$',
@@ -14,7 +14,7 @@ const testLibraryFiles = [ '^source/test-libraries/' ];
 const excludedFiles = [ '^(\\./)?integration-tests/fixtures/', '^(\\./)?target/' ];
 
 const ignoreFromOrphans = [
-    ...configFiles,
+    ...configurationFiles,
     ...entryPointFiles,
     ...buildSupportFiles,
     ...testFiles,
@@ -82,7 +82,7 @@ export default {
             }
         },
         {
-            name: 'no-duplicate-dep-types',
+            name: 'no-duplicate-dependency-types',
             severity: 'error',
             from: {},
             to: {

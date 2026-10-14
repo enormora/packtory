@@ -1,10 +1,10 @@
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import type { TransferableFileDescription } from './file-description.ts';
 import { isExecutableFileMode } from './permissions.ts';
 
 export type FileManagerDependencies = {
-    readonly hostFileSystem: typeof fs.promises;
+    readonly hostFileSystem: typeof fileSystem.promises;
 };
 
 type FileOrFolderReadability = {
@@ -50,8 +50,8 @@ async function checkDirectoryStatus(
     fileOrFolderPath: string
 ): Promise<DirectoryStatus> {
     try {
-        const stats = await hostFileSystem.stat(fileOrFolderPath);
-        return { exists: true, isDirectory: stats.isDirectory() };
+        const fileStatus = await hostFileSystem.stat(fileOrFolderPath);
+        return { exists: true, isDirectory: fileStatus.isDirectory() };
     } catch {
         return { exists: false };
     }
@@ -62,7 +62,7 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
     async function checkReadability(fileOrFolderPath: string): Promise<FileOrFolderReadability> {
         try {
-            await hostFileSystem.access(fileOrFolderPath, fs.constants.R_OK);
+            await hostFileSystem.access(fileOrFolderPath, fileSystem.constants.R_OK);
             return { isReadable: true };
         } catch {
             return { isReadable: false };
@@ -97,8 +97,8 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
     }
 
     async function getFileMode(filePath: string): Promise<number> {
-        const stats = await hostFileSystem.stat(filePath);
-        return stats.mode;
+        const fileStatus = await hostFileSystem.stat(filePath);
+        return fileStatus.mode;
     }
 
     async function setExecutable(filePath: string, executable: boolean): Promise<void> {

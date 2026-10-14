@@ -4,12 +4,12 @@ export type ZipEntry = {
     readonly name: string;
     readonly content: string;
     readonly unixMode: number;
-    readonly osOfOrigin: number;
+    readonly operatingSystemOfOrigin: number;
 };
 
 type CentralDirectoryEntry = {
     readonly name: string;
-    readonly osOfOrigin: number;
+    readonly operatingSystemOfOrigin: number;
     readonly unixMode: number;
     readonly nextOffset: number;
 };
@@ -69,7 +69,7 @@ function readCentralDirectoryEntry(buffer: Buffer, offset: number): CentralDirec
     if (buffer.readUInt32LE(offset) !== centralDirectoryEntrySignature) {
         throw new Error(`invalid central directory entry signature at offset ${offset}`);
     }
-    const osOfOrigin = buffer.readUInt8(offset + versionMadeByHighByteOffset);
+    const operatingSystemOfOrigin = buffer.readUInt8(offset + versionMadeByHighByteOffset);
     const fileNameLength = buffer.readUInt16LE(offset + fileNameLengthOffset);
     const extraFieldLength = buffer.readUInt16LE(offset + extraFieldLengthOffset);
     const fileCommentLength = buffer.readUInt16LE(offset + fileCommentLengthOffset);
@@ -78,7 +78,7 @@ function readCentralDirectoryEntry(buffer: Buffer, offset: number): CentralDirec
     const name = buffer.toString('utf8', nameStart, nameStart + fileNameLength);
     return {
         name,
-        osOfOrigin,
+        operatingSystemOfOrigin,
         unixMode: Math.floor(externalFileAttributes / highBytesScale),
         nextOffset: nameStart + fileNameLength + extraFieldLength + fileCommentLength
     };
@@ -131,7 +131,7 @@ export async function extractZipEntries(buffer: Buffer): Promise<readonly ZipEnt
             name,
             content: textDecoder.decode(data),
             unixMode: metadata.unixMode,
-            osOfOrigin: metadata.osOfOrigin
+            operatingSystemOfOrigin: metadata.operatingSystemOfOrigin
         };
     });
 }

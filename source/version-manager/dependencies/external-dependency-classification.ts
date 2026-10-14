@@ -1,6 +1,6 @@
 import { oneLine } from 'common-tags';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { MainPackageJson } from '../../config/package-json.ts';
+import type { MainPackageManifest } from '../../configuration/package-manifest.ts';
 import { classifySpecifier } from '../specifier-classifier.ts';
 import {
     renderMalformedSpecifierMessage,
@@ -19,19 +19,19 @@ type ExternalDependencyEntry = {
 
 function getVersionFromDependencies(
     moduleName: string,
-    mainPackageJson: MainPackageJson,
+    mainPackageManifest: MainPackageManifest,
     kind: 'dependencies' | 'peerDependencies'
 ): string {
-    const dependencies = { ...mainPackageJson[kind] };
+    const dependencies = { ...mainPackageManifest[kind] };
     return String(dependencies[moduleName]);
 }
 
 function resolveExternalDependencyEntry(
     dependencyName: string,
-    mainPackageJson: MainPackageJson
+    mainPackageManifest: MainPackageManifest
 ): ExternalDependencyEntry {
-    const isPeer = mainPackageJson.peerDependencies?.[dependencyName] !== undefined;
-    const isDirect = mainPackageJson.dependencies?.[dependencyName] !== undefined;
+    const isPeer = mainPackageManifest.peerDependencies?.[dependencyName] !== undefined;
+    const isDirect = mainPackageManifest.dependencies?.[dependencyName] !== undefined;
 
     if (!isPeer && !isDirect) {
         throw new Error(
@@ -43,7 +43,7 @@ function resolveExternalDependencyEntry(
     const kind = isPeer ? 'peerDependencies' : 'dependencies';
     return {
         name: dependencyName,
-        version: getVersionFromDependencies(dependencyName, mainPackageJson, kind),
+        version: getVersionFromDependencies(dependencyName, mainPackageManifest, kind),
         kind
     };
 }
@@ -112,7 +112,7 @@ function recordClassification(entry: ExternalDependencyEntry, recorders: Classif
 
 export function groupExternalDependencies(
     bundle: Pick<AnalyzedBundle, 'externalDependencies'>,
-    mainPackageJson: MainPackageJson,
+    mainPackageManifest: MainPackageManifest,
     allowMutableSpecifiers: readonly string[]
 ): GroupedDependencies {
     const grouped = {
@@ -124,7 +124,7 @@ export function groupExternalDependencies(
     const usedAllowListEntries = new Set<string>();
 
     for (const dependencyName of bundle.externalDependencies.keys()) {
-        const entry = resolveExternalDependencyEntry(dependencyName, mainPackageJson);
+        const entry = resolveExternalDependencyEntry(dependencyName, mainPackageManifest);
         recordClassification(entry, {
             allowMutableSpecifiers,
             mutableOffenders,

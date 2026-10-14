@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PackageChecksSettings } from '../../config/config.ts';
+import type { PackageChecksSettings } from '../../configuration/configuration.ts';
 import { emptyCheckContext, checkBundle as bundle } from '../../test-libraries/check-fixtures.ts';
 import { requiredFilesRule } from './required-files.ts';
 
@@ -65,7 +65,7 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, [ 'Package "a" is missing required file "CHANGELOG.md"' ]);
     });
 
-    test('deduplicates required files when per-package config repeats a global entry', async function () {
+    test('deduplicates required files when per-package configuration repeats a global entry', async function () {
         const result = await requiredFilesRule.run({
             bundles: [ bundle('a', []) ],
             settings: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } },

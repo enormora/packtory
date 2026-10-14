@@ -44,7 +44,7 @@ export function reachableDeclarationPaths(references: DeclarationReferences): Re
     for (const rootPath of references.rootPaths) {
         if (references.declarationPaths.has(rootPath)) {
             graph.visitBreadthFirstSearch(rootPath, function (node) {
-                reachable.add(node.id);
+                reachable.add(node.identifier);
             });
         }
     }

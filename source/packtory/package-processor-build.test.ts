@@ -11,16 +11,16 @@ import {
     createLinkedBundle,
     createResolveOptions,
     createVersionedBundle,
-    getCallArgs
+    getCallArguments
 } from '../test-libraries/package-processor-test-support.ts';
-import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
+import type { BuildOptions, ResolveAndLinkOptions } from './map-configuration.ts';
 import {
     createResolveAndBuildOperations,
     type ResolveAndBuildDependencies,
     type ResolveAndBuildOperations
 } from './package-processor-build.ts';
 
-type InvalidMainPackageJson = {
+type InvalidMainPackageManifest = {
     readonly type: string;
 };
 
@@ -136,21 +136,21 @@ function createPipelineDependencies(
     };
 }
 
-async function callResolveAndLinkWithMainPackageJson(
+async function callResolveAndLinkWithMainPackageManifest(
     operations: ResolveAndBuildOperations,
-    mainPackageJson: InvalidMainPackageJson
+    mainPackageManifest: InvalidMainPackageManifest
 ): Promise<unknown> {
-    const options: ResolveAndLinkOptions = Object.assign(createResolveOptions(), { mainPackageJson });
+    const options: ResolveAndLinkOptions = Object.assign(createResolveOptions(), { mainPackageManifest });
     return operations.resolveAndLink(options);
 }
 
-async function callBuildWithMainPackageJson(
+async function callBuildWithMainPackageManifest(
     operations: ResolveAndBuildOperations,
-    mainPackageJson: InvalidMainPackageJson
+    mainPackageManifest: InvalidMainPackageManifest
 ): Promise<unknown> {
     const options: BuildOptions = Object.assign(
         createBuildAndPublishOptions(),
-        { mainPackageJson, version: '1.2.3' }
+        { mainPackageManifest, version: '1.2.3' }
     );
     return operations.build(options);
 }
@@ -163,27 +163,27 @@ suite('package-processor-build', function () {
         assert.strictEqual(typeof operations.resolveAndLink, 'function');
     });
 
-    test('resolveAndLink rejects a non-ESM mainPackageJson at the operations layer', async function () {
+    test('resolveAndLink rejects a non-ESM mainPackageManifest at the operations layer', async function () {
         const operations = createResolveAndBuildOperations(stubDependencies());
 
         try {
-            await callResolveAndLinkWithMainPackageJson(operations, { type: 'commonjs' });
+            await callResolveAndLinkWithMainPackageManifest(operations, { type: 'commonjs' });
             assert.fail('expected resolveAndLink to reject the non-ESM main package json');
         } catch (error) {
             assert.ok(error instanceof Error);
-            assert.strictEqual(error.message, 'mainPackageJson.type must be "module"');
+            assert.strictEqual(error.message, 'mainPackageManifest.type must be "module"');
         }
     });
 
-    test('build rejects a non-ESM mainPackageJson at the operations layer', async function () {
+    test('build rejects a non-ESM mainPackageManifest at the operations layer', async function () {
         const operations = createResolveAndBuildOperations(stubDependencies());
 
         try {
-            await callBuildWithMainPackageJson(operations, { type: 'commonjs' });
+            await callBuildWithMainPackageManifest(operations, { type: 'commonjs' });
             assert.fail('expected build to reject the non-ESM main package json');
         } catch (error) {
             assert.ok(error instanceof Error);
-            assert.strictEqual(error.message, 'mainPackageJson.type must be "module"');
+            assert.strictEqual(error.message, 'mainPackageManifest.type must be "module"');
         }
     });
 
@@ -207,7 +207,7 @@ suite('package-processor-build', function () {
                 bundlePeerDependencies: options.bundlePeerDependencies
             }
         );
-        assert.deepStrictEqual(getCallArgs(fixture.emit), [
+        assert.deepStrictEqual(getCallArguments(fixture.emit), [
             [ 'resolving', { packageName: 'package-a' } ],
             [ 'scanCompleted', { packageName: 'package-a', included: [], excluded: [] } ],
             [ 'linking', { packageName: 'package-a' } ],
@@ -227,14 +227,14 @@ suite('package-processor-build', function () {
             fixture.resolve.firstCall.args[0],
             {
                 name: 'package-a',
-                sourcesFolder: '/src',
-                roots: { main: { js: '/src/index.js' } },
+                sourcesFolder: '/source',
+                roots: { main: { javaScript: '/source/index.js' } },
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 includeSourceMapFiles: true,
-                additionalFiles: [ { inputFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
-                mainPackageJson: options.mainPackageJson,
+                additionalFiles: [ { inputFilePath: '/source/readme.md', targetFilePath: 'readme.md' } ],
+                mainPackageManifest: options.mainPackageManifest,
                 additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
-                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+                additionalPackageManifestAttributes: options.additionalPackageManifestAttributes,
                 allowMutableSpecifiers: options.allowMutableSpecifiers,
                 bundleDependencies: options.bundleDependencies,
                 bundlePeerDependencies: options.bundlePeerDependencies
@@ -256,10 +256,10 @@ suite('package-processor-build', function () {
             {
                 bundle: fixture.analyzedBundle,
                 version: '1.2.3',
-                mainPackageJson: options.mainPackageJson,
+                mainPackageManifest: options.mainPackageManifest,
                 bundleDependencies: options.bundleDependencies,
                 bundlePeerDependencies: options.bundlePeerDependencies,
-                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+                additionalPackageManifestAttributes: options.additionalPackageManifestAttributes,
                 allowMutableSpecifiers: options.allowMutableSpecifiers
             }
         );
@@ -300,17 +300,17 @@ suite('package-processor-build', function () {
         const operations = createResolveAndBuildOperations(fixture.dependencies);
         const options: ResolveAndLinkOptions = {
             ...createResolveOptions(),
-            roots: { main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } }
+            roots: { main: { javaScript: '/source/index.js', declarationFile: '/source/index.d.ts' } }
         };
 
         await operations.resolveAndLinkWithPromotedDeclarationCompanions(
             options,
-            new Set([ '/src/feature.js' ])
+            new Set([ '/source/feature.js' ])
         );
 
         assert.deepStrictEqual(resolveWithPromotedDeclarationCompanions.firstCall.args, [
             options,
-            new Set([ '/src/feature.js' ])
+            new Set([ '/source/feature.js' ])
         ]);
     });
 

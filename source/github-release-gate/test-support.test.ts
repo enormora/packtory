@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import {
-    ciRunsPath,
+    continuousIntegrationRunsPath,
     closeServer,
     createBaseEnvironment,
     createBaseRoutes,
@@ -10,14 +10,14 @@ import {
     getServerPort,
     pullsPath,
     runEntryPointScript,
-    withGitHubApiServer,
+    withGitHubApplicationProgrammingInterfaceServer,
     workspaceOutputPath,
     type EntryPointScriptDependencies
 } from '../test-libraries/github-release-gate-test-support.ts';
 import { withDeadline } from '../test-libraries/with-deadline.ts';
 
 type EntryPointScriptCall = {
-    readonly execFile: {
+    readonly executeFile: {
         readonly commandArguments: readonly string[];
         readonly cwd: string;
         readonly encoding: 'utf8';
@@ -39,27 +39,29 @@ suite('github-release-gate-test-support', function () {
     test('createBaseEnvironment exposes the expected default publish settings', function () {
         assert.strictEqual(workspaceOutputPath, '/workspace/github-output.txt');
         assert.deepStrictEqual(createBaseEnvironment(), {
-            CI_WORKFLOW_FILE: 'ci.yml',
+            CI_WORKFLOW_FILE: 'continuous-integration.yml',
             DEFAULT_BRANCH: 'main',
-            DEPENDENCY_ONLY_MIN_AGE_DAYS: '7',
+            DEPENDENCY_ONLY_MINIMUM_AGE_DAYS: '7',
             GITHUB_OUTPUT: '/workspace/github-output.txt',
             GITHUB_REPOSITORY: 'enormora/packtory',
             GITHUB_TOKEN: 'token',
-            MAX_LATENCY_HOURS: '24',
+            MAXIMUM_LATENCY_HOURS: '24',
             QUIET_PERIOD_MINUTES: '45'
         });
     });
 
     test('createBaseRoutes contains the expected GitHub release gate fixture URLs', function () {
         const routes = createBaseRoutes();
-        const ciRunsRoute = routes[ciRunsPath];
+        const continuousIntegrationRunsRoute = routes[continuousIntegrationRunsPath];
         const pullsRoute = routes[pullsPath];
 
-        if (ciRunsRoute === undefined || pullsRoute === undefined) {
+        if (continuousIntegrationRunsRoute === undefined || pullsRoute === undefined) {
             assert.fail('expected base GitHub API routes');
         }
         assert.strictEqual(
-            (ciRunsRoute.body as { readonly workflow_runs: readonly [{ readonly html_url: string; }]; })
+            (continuousIntegrationRunsRoute.body as {
+                readonly workflow_runs: readonly [{ readonly html_url: string; }];
+            })
                 .workflow_runs[0]
                 .html_url,
             'https://github.com/enormora/packtory/actions/runs/1'
@@ -130,29 +132,32 @@ suite('github-release-gate-test-support', function () {
         }, /close failed/u);
     });
 
-    test('withGitHubApiServer returns a 404 JSON response for unknown routes', async function () {
+    test('withGitHubApplicationProgrammingInterfaceServer returns a 404 JSON response for unknown routes', async function () {
         await withDeadline(
-            withGitHubApiServer({}, async function (apiBaseUrl) {
-                const response = await fetch(`${apiBaseUrl}/missing`, {
-                    signal: AbortSignal.timeout(testDeadlineMilliseconds)
-                });
+            withGitHubApplicationProgrammingInterfaceServer(
+                {},
+                async function (applicationProgrammingInterfaceBaseAddress) {
+                    const response = await fetch(`${applicationProgrammingInterfaceBaseAddress}/missing`, {
+                        signal: AbortSignal.timeout(testDeadlineMilliseconds)
+                    });
 
-                assert.strictEqual(response.status, 404);
-                assert.strictEqual(response.headers.get('content-type'), 'application/json');
-                assert.deepStrictEqual(await response.json(), {
-                    message: 'No route for /missing'
-                });
-            }),
-            'withGitHubApiServer',
+                    assert.strictEqual(response.status, 404);
+                    assert.strictEqual(response.headers.get('content-type'), 'application/json');
+                    assert.deepStrictEqual(await response.json(), {
+                        message: 'No route for /missing'
+                    });
+                }
+            ),
+            'withGitHubApplicationProgrammingInterfaceServer',
             testDeadlineMilliseconds
         );
     });
 
-    test('withGitHubApiServer returns the action result, serves JSON, and closes afterwards', async function () {
-        let apiBaseUrl = '';
+    test('withGitHubApplicationProgrammingInterfaceServer returns the action result, serves JSON, and closes afterwards', async function () {
+        let applicationProgrammingInterfaceBaseAddress = '';
 
         const actionResult = await withDeadline(
-            withGitHubApiServer(
+            withGitHubApplicationProgrammingInterfaceServer(
                 {
                     '/ready': {
                         body: { ok: true },
@@ -160,9 +165,9 @@ suite('github-release-gate-test-support', function () {
                         status: 201
                     }
                 },
-                async function (url) {
-                    apiBaseUrl = url;
-                    const response = await fetch(`${url}/ready`, {
+                async function (address) {
+                    applicationProgrammingInterfaceBaseAddress = address;
+                    const response = await fetch(`${address}/ready`, {
                         signal: AbortSignal.timeout(testDeadlineMilliseconds)
                     });
 
@@ -173,15 +178,15 @@ suite('github-release-gate-test-support', function () {
                     return 'done';
                 }
             ),
-            'withGitHubApiServer',
+            'withGitHubApplicationProgrammingInterfaceServer',
             testDeadlineMilliseconds
         );
 
         assert.strictEqual(actionResult, 'done');
-        assert.match(apiBaseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
+        assert.match(applicationProgrammingInterfaceBaseAddress, /^http:\/\/127\.0\.0\.1:\d+$/u);
         await assert.rejects(
             async function () {
-                await fetch(`${apiBaseUrl}/ready`, {
+                await fetch(`${applicationProgrammingInterfaceBaseAddress}/ready`, {
                     signal: AbortSignal.timeout(testDeadlineMilliseconds)
                 });
             },
@@ -197,14 +202,14 @@ suite('github-release-gate-test-support', function () {
         let calls: EntryPointScriptCall | null = null;
         const dependencies: EntryPointScriptDependencies = {
             cwd: '/workspace',
-            execFile(file, commandArguments, options, callback) {
+            executeFile(file, commandArguments, options, callback) {
                 calls = {
-                    execFile: {
+                    executeFile: {
                         commandArguments,
                         cwd: options.cwd,
                         encoding: options.encoding,
                         file,
-                        githubOutput: options.env.GITHUB_OUTPUT
+                        githubOutput: options.environment.GITHUB_OUTPUT
                     },
                     mkdtempPrefix: path.join(safeTemporaryRoot, 'packtory-github-release-gate-'),
                     readFile: { encoding: 'utf8', path: scriptOutputPath }
@@ -215,12 +220,12 @@ suite('github-release-gate-test-support', function () {
                 assert.strictEqual(prefix, path.join(safeTemporaryRoot, 'packtory-github-release-gate-'));
                 return scriptTemporaryFolder;
             },
-            processExecPath: '/node',
+            processExecutePath: '/node',
             async readFile(filePath, options) {
                 observedReadFile = { encoding: options.encoding, path: filePath };
                 throw new Error('missing');
             },
-            tmpdir() {
+            temporaryDirectory() {
                 return safeTemporaryRoot;
             }
         };
@@ -237,7 +242,7 @@ suite('github-release-gate-test-support', function () {
         });
         assert.deepStrictEqual(observedReadFile, { encoding: 'utf8', path: scriptOutputPath });
         assert.deepStrictEqual(calls, {
-            execFile: {
+            executeFile: {
                 commandArguments: [ '--experimental-strip-types', '--enable-source-maps', '/entry.ts' ],
                 cwd: '/workspace',
                 encoding: 'utf8',

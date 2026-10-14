@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 suite('no-superfluous-files', function () {
@@ -12,14 +12,14 @@ suite('no-superfluous-files', function () {
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/entry.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -28,7 +28,7 @@ suite('no-superfluous-files', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     name: 'the-package-name',
                     sideEffects: false,
                     type: 'module',
@@ -41,10 +41,10 @@ suite('no-superfluous-files', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             isExecutable: false,
                             targetFilePath: 'entry.js'
                         },
@@ -57,7 +57,7 @@ suite('no-superfluous-files', function () {
                         fileDescription: {
                             content: "export const foo = 'foo';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'source/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -69,7 +69,7 @@ suite('no-superfluous-files', function () {
                 mainFile: {
                     content: "import { foo } from './foo';\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',

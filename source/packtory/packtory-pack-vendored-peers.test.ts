@@ -6,7 +6,7 @@ import {
     baseOptions,
     createDependencies,
     makeResolvedPackage,
-    validatedConfig
+    validatedConfiguration
 } from '../test-libraries/packtory-pack-test-support.ts';
 import { createRunPackValidated } from './packtory-pack.ts';
 
@@ -22,7 +22,7 @@ suite('packtory-pack vendored peer dependencies', function () {
         const { dependencies, fakes } = createDependencies({
             materializerSpy,
             versionedBundle: {
-                name: 'pkg-a',
+                name: 'package-a',
                 version: '0.0.0',
                 manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' },
                 contents: [],
@@ -31,7 +31,7 @@ suite('packtory-pack vendored peer dependencies', function () {
             resolveResult: Result.ok([
                 makeResolvedPackage({
                     externalDependencyNames: [ 'react-dom' ],
-                    mainPackageJson: { type: 'module', peerDependencies: { react: '^19.0.0' } },
+                    mainPackageManifest: { type: 'module', peerDependencies: { react: '^19.0.0' } },
                     sourcesFolder: '/repo/source'
                 })
             ])
@@ -39,7 +39,7 @@ suite('packtory-pack vendored peer dependencies', function () {
         const runPack = createRunPackValidated(dependencies);
 
         const result = await runPack(
-            validatedConfig,
+            validatedConfiguration,
             { ...baseOptions, vendorDependencies: true },
             fakes.resolveAndLinkAll
         );

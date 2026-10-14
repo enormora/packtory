@@ -1,220 +1,22 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
+import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createTarballBuilder } from '../tar/tarball-builder.ts';
-import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { buildSbomFixtureContent } from '../test-libraries/sbom-fixtures.ts';
+import {
+    assertDifferentContentsResult,
+    assertMatchingContentsResult,
+    buildSoftwareBillOfMaterialsWithDependency,
+    createPublishedBundleScenario,
+    determineCurrentVersion,
+    emitterFactory,
+    expectCurrentVersionFailure,
+    latestReleaseMetadata,
+    namedBundle,
+    registrySettings,
+    runSoftwareBillOfMaterialsComparison
+} from '../test-libraries/bundle-emitter-fixtures.ts';
+import { buildSoftwareBillOfMaterialsFixtureContent } from '../test-libraries/software-bill-of-materials-fixtures.ts';
 import { emptyTarball, tarballWithOneFile } from '../test-libraries/tarball-fixtures.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
-
-const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
-const publishedAt = new Date('2026-05-20T00:00:00.000Z');
-const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
-const latestReleaseMetadata = {
-    version: '1.2.3',
-    tarballUrl: 'https://registry.example.test/package.tgz',
-    tarballIntegrity: emptyTarballIntegrity,
-    publishedAt,
-    gitHead: undefined
-} as const;
-type CurrentVersionRequest = Parameters<BundleEmitter['determineCurrentVersion']>[0];
-type BundlePublishedCheckResult = Awaited<ReturnType<BundleEmitter['checkBundleAlreadyPublished']>>;
-type CurrentVersionInput = {
-    readonly stage: boolean;
-    readonly versioning: CurrentVersionRequest['versioning'];
-    readonly registrySettings?: CurrentVersionRequest['registrySettings'];
-};
-type SbomDependency = {
-    readonly packtoryVersion: string;
-    readonly dependencyName: string;
-    readonly dependencyVersion: string;
-};
-type PublishedBundleScenario = {
-    readonly emitter: BundleEmitter;
-    readonly collectContents: SinonSpy;
-    readonly fetchTarball: SinonSpy;
-};
-type PreviousReleaseArtifactsSummary = {
-    readonly version: string;
-    readonly publishedAt?: Date | undefined;
-    readonly files: readonly unknown[];
-};
-
-function namedBundle(): VersionedBundleWithManifest {
-    return versionedBundleWithManifest({ name: 'the-name' });
-}
-
-type Overrides = {
-    readonly fetchLatestVersion?: SinonSpy;
-    readonly fetchVersionReleaseMetadata?: SinonSpy;
-    readonly fetchStagedVersions?: SinonSpy;
-    readonly fetchLatestReleaseMetadata?: SinonSpy;
-    readonly collectContents?: SinonSpy;
-    readonly fetchTarball?: SinonSpy;
-    readonly currentGitHead?: string | undefined;
-};
-
-function createSpy<TSpy extends Readonly<SinonSpy>>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
-    return spy ?? fallback();
-}
-
-function emitterFactory(overrides: Overrides = {}): BundleEmitter {
-    const dependencies: BundleEmitterDependencies = {
-        artifactsBuilder: {
-            buildTarball: fake.resolves({ tarData: emptyTarball }),
-            collectContents: createSpy(overrides.collectContents, function () {
-                return fake.returns([]);
-            }),
-            buildFolder: fake(),
-            buildZip: fake()
-        },
-        registryClient: {
-            publishPackage: fake(),
-            fetchLatestReleaseMetadata: createSpy(
-                overrides.fetchLatestReleaseMetadata,
-                fake
-            ) as unknown as BundleEmitterDependencies['registryClient']['fetchLatestReleaseMetadata'],
-            fetchLatestVersion: createSpy(
-                overrides.fetchLatestVersion,
-                fake
-            ) as unknown as BundleEmitterDependencies['registryClient']['fetchLatestVersion'],
-            fetchVersionReleaseMetadata: createSpy(
-                overrides.fetchVersionReleaseMetadata,
-                fake
-            ) as unknown as BundleEmitterDependencies['registryClient']['fetchVersionReleaseMetadata'],
-            fetchStagedVersions: createSpy(
-                overrides.fetchStagedVersions,
-                fake
-            ) as unknown as BundleEmitterDependencies['registryClient']['fetchStagedVersions'],
-            fetchTarball: createSpy(overrides.fetchTarball, function () {
-                return fake.resolves(emptyTarball);
-            })
-        },
-        ciRepositoryUrl: undefined,
-        async readCurrentGitHead() {
-            return overrides.currentGitHead;
-        }
-    };
-
-    return createBundleEmitter(dependencies);
-}
-
-function currentVersionRequest(input: CurrentVersionInput): CurrentVersionRequest {
-    return {
-        name: 'the-name',
-        registrySettings: input.registrySettings ?? registrySettings,
-        stage: input.stage,
-        versioning: input.versioning
-    };
-}
-
-async function determineCurrentVersion(
-    emitter: BundleEmitter,
-    input: CurrentVersionInput
-): Promise<Maybe<string>> {
-    return emitter.determineCurrentVersion(currentVersionRequest(input));
-}
-
-async function expectCurrentVersionFailure(
-    emitter: BundleEmitter,
-    input: CurrentVersionInput,
-    matcher: RegExp
-): Promise<void> {
-    await assert.rejects(async function () {
-        await determineCurrentVersion(emitter, input);
-    }, matcher);
-}
-
-function buildSbomWithDependency(input: SbomDependency): string {
-    return buildSbomFixtureContent({
-        packtoryVersion: input.packtoryVersion,
-        dependencyComponents: [ { name: input.dependencyName, version: input.dependencyVersion } ]
-    });
-}
-
-function createPublishedBundleScenario(): PublishedBundleScenario {
-    const fetchLatestReleaseMetadata = fake.resolves(Maybe.just(latestReleaseMetadata));
-    const fetchTarball = fake.resolves(tarballWithOneFile);
-    const collectContents = fake.returns([]);
-    return {
-        emitter: emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents }),
-        collectContents,
-        fetchTarball
-    };
-}
-
-async function runSbomComparison(previousSbom: string, currentSbom: string): Promise<boolean> {
-    const previousTarball = await createTarballBuilder().build([
-        { filePath: 'sbom.cdx.json', content: previousSbom, isExecutable: false }
-    ]);
-    const fetchLatestReleaseMetadata = fake.resolves(
-        Maybe.just({
-            version: latestReleaseMetadata.version,
-            tarballUrl: latestReleaseMetadata.tarballUrl,
-            tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
-            publishedAt,
-            gitHead: undefined
-        })
-    );
-    const fetchTarball = fake.resolves(previousTarball);
-    const collectContents = fake.returns([ { filePath: 'sbom.cdx.json', content: currentSbom, isExecutable: false } ]);
-    const emitter = emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents });
-    const result = await emitter.checkBundleAlreadyPublished({ registrySettings, bundle: namedBundle() });
-    return result.alreadyPublishedAsLatest;
-}
-
-function assertPreviousReleaseArtifacts(
-    value: PreviousReleaseArtifactsSummary,
-    expectedFileCount?: number
-): void {
-    assert.partialDeepStrictEqual(value, {
-        version: latestReleaseMetadata.version,
-        publishedAt
-    });
-
-    if (expectedFileCount !== undefined) {
-        assert.strictEqual(value.files.length, expectedFileCount);
-    }
-}
-
-function assertDifferentContentsResult(
-    result: BundlePublishedCheckResult,
-    bundle: VersionedBundleWithManifest,
-    collectContents: SinonSpy,
-    fetchTarball: SinonSpy
-): void {
-    assert.strictEqual(result.alreadyPublishedAsLatest, false);
-    if (result.previousReleaseArtifacts.isNothing) {
-        assert.fail('expected previousReleaseArtifacts to be present');
-    }
-    assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value, 1);
-    assert.deepStrictEqual(collectContents.firstCall.args, [ bundle, 'package', undefined ]);
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [
-        latestReleaseMetadata.tarballUrl,
-        latestReleaseMetadata.tarballIntegrity,
-        registrySettings
-    ]);
-}
-
-function assertMatchingContentsResult(
-    result: BundlePublishedCheckResult,
-    collectContents: SinonSpy,
-    fetchTarball: SinonSpy
-): void {
-    assert.strictEqual(result.alreadyPublishedAsLatest, true);
-    if (result.previousReleaseArtifacts.isNothing) {
-        assert.fail('expected previousReleaseArtifacts to be present');
-    }
-    assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value);
-    assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [
-        latestReleaseMetadata.tarballUrl,
-        latestReleaseMetadata.tarballIntegrity,
-        registrySettings
-    ]);
-}
 
 suite('emitter', function () {
     suite('current version lookup', function () {
@@ -225,8 +27,8 @@ suite('emitter', function () {
             await determineCurrentVersion(emitter, { stage: false, versioning: { automatic: true } });
 
             assert.deepStrictEqual(
-                { callCount: fetchLatestVersion.callCount, args: fetchLatestVersion.firstCall.args },
-                { callCount: 1, args: [ 'the-name', registrySettings ] }
+                { callCount: fetchLatestVersion.callCount, arguments: fetchLatestVersion.firstCall.args },
+                { callCount: 1, arguments: [ 'the-name', registrySettings ] }
             );
         });
 
@@ -428,8 +230,8 @@ suite('emitter', function () {
                 emitter,
                 {
                     registrySettings: {
-                        registryUrl: 'https://registry.example.test',
-                        auth: { type: 'bearer-token', token: 'the-token' }
+                        registryAddress: 'https://registry.example.test',
+                        authentication: { type: 'bearer-token', token: 'the-token' }
                     },
                     stage: true,
                     versioning: { automatic: true }
@@ -453,9 +255,9 @@ suite('emitter', function () {
             assert.deepStrictEqual(
                 {
                     callCount: fetchLatestReleaseMetadata.callCount,
-                    args: fetchLatestReleaseMetadata.firstCall.args
+                    arguments: fetchLatestReleaseMetadata.firstCall.args
                 },
-                { callCount: 1, args: [ 'the-name', registrySettings ] }
+                { callCount: 1, arguments: [ 'the-name', registrySettings ] }
             );
         });
 
@@ -500,7 +302,11 @@ suite('emitter', function () {
         test('checkBundleAlreadyPublished() forwards extra files to collectContents', async function () {
             const checkScenario = createPublishedBundleScenario();
             const bundle = namedBundle();
-            const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+            const extraFile = {
+                filePath: 'software-bill-of-materials.cyclonedx.json',
+                content: '{}',
+                isExecutable: false
+            };
             await checkScenario.emitter.checkBundleAlreadyPublished({
                 registrySettings,
                 bundle,
@@ -525,23 +331,39 @@ suite('emitter', function () {
         });
 
         test('checkBundleAlreadyPublished() treats SBOMs as equal when only the packtory tool version differs', async function () {
-            const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
-            const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
-            assert.strictEqual(await runSbomComparison(previousSbom, currentSbom), true);
+            const previousSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({
+                packtoryVersion: '1.2.3'
+            });
+            const currentSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsFixtureContent({
+                packtoryVersion: '9.9.9'
+            });
+            assert.strictEqual(
+                await runSoftwareBillOfMaterialsComparison(
+                    previousSoftwareBillOfMaterials,
+                    currentSoftwareBillOfMaterials
+                ),
+                true
+            );
         });
 
         test('checkBundleAlreadyPublished() still detects SBOM changes beyond the packtory tool version', async function () {
-            const previousSbom = buildSbomWithDependency({
+            const previousSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsWithDependency({
                 packtoryVersion: '1.2.3',
                 dependencyName: 'old-dependency',
                 dependencyVersion: '1.0.0'
             });
-            const currentSbom = buildSbomWithDependency({
+            const currentSoftwareBillOfMaterials = buildSoftwareBillOfMaterialsWithDependency({
                 packtoryVersion: '9.9.9',
                 dependencyName: 'new-dependency',
                 dependencyVersion: '2.0.0'
             });
-            assert.strictEqual(await runSbomComparison(previousSbom, currentSbom), false);
+            assert.strictEqual(
+                await runSoftwareBillOfMaterialsComparison(
+                    previousSoftwareBillOfMaterials,
+                    currentSoftwareBillOfMaterials
+                ),
+                false
+            );
         });
     });
 });

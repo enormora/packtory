@@ -1,8 +1,8 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
-import { tmpdir } from 'node:os';
+import fileSystem from 'node:fs';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL as pathToFileAddress } from 'node:url';
 import type {
     AnalyzedBundle,
     AnalyzedBundleResource,
@@ -59,7 +59,7 @@ type PackageWriter = {
 };
 
 type RootFileDescription = AnalyzedBundle['roots'][string];
-type RootTransferableFileDescription = RootFileDescription['js'];
+type RootTransferableFileDescription = RootFileDescription['javaScript'];
 type SecondPassBundle = EliminationInput['bundle'];
 
 type WrittenComparisonPackages = {
@@ -67,7 +67,7 @@ type WrittenComparisonPackages = {
     readonly right: string;
 };
 
-const packageJsonContent = '{"type":"module"}\n';
+const packageManifestContent = '{"type":"module"}\n';
 
 function entryContext(name: string, entry: DeadCodeEliminationOracleEntry): string {
     return `${name}: ${entry.bundleName}/${entry.targetFilePath}#${entry.exportName}`;
@@ -130,7 +130,7 @@ async function writeBundleResources(
     for (const bundle of bundles) {
         const bundleFolder = path.join(packageFolder, 'node_modules', bundle.name);
         const packageWriter = createPackageWriter(fileManager, bundleFolder, caseName);
-        await fileManager.writeFile(path.join(bundleFolder, 'package.json'), packageJsonContent);
+        await fileManager.writeFile(path.join(bundleFolder, 'package.json'), packageManifestContent);
         for (const resource of bundle.contents) {
             await packageWriter.writeResource(resource);
         }
@@ -138,17 +138,19 @@ async function writeBundleResources(
 }
 
 async function writePackage(caseName: string, bundles: readonly WritableBundle[]): Promise<string> {
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const packageFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-dead-code-elimination-oracle-'));
-    await fileManager.writeFile(path.join(packageFolder, 'package.json'), packageJsonContent);
+    const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+    const packageFolder = await fileSystem.promises.mkdtemp(
+        path.join(temporaryDirectory(), 'packtory-dead-code-elimination-oracle-')
+    );
+    await fileManager.writeFile(path.join(packageFolder, 'package.json'), packageManifestContent);
     await writeBundleResources(fileManager, packageFolder, caseName, bundles);
     return packageFolder;
 }
 
-function probeScript(entryUrl: string, exportName: string): string {
+function probeScript(entryAddress: string, exportName: string): string {
     return [
         'globalThis.__packtoryDeadCodeEliminationEvents = [];',
-        `const module = await import(${JSON.stringify(entryUrl)});`,
+        `const module = await import(${JSON.stringify(entryAddress)});`,
         `const exported = module[${JSON.stringify(exportName)}];`,
         'const value = typeof exported === "function" ? await exported() : exported;',
         'console.log(JSON.stringify({ value, events: globalThis.__packtoryDeadCodeEliminationEvents }));'
@@ -160,11 +162,11 @@ async function runPackageProbe(
     packageFolder: string,
     entry: DeadCodeEliminationOracleEntry
 ): Promise<DeadCodeEliminationProbeResult> {
-    const entryUrl = pathToFileURL(
+    const entryAddress = pathToFileAddress(
         path.join(packageFolder, 'node_modules', entry.bundleName, entry.targetFilePath)
     )
         .href;
-    const result = await runNodeProbe(probeScript(entryUrl, entry.exportName));
+    const result = await runNodeProbe(probeScript(entryAddress, entry.exportName));
 
     assert.deepStrictEqual(
         Object.keys(result as Record<string, unknown>).toSorted(function (left, right) {
@@ -206,7 +208,7 @@ async function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, 
 }
 
 async function removePackageFolder(packageFolder: string): Promise<void> {
-    await fs.promises.rm(packageFolder, { recursive: true, force: true });
+    await fileSystem.promises.rm(packageFolder, { recursive: true, force: true });
 }
 
 async function withWrittenComparisonPackages<T>(
@@ -359,18 +361,18 @@ function refreshFileDescription(
 
 function refreshRoot(bundle: AnalyzedBundle, root: RootFileDescription): RootFileDescription {
     if (root.declarationFile === undefined) {
-        return { js: refreshFileDescription(bundle, root.js) };
+        return { javaScript: refreshFileDescription(bundle, root.javaScript) };
     }
     return {
-        js: refreshFileDescription(bundle, root.js),
+        javaScript: refreshFileDescription(bundle, root.javaScript),
         declarationFile: refreshFileDescription(bundle, root.declarationFile)
     };
 }
 
 function refreshRoots(bundle: AnalyzedBundle): Readonly<Record<string, RootFileDescription>> {
     return Object.fromEntries(
-        Object.entries(bundle.roots).map(function ([ rootId, root ]) {
-            return [ rootId, refreshRoot(bundle, root) ];
+        Object.entries(bundle.roots).map(function ([ rootIdentifier, root ]) {
+            return [ rootIdentifier, refreshRoot(bundle, root) ];
         })
     );
 }

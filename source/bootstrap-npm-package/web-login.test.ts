@@ -15,8 +15,11 @@ function createSuccessfulLoginWeb(token: WebLoginResult): LoginWebFunction {
 
 suite('web-login', function () {
     test('forwards the registry URL, hostname and the web auth-type marker to loginWeb', async function () {
-        const recordedOptions: { readonly registry: string; readonly hostname: string; readonly authType: 'web'; }[] =
-            [];
+        const recordedOptions: {
+            readonly registry: string;
+            readonly hostname: string;
+            readonly authType: 'web';
+        }[] = [];
         const loginWeb: LoginWebFunction = async function (_opener, options) {
             recordedOptions.push({
                 registry: options.registry,
@@ -28,7 +31,7 @@ suite('web-login', function () {
         const openInBrowser: OpenInBrowser = fake.resolves(undefined);
         const webLogin = createWebLogin({ loginWeb, openInBrowser });
 
-        await webLogin.login({ registryUrl: 'https://registry.npmjs.org/', hostname: 'workstation' });
+        await webLogin.login({ registryAddress: 'https://registry.npmjs.org/', hostname: 'workstation' });
 
         assert.deepStrictEqual(recordedOptions, [
             { registry: 'https://registry.npmjs.org/', hostname: 'workstation', authType: 'web' }
@@ -44,7 +47,7 @@ suite('web-login', function () {
         };
         const webLogin = createWebLogin({ loginWeb, openInBrowser });
 
-        await webLogin.login({ registryUrl: 'https://registry.npmjs.org/', hostname: 'workstation' });
+        await webLogin.login({ registryAddress: 'https://registry.npmjs.org/', hostname: 'workstation' });
 
         assert.strictEqual(recordedOpeners.length, 1);
         assert.strictEqual(recordedOpeners[0], openInBrowser);
@@ -58,7 +61,7 @@ suite('web-login', function () {
         });
 
         const result = await webLogin.login({
-            registryUrl: 'https://registry.npmjs.org/',
+            registryAddress: 'https://registry.npmjs.org/',
             hostname: 'workstation'
         });
 
@@ -72,7 +75,7 @@ suite('web-login', function () {
         const webLogin = createWebLogin({ loginWeb, openInBrowser: fake.resolves(undefined) });
 
         try {
-            await webLogin.login({ registryUrl: 'https://registry.npmjs.org/', hostname: 'workstation' });
+            await webLogin.login({ registryAddress: 'https://registry.npmjs.org/', hostname: 'workstation' });
             assert.fail('expected login to throw');
         } catch (error: unknown) {
             assert.ok(error instanceof Error);

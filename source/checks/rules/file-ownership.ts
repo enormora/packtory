@@ -1,14 +1,14 @@
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 
-export type OwnerInfo = {
+export type OwnerInformation = {
     readonly bundleName: string;
     readonly survivingBindings: ReadonlySet<string>;
 };
 
 export function collectFileOwnership(
     bundles: readonly Pick<AnalyzedBundle, 'contents' | 'name'>[]
-): Map<string, OwnerInfo[]> {
-    const ownership = new Map<string, OwnerInfo[]>();
+): Map<string, OwnerInformation[]> {
+    const ownership = new Map<string, OwnerInformation[]>();
 
     for (const bundle of bundles) {
         for (const resource of bundle.contents) {

@@ -2,7 +2,11 @@
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
-import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
+import {
+    validateConfiguration,
+    validateConfigurationWithoutRegistry,
+    type ValidConfigurationResult
+} from '../configuration/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
@@ -16,13 +20,13 @@ import { createInspectPackageSideEffectsValidated } from './packtory-package-sid
 import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import { createRunPackAllValidated, createRunPackValidated } from './packtory-pack.ts';
-import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
+import { attachAggregator, emitEffectiveConfigurationPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
 import { createRunBuildAndPublishValidated } from './packtory-publish.ts';
 import {
     createReleaseAnalysisOutcome,
     createPackAllOutcome,
-    configError,
+    configurationError,
     createPackOutcome,
     createPackageDependencyInspectionOutcome,
     createPackageSideEffectsInspectionOutcome,
@@ -70,7 +74,7 @@ import {
 } from './packtory-results.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import type { Scheduler as PacktoryScheduler } from './scheduler.ts';
-import type { VersionSourceResolver } from './map-config.ts';
+import type { VersionSourceResolver } from './map-configuration.ts';
 
 export type BuildAndPublishAllOptions = BuildAndPublishAllOptionsBase;
 export type ResolveAndLinkAllOptions = ResolveAndLinkAllOptionsBase;
@@ -162,7 +166,7 @@ type Reporting<TReport> = {
 };
 
 type InspectPackageTreeInput = {
-    readonly config: unknown;
+    readonly configuration: unknown;
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
     readonly packageName: string;
     readonly reporting: Reporting<BuildReport>;
@@ -170,20 +174,20 @@ type InspectPackageTreeInput = {
 };
 
 type PackAllPackagesInput = {
-    readonly config: unknown;
+    readonly configuration: unknown;
     readonly options: PackAllPublicOptions;
     readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
 };
 
 type InspectPackageDependenciesInput = {
-    readonly config: unknown;
+    readonly configuration: unknown;
     readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
     readonly packageName: string;
 };
 
 type InspectPackageSideEffectsInput = {
-    readonly config: unknown;
+    readonly configuration: unknown;
     readonly inspectPackageSideEffectsValidated: ReturnType<typeof createInspectPackageSideEffectsValidated>;
     readonly packageName: string;
 };
@@ -199,33 +203,33 @@ function selectPackageTreeEntries(report: BuildReport, packageName: string): Pac
     return packageReport.outputs.tarball.entries;
 }
 
-const missingPublishAuthIssue =
-    'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.';
+const missingPublishAuthenticationIssue =
+    'registrySettings.authentication must be configured to publish; run with dryRun=true to skip the registry write.';
 
-function ensureAuthConfiguredForRealPublish(
-    validated: ValidConfigResult,
+function ensureAuthenticationConfiguredForRealPublish(
+    validated: ValidConfigurationResult,
     options: BuildAndPublishAllOptions
-): Result<ValidConfigResult, PublishAllResult> {
-    if (options.dryRun || validated.packtoryConfig.registrySettings?.auth !== undefined) {
+): Result<ValidConfigurationResult, PublishAllResult> {
+    if (options.dryRun || validated.packtoryConfiguration.registrySettings?.authentication !== undefined) {
         return Result.ok(validated);
     }
-    return Result.err(Result.err(configError([ missingPublishAuthIssue ])));
+    return Result.err(Result.err(configurationError([ missingPublishAuthenticationIssue ])));
 }
 
-type ReportedOperationArgs<TValidated, TResult, TReport, TOutcome> = {
-    readonly config: unknown;
+type ReportedOperationArguments<TValidated, TResult, TReport, TOutcome> = {
+    readonly configuration: unknown;
     readonly attachReporting: () => Reporting<TReport>;
-    readonly validate: (config: unknown) => Result<TValidated, readonly string[]>;
+    readonly validate: (configuration: unknown) => Result<TValidated, readonly string[]>;
     readonly runValidated: (validated: TValidated) => Promise<TResult>;
     readonly createValidationErrorResult: (issues: readonly string[]) => TResult;
     readonly createOutcome: (result: TResult, getReport: () => TReport) => TOutcome;
 };
 
 async function createReportedOutcome<TValidated, TResult, TReport, TOutcome>(
-    operation: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>,
+    operation: ReportedOperationArguments<TValidated, TResult, TReport, TOutcome>,
     getReport: () => TReport
 ): Promise<TOutcome> {
-    const validation = operation.validate(operation.config);
+    const validation = operation.validate(operation.configuration);
     const result = validation.isErr
         ? operation.createValidationErrorResult(validation.error)
         : await operation.runValidated(validation.value);
@@ -234,7 +238,7 @@ async function createReportedOutcome<TValidated, TResult, TReport, TOutcome>(
 }
 
 async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
-    operation: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>
+    operation: ReportedOperationArguments<TValidated, TResult, TReport, TOutcome>
 ): Promise<TOutcome> {
     const reporting = operation.attachReporting();
     try {
@@ -245,9 +249,9 @@ async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
 }
 
 async function inspectPackageTreeWithReport(input: InspectPackageTreeInput): Promise<PackageTreeOutcome> {
-    const validation = validateConfigWithoutRegistry(input.config);
+    const validation = validateConfigurationWithoutRegistry(input.configuration);
     if (validation.isErr) {
-        return createPackageTreeOutcome(Result.err(configError(validation.error)));
+        return createPackageTreeOutcome(Result.err(configurationError(validation.error)));
     }
 
     const result = await input.inspectPackageTreeValidated(
@@ -264,9 +268,9 @@ async function inspectPackageTreeWithReport(input: InspectPackageTreeInput): Pro
 }
 
 async function packAllPackagesWithValidation(input: PackAllPackagesInput): Promise<PackAllOutcome> {
-    const validation = validateConfigWithoutRegistry(input.config);
+    const validation = validateConfigurationWithoutRegistry(input.configuration);
     if (validation.isErr) {
-        return createPackAllOutcome(Result.err(configError(validation.error)));
+        return createPackAllOutcome(Result.err(configurationError(validation.error)));
     }
 
     const result = await input.runPackAllValidated(
@@ -280,9 +284,9 @@ async function packAllPackagesWithValidation(input: PackAllPackagesInput): Promi
 async function inspectPackageDependenciesWithValidation(
     input: InspectPackageDependenciesInput
 ): Promise<PackageDependencyInspectionOutcome> {
-    const validation = validateConfigWithoutRegistry(input.config);
+    const validation = validateConfigurationWithoutRegistry(input.configuration);
     if (validation.isErr) {
-        return createPackageDependencyInspectionOutcome(Result.err(configError(validation.error)));
+        return createPackageDependencyInspectionOutcome(Result.err(configurationError(validation.error)));
     }
     const result = await input.inspectPackageDependenciesValidated(validation.value, input.packageName);
     return createPackageDependencyInspectionOutcome(result);
@@ -291,9 +295,9 @@ async function inspectPackageDependenciesWithValidation(
 async function inspectPackageSideEffectsWithValidation(
     input: InspectPackageSideEffectsInput
 ): Promise<PackageSideEffectsInspectionOutcome> {
-    const validation = validateConfigWithoutRegistry(input.config);
+    const validation = validateConfigurationWithoutRegistry(input.configuration);
     if (validation.isErr) {
-        return createPackageSideEffectsInspectionOutcome(Result.err(configError(validation.error)));
+        return createPackageSideEffectsInspectionOutcome(Result.err(configurationError(validation.error)));
     }
     const result = await input.inspectPackageSideEffectsValidated(validation.value, input.packageName);
     return createPackageSideEffectsInspectionOutcome(result);
@@ -314,70 +318,70 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     } = createValidatedRunners(dependencies);
 
     async function resolveAndLinkAllPublic(
-        config: unknown,
+        configuration: unknown,
         options?: ResolveAndLinkAllOptions
     ): Promise<ResolveAndLinkAllOutcome> {
         return runReportedOperation({
-            config,
+            configuration,
             attachReporting() {
                 return maybeAttachAggregator(dependencies.progressBroadcaster, options?.collectReport);
             },
-            validate: validateConfigWithoutRegistry,
+            validate: validateConfigurationWithoutRegistry,
             runValidated: resolveAndLinkAllValidated,
             createValidationErrorResult(issues) {
-                return Result.err(configError(issues));
+                return Result.err(configurationError(issues));
             },
             createOutcome: createResolveAndLinkAllOutcome
         });
     }
 
     async function runBuildAndPublish(
-        validated: ValidConfigResult,
+        validated: ValidConfigurationResult,
         options: BuildAndPublishAllOptions
     ): Promise<PublishAllResult> {
-        emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
+        emitEffectiveConfigurationPerPackage(dependencies.progressBroadcaster, validated.packtoryConfiguration);
         return runBuildAndPublishValidated(validated, options, resolveAndLinkAllValidated);
     }
 
     async function buildAndPublishAllPublic(
-        config: unknown,
+        configuration: unknown,
         options: BuildAndPublishAllOptions
     ): Promise<PublishAllOutcome> {
         return runReportedOperation({
-            config,
+            configuration,
             attachReporting() {
                 return maybeAttachAggregator(dependencies.progressBroadcaster, options.collectReport);
             },
-            validate: validateConfig,
+            validate: validateConfiguration,
             async runValidated(validated) {
-                const guarded = ensureAuthConfiguredForRealPublish(validated, options);
+                const guarded = ensureAuthenticationConfiguredForRealPublish(validated, options);
                 if (guarded.isErr) {
                     return guarded.error;
                 }
                 return runBuildAndPublish(guarded.value, options);
             },
             createValidationErrorResult(issues) {
-                return Result.err(configError(issues));
+                return Result.err(configurationError(issues));
             },
             createOutcome: createPublishAllOutcome
         });
     }
 
-    async function packPackagePublic(config: unknown, options: PackPublicOptions): Promise<PackOutcome> {
-        const validation = validateConfigWithoutRegistry(config);
+    async function packPackagePublic(configuration: unknown, options: PackPublicOptions): Promise<PackOutcome> {
+        const validation = validateConfigurationWithoutRegistry(configuration);
         if (validation.isErr) {
-            return createPackOutcome(Result.err(configError(validation.error)));
+            return createPackOutcome(Result.err(configurationError(validation.error)));
         }
 
         const result = await runPackValidated(validation.value, options, resolveAndLinkAllValidated);
         return createPackOutcome(result);
     }
 
-    async function inspectPackageTreePublic(config: unknown, packageName: string): Promise<PackageTreeOutcome> {
+    async function inspectPackageTreePublic(configuration: unknown, packageName: string): Promise<PackageTreeOutcome> {
         const reporting = attachAggregator(dependencies.progressBroadcaster);
         try {
             return await inspectPackageTreeWithReport({
-                config,
+                configuration,
                 inspectPackageTreeValidated,
                 packageName,
                 reporting,
@@ -388,55 +392,55 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         }
     }
 
-    async function diffAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseDiffAllOutcome> {
+    async function diffAgainstLatestPublishedPublic(configuration: unknown): Promise<ReleaseDiffAllOutcome> {
         return runReportedOperation({
-            config,
+            configuration,
             attachReporting() {
                 return attachAggregator(dependencies.progressBroadcaster);
             },
-            validate: validateConfig,
+            validate: validateConfiguration,
             async runValidated(validated) {
-                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
+                emitEffectiveConfigurationPerPackage(dependencies.progressBroadcaster, validated.packtoryConfiguration);
                 return diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
             },
             createValidationErrorResult(issues) {
-                return Result.err(configError(issues));
+                return Result.err(configurationError(issues));
             },
             createOutcome: createReleaseDiffAllOutcome
         });
     }
 
-    async function analyzeReleaseAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseAnalysisOutcome> {
+    async function analyzeReleaseAgainstLatestPublishedPublic(configuration: unknown): Promise<ReleaseAnalysisOutcome> {
         return runReportedOperation({
-            config,
+            configuration,
             attachReporting() {
                 return attachAggregator(dependencies.progressBroadcaster);
             },
-            validate: validateConfig,
+            validate: validateConfiguration,
             async runValidated(validated) {
-                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
+                emitEffectiveConfigurationPerPackage(dependencies.progressBroadcaster, validated.packtoryConfiguration);
                 return analyzeReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
             },
             createValidationErrorResult(issues) {
-                return Result.err(configError(issues));
+                return Result.err(configurationError(issues));
             },
             createOutcome: createReleaseAnalysisOutcome
         });
     }
 
-    async function planReleaseAgainstLatestPublishedPublic(config: unknown): Promise<ReleasePlanOutcome> {
+    async function planReleaseAgainstLatestPublishedPublic(configuration: unknown): Promise<ReleasePlanOutcome> {
         return runReportedOperation({
-            config,
+            configuration,
             attachReporting() {
                 return attachAggregator(dependencies.progressBroadcaster);
             },
-            validate: validateConfig,
+            validate: validateConfiguration,
             async runValidated(validated) {
-                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
+                emitEffectiveConfigurationPerPackage(dependencies.progressBroadcaster, validated.packtoryConfiguration);
                 return planReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
             },
             createValidationErrorResult(issues) {
-                return Result.err(configError(issues));
+                return Result.err(configurationError(issues));
             },
             createOutcome: createReleasePlanOutcome
         });
@@ -446,16 +450,16 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         analyzeReleaseAgainstLatestPublished: analyzeReleaseAgainstLatestPublishedPublic,
         buildAndPublishAll: buildAndPublishAllPublic,
         diffAgainstLatestPublished: diffAgainstLatestPublishedPublic,
-        async inspectPackageDependencies(config, packageName) {
+        async inspectPackageDependencies(configuration, packageName) {
             return inspectPackageDependenciesWithValidation({
-                config,
+                configuration,
                 inspectPackageDependenciesValidated,
                 packageName
             });
         },
-        async inspectPackageSideEffects(config, packageName) {
+        async inspectPackageSideEffects(configuration, packageName) {
             return inspectPackageSideEffectsWithValidation({
-                config,
+                configuration,
                 inspectPackageSideEffectsValidated,
                 packageName
             });
@@ -463,9 +467,9 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         planReleaseAgainstLatestPublished: planReleaseAgainstLatestPublishedPublic,
         resolveAndLinkAll: resolveAndLinkAllPublic,
         packPackage: packPackagePublic,
-        async packAllPackages(config, options) {
+        async packAllPackages(configuration, options) {
             return packAllPackagesWithValidation({
-                config,
+                configuration,
                 options,
                 runPackAllValidated,
                 resolveAndLinkAllValidated

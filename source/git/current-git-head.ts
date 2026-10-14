@@ -1,12 +1,12 @@
 type GitCommandRunner = (
     command: string,
     commandArguments: readonly string[]
-) => Promise<{ readonly stdout: string; readonly stderr: string; }>;
+) => Promise<{ readonly standardOutput: string; readonly standardError: string; }>;
 
 export type CurrentGitHeadReader = () => Promise<string | undefined>;
 
 type GitHeadOutput = {
-    readonly stdout: string | null;
+    readonly standardOutput: string | null;
 };
 
 type CurrentGitHeadReaderDependencies = {
@@ -16,7 +16,7 @@ type CurrentGitHeadReaderDependencies = {
 
 async function runGitHeadCommand(
     dependencies: CurrentGitHeadReaderDependencies
-): Promise<{ readonly stdout: string; readonly stderr: string; }> {
+): Promise<{ readonly standardOutput: string; readonly standardError: string; }> {
     return dependencies.runGitCommand(
         'git',
         [ '-C', dependencies.repositoryFolder, 'rev-parse', '--verify', 'HEAD' ]
@@ -26,17 +26,17 @@ async function runGitHeadCommand(
 async function readGitHeadOutput(dependencies: CurrentGitHeadReaderDependencies): Promise<GitHeadOutput> {
     try {
         const result = await runGitHeadCommand(dependencies);
-        return { stdout: result.stdout };
+        return { standardOutput: result.standardOutput };
     } catch {
-        return { stdout: null };
+        return { standardOutput: null };
     }
 }
 
 function readCurrentGitHead(output: GitHeadOutput): string | undefined {
-    if (output.stdout === null) {
+    if (output.standardOutput === null) {
         return undefined;
     }
-    const currentGitHead = output.stdout.trim();
+    const currentGitHead = output.standardOutput.trim();
     return currentGitHead.length === 0 ? undefined : currentGitHead;
 }
 

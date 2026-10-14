@@ -2,9 +2,9 @@ import { isPlainObject, isString } from 'remeda';
 import { tryOr } from 'true-myth/result';
 import type { FileSystemHost } from 'ts-morph';
 import { isInstalledDependencyManifestPath } from '../common/package-layout.ts';
-import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
+import { bindRequiredMethod, synchronousMethodNames } from './host-method-binding.ts';
 
-const packageJsonIndentationSpaces = 2;
+const packageManifestIndentationSpaces = 2;
 
 function injectTypesCondition(_key: string, value: unknown): unknown {
     if (!isPlainObject(value)) {
@@ -30,11 +30,11 @@ function rewriteManifestContent(content: string): string {
     }
     const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
 
-    return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
+    return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageManifestIndentationSpaces);
 }
 
 export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSystemHost): FileSystemHost {
-    const readFileSync = bindRequiredMethod(fileSystemHost, syncMethodNames.readFile, 'a string', isString);
+    const readFileSync = bindRequiredMethod(fileSystemHost, synchronousMethodNames.readFile, 'a string', isString);
 
     const synthesizingHost: FileSystemHost = {
         ...fileSystemHost,
@@ -45,7 +45,7 @@ export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSy
             }
             return rewriteManifestContent(content);
         },
-        [syncMethodNames.readFile](filePath: string): string {
+        [synchronousMethodNames.readFile](filePath: string): string {
             // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             const content = readFileSync(filePath);
             if (!isInstalledDependencyManifestPath(filePath)) {

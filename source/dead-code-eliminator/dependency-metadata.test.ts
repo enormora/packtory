@@ -29,10 +29,16 @@ suite('dependency metadata', function () {
             'export const api = 1;'
         ]
             .join('\n');
-        const resource = analyzedBundleResource('/src/index.js', {
+        const resource = analyzedBundleResource('/source/index.js', {
             content,
             targetFilePath: 'index.js',
-            directDependencies: new Set([ 'live.js', 'data.json', 'package.json', 'dep-target', 'Stryker was here' ]),
+            directDependencies: new Set([
+                'live.js',
+                'data.json',
+                'package.json',
+                'dependency-target',
+                'Stryker was here'
+            ]),
             moduleReferences: [
                 {
                     type: 'local-code',
@@ -57,7 +63,7 @@ suite('dependency metadata', function () {
                     packageName: 'dep',
                     sourceSpecifier: 'dep',
                     emittedSpecifier: 'dep',
-                    targetFilePath: 'dep-target'
+                    targetFilePath: 'dependency-target'
                 } as unknown as ArtifactModuleReference
             ]
         });
@@ -69,7 +75,7 @@ suite('dependency metadata', function () {
                 substitutedInputFilePathsByPackageName: new Map()
             },
             [ resource ],
-            sourceFileIndex('/src/index.js', 'index.js', content)
+            sourceFileIndex('/source/index.js', 'index.js', content)
         );
 
         assert.deepStrictEqual(
@@ -93,7 +99,7 @@ suite('dependency metadata', function () {
             { targetFilePath: 'index.js', sourceSpecifier: 'local-source', emittedSpecifier: './local.js' },
             { targetFilePath: 'index.js', sourceSpecifier: 'dead-source', emittedSpecifier: 'Stryker was here' }
         ];
-        const resource = analyzedBundleResource('/src/index.js', {
+        const resource = analyzedBundleResource('/source/index.js', {
             content,
             targetFilePath: 'index.js',
             moduleReferences: [
@@ -155,7 +161,7 @@ suite('dependency metadata', function () {
                 substitutedInputFilePathsByPackageName: new Map([ [ 'linked', new Set([ '/linked/index.js' ]) ] ])
             },
             [ resource ],
-            sourceFileIndex('/src/index.js', 'index.js', content)
+            sourceFileIndex('/source/index.js', 'index.js', content)
         );
 
         assert.deepStrictEqual(result.externalDependencies.get('dep')?.references, references.slice(0, 2));

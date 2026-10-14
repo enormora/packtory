@@ -2,19 +2,19 @@ import { match } from 'ts-pattern';
 import type { PackOutcome, Packtory } from '../../packtory/packtory.ts';
 import {
     checksErrorType,
-    configErrorType,
+    configurationErrorType,
     packPackageFailureType,
     partialFailureType,
     type PackFailure
 } from '../../packtory/packtory-results.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getErrorSymbol, getSuccessSymbol } from './runner-symbols.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 const issuePrefixByType = {
-    [configErrorType]: 'The provided config is invalid',
+    [configurationErrorType]: 'The provided config is invalid',
     [checksErrorType]: 'Checks failed'
 } as const;
 
@@ -62,7 +62,7 @@ type OutputPathPackFailure = OutputPathPackFailures[number];
 type IssuePackFailure = Extract<
     PackFailure,
     {
-        readonly type: typeof checksErrorType | typeof configErrorType;
+        readonly type: typeof checksErrorType | typeof configurationErrorType;
     }
 >;
 
@@ -70,7 +70,7 @@ export type PackHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly flags: PackFlags;
 };
 
@@ -187,7 +187,7 @@ function formatPackageNameFailure(error: PackageNamePackFailure): string {
 }
 
 function isIssueFailure(error: PackFailure): error is IssuePackFailure {
-    return error.type === configErrorType || error.type === checksErrorType;
+    return error.type === configurationErrorType || error.type === checksErrorType;
 }
 
 function formatPackageFailure(error: Exclude<PackFailure, IssuePackFailure | PartialPackFailure>): string {
@@ -257,9 +257,9 @@ function packMode(flags: PackFlags): PackMode {
     return { packageName: flags.packageName };
 }
 
-async function runPackAll(dependencies: PackHandlerDependencies, config: unknown): Promise<number> {
+async function runPackAll(dependencies: PackHandlerDependencies, configuration: unknown): Promise<number> {
     const { log, packtory, flags } = dependencies;
-    const outcome = await packtory.packAllPackages(config, {
+    const outcome = await packtory.packAllPackages(configuration, {
         outputPath: flags.outputPath,
         version: flags.version,
         vendorDependencies: flags.vendorDependencies
@@ -269,11 +269,11 @@ async function runPackAll(dependencies: PackHandlerDependencies, config: unknown
 
 async function runSinglePack(
     dependencies: PackHandlerDependencies,
-    config: unknown,
+    configuration: unknown,
     packageName: string
 ): Promise<number> {
     const { log, packtory, flags } = dependencies;
-    const outcome = await packtory.packPackage(config, {
+    const outcome = await packtory.packPackage(configuration, {
         packageName,
         format: flags.format,
         outputPath: flags.outputPath,
@@ -284,19 +284,19 @@ async function runSinglePack(
 }
 
 async function runConfiguredPackAll(dependencies: PackHandlerDependencies): Promise<number> {
-    const { configLoader } = dependencies;
-    const config = await configLoader.load();
+    const { configurationLoader } = dependencies;
+    const configuration = await configurationLoader.load();
 
-    return await runPackAll(dependencies, config);
+    return await runPackAll(dependencies, configuration);
 }
 
 async function runConfiguredSinglePack(
     dependencies: PackHandlerDependencies,
     packageName: string
 ): Promise<number> {
-    const config = await dependencies.configLoader.load();
+    const configuration = await dependencies.configurationLoader.load();
 
-    return await runSinglePack(dependencies, config, packageName);
+    return await runSinglePack(dependencies, configuration, packageName);
 }
 
 function isAllPackMode(mode: PackMode): mode is AllPackMode {

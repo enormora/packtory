@@ -18,7 +18,7 @@ type VersionInput = {
 };
 
 const versionedTarget = {
-    name: 'pkg-a',
+    name: 'package-a',
     version: '0.0.0',
     manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' },
     contents: [],

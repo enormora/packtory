@@ -8,7 +8,7 @@ import {
     createProcessor,
     createVersionedBundle
 } from '../test-libraries/package-processor-test-support.ts';
-import type { BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishOptions } from './map-configuration.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
 
@@ -67,7 +67,7 @@ suite('package-processor publish provider versioning', function () {
         );
         assert.deepStrictEqual(checkBundleAlreadyPublished.firstCall.args, [ {
             bundle: currentVersionedBundle,
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+            registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
         } ]);
     });
 
@@ -111,7 +111,7 @@ suite('package-processor publish provider versioning', function () {
         assert.deepStrictEqual(versions, [ '1.2.4' ]);
         const expectedCurrentVersionLookup = [ {
             name: 'package-a',
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
             stage: false,
             versioning
         } ];

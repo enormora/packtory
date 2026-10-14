@@ -4,7 +4,7 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import { createConfigurationLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import { createPackageReleaseDiff, textModifiedFileFactory } from '../../test-libraries/release-diff-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runReleaseDiffHandler, type ReleaseDiffHandlerDependencies } from './release-diff-handler.ts';
@@ -52,7 +52,7 @@ function dependenciesWith(
         pageOutput: spies.pageOutput,
         packtory: packtoryStub(outcome),
         spinnerRenderer: spinnerRendererCapturing(spies.stopAll),
-        configLoader: createConfigLoaderStub(),
+        configurationLoader: createConfigurationLoaderStub(),
         flags
     };
 }
@@ -91,7 +91,7 @@ suite('release-diff-handler', function () {
                 pageOutput: spies.pageOutput,
                 packtory: throwingPacktory,
                 spinnerRenderer: spinnerRendererCapturing(spies.stopAll),
-                configLoader: createConfigLoaderStub(),
+                configurationLoader: createConfigurationLoaderStub(),
                 flags: { filesOnly: false }
             });
             assert.fail('expected the handler to rethrow');
@@ -108,7 +108,7 @@ suite('release-diff-handler', function () {
             result: {
                 isOk: false,
                 isErr: true,
-                error: { type: 'config', issues: [ 'invalid config' ] }
+                error: { type: 'configuration', issues: [ 'invalid config' ] }
             } as unknown as ReleaseDiffOutcome['result']
         });
 
@@ -138,7 +138,7 @@ suite('release-diff-handler', function () {
                     type: 'partial',
                     succeeded: [
                         {
-                            name: 'pkg-a',
+                            name: 'package-a',
                             state: 'first-publish',
                             versionTransition: '(unpublished) -> 1.0.0',
                             previousVersionLabel: '(unpublished)',
@@ -162,7 +162,7 @@ suite('release-diff-handler', function () {
             }
         });
         const pagedMessage = spies.pageOutput.firstCall.args[0] as string;
-        assert.match(pagedMessage, /pkg-a/u);
+        assert.match(pagedMessage, /package-a/u);
         assert.match(pagedMessage, /\[first publish\]/u);
     });
 

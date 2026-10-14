@@ -1,16 +1,16 @@
 import { ProxyAgent } from 'proxy-agent';
 
-export type RegistryProxyResolver = (url: string) => string;
+export type RegistryProxyResolver = (address: string) => string;
 
 export function createRegistryAgent(registry: string, resolveProxy: RegistryProxyResolver): ProxyAgent {
-    const registryUrl = new URL(registry);
+    const registryAddress = new URL(registry);
     return new ProxyAgent({
-        getProxyForUrl(url) {
-            const destination = new URL(url);
-            if (destination.origin !== registryUrl.origin) {
+        getProxyForUrl(address) {
+            const destination = new URL(address);
+            if (destination.origin !== registryAddress.origin) {
                 throw new Error('Registry request destination differs from the configured registry origin');
             }
-            return resolveProxy(url);
+            return resolveProxy(address);
         }
     });
 }

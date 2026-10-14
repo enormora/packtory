@@ -1,7 +1,7 @@
-import { Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { DeadCodeEliminationTrace, LocalSeedReason } from '../trace.ts';
-import { bindingId, type FileBindingSet } from './binding-id.ts';
+import { bindingIdentifier, type FileBindingSet } from './binding-identifier.ts';
 import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -10,7 +10,7 @@ export type FileBindings = FileBindingSet & {
 };
 
 type LocalSeed = {
-    readonly bindingId: string;
+    readonly bindingIdentifier: string;
     readonly inputFilePath: string;
     readonly line: number;
     readonly reason: LocalSeedReason;
@@ -40,7 +40,7 @@ function statementSeeds(
     return statements.flatMap(function (statement) {
         return Array.from(collectIdentifierTargets(statement, declarationIndex), function (seed) {
             return {
-                bindingId: seed,
+                bindingIdentifier: seed,
                 inputFilePath: file.inputFilePath,
                 line: statement.getStartLineNumber(),
                 reason
@@ -54,7 +54,7 @@ function entryPointExportDeclarationSeeds(
     declarationIndex: DeclarationNodeIndex
 ): readonly LocalSeed[] {
     return file.sourceFile.getStatements().flatMap(function (statement) {
-        return TsMorphNode.isExportDeclaration(statement)
+        return TypeScriptMorphNode.isExportDeclaration(statement)
             ? statementSeeds(file, [ statement ], declarationIndex, 'entry-export-declaration')
             : [];
     });
@@ -79,7 +79,7 @@ function exportedBindingSeeds(
         return binding.isExported
             ? [
                 {
-                    bindingId: bindingId(file.targetFilePath, binding.name),
+                    bindingIdentifier: bindingIdentifier(file.targetFilePath, binding.name),
                     inputFilePath: file.inputFilePath,
                     line: bindingLine(binding, trace),
                     reason: 'entry-export'
@@ -111,14 +111,14 @@ type AddSeedInput = {
 
 function addSeed(input: AddSeedInput): Set<string> {
     const { bundleName, seed, seeds, trace } = input;
-    const alreadyAdded = seeds.has(seed.bindingId);
+    const alreadyAdded = seeds.has(seed.bindingIdentifier);
     const nextSeeds = new Set(seeds);
-    nextSeeds.add(seed.bindingId);
+    nextSeeds.add(seed.bindingIdentifier);
     if (!alreadyAdded && trace !== undefined) {
         trace.collector.record({
             type: 'local-seed-added',
             bundleName,
-            bindingId: seed.bindingId,
+            bindingIdentifier: seed.bindingIdentifier,
             inputFilePath: seed.inputFilePath,
             line: seed.line,
             reason: seed.reason

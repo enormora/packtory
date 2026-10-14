@@ -7,7 +7,7 @@ export type Clock = {
         delayInMilliseconds: number,
         ...timerArguments: Arguments
     ) => ReturnType<typeof globalThis.setTimeout>;
-    readonly clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
+    readonly clearTimeout: (identifier: ReturnType<typeof globalThis.setTimeout>) => void;
 };
 
 export function createClock(): Clock {

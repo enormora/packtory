@@ -1,12 +1,12 @@
 import { isErrorLike } from './error-shape-helpers.ts';
 import {
     buildUnsupportedProviderMessage,
-    githubActionsIdTokenMessage,
-    gitlabSigstoreIdTokenMessage,
+    githubActionsIdentifierTokenMessage,
+    gitlabSigstoreIdentifierTokenMessage,
     unsupportedProviderMarker
 } from './publish-error-messages.ts';
 
-function getCiName(message: string): string {
+function getContinuousIntegrationName(message: string): string {
     const providerSection = message
         .slice(message.indexOf(unsupportedProviderMarker) + unsupportedProviderMarker.length)
         .trimStart();
@@ -18,20 +18,20 @@ function getCiName(message: string): string {
     return providerEnd === -1 ? providerSection : providerSection.slice(0, providerEnd);
 }
 
-export function matchAutoModeError(error: unknown): Error | undefined {
+export function matchAutomaticModeError(error: unknown): Error | undefined {
     if (!isErrorLike(error)) {
         return undefined;
     }
 
     const { message } = error;
     if (message.includes(unsupportedProviderMarker)) {
-        return new Error(buildUnsupportedProviderMessage(getCiName(message)), { cause: error });
+        return new Error(buildUnsupportedProviderMessage(getContinuousIntegrationName(message)), { cause: error });
     }
     if (message.includes('"write" access to the "id-token" permission')) {
-        return new Error(githubActionsIdTokenMessage, { cause: error });
+        return new Error(githubActionsIdentifierTokenMessage, { cause: error });
     }
     if (message.includes('SIGSTORE_ID_TOKEN')) {
-        return new Error(gitlabSigstoreIdTokenMessage, { cause: error });
+        return new Error(gitlabSigstoreIdentifierTokenMessage, { cause: error });
     }
     return undefined;
 }

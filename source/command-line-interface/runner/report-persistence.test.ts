@@ -6,7 +6,11 @@ import { createEmptyReport, writeReports } from './report-persistence.ts';
 
 type PublishResult = Readonly<Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result']>;
 
-const emptyResult = { isOk: false, isErr: true, error: { type: 'config', issues: [] } } as unknown as PublishResult;
+const emptyResult = {
+    isOk: false,
+    isErr: true,
+    error: { type: 'configuration', issues: [] }
+} as unknown as PublishResult;
 const emptyReport: BuildReport = {
     schemaVersion: 1,
     generatedAt: '2026-01-01T00:00:00.000Z',
@@ -31,7 +35,7 @@ suite('report-persistence', function () {
         await writeReports({
             dryRun: false,
             fileManager,
-            flags: { reportJson: true, reportHtml: true },
+            flags: { reportJavaScriptObjectNotation: true, reportHypertextMarkupLanguage: true },
             report: undefined,
             result: emptyResult
         });
@@ -45,7 +49,7 @@ suite('report-persistence', function () {
         await writeReports({
             dryRun: false,
             fileManager,
-            flags: { reportJson: false, reportHtml: false },
+            flags: { reportJavaScriptObjectNotation: false, reportHypertextMarkupLanguage: false },
             report: emptyReport,
             result: emptyResult
         });
@@ -53,13 +57,13 @@ suite('report-persistence', function () {
         assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
     });
 
-    test('writeReports writes a JSON report when reportJson is enabled', async function () {
+    test('writeReports writes a JSON report when reportJavaScriptObjectNotation is enabled', async function () {
         const fileManager = createFakeFileManager();
 
         await writeReports({
             dryRun: false,
             fileManager,
-            flags: { reportJson: true, reportHtml: false },
+            flags: { reportJavaScriptObjectNotation: true, reportHypertextMarkupLanguage: false },
             report: emptyReport,
             result: emptyResult
         });

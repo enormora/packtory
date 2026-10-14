@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    createPackageReleaseDiff as basePkg,
+    createPackageReleaseDiff as basePackage,
     textModifiedFileFactory
 } from '../../test-libraries/release-diff-fixtures.ts';
 import { createColors, type Colors } from './terminal-preview-renderer-shared.ts';
@@ -13,13 +13,13 @@ function colors(): Colors {
 
 suite('terminal-release-diff-package-renderer', function () {
     test('renders the unchanged state as exactly one dim no-changes line including the previous version', function () {
-        const output = renderReleaseDiffPackage(basePkg({ state: 'unchanged' }), colors(), { filesOnly: false });
-        assert.strictEqual(output, 'pkg-a  1.0.0  ·  no changes');
+        const output = renderReleaseDiffPackage(basePackage({ state: 'unchanged' }), colors(), { filesOnly: false });
+        assert.strictEqual(output, 'package-a  1.0.0  ·  no changes');
     });
 
     test('renders the first-publish state with chip line and Added group of bundled files', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 state: 'first-publish',
                 versionTransition: '(unpublished) -> 1.0.0',
                 previousVersionLabel: '(unpublished)',
@@ -40,7 +40,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  (unpublished) -> 1.0.0',
+                'package-a  (unpublished) -> 1.0.0',
                 '  [first publish]  showing all bundled files as added',
                 '  Added (2)',
                 '  + package.json (2 B)',
@@ -53,7 +53,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('renders an entire changed-state package as a deterministic, indent-correct sequence of lines', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [ { path: 'lib/new.js', sizeBytes: 12, isExecutable: false } ],
                     removed: [ { path: 'lib/legacy.js', sizeBytes: 4, isExecutable: false } ],
@@ -68,7 +68,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  1.0.0 -> 1.0.1  ·  1 added, 1 removed, 1 modified, 1 unchanged',
+                'package-a  1.0.0 -> 1.0.1  ·  1 added, 1 removed, 1 modified, 1 unchanged',
                 '  Added (1)',
                 '    ▸ lib/',
                 '    + new.js (12 B)',
@@ -86,7 +86,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('renders files-only mode without text hunk contents', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [],
                     removed: [],
@@ -101,7 +101,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
+                'package-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
                 '  Modified (1)',
                 '  ~ package.json (32 B -> 35 B)'
             ]
@@ -111,7 +111,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('renders a binary modification with no hunks and a "(binary, no text diff)" annotation', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [],
                     removed: [],
@@ -134,7 +134,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
+                'package-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
                 '  Modified (1)',
                 '    ▸ assets/',
                 '    ~ logo.png (100 B -> 110 B) (binary, no text diff)'
@@ -145,7 +145,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('renders a mode-only change with mode delta 644 -> 755 and a "(mode only)" annotation', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [],
                     removed: [],
@@ -168,7 +168,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
+                'package-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
                 '  Modified (1)',
                 '    ▸ bin/',
                 '    ~ cli.js (50 B -> 50 B) mode 644 -> 755 (mode only)'
@@ -179,7 +179,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('renders the reverse mode change with mode delta 755 -> 644', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [],
                     removed: [],
@@ -204,7 +204,7 @@ suite('terminal-release-diff-package-renderer', function () {
 
     test('omits empty status groups from changed-state output', function () {
         const output = renderReleaseDiffPackage(
-            basePkg({
+            basePackage({
                 files: {
                     added: [ { path: 'a.js', sizeBytes: 1, isExecutable: false } ],
                     removed: [],
@@ -218,7 +218,7 @@ suite('terminal-release-diff-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a  1.0.0 -> 1.0.1  ·  1 added, 0 removed, 0 modified, 0 unchanged',
+                'package-a  1.0.0 -> 1.0.1  ·  1 added, 0 removed, 0 modified, 0 unchanged',
                 '  Added (1)',
                 '  + a.js (1 B)'
             ]

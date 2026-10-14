@@ -11,23 +11,23 @@ import {
     createProcessor,
     createTransferableFile,
     createVersionedBundle,
-    getCallArgs,
+    getCallArguments,
     type ProcessorContext,
     type TransferableFile
 } from '../test-libraries/package-processor-test-support.ts';
-import type { BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishOptions } from './map-configuration.ts';
 import type {
     BuildAndPublishResult,
     PackageProcessor
 } from './package-processor.ts';
 
-type SbomResult = readonly TransferableFile[] | undefined;
+type SoftwareBillOfMaterialsResult = readonly TransferableFile[] | undefined;
 type DetermineVersionAndPublishOptions = Parameters<PackageProcessor['tryBuildAndPublish']>[0];
 
-type SbomScenario = {
+type SoftwareBillOfMaterialsScenario = {
     readonly bundle: VersionedBundleWithManifest;
     readonly analyzedBundle: AnalyzedBundle;
-    readonly generateSbom: SinonSpy;
+    readonly generateSoftwareBillOfMaterials: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly processor: PackageProcessor;
 };
@@ -37,8 +37,8 @@ type CurrentHeadRetryScenario = {
     readonly artifactVersion: string;
 };
 
-function nonEsmMainPackageJson(): BuildAndPublishOptions['mainPackageJson'] {
-    return JSON.parse('{"type":"commonjs"}') as BuildAndPublishOptions['mainPackageJson'];
+function nonEcmaScriptModuleMainPackageManifest(): BuildAndPublishOptions['mainPackageManifest'] {
+    return JSON.parse('{"type":"commonjs"}') as BuildAndPublishOptions['mainPackageManifest'];
 }
 
 function publishedArtifacts(version: string, gitHead: string): BuildAndPublishResult['previousReleaseArtifacts'] {
@@ -98,10 +98,13 @@ suite('package-processor publish', function () {
             await assert.rejects(
                 processor.tryBuildAndPublish({
                     analyzedBundle: createAnalyzedBundle(),
-                    buildOptions: { ...createBuildAndPublishOptions(), mainPackageJson: nonEsmMainPackageJson() },
+                    buildOptions: {
+                        ...createBuildAndPublishOptions(),
+                        mainPackageManifest: nonEcmaScriptModuleMainPackageManifest()
+                    },
                     stage: false
                 }),
-                { message: 'mainPackageJson.type must be "module"' }
+                { message: 'mainPackageManifest.type must be "module"' }
             );
             assert.strictEqual(determineCurrentVersion.callCount, 0);
         });
@@ -134,7 +137,7 @@ suite('package-processor publish', function () {
             assert.deepStrictEqual(findCurrentHeadPublishedVersion.firstCall.args, [
                 {
                     name: 'package-a',
-                    registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                    registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
                 }
             ]);
             assert.strictEqual(determineCurrentVersion.callCount, 0);
@@ -225,7 +228,7 @@ suite('package-processor publish', function () {
 
             assert.deepStrictEqual(result, alreadyPublishedResult);
             assert.strictEqual(publish.callCount, 0);
-            assert.deepStrictEqual(getCallArgs(emit), [ [ 'building', {
+            assert.deepStrictEqual(getCallArguments(emit), [ [ 'building', {
                 packageName: 'package-a',
                 version: '1.2.3'
             } ] ]);
@@ -258,7 +261,7 @@ suite('package-processor publish', function () {
                 extraFiles: [],
                 previousReleaseArtifacts: Maybe.nothing()
             });
-            assert.deepStrictEqual(getCallArgs(emit), [
+            assert.deepStrictEqual(getCallArguments(emit), [
                 [ 'building', { packageName: 'package-a', version: '2.0.0' } ],
                 [
                     'versionDetermined',
@@ -366,12 +369,12 @@ suite('package-processor publish', function () {
             assert.deepStrictEqual(publish.firstCall.args, [
                 {
                     bundle: rebuiltBundle,
-                    registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                    publishSettings: { access: 'public', sbom: { enabled: false } },
+                    registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
+                    publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: false } },
                     stage: false
                 }
             ]);
-            assert.deepStrictEqual(getCallArgs(emit), [
+            assert.deepStrictEqual(getCallArguments(emit), [
                 [ 'building', { packageName: 'package-a', version: '1.2.3' } ],
                 [ 'rebuilding', { packageName: 'package-a', version: '1.2.3' } ],
                 [ 'publishing', { packageName: 'package-a', version: '1.2.4' } ]
@@ -399,14 +402,17 @@ suite('package-processor publish', function () {
         });
 
         test('buildAndPublish() passes generated extra files to publish', async function () {
-            const sbomFile = createTransferableFile('/sbom.cdx.json', 'sbom.cdx.json');
+            const softwareBillOfMaterialsFile = createTransferableFile(
+                '/software-bill-of-materials.cyclonedx.json',
+                'software-bill-of-materials.cyclonedx.json'
+            );
             const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
             const publish = fake.resolves(publishedToRegistry);
             const { processor } = createProcessor({
                 determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
                 addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
                 increaseVersion: fake.returns(rebuiltBundle),
-                generateSbom: fake.resolves([ sbomFile ]),
+                generateSoftwareBillOfMaterials: fake.resolves([ softwareBillOfMaterialsFile ]),
                 publish
             });
 
@@ -419,16 +425,18 @@ suite('package-processor publish', function () {
             assert.deepStrictEqual(
                 (publish.firstCall.args[0] as { readonly extraFiles: readonly unknown[]; }).extraFiles,
                 [
-                    sbomFile
+                    softwareBillOfMaterialsFile
                 ]
             );
         });
     });
 
-    function setupSbomScenario(sbomResult: SbomResult): SbomScenario {
+    function setupSoftwareBillOfMaterialsScenario(
+        softwareBillOfMaterialsResult: SoftwareBillOfMaterialsResult
+    ): SoftwareBillOfMaterialsScenario {
         const bundle = createVersionedBundle('package-a', '1.2.3');
         const analyzedBundle = createAnalyzedBundle();
-        const generateSbom = fake.resolves(sbomResult);
+        const generateSoftwareBillOfMaterials = fake.resolves(softwareBillOfMaterialsResult);
         const checkBundleAlreadyPublished = fake.resolves({
             alreadyPublishedAsLatest: false,
             previousReleaseArtifacts: Maybe.nothing()
@@ -437,49 +445,55 @@ suite('package-processor publish', function () {
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion: fake.returns(bundle),
             checkBundleAlreadyPublished,
-            generateSbom
+            generateSoftwareBillOfMaterials
         });
-        return { bundle, analyzedBundle, generateSbom, checkBundleAlreadyPublished, processor };
+        return { bundle, analyzedBundle, generateSoftwareBillOfMaterials, checkBundleAlreadyPublished, processor };
     }
 
-    function assertGeneratedSbom(
-        generateSbom: SinonSpy,
+    function assertGeneratedSoftwareBillOfMaterials(
+        generateSoftwareBillOfMaterials: SinonSpy,
         bundle: VersionedBundleWithManifest,
         buildOptions: BuildAndPublishOptions
     ): void {
-        assert.strictEqual(generateSbom.callCount, 2);
+        assert.strictEqual(generateSoftwareBillOfMaterials.callCount, 2);
         const expectedSiblings = [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
-        assert.deepStrictEqual(generateSbom.firstCall.args, [
+        assert.deepStrictEqual(generateSoftwareBillOfMaterials.firstCall.args, [
             bundle,
             expectedSiblings,
-            { access: 'public', sbom: { enabled: true } }
+            { access: 'public', softwareBillOfMaterials: { enabled: true } }
         ]);
-        const secondCallBundle = generateSbom.secondCall.args[0] as VersionedBundleWithManifest;
+        const secondCallBundle = generateSoftwareBillOfMaterials.secondCall.args[0] as VersionedBundleWithManifest;
         assert.strictEqual(secondCallBundle.version, '1.2.4');
     }
 
     suite('sbom extra files', function () {
-        test('tryBuildAndPublish() invokes the sbomFileBuilder for the pre-bump bundle to feed the already-published check, then again for the post-bump bundle', async function () {
-            const sbomFile = createTransferableFile('/sbom.cdx.json', 'sbom.cdx.json');
-            const { bundle, analyzedBundle, generateSbom, checkBundleAlreadyPublished, processor } = setupSbomScenario([
-                sbomFile
-            ]);
+        test('tryBuildAndPublish() invokes the softwareBillOfMaterialsFileBuilder for the pre-bump bundle to feed the already-published check, then again for the post-bump bundle', async function () {
+            const softwareBillOfMaterialsFile = createTransferableFile(
+                '/software-bill-of-materials.cyclonedx.json',
+                'software-bill-of-materials.cyclonedx.json'
+            );
+            const { bundle, analyzedBundle, generateSoftwareBillOfMaterials, checkBundleAlreadyPublished, processor } =
+                setupSoftwareBillOfMaterialsScenario([
+                    softwareBillOfMaterialsFile
+                ]);
 
             const buildOptions: BuildAndPublishOptions = {
                 ...createBuildAndPublishOptions(),
-                publishSettings: { access: 'public', sbom: { enabled: true } }
+                publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: true } }
             };
             await processor.tryBuildAndPublish({ analyzedBundle, buildOptions, stage: false });
 
-            assertGeneratedSbom(generateSbom, bundle, buildOptions);
-            const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as {
+            assertGeneratedSoftwareBillOfMaterials(generateSoftwareBillOfMaterials, bundle, buildOptions);
+            const checkArguments = checkBundleAlreadyPublished.firstCall.args[0] as {
                 readonly extraFiles: readonly unknown[];
             };
-            assert.deepStrictEqual(checkArgs.extraFiles, [ sbomFile ]);
+            assert.deepStrictEqual(checkArguments.extraFiles, [ softwareBillOfMaterialsFile ]);
         });
 
-        test('tryBuildAndPublish() omits extraFiles when sbomFileBuilder returns undefined', async function () {
-            const { analyzedBundle, checkBundleAlreadyPublished, processor } = setupSbomScenario(undefined);
+        test('tryBuildAndPublish() omits extraFiles when softwareBillOfMaterialsFileBuilder returns undefined', async function () {
+            const { analyzedBundle, checkBundleAlreadyPublished, processor } = setupSoftwareBillOfMaterialsScenario(
+                undefined
+            );
 
             await processor.tryBuildAndPublish({
                 analyzedBundle,
@@ -487,8 +501,8 @@ suite('package-processor publish', function () {
                 stage: false
             });
 
-            const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as Record<string, unknown>;
-            assert.strictEqual(Object.hasOwn(checkArgs, 'extraFiles'), false);
+            const checkArguments = checkBundleAlreadyPublished.firstCall.args[0] as Record<string, unknown>;
+            assert.strictEqual(Object.hasOwn(checkArguments, 'extraFiles'), false);
         });
     });
 });

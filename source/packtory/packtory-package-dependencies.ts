@@ -1,4 +1,4 @@
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { DependencyReference, ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import { classifySpecifier } from '../version-manager/specifier-classifier.ts';
 import type { PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
@@ -74,9 +74,9 @@ function manifestState(
 
 function externalDependencyInput(
     dependency: ExternalDependency,
-    mainPackageJson: ResolvedPackage['resolveOptions']['mainPackageJson']
+    mainPackageManifest: ResolvedPackage['resolveOptions']['mainPackageManifest']
 ): DependencyInput {
-    const peerVersion = mainPackageJson.peerDependencies?.[dependency.name];
+    const peerVersion = mainPackageManifest.peerDependencies?.[dependency.name];
     if (peerVersion !== undefined) {
         return {
             dependency,
@@ -84,7 +84,7 @@ function externalDependencyInput(
             origin: 'external'
         };
     }
-    const dependencyVersion = mainPackageJson.dependencies?.[dependency.name];
+    const dependencyVersion = mainPackageManifest.dependencies?.[dependency.name];
     if (dependencyVersion !== undefined) {
         return {
             dependency,
@@ -143,7 +143,7 @@ function inspectResolvedPackage(target: ResolvedPackage): PackageDependencyInspe
         return dependency.name;
     }));
     const externalInputs = Array.from(target.analyzedBundle.externalDependencies.values(), function (dependency) {
-        return externalDependencyInput(dependency, target.resolveOptions.mainPackageJson);
+        return externalDependencyInput(dependency, target.resolveOptions.mainPackageManifest);
     });
     const bundleInputs = Array.from(target.analyzedBundle.linkedBundleDependencies.values(), function (dependency) {
         return bundleDependencyInput(dependency, bundlePeerDependencyNames);
@@ -168,7 +168,7 @@ function inspectResolvedPackage(target: ResolvedPackage): PackageDependencyInspe
 export function createInspectPackageDependenciesValidated(
     dependencies: PackageDependencyInspectionDependencies
 ): (
-    validated: ValidConfigWithoutRegistryResult,
+    validated: ValidConfigurationWithoutRegistryResult,
     packageName: string
 ) => Promise<PackageDependencyInspectionResult> {
     return async function inspectPackageDependenciesValidated(validated, packageName) {

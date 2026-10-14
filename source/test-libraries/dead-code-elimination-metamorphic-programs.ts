@@ -1,4 +1,4 @@
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import {
     deadCodeEliminationDeclarationFor as declarationFor,
     deadCodeEliminationDependencyPath as dependencyPath,
@@ -19,7 +19,7 @@ import type {
     GeneratedDeadCodeEliminationMetamorphicCase
 } from './dead-code-elimination-metamorphic-types.ts';
 
-const packageName = 'pkg';
+const packageName = 'package';
 
 type AdditionalGeneratedFiles = {
     readonly runtimeFiles: readonly DeadCodeEliminationGeneratedFile[];
@@ -424,10 +424,10 @@ export function generatedDeclarationCompanionMetamorphicRegression(): GeneratedD
 
 export function deadCodeEliminationMetamorphicProgramArbitraryFor(
     kind: DeadCodeEliminationMetamorphicTransformKind
-): fc.Arbitrary<GeneratedDeadCodeEliminationMetamorphicCase> {
-    return fc
+): fastCheck.Arbitrary<GeneratedDeadCodeEliminationMetamorphicCase> {
+    return fastCheck
         .record({
-            kind: fc.constant(kind),
+            kind: fastCheck.constant(kind),
             expression: expressionArbitrary,
             secondExpression: expressionArbitrary,
             eventName: eventNameArbitrary

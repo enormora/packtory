@@ -7,10 +7,10 @@ import {
     collectChangelogSourceFileRoots,
     collectGeneratedAttributionPaths,
     createChangelogGenerationOptions,
-    parseValidConfig,
+    parseValidConfiguration,
     shouldPageGroupedChangelog,
     writeConfiguredChangelogs,
-    type ChangelogConfig
+    type ChangelogConfiguration
 } from './changelog-destinations.ts';
 
 const dependencies = { workingDirectory: '/repo' } as const;
@@ -23,19 +23,21 @@ type ChangelogUpdateInput = {
     readonly generatedChangelogMarkdown: string;
 };
 
-function createChangelogConfig(overrides: Readonly<Partial<ChangelogConfig>> = {}): ChangelogConfig {
+function createChangelogConfiguration(
+    overrides: Readonly<Partial<ChangelogConfiguration>> = {}
+): ChangelogConfiguration {
     return {
         changelog: {
             outputs: [
                 { kind: 'repository-file', path: 'CHANGELOG.md' },
-                { kind: 'package-file', path: 'docs/CHANGELOG.md' },
+                { kind: 'package-file', path: 'documentation/CHANGELOG.md' },
                 { kind: 'github-release' }
             ]
         },
-        commonPackageSettings: { sourcesFolder: 'src' },
+        commonPackageSettings: { sourcesFolder: 'source' },
         packages: [
-            { name: 'pkg-a', sourcesFolder: 'src/pkg-a' },
-            { name: 'pkg-b', sourcesFolder: '/external/pkg-b' }
+            { name: 'package-a', sourcesFolder: 'source/package-a' },
+            { name: 'package-b', sourcesFolder: '/external/package-b' }
         ],
         ...overrides
     };
@@ -45,19 +47,19 @@ function createGeneratedChangelog(overrides: GeneratedChangelogOverrides = {}): 
     return {
         groupedMarkdown: 'grouped',
         packageNamesWithoutChangelogEntries: [],
-        packageMarkdownByName: overrides.packageMarkdownByName ?? new Map([ [ 'pkg-a', 'package-a' ] ])
+        packageMarkdownByName: overrides.packageMarkdownByName ?? new Map([ [ 'package-a', 'package-a' ] ])
     };
 }
 
-function createPacktoryConfigWithPrLog(prLog: unknown): unknown {
+function createPacktoryConfigurationWithPullRequestLog(pullRequestLog: unknown): unknown {
     return {
-        changelog: { prLog },
+        changelog: { pullRequestLog },
         packages: [
             {
-                mainPackageJson: { type: 'module' },
-                name: 'pkg-a',
+                mainPackageManifest: { type: 'module' },
+                name: 'package-a',
                 publishSettings: { access: 'public' },
-                roots: { main: { js: 'index.js' } },
+                roots: { main: { javaScript: 'index.js' } },
                 sourcesFolder: 'source'
             }
         ]
@@ -72,7 +74,9 @@ async function assertRepositoryReadFailureRethrown(error: Error, messagePattern:
     await assert.rejects(
         writeConfiguredChangelogs(
             { ...dependencies, fileManager },
-            createChangelogConfig({ changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] } }),
+            createChangelogConfiguration({
+                changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
+            }),
             { updateChangelog: fake.returns('updated') },
             createGeneratedChangelog()
         ),
@@ -81,28 +85,31 @@ async function assertRepositoryReadFailureRethrown(error: Error, messagePattern:
 }
 
 suite('changelog-destinations', function () {
-    test('parseValidConfig returns undefined for invalid configs', function () {
-        assert.strictEqual(parseValidConfig({ packages: [] }), undefined);
+    test('parseValidConfiguration returns undefined for invalid configs', function () {
+        assert.strictEqual(parseValidConfiguration({ packages: [] }), undefined);
     });
 
-    test('parseValidConfig returns undefined for non-object pr-log settings', function () {
-        assert.strictEqual(parseValidConfig(createPacktoryConfigWithPrLog(null)), undefined);
-        assert.strictEqual(parseValidConfig(createPacktoryConfigWithPrLog('invalid')), undefined);
+    test('parseValidConfiguration returns undefined for non-object pr-log settings', function () {
+        assert.strictEqual(parseValidConfiguration(createPacktoryConfigurationWithPullRequestLog(null)), undefined);
+        assert.strictEqual(
+            parseValidConfiguration(createPacktoryConfigurationWithPullRequestLog('invalid')),
+            undefined
+        );
     });
 
-    test('parseValidConfig accepts object pr-log settings', function () {
+    test('parseValidConfiguration accepts object pr-log settings', function () {
         assert.notStrictEqual(
-            parseValidConfig(createPacktoryConfigWithPrLog({ validLabels: { bug: 'Bugs' } })),
+            parseValidConfiguration(createPacktoryConfigurationWithPullRequestLog({ validLabels: { bug: 'Bugs' } })),
             undefined
         );
     });
 
     test('createChangelogGenerationOptions combines defaults with configured settings', function () {
         const options = createChangelogGenerationOptions(
-            createChangelogConfig({
+            createChangelogConfiguration({
                 changelog: {
-                    explicitBaseRef: 'main',
-                    prLog: { validLabels: { bug: 'Fixed Bugs', operations: 'Operations' } },
+                    explicitBaseReference: 'main',
+                    pullRequestLog: { validLabels: { bug: 'Fixed Bugs', operations: 'Operations' } },
                     packageTagFormat: 'pkg/{packageName}/v{version}',
                     targetScopedLabelPattern: 'scope:{targetName}:{label}'
                 }
@@ -110,30 +117,30 @@ suite('changelog-destinations', function () {
         );
 
         assert.partialDeepStrictEqual(options, {
-            explicitBaseRef: 'main',
+            explicitBaseReference: 'main',
             packageTagFormat: 'pkg/{packageName}/v{version}',
             targetScopedLabelPattern: 'scope:{targetName}:{label}'
         });
-        assert.strictEqual(options.prLogConfig.validLabels.get('bug'), 'Fixed Bugs');
-        assert.strictEqual(options.prLogConfig.validLabels.get('operations'), 'Operations');
+        assert.strictEqual(options.pullRequestLogConfiguration.validLabels.get('bug'), 'Fixed Bugs');
+        assert.strictEqual(options.pullRequestLogConfiguration.validLabels.get('operations'), 'Operations');
     });
 
     test('collectChangelogSourceFileRoots resolves package source folders relative to the repository', function () {
         assert.deepStrictEqual(
             collectChangelogSourceFileRoots(
                 { workingDirectory: '/repo' },
-                createChangelogConfig({
+                createChangelogConfiguration({
                     packages: [
-                        { name: 'pkg-a', sourcesFolder: 'packages/pkg-a/src' },
-                        { name: 'pkg-b', sourcesFolder: '/repo/packages/pkg-b/source' },
-                        { name: 'pkg-c', sourcesFolder: '.' }
+                        { name: 'package-a', sourcesFolder: 'packages/package-a/source' },
+                        { name: 'package-b', sourcesFolder: '/repo/packages/package-b/source' },
+                        { name: 'package-c', sourcesFolder: '.' }
                     ]
                 })
             ),
             new Map([
-                [ 'pkg-a', [ 'packages/pkg-a/src' ] ],
-                [ 'pkg-b', [ 'packages/pkg-b/source' ] ],
-                [ 'pkg-c', [ '' ] ]
+                [ 'package-a', [ 'packages/package-a/source' ] ],
+                [ 'package-b', [ 'packages/package-b/source' ] ],
+                [ 'package-c', [ '' ] ]
             ])
         );
     });
@@ -141,22 +148,24 @@ suite('changelog-destinations', function () {
     suite('collectGeneratedAttributionPaths', function () {
         test('returns no paths when outputs are absent', function () {
             assert.deepStrictEqual(
-                collectGeneratedAttributionPaths(dependencies, createChangelogConfig({ changelog: undefined })),
+                collectGeneratedAttributionPaths(dependencies, createChangelogConfiguration({ changelog: undefined })),
                 []
             );
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
                     dependencies,
-                    createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } })
+                    createChangelogConfiguration({
+                        changelog: { pullRequestLog: { validLabels: { operations: 'Operations' } } }
+                    })
                 ),
                 []
             );
         });
 
         test('includes repository and in-repository package files', function () {
-            assert.deepStrictEqual(collectGeneratedAttributionPaths(dependencies, createChangelogConfig()), [
+            assert.deepStrictEqual(collectGeneratedAttributionPaths(dependencies, createChangelogConfiguration()), [
                 'CHANGELOG.md',
-                'src/pkg-a/docs/CHANGELOG.md'
+                'source/package-a/documentation/CHANGELOG.md'
             ]);
         });
 
@@ -164,12 +173,12 @@ suite('changelog-destinations', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
                     dependencies,
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
-                        packages: [ { name: 'pkg-a' } ]
+                        packages: [ { name: 'package-a' } ]
                     })
                 ),
-                [ 'src/CHANGELOG.md' ]
+                [ 'source/CHANGELOG.md' ]
             );
         });
 
@@ -177,23 +186,23 @@ suite('changelog-destinations', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
                     dependencies,
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: {
                             outputs: [
                                 {
                                     kind: 'package-file',
                                     paths: {
-                                        'pkg-a': 'packages/pkg-a/CHANGELOG.md',
-                                        'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                                        'package-a': 'packages/package-a/CHANGELOG.md',
+                                        'package-b': 'packages/package-b/CHANGELOG.md'
                                     }
                                 }
                             ]
                         },
                         commonPackageSettings: undefined,
-                        packages: [ { name: 'pkg-a' }, { name: 'pkg-b' } ]
+                        packages: [ { name: 'package-a' }, { name: 'package-b' } ]
                     })
                 ),
-                [ 'packages/pkg-a/CHANGELOG.md', 'packages/pkg-b/CHANGELOG.md' ]
+                [ 'packages/package-a/CHANGELOG.md', 'packages/package-b/CHANGELOG.md' ]
             );
         });
 
@@ -201,7 +210,7 @@ suite('changelog-destinations', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
                     dependencies,
-                    createChangelogConfig({ changelog: { outputs: [ { kind: 'github-release' } ] } })
+                    createChangelogConfiguration({ changelog: { outputs: [ { kind: 'github-release' } ] } })
                 ),
                 []
             );
@@ -211,13 +220,13 @@ suite('changelog-destinations', function () {
             assert.throws(function () {
                 collectGeneratedAttributionPaths(
                     dependencies,
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                         commonPackageSettings: undefined,
-                        packages: [ { name: 'pkg-a' } ]
+                        packages: [ { name: 'package-a' } ]
                     })
                 );
-            }, /Config for package "pkg-a" is missing the sources folder/u);
+            }, /Config for package "package-a" is missing the sources folder/u);
         });
     });
 
@@ -240,7 +249,7 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({ changelog: undefined }),
+                createChangelogConfiguration({ changelog: undefined }),
                 { updateChangelog: fake.returns('updated') },
                 createGeneratedChangelog()
             );
@@ -254,7 +263,9 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } }),
+                createChangelogConfiguration({
+                    changelog: { pullRequestLog: { validLabels: { operations: 'Operations' } } }
+                }),
                 { updateChangelog: fake.returns('updated') },
                 createGeneratedChangelog()
             );
@@ -277,7 +288,7 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({
+                createChangelogConfiguration({
                     changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
                 }),
                 { updateChangelog },
@@ -293,7 +304,7 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({
+                createChangelogConfiguration({
                     changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
                 }),
                 { updateChangelog: fake.returns('updated') },
@@ -313,7 +324,7 @@ suite('changelog-destinations', function () {
             await assert.rejects(
                 writeConfiguredChangelogs(
                     { ...dependencies, fileManager },
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
                     }),
                     { updateChangelog: fake.returns('updated') },
@@ -329,15 +340,15 @@ suite('changelog-destinations', function () {
             await assert.rejects(
                 writeConfiguredChangelogs(
                     { ...dependencies, fileManager },
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                         commonPackageSettings: undefined,
-                        packages: [ { name: 'pkg-a' } ]
+                        packages: [ { name: 'package-a' } ]
                     }),
                     { updateChangelog: fake.returns('updated') },
-                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'pkg-a', 'markdown' ] ]) })
+                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'package-a', 'markdown' ] ]) })
                 ),
-                /Config for package "pkg-a" is missing the sources folder/u
+                /Config for package "package-a" is missing the sources folder/u
             );
         });
 
@@ -346,15 +357,15 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({
+                createChangelogConfiguration({
                     changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
-                    packages: [ { name: 'pkg-a' } ]
+                    packages: [ { name: 'package-a' } ]
                 }),
                 { updateChangelog: fake.returns('updated') },
-                createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'pkg-a', 'markdown' ] ]) })
+                createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'package-a', 'markdown' ] ]) })
             );
 
-            assert.deepStrictEqual(writtenPaths, [ '/repo/src/CHANGELOG.md' ]);
+            assert.deepStrictEqual(writtenPaths, [ '/repo/source/CHANGELOG.md' ]);
         });
 
         test('writes explicit package-file changelog outputs', async function () {
@@ -362,14 +373,14 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...dependencies, fileManager },
-                createChangelogConfig({
+                createChangelogConfiguration({
                     changelog: {
                         outputs: [
                             {
                                 kind: 'package-file',
                                 paths: {
-                                    'pkg-a': 'packages/pkg-a/CHANGELOG.md',
-                                    'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                                    'package-a': 'packages/package-a/CHANGELOG.md',
+                                    'package-b': 'packages/package-b/CHANGELOG.md'
                                 }
                             }
                         ]
@@ -384,19 +395,19 @@ suite('changelog-destinations', function () {
                 },
                 createGeneratedChangelog({
                     packageMarkdownByName: new Map([
-                        [ 'pkg-a', 'package-a' ],
-                        [ 'pkg-b', 'package-b' ]
+                        [ 'package-a', 'package-a' ],
+                        [ 'package-b', 'package-b' ]
                     ])
                 })
             );
 
             assert.deepStrictEqual(writtenPaths, [
-                '/repo/packages/pkg-a/CHANGELOG.md',
-                '/repo/packages/pkg-b/CHANGELOG.md'
+                '/repo/packages/package-a/CHANGELOG.md',
+                '/repo/packages/package-b/CHANGELOG.md'
             ]);
             assert.deepStrictEqual(fileManager.getAllWriteFileCalls(), [
-                { filePath: '/repo/packages/pkg-a/CHANGELOG.md', content: 'package-a' },
-                { filePath: '/repo/packages/pkg-b/CHANGELOG.md', content: 'package-b' }
+                { filePath: '/repo/packages/package-a/CHANGELOG.md', content: 'package-a' },
+                { filePath: '/repo/packages/package-b/CHANGELOG.md', content: 'package-b' }
             ]);
         });
 
@@ -406,12 +417,12 @@ suite('changelog-destinations', function () {
             await assert.rejects(
                 writeConfiguredChangelogs(
                     { ...dependencies, fileManager },
-                    createChangelogConfig({
+                    createChangelogConfiguration({
                         changelog: {
                             outputs: [
                                 {
                                     kind: 'package-file',
-                                    paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' }
+                                    paths: { 'package-a': 'packages/package-a/CHANGELOG.md' }
                                 }
                             ]
                         }
@@ -419,12 +430,12 @@ suite('changelog-destinations', function () {
                     { updateChangelog: fake.returns('updated') },
                     createGeneratedChangelog({
                         packageMarkdownByName: new Map([
-                            [ 'pkg-a', 'package-a' ],
-                            [ 'pkg-b', 'package-b' ]
+                            [ 'package-a', 'package-a' ],
+                            [ 'package-b', 'package-b' ]
                         ])
                     })
                 ),
-                /Changelog output path for package "pkg-b" is missing/u
+                /Changelog output path for package "package-b" is missing/u
             );
         });
 

@@ -1,5 +1,5 @@
 import { z } from 'zod/mini';
-import { nonEmptyStringSchema } from '../../config/base-validations.ts';
+import { nonEmptyStringSchema } from '../../configuration/base-validations.ts';
 
 const githubActionsWorkflowDispatchSchema = z.readonly(
     z.strictObject({
@@ -17,7 +17,7 @@ export const releasePullRequestSettingsSchema = z.readonly(
         branch: z.optional(nonEmptyStringSchema),
         commitSubject: z.optional(nonEmptyStringSchema),
         defaultBranch: z.optional(nonEmptyStringSchema),
-        githubActionsCi: z.optional(githubActionsWorkflowDispatchSchema),
+        githubActionsContinuousIntegration: z.optional(githubActionsWorkflowDispatchSchema),
         label: z.optional(nonEmptyStringSchema),
         title: z.optional(nonEmptyStringSchema)
     })

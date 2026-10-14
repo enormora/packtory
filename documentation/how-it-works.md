@@ -1,6 +1,6 @@
 # How it works under the hood
 
-This document explains the pipeline, the data structures, and the algorithms that drive bundling, dead-code elimination, import rewriting, automatic versioning, on-disk artifact emission, and parallel scheduling. It is written for engineers who want to contribute, debug, or simply understand the trade-offs — not for end users (read the [readme](../readme.md) for that).
+This document explains the pipeline, the data structures, and the algorithms that drive bundling, dead-code elimination, import rewriting, automatic versioning, on-disk artifact emission, and parallel scheduling. It is written for engineers who want to contribute, debug, or simply understand the trade-offs , not for end users (read the [readme](../readme.md) for that).
 
 ## 1. The pipeline
 
@@ -61,7 +61,7 @@ The artifact names are not arbitrary; they form a type ladder:
 | Version Manager      | `AnalyzedBundle`              | `VersionedBundleWithManifest` |
 | Bundle Emitter       | `VersionedBundleWithManifest` | published tarball             |
 
-Two stages — dead-code elimination and checks — operate on the full set of bundles together. Everything else runs per-package and is parallelised by the **scheduler** (§3).
+Two stages , dead-code elimination and checks , operate on the full set of bundles together. Everything else runs per-package and is parallelised by the **scheduler** (§3).
 
 ## 2. The package graph
 
@@ -128,7 +128,7 @@ Runtime discovery includes `.js`, `.mjs`, and `.cjs` files. Literal `require(...
 references in `.cjs` files follow the same dependency graph as ESM imports.
 Unresolved static references fail during scanning. During manifest generation,
 every retained external dependency must have a version in the effective
-`mainPackageJson.dependencies` or `peerDependencies`; `devDependencies` alone
+`mainPackageManifest.dependencies` or `peerDependencies`; `devDependencies` alone
 does not suffice. This checks emitted package dependencies, not unused source or
 arbitrary computed imports. Dependency inspection can report `missing-version`
 without generating a manifest.
@@ -139,7 +139,7 @@ without generating a manifest.
 scan(root, sourcesFolder):
     project ← create ts-morph Project rooted at sourcesFolder
     graph ← empty directed acyclic graph
-    bfs(root):
+    visitBreadthFirst(root):
         for each import literal L in current file:
             target ← ts.resolveModuleName(L, …)        # uses the host's tsconfig
             if target is inside /node_modules/:
@@ -150,7 +150,7 @@ scan(root, sourcesFolder):
 
 A few details worth highlighting:
 
-- **Module resolution is delegated to TypeScript** (`ts.resolveModuleName`). This means packtory respects `tsconfig.json` `paths`, conditional exports, ESM resolution rules, and `.js`-extension imports of `.ts` files — for free.
+- **Module resolution is delegated to TypeScript** (`ts.resolveModuleName`). This means packtory respects `tsconfig.json` `paths`, conditional exports, ESM resolution rules, and `.js`-extension imports of `.ts` files , for free.
 - **Node built-ins** (`node:fs`, etc.) are silently ignored. Anything else that fails to resolve throws.
 - The external-dependency extractor uses a small regex to pull the package name out of a `node_modules/…` path, with care for scoped packages (`@scope/name`).
 - The graph is flattened with a breadth-first walk into the `DependencyFiles` shape that downstream stages consume.
@@ -161,7 +161,7 @@ A few details worth highlighting:
 "Import literal" above covers two syntactic shapes, both reduced to the same resolution pipeline:
 
 1. The static specifiers ts-morph already exposes through `getImportStringLiterals`: `import` / `export … from`, dynamic `import(...)`, `import = require(...)`, and type-position `import(...)`.
-2. `import.meta.resolve('<static-string>')` call sites, recognized by matching the `CallExpression → PropertyAccessExpression → MetaProperty(import)` shape and accepting the call only when its single argument is a `StringLiteral`. Any other argument shape (variable, template literal, missing or extra arguments) throws — packtory deliberately does not implement its own resolver, so non-static specifiers cannot be resolved deterministically.
+2. `import.meta.resolve('<static-string>')` call sites, recognized by matching the `CallExpression → PropertyAccessExpression → MetaProperty(import)` shape and accepting the call only when its single argument is a `StringLiteral`. Any other argument shape (variable, template literal, missing or extra arguments) throws , packtory deliberately does not implement its own resolver, so non-static specifiers cannot be resolved deterministically.
 
 For `import.meta.resolve` the classifier reuses the same `external-package` / `local-asset` / `local-code` outcomes as a regular import: a resolved target inside `node_modules` adds the owning package as a dependency without tracking the individual file, `.json` / `.wasm` targets become leaf asset references, and a code target is recursed into like any other reachable source file.
 
@@ -171,11 +171,11 @@ If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for
 
 ### Bridging TypeScript's exports strictness for JS-only dependencies
 
-Node.js's `exports` field is a runtime resolution map: only the `import`, `require`, and `default` conditions are part of the spec. The `types` condition is a TypeScript convention layered on top. Under `moduleResolution: node16`, TypeScript refuses to follow an `exports` entry that has no `types` condition (or sibling `.d.ts`), even when the target is a perfectly resolvable JavaScript file — so a spec-compliant JS-only dependency like `{ "exports": { ".": { "import": "./lib/index.js" } } }` becomes unresolvable to the scanner.
+Node.js's `exports` field is a runtime resolution map: only the `import`, `require`, and `default` conditions are part of the spec. The `types` condition is a TypeScript convention layered on top. Under `moduleResolution: node16`, TypeScript refuses to follow an `exports` entry that has no `types` condition (or sibling `.d.ts`), even when the target is a perfectly resolvable JavaScript file , so a spec-compliant JS-only dependency like `{ "exports": { ".": { "import": "./lib/index.js" } } }` becomes unresolvable to the scanner.
 
-Packtory bridges the gap with a virtual file-system layer wrapping the ts-morph host. When a `node_modules/<pkg>/package.json` is read, the layer walks the `exports` tree and, for every conditions object that has an `import` (or `default`) target but no `types` sibling, synthesizes a `types` condition pointing at the same JavaScript file. TypeScript then follows the synthetic condition, lands on the `.js`, and — because `allowJs` is enabled for the analysis project — loads it as a source file. Manifests with an explicit `types` condition, manifests without `exports`, and reads outside `node_modules` are left untouched. The patch lives at the analysis layer only; the user's own build configuration and the dependency's published manifest are never modified.
+Packtory bridges the gap with a virtual file-system layer wrapping the ts-morph host. When a `node_modules/<package>/package.json` is read, the layer walks the `exports` tree and, for every conditions object that has an `import` (or `default`) target but no `types` sibling, synthesizes a `types` condition pointing at the same JavaScript file. TypeScript then follows the synthetic condition, lands on the `.js`, and , because `allowJs` is enabled for the analysis project , loads it as a source file. Manifests with an explicit `types` condition, manifests without `exports`, and reads outside `node_modules` are left untouched. The patch lives at the analysis layer only; the user's own build configuration and the dependency's published manifest are never modified.
 
-## 5. Stage: Linker — import path rewriting
+## 5. Stage: Linker , import path rewriting
 
 This is where packtory turns "monorepo with relative imports" into "npm package that references its siblings by name".
 
@@ -192,17 +192,17 @@ When a rewritten cross-package import targets a sibling JavaScript file, packtor
 ```mermaid
 flowchart LR
     subgraph BEFORE ["before"]
-        A[/cli.ts/] -. "./lib/index.js" .-> B[/lib/index.ts/]
+        A[/command-line-interface.ts/] -. "./lib/index.js" .-> B[/lib/index.ts/]
     end
     subgraph AFTER ["after substitution"]
-        A2[/cli.ts/] == "image-resizer-lib/index.js" ==> S[(image-resizer-lib)]
+        A2[/command-line-interface.ts/] == "image-resizer-lib/index.js" ==> S[(image-resizer-lib)]
     end
 
     classDef file fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff,font-weight:bold
-    classDef pkg fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff,font-weight:bold
+    classDef package fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff,font-weight:bold
 
     class A,B,A2 file
-    class S pkg
+    class S package
 
     linkStyle 0 stroke:#94a3b8,stroke-width:2px,color:#475569,font-style:italic
     linkStyle 1 stroke:#6d28d9,stroke-width:3px,color:#5b21b6,font-weight:bold
@@ -213,7 +213,7 @@ flowchart LR
 
 ### How the rewrite actually happens
 
-We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)`. This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports — the basename of the original specifier is preserved in case the consumer relies on it.
+We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)`. This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports , the basename of the original specifier is preserved in case the consumer relies on it.
 
 ### Why the order matters
 
@@ -229,27 +229,27 @@ A modern JavaScript bundle is a graph where:
 
 - **Nodes** are _top-level bindings_: a function, class, type, enum, variable, or named import declared at the top of a file.
 - **Edges** go from a binding to every other binding it references in its own body.
-- **Roots** are the bindings that are _exported from public root files_ — these are the things consumers can actually import.
+- **Roots** are the bindings that are _exported from public root files_ , these are the things consumers can actually import.
 
 If you start at the roots and walk all edges, every binding you visit is _reachable_. Everything else is dead, and packtory deletes it.
 
 This is the same idea every bundler uses; the part that differs is **how you decide what is a root** and **how strict you are about side effects**.
 
-### Step 1 — Extract bindings
+### Step 1 , Extract bindings
 
 For every code file in the bundle, packtory walks the top-level statements and records one `BindingDescriptor` per declared name. Combined declarations like `const a = 1, b = 2;` produce two descriptors so they can be removed independently.
 
-Each binding gets an id: `bindingId = "<filePath>::<name>"`.
+Each binding gets an id: `bindingIdentifier = "<filePath>::<name>"`.
 
-### Step 2 — Find the roots (seeds)
+### Step 2 , Find the roots (seeds)
 
 Three kinds of seeds are added to a set $S$:
 
 1. Every exported binding in any public root file. These are what consumers can `import`.
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
-3. **Cross-bundle seeds** — bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
+3. **Cross-bundle seeds** , bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 
-### Step 3 — Breadth-first closure
+### Step 3 , Breadth-first closure
 
 Reachability is then a plain breadth-first closure over the binding graph:
 
@@ -262,7 +262,7 @@ The neighbour relation is computed by walking every `Identifier` inside the bind
 - **Shadowing works correctly**: an inner `const foo = 1` shadows an outer `foo`, and the compiler tells us so. Naïve text matching would get this wrong.
 - **Import aliases follow through**: `import { x as y }` is tracked back to the original export.
 
-Implementation: `bfsClosure`.
+Implementation: `breadthFirstClosure`.
 
 ### Step 4, remove what survives
 
@@ -283,20 +283,20 @@ This is the algorithm that prevents packtory from accidentally deleting exports 
 
 For every package `P` being built, and every code file `F` in `P`, we look at `F`'s `import`/`export … from` statements. If the module specifier looks like `<siblingName>/<targetPath>` (i.e. the linker has already rewritten it in §5), we resolve the target file inside the sibling bundle and seed:
 
-| Statement form                         | Seeded binding(s) in sibling |
-| -------------------------------------- | ---------------------------- |
-| `import x from 'pkg/f.js'`             | `default`                    |
-| `import { a, b as c } from 'pkg/f.js'` | `a` and `b`                  |
-| `import * as ns from 'pkg/f.js'`       | _every_ binding in `f.js`    |
-| `export { a } from 'pkg/f.js'`         | `a`                          |
-| `export * from 'pkg/f.js'`             | _every_ binding in `f.js`    |
+| Statement form                              | Seeded binding(s) in sibling |
+| ------------------------------------------- | ---------------------------- |
+| `import x from 'package/f.js'`              | `default`                    |
+| `import { a, b as c } from 'package/f.js'`  | `a` and `b`                  |
+| `import * as namespace from 'package/f.js'` | _every_ binding in `f.js`    |
+| `export { a } from 'package/f.js'`          | `a`                          |
+| `export * from 'package/f.js'`              | _every_ binding in `f.js`    |
 
 **Gating on local reachability.** A cross-bundle import only seeds the sibling if the _local_ binding it produces is itself reachable in the consuming bundle. If `cli.ts` does `import foo from 'lib/foo.js'` but never uses `foo`, that import is local-dead and is not propagated to `lib`. This commit message is worth checking: `ae179d5 Gate cross-bundle seeds on consumer-side reachability`.
 
 The whole exchange happens in two phases:
 
 1. Per-bundle: compute `localReachable` (Step 3 above, ignoring cross-bundle seeds).
-2. Cross-bundle: walk every bundle's imports, produce a `Map<bundleName, Set<bindingId>>` of external seeds, then recompute reachability for each bundle by adding those seeds.
+2. Cross-bundle: walk every bundle's imports, produce a `Map<bundleName, Set<bindingIdentifier>>` of external seeds, then recompute reachability for each bundle by adding those seeds.
 
 ### 6.5 The side-effect classifier
 
@@ -314,9 +314,9 @@ Pure-leaf expressions are: literals, identifiers, function/arrow/class expressio
 
 Soundness policy:
 
-- Static imports, local reexports, star reexports, namespace imports, and default exports must resolve to emitted runtime targets and exported names. Missing targets fail DCE invariants.
+- Static imports, local reexports, star reexports, namespace imports, and default exports must resolve to emitted runtime targets and exported names. Missing targets fail dead code elimination invariants.
 - Dynamic import literals and `import.meta.resolve()` keep dependency metadata when they survive. Dead literals disappear with removed code. Unsupported `import.meta.resolve()` shapes fail during scanning.
-- Package `exports`, package `imports`, and conditional exports use the shared TypeScript module resolver before DCE. DCE consumes resolved artifact references and does not re-resolve emitted local paths.
+- Package `exports`, package `imports`, and conditional exports use the shared TypeScript module resolver before dead code elimination. dead code elimination consumes resolved artifact references and does not re-resolve emitted local paths.
 - Class static blocks, top-level await, control flow, unknown statements, calls, property reads, element access, computed keys, and getters are effectful unless a narrower proof exists.
 - Side-effect-only imports and side-effecting files preserve runtime evaluation. Dead specifier imports become bare imports, and files reached by surviving bare imports are retained.
 - Declaration companions and source maps with missing physical sources do not decide runtime liveness. Runtime liveness is based on emitted artifact targets, and missing runtime targets fail invariants.
@@ -332,17 +332,17 @@ The same classifier serves three purposes:
    - All files impure → omit the field
 3. **The opt-in `noSideEffects` check**, which fails the build on any impure file not on an allow-list.
 
-A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins.
+A user-provided `sideEffects` in `additionalPackageManifestAttributes` always wins.
 
 ### 6.6 Dependency metadata recomputation
 
-After declaration removal, DCE walks the transformed code and rebuilds the dependency metadata that later stages consume. Local `directDependencies`, external package dependencies, linked sibling bundle dependencies, and substituted source-path records are kept only when a surviving static import, re-export, dynamic literal import, or `import.meta.resolve('<static-string>')` still references them.
+After declaration removal, dead code elimination walks the transformed code and rebuilds the dependency metadata that later stages consume. Local `directDependencies`, external package dependencies, linked sibling bundle dependencies, and substituted source-path records are kept only when a surviving static import, re-export, dynamic literal import, or `import.meta.resolve('<static-string>')` still references them.
 
-Runtime imports converted to bare imports still count, because the target module must continue to evaluate. Removed type-only imports and imports inside removed declarations no longer seed manifest `dependencies`, `peerDependencies`, `noDevDependencyImports`, `noUnusedBundleDependencies`, or vendoring roots.
+Runtime imports converted to bare imports still count, because the target module must continue to evaluate. Removed type-only imports and imports inside removed declarations no longer seed manifest `dependencies`, `peerDependencies`, `noDevelopmentDependencyImports`, `noUnusedBundleDependencies`, or vendoring roots.
 
 ### 6.7 File pruning
 
-After metadata recomputation, DCE prunes pure runtime code files that no surviving resource can reach and that have no surviving behavior of their own. The retention walk starts from public roots, explicit resources, generated manifests, declarations, assets, files with surviving bindings, files with top-level side effects, and surviving local dependency edges.
+After metadata recomputation, dead code elimination prunes pure runtime code files that no surviving resource can reach and that have no surviving behavior of their own. The retention walk starts from public roots, explicit resources, generated manifests, declarations, assets, files with surviving bindings, files with top-level side effects, and surviving local dependency edges.
 
 This pass only drops runtime code files whose removal is proven safe. Files that may need module evaluation are kept, even when their import specifiers were reduced to a bare import. When a runtime code file is pruned, its paired `.map` target is pruned with it unless that map was explicitly included.
 
@@ -389,9 +389,9 @@ Per bundle, the version manager produces a `VersionedBundle` and a `package.json
 This is the step that decides what ends up in `dependencies` vs `peerDependencies`. There are two sources of dependencies:
 
 1. **Sibling bundles** that the linker substituted. For each, look up whether the user declared the sibling under `bundleDependencies` (→ `dependencies`) or `bundlePeerDependencies` (→ `peerDependencies`), then pin to the sibling's current version.
-2. **External `node_modules` imports** seen during scanning. For each, look the name up in `mainPackageJson` and copy the version range from whichever of `dependencies` / `peerDependencies` declared it (peer wins).
+2. **External `node_modules` imports** seen during scanning. For each, look the name up in `mainPackageManifest` and copy the version range from whichever of `dependencies` / `peerDependencies` declared it (peer wins).
 
-### Specifier classification — refusing to ship junk
+### Specifier classification , refusing to ship junk
 
 Before accepting an external dependency's version, packtory passes it through `npm-package-arg` and classifies the result:
 
@@ -406,7 +406,7 @@ The rationale: a published package whose `dependencies` point at a `workspace:*`
 
 ### Manifest assembly
 
-`buildPackageManifest` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
+`buildPackageManifest` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer emits keys in a deterministic order so byte-identical runs produce byte-identical manifests , which matters for automatic versioning (§9).
 
 ## 9. Stage: Bundle Emitter, automatic version detection
 
@@ -421,14 +421,14 @@ automaticPublish(bundle):
         publish bundle at minimumVersion (default 0.0.1)
         return
     candidate ← versionManager.addVersion(bundle, version=latest.version)
-    tarball   ← registry.fetchTarball(latest.tarballUrl)
+    tarball   ← registry.fetchTarball(latest.tarballAddress)
     remoteFiles ← extractPackageTarball(tarball)
     if compareFileDescriptions(candidate.files, remoteFiles) is equal:
         return # already-published
     target ← versionManager.increaseVersion(candidate)  # patch bump
     exact ← registry.fetchVersionReleaseMetadata(bundle.name, target.version)
     if exact exists:
-        exactFiles ← extractPackageTarball(registry.fetchTarball(exact.tarballUrl))
+        exactFiles ← extractPackageTarball(registry.fetchTarball(exact.tarballAddress))
         if compareFileDescriptions(target.files, exactFiles) is not equal:
             fail # target version already exists with different artifacts
         if exact.latestVersion is not target.version:
@@ -440,7 +440,7 @@ automaticPublish(bundle):
 Key properties:
 
 - **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality. The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
-- **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". The argument: with enough consumers, every observable behaviour — an error message string, log ordering, the shape of a thrown object, even timing — becomes load-bearing for someone (Hyrum's Law). The author's intended public contract and consumers' actual contract are different sets, so a "patch" by the author can be a breaking change for a consumer, and the major/minor/patch trichotomy is a fiction in practice. This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
+- **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". The argument: with enough consumers, every observable behaviour , an error message string, log ordering, the shape of a thrown object, even timing , becomes load-bearing for someone (Hyrum's Law). The author's intended public contract and consumers' actual contract are different sets, so a "patch" by the author can be a breaking change for a consumer, and the major/minor/patch trichotomy is a fiction in practice. This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
 
   [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
   _xkcd 1172, "Workflow": every change breaks somebody's workflow, so pretending otherwise just hides the risk behind a bump-level._
@@ -449,25 +449,25 @@ Key properties:
 
 ### Provenance and OIDC
 
-If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. The npm trusted-publishing token exchange is a separate OIDC resolver. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
+If `publishSettings.access === 'public'` and `provenance.type === 'automatic'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. The npm trusted-publishing token exchange is a separate OIDC resolver. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
 
-## 10. Stage: Pack Emitter — on-disk artifacts
+## 10. Stage: Pack Emitter , on-disk artifacts
 
-`packtory pack` and the programmatic `packPackage(config, options)` share the same pipeline as `publish` through every prior stage (validation, resource resolution, linking, dead-code elimination, checks, version manager). What changes is the terminal stage: instead of comparing against a registry tarball and uploading, the Pack emitter takes the produced `VersionedBundleWithManifest` for the requested package and writes it to disk in one of three formats.
+`packtory pack` and the programmatic `packPackage(configuration, options)` share the same pipeline as `publish` through every prior stage (validation, resource resolution, linking, dead-code elimination, checks, version manager). What changes is the terminal stage: instead of comparing against a registry tarball and uploading, the Pack emitter takes the produced `VersionedBundleWithManifest` for the requested package and writes it to disk in one of three formats.
 
 ### Why it exists
 
-The bundle / link / DCE / checks pipeline produces an artifact that is correct, minimal, and tree-shaken — and that work is just as valuable when the destination isn't an npm registry. AWS Lambda functions want zips. Container builds want directories. Release archives want tarballs. `pack` exposes the same artifact through a different sink so none of that pipeline work has to be re-implemented per destination.
+The bundle / link / dead code elimination / checks pipeline produces an artifact that is correct, minimal, and tree-shaken , and that work is just as valuable when the destination isn't an npm registry. AWS Lambda functions want zips. Container builds want directories. Release archives want tarballs. `pack` exposes the same artifact through a different sink so none of that pipeline work has to be re-implemented per destination.
 
-`pack` is also intentionally decoupled from automatic versioning. The registry is the source of truth for "what version comes next" — once you take the artifact off the registry path, there is no source of truth, so the caller has to supply a version. The CLI defaults the stamp to `0.0.0`; the API requires it explicitly.
+`pack` is also intentionally decoupled from automatic versioning. The registry is the source of truth for "what version comes next" , once you take the artifact off the registry path, there is no source of truth, so the caller has to supply a version. The command line interface defaults the stamp to `0.0.0`; the API requires it explicitly.
 
 ### Formats
 
 Three writers, one interface (`packEmitter.pack({ bundle, format, outputPath, vendorEntries, extraFiles })`):
 
-- **`zip`** — produced via `fflate` with maximum compression. Entry metadata is fully deterministic: every file is stamped with a fixed 1980-01-01 modification time, the Unix OS marker, and a fixed mode (`0644` for regular files, `0755` for executables). This makes byte-identical inputs produce byte-identical archives, which matters for reproducible-build claims and for Lambda's content-hash-based deduplication.
-- **`tar`** — the same gzipped tarball shape the publish path would upload, just written to a path instead of streamed to a registry.
-- **`folder`** — the artifact expanded onto disk. `outputPath` is treated as the target directory; files are written via the file manager's `writeBinaryFile`, executables get their bit set, and the layout mirrors what would be inside the zip/tar.
+- **`zip`** , produced via `fflate` with maximum compression. Entry metadata is fully deterministic: every file is stamped with a fixed 1980-01-01 modification time, the Unix OS marker, and a fixed mode (`0644` for regular files, `0755` for executables). This makes byte-identical inputs produce byte-identical archives, which matters for reproducible-build claims and for Lambda's content-hash-based deduplication.
+- **`tar`** , the same gzipped tarball shape the publish path would upload, just written to a path instead of streamed to a registry.
+- **`folder`** , the artifact expanded onto disk. `outputPath` is treated as the target directory; files are written via the file manager's `writeBinaryFile`, executables get their bit set, and the layout mirrors what would be inside the zip/tar.
 
 ### Vendor materialization
 
@@ -475,28 +475,28 @@ The `--vendor-dependencies` / `vendorDependencies: true` flag turns the artifact
 
 - Resolves the package's real on-disk path via `fs.realpath`, which transparently handles npm's flat-with-symlinks layout, yarn-classic's nested layout, and pnpm's `node_modules/.pnpm` store with the `node_modules/<name>` symlinks. Resolution walks ancestor folders from the package's `sourcesFolder` upward until a matching `node_modules/<name>` is found.
 - Reads the resolved package's `package.json` and extracts both `dependencies` and `peerDependencies` to enqueue. Both are followed so the closure ends up self-contained.
-- Records every file under the package as a `VendorEntry` — a `{ sourceAbsolutePath, targetRelativePath, isExecutable }` reference. Files are referenced by path, not slurped into memory, so binary assets, native modules, and large blobs flow through without ever being decoded. Nested `node_modules` directories inside a visited package are skipped — each transitive dependency is visited independently from the project's top-level layout.
+- Records every file under the package as a `VendorEntry` , a `{ sourceAbsolutePath, targetRelativePath, isExecutable }` reference. Files are referenced by path, not slurped into memory, so binary assets, native modules, and large blobs flow through without ever being decoded. Nested `node_modules` directories inside a visited package are skipped , each transitive dependency is visited independently from the project's top-level layout.
 - Recurses until a fixed point (every reachable dependency visited exactly once).
 
 The collected entries are passed to the artifact writers alongside the bundle's own files; the writers copy them into `node_modules/<name>/...` inside the artifact (or write directly for `folder`).
 
-**Bundle-dependency materialization** uses the same mechanism. A package the linker had previously substituted via cross-package import rewriting (§5) would, in a publish flow, ship without that sibling's source — the consumer's `npm install` would pull it from the registry. In a pack-with-vendor flow there is no consumer install, so the sibling has to be inside the artifact. The materializer treats `bundleDependencies` like any other dependency and copies the resolved sibling's files into `node_modules/`. The cross-package imports the linker rewrote during §5 (`./lib/foo.js` → `pkg/foo.js`) then resolve naturally once the sibling exists under `node_modules/pkg/`.
+**Bundle-dependency materialization** uses the same mechanism. A package the linker had previously substituted via cross-package import rewriting (§5) would, in a publish flow, ship without that sibling's source , the consumer's `npm install` would pull it from the registry. In a pack-with-vendor flow there is no consumer install, so the sibling has to be inside the artifact. The materializer treats `bundleDependencies` like any other dependency and copies the resolved sibling's files into `node_modules/`. The cross-package imports the linker rewrote during §5 (`./lib/foo.js` → `pkg/foo.js`) then resolve naturally once the sibling exists under `node_modules/package/`.
 
-**Strict peer-dependency check.** When `vendorDependencies` is on, every `peerDependency` declared by a vendored package — whether the vendored package is a sibling bundle or a vendored external — must be satisfied by another package in the same vendor closure. Peers cannot fall through to an ambient install at runtime, because there is no install. An unsatisfied peer is reported as `peer-dependencies-unsatisfied` with the offending package and peer names, and pack exits 1. This is policy, not a transport limitation: silently shipping an artifact whose peer expectations are unmet would defer the failure to runtime in someone else's environment.
+**Strict peer-dependency check.** When `vendorDependencies` is on, every `peerDependency` declared by a vendored package , whether the vendored package is a sibling bundle or a vendored external , must be satisfied by another package in the same vendor closure. Peers cannot fall through to an ambient install at runtime, because there is no install. An unsatisfied peer is reported as `peer-dependencies-unsatisfied` with the offending package and peer names, and pack exits 1. This is policy, not a transport limitation: silently shipping an artifact whose peer expectations are unmet would defer the failure to runtime in someone else's environment.
 
 ### Failure modes specific to pack
 
 The pack outcome's `PackFailure` discriminated union carries the union of the inherited resolve/link/checks failures plus three pack-specific variants:
 
-- `package-not-found` — the `<package>` argument doesn't match any configured package name.
-- `bundle-dependencies-unsupported` — the target package declares `bundleDependencies` but `--vendor-dependencies` is off. Without vendoring there is nowhere to put the sibling, so the request is rejected up front instead of producing a broken artifact.
-- `peer-dependencies-unsatisfied` — see the strict peer check above.
+- `package-not-found` , the `<package>` argument doesn't match any configured package name.
+- `bundle-dependencies-unsupported` , the target package declares `bundleDependencies` but `--vendor-dependencies` is off. Without vendoring there is nowhere to put the sibling, so the request is rejected up front instead of producing a broken artifact.
+- `peer-dependencies-unsatisfied` , see the strict peer check above.
 
 All three are produced before any bytes are written, so a failed `pack` never leaves a partial artifact behind.
 
 ## 11. Putting it all together
 
-A worked example: `image-resizer-cli` bundles `image-resizer-lib`.
+A worked example: `image-resizer-command-line-interface` bundles `image-resizer-lib`.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {
@@ -522,7 +522,7 @@ sequenceDiagram
     participant CFG as Config
     participant SCH as Scheduler
     participant LIB as image-resizer-lib
-    participant CLI as image-resizer-cli
+    participant command line interface as image-resizer-command-line-interface
     participant ELIM as Dead-Code Eliminator
 
     CFG->>SCH: validated config + reversed graph
@@ -530,9 +530,9 @@ sequenceDiagram
     SCH->>LIB: resolve + link (no siblings yet)
     LIB-->>SCH: LinkedBundle(lib)
     Note over SCH: generation 1 = {cli}
-    SCH->>CLI: resolve + link (siblings: [lib])
-    Note over CLI: imports rewritten<br/>./lib/index.js → image-resizer-lib/index.js
-    CLI-->>SCH: LinkedBundle(cli)
+    SCH->>command line interface: resolve + link (siblings: [lib])
+    Note over command line interface: imports rewritten<br/>./lib/index.js → image-resizer-lib/index.js
+    command line interface-->>SCH: LinkedBundle(cli)
     SCH->>ELIM: eliminate([lib, cli])
     Note over ELIM: 1. local reachability per bundle<br/>2. cross-bundle seeds from cli → lib<br/>3. final reachability with seeds<br/>4. transform & recompose maps
     ELIM-->>SCH: AnalyzedBundle(lib), AnalyzedBundle(cli)

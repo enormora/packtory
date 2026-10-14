@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { Project } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
 import { packageManifestFilePath } from '../common/package-layout.ts';
-import type { AdditionalFileDescription } from '../config/additional-files.ts';
+import type { AdditionalFileDescription } from '../configuration/additional-files.ts';
 import type { LocalFile } from '../dependency-scanner/dependency-graph.ts';
 import { moduleReferenceKind, type ModuleReference } from '../dependency-scanner/source-file-references.ts';
 import type { ArtifactModuleReference } from './resolved-bundle.ts';

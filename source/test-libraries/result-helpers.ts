@@ -20,7 +20,7 @@ type BuildReportOutcome<TResult> = {
 
 type ReleaseOutcomeAdapter = <TResult>(result: TResult) => BuildReportOutcome<TResult>;
 
-export function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
+export function getErrorResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
     if (result.isErr) {
         return result.error;
     }

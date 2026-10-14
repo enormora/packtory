@@ -7,7 +7,7 @@ import type {
 } from './packtory.entry-point.ts';
 
 type InspectPackageSideEffectsFunction = (
-    config: unknown,
+    configuration: unknown,
     packageName: string
 ) => Promise<PackageSideEffectsInspectionOutcome>;
 
@@ -34,7 +34,7 @@ describe('PackageSideEffectsInspectionOutcome', function () {
         type File = PackageSideEffectsInspection['impureFiles'][number];
         type Statement = File['statements'][number];
         expect<PackageSideEffectsInspection['packageName']>().type.toBe<string>();
-        expect<PackageSideEffectsInspection['packageJsonDecision']['type']>().type.toBe<
+        expect<PackageSideEffectsInspection['packageManifestDecision']['type']>().type.toBe<
             PackageSideEffectsDecisionType
         >();
         expect<File['sourcePath']>().type.toBe<string>();

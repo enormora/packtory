@@ -3,7 +3,7 @@ import type { ThroughputBenchmarkMeasurement, WorkloadsFile, WorkloadSize } from
 import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 import { startBenchmarkRegistry } from './benchmark-registry.ts';
 import { generateWorkload } from './generate-workload.ts';
-import { measureAsyncTask } from './tinybench-measurement.ts';
+import { measureAsynchronousTask } from './tinybench-measurement.ts';
 
 export async function runBuildArtifactsBenchmark(
     size: WorkloadSize,
@@ -14,9 +14,9 @@ export async function runBuildArtifactsBenchmark(
 
     try {
         const workload = await generateWorkload({ rootDirectory, size, workloads });
-        const config = workload.createConfig(registry.settings);
-        const result = await measureAsyncTask(`build-artifacts:${size}`, async function () {
-            const { result: runResult } = await buildAndPublishAll(config, { dryRun: true, stage: false });
+        const configuration = workload.createConfiguration(registry.settings);
+        const result = await measureAsynchronousTask(`build-artifacts:${size}`, async function () {
+            const { result: runResult } = await buildAndPublishAll(configuration, { dryRun: true, stage: false });
 
             if (runResult.isErr) {
                 throw new Error(`buildAndPublishAll failed for "${size}" with error type "${runResult.error.type}"`);

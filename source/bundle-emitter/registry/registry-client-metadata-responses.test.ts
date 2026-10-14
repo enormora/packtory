@@ -12,52 +12,54 @@ function fetchErrorWithStatusCode(statusCode: number): Error & { readonly status
 suite('registry-client metadata responses', function () {
     test('fetchLatestVersion() returns nothing for 404 responses', async function () {
         const error = fetchErrorWithStatusCode(404);
-        const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(error) });
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation: fake.rejects(error) });
 
         const result = await registryClient.fetchLatestVersion('the-name', {
-            auth: { type: 'bearer-token', token: 'the-token' }
+            authentication: { type: 'bearer-token', token: 'the-token' }
         });
 
         assert.deepStrictEqual(result, Maybe.nothing());
     });
 
     test('fetchLatestVersion() rethrows 403 responses', async function () {
-        const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(fetchErrorWithStatusCode(403)) });
+        const registryClient = registryClientFactory({
+            npmFetchJavaScriptObjectNotation: fake.rejects(fetchErrorWithStatusCode(403))
+        });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: fetch-error$/u);
     });
 
     test('fetchLatestVersion() throws on invalid registry payloads', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.resolves({ invalid: 'response-data' })
+            npmFetchJavaScriptObjectNotation: fake.resolves({ invalid: 'response-data' })
         });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: Got an invalid response from registry API$/u);
     });
 
     test('fetchLatestVersion() throws on invalid non-object registry payloads', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.resolves('invalid-response')
+            npmFetchJavaScriptObjectNotation: fake.resolves('invalid-response')
         });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: Got an invalid response from registry API$/u);
     });
 
     test('fetchLatestVersion() returns nothing when the registry response has no latest tag', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.resolves({
+            npmFetchJavaScriptObjectNotation: fake.resolves({
                 name: 'the-name',
                 'dist-tags': {},
                 versions: { '1.0.0': { dist: { tarball: 'https://registry.example.test/pkg.tgz' } } }
@@ -65,7 +67,7 @@ suite('registry-client metadata responses', function () {
         });
 
         const result = await registryClient.fetchLatestVersion('the-name', {
-            auth: { type: 'bearer-token', token: 'the-token' }
+            authentication: { type: 'bearer-token', token: 'the-token' }
         });
 
         assert.deepStrictEqual(result, Maybe.nothing());
@@ -73,7 +75,7 @@ suite('registry-client metadata responses', function () {
 
     test('fetchLatestVersion() throws when the latest tag points to a missing version entry', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.resolves({
+            npmFetchJavaScriptObjectNotation: fake.resolves({
                 name: 'the-name',
                 'dist-tags': { latest: '1.0.0' },
                 versions: {}
@@ -82,7 +84,7 @@ suite('registry-client metadata responses', function () {
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: Version "1.0.0" for package "the-name" has no entry in the registry response$/u);
     });
@@ -110,12 +112,12 @@ suite('registry-client metadata responses', function () {
         ) {
             test(`fetchLatestVersion() rejects invalid registry payloads when ${testName}`, async function () {
                 const registryClient = registryClientFactory({
-                    npmFetchJson: fake.resolves(response)
+                    npmFetchJavaScriptObjectNotation: fake.resolves(response)
                 });
 
                 await expectFailure(async function () {
                     await registryClient.fetchLatestVersion('the-name', {
-                        auth: { type: 'bearer-token', token: 'the-token' }
+                        authentication: { type: 'bearer-token', token: 'the-token' }
                     });
                 }, /^Error: Got an invalid response from registry API$/u);
             });
@@ -124,7 +126,7 @@ suite('registry-client metadata responses', function () {
 
     test('fetchLatestVersion() rejects null versions payloads', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.resolves({
+            npmFetchJavaScriptObjectNotation: fake.resolves({
                 name: 'the-name',
                 'dist-tags': { latest: '1.0.0' },
                 versions: null
@@ -133,33 +135,33 @@ suite('registry-client metadata responses', function () {
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: Got an invalid response from registry API$/u);
     });
 
     test('fetchLatestVersion() rethrows non-object unexpected errors', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake(async function () {
+            npmFetchJavaScriptObjectNotation: fake(async function () {
                 throwNonError('unexpected-failure');
             })
         });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^unexpected-failure$/u);
     });
 
     test('fetchLatestVersion() rethrows object unexpected errors without statusCode', async function () {
         const registryClient = registryClientFactory({
-            npmFetchJson: fake.rejects(new Error('unexpected-failure'))
+            npmFetchJavaScriptObjectNotation: fake.rejects(new Error('unexpected-failure'))
         });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'the-token' }
+                authentication: { type: 'bearer-token', token: 'the-token' }
             });
         }, /^Error: unexpected-failure$/u);
     });

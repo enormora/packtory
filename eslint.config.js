@@ -1,36 +1,43 @@
-import fs from 'node:fs/promises';
-import { baseConfig } from '@enormora/eslint-config-base';
-import { mochaNodeAssertConfig, testSupportConfig } from '@enormora/eslint-config-mocha-node-assert';
-import { typescriptConfig } from '@enormora/eslint-config-typescript';
-import { nodeConfig, nodeConfigFileConfig, nodeEntryPointFileConfig } from '@enormora/eslint-config-node';
+import fileSystem from 'node:fs/promises';
+import { baseConfig as baseConfiguration } from '@enormora/eslint-config-base';
+import {
+    mochaNodeAssertConfig as mochaNodeAssertConfiguration,
+    testSupportConfig as testSupportConfiguration
+} from '@enormora/eslint-config-mocha-node-assert';
+import { typescriptConfig as typescriptConfiguration } from '@enormora/eslint-config-typescript';
+import {
+    nodeConfig as nodeConfiguration,
+    nodeConfigFileConfig as nodeConfigurationFileConfiguration,
+    nodeEntryPointFileConfig as nodeEntryPointFileConfiguration
+} from '@enormora/eslint-config-node';
 
-const packageJsonSchema = JSON.parse(
-    await fs.readFile(new URL('./schemas/package-json.schema.json', import.meta.url), { encoding: 'utf8' })
+const packageManifestSchema = JSON.parse(
+    await fileSystem.readFile(new URL('./schemas/package-manifest.schema.json', import.meta.url), { encoding: 'utf8' })
 );
 
 export default [
     {
         ignores: [ 'target/**/*', 'integration-tests/fixtures/**/*' ]
     },
-    ...baseConfig,
+    ...baseConfiguration,
     {
-        ...nodeConfig,
+        ...nodeConfiguration,
         files: [ '**/*.{js,cjs,mjs,ts,cts,mts}' ]
     },
     {
-        ...typescriptConfig,
+        ...typescriptConfiguration,
         files: [ '**/*.ts' ]
     },
     {
-        ...mochaNodeAssertConfig,
+        ...mochaNodeAssertConfiguration,
         files: [ '**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts' ]
     },
     {
-        ...testSupportConfig,
+        ...testSupportConfiguration,
         files: [ 'source/test-libraries/**/*.ts', '**/*test-support.ts' ]
     },
     {
-        ...nodeConfigFileConfig,
+        ...nodeConfigurationFileConfiguration,
         files: [
             'dependency-cruiser.config.js',
             'eslint.config.js',
@@ -38,7 +45,7 @@ export default [
         ]
     },
     {
-        ...nodeEntryPointFileConfig,
+        ...nodeEntryPointFileConfiguration,
         files: [ 'source/packages/**/*.entry-point.ts', 'source/packages/**/*.composition.ts' ]
     },
     {
@@ -50,7 +57,7 @@ export default [
                     schemas: [
                         {
                             fileMatch: [ 'package.json' ],
-                            schema: packageJsonSchema
+                            schema: packageManifestSchema
                         }
                     ],
                     useSchemastoreCatalog: false

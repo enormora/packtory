@@ -10,7 +10,7 @@ function checkInput(overrides: Partial<CheckRunnerInput> = {}): CheckRunnerInput
         settings: {},
         publishedPackages: undefined,
         ...emptyCheckContext(),
-        packageConfigs: {},
+        packageConfigurations: {},
         bundles: [ checkBundle('a', [ 'shared.ts' ]), checkBundle('b', [ 'shared.ts' ]) ],
         ...overrides
     };

@@ -2,24 +2,24 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { resolveRootsAndSurface } from './resource-resolve-options.ts';
 
-const mainRoot = { js: '/src/index.js', declarationFile: '/src/index.d.ts' } as const;
-const helperRoot = { js: '/src/helper.js' } as const;
+const mainRoot = { javaScript: '/source/index.js', declarationFile: '/source/index.d.ts' } as const;
+const helperRoot = { javaScript: '/source/helper.js' } as const;
 
 type BaseOptions = {
     readonly name: string;
     readonly sourcesFolder: string;
     readonly includeSourceMapFiles: boolean;
     readonly additionalFiles: readonly [];
-    readonly mainPackageJson: { readonly type: 'module'; };
+    readonly mainPackageManifest: { readonly type: 'module'; };
 };
 
 function baseOptions(): BaseOptions {
     return {
         name: 'package-a',
-        sourcesFolder: '/src',
+        sourcesFolder: '/source',
         includeSourceMapFiles: false,
         additionalFiles: [],
-        mainPackageJson: { type: 'module' }
+        mainPackageManifest: { type: 'module' }
     };
 }
 

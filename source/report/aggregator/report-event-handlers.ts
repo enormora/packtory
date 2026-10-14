@@ -49,9 +49,9 @@ function registerInputHandlers(state: AggregatorState, subscribe: Subscribe): vo
             };
         });
     });
-    subscribe('effectiveConfigResolved', function (payload) {
+    subscribe('effectiveConfigurationResolved', function (payload) {
         updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, effectiveConfig: payload.config };
+            return { ...entry, effectiveConfiguration: payload.configuration };
         });
     });
 }
@@ -72,9 +72,9 @@ function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe):
             };
         });
     });
-    subscribe('packageJsonAssembled', function (payload) {
+    subscribe('packageManifestAssembled', function (payload) {
         updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, decisions: { ...entry.decisions, packageJson: payload.fields } };
+            return { ...entry, decisions: { ...entry.decisions, packageManifest: payload.fields } };
         });
     });
     subscribe('scanCompleted', function (payload) {
@@ -140,7 +140,7 @@ function registerOutcomeHandlers(state: AggregatorState, subscribe: Subscribe): 
     });
     subscribe('stageTimed', function (payload) {
         updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, timings: { ...entry.timings, [payload.stage]: payload.durationMs } };
+            return { ...entry, timings: { ...entry.timings, [payload.stage]: payload.durationMilliseconds } };
         });
     });
     subscribe('packageFailed', function (payload) {

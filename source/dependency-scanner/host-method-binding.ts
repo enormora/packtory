@@ -1,6 +1,6 @@
 import type { FileSystemHost } from 'ts-morph';
 
-export const syncMethodNames = {
+export const synchronousMethodNames = {
     fileExists: 'fileExistsSync',
     directoryExists: 'directoryExistsSync',
     readFile: 'readFileSync'

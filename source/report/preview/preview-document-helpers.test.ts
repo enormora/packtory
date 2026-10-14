@@ -13,7 +13,7 @@ function artifact(overrides: Partial<PreviewArtifact> = {}): PreviewArtifact {
         path: 'a.js',
         sizeBytes: 0,
         kind: 'source',
-        sourcePath: '/src/a.js',
+        sourcePath: '/source/a.js',
         status: 'unchanged',
         badges: [],
         ...overrides
@@ -45,7 +45,7 @@ suite('preview-document-helpers', function () {
 
     test('hasMeaningfulChanges returns true when any eliminated source files are present', function () {
         assert.strictEqual(
-            hasMeaningfulChanges([], [ { path: '/src/dead.js', sourceBytes: 1, reason: 'no-uses' } ]),
+            hasMeaningfulChanges([], [ { path: '/source/dead.js', sourceBytes: 1, reason: 'no-uses' } ]),
             true
         );
     });

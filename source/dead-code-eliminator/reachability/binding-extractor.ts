@@ -1,5 +1,5 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     type ClassDeclaration,
     type EnumDeclaration,
     type ExportAssignment,
@@ -18,8 +18,8 @@ export type BindingDescriptor = {
     readonly name: string;
     readonly isExported: boolean;
     readonly statement: Statement;
-    readonly declarationNode: TsMorphNode;
-    readonly referenceNode: TsMorphNode;
+    readonly declarationNode: TypeScriptMorphNode;
+    readonly referenceNode: TypeScriptMorphNode;
 };
 
 type ObjectDeclarationStatement = ClassDeclaration | InterfaceDeclaration | TypeAliasDeclaration;
@@ -27,12 +27,12 @@ type NamedDeclarationStatement = EnumDeclaration | FunctionDeclaration | ModuleD
 
 function isNamedDeclaration(statement: Statement): statement is NamedDeclarationStatement {
     return (
-        TsMorphNode.isFunctionDeclaration(statement) ||
-        TsMorphNode.isClassDeclaration(statement) ||
-        TsMorphNode.isInterfaceDeclaration(statement) ||
-        TsMorphNode.isTypeAliasDeclaration(statement) ||
-        TsMorphNode.isEnumDeclaration(statement) ||
-        TsMorphNode.isModuleDeclaration(statement)
+        TypeScriptMorphNode.isFunctionDeclaration(statement) ||
+        TypeScriptMorphNode.isClassDeclaration(statement) ||
+        TypeScriptMorphNode.isInterfaceDeclaration(statement) ||
+        TypeScriptMorphNode.isTypeAliasDeclaration(statement) ||
+        TypeScriptMorphNode.isEnumDeclaration(statement) ||
+        TypeScriptMorphNode.isModuleDeclaration(statement)
     );
 }
 
@@ -117,13 +117,13 @@ function bindingsFromStatement(statement: Statement): readonly BindingDescriptor
     if (isNamedDeclaration(statement)) {
         return bindingsFromNamedDeclaration(statement);
     }
-    if (TsMorphNode.isVariableStatement(statement)) {
+    if (TypeScriptMorphNode.isVariableStatement(statement)) {
         return bindingsFromVariableStatement(statement);
     }
-    if (TsMorphNode.isImportDeclaration(statement)) {
+    if (TypeScriptMorphNode.isImportDeclaration(statement)) {
         return bindingsFromImportDeclaration(statement);
     }
-    if (TsMorphNode.isExportAssignment(statement)) {
+    if (TypeScriptMorphNode.isExportAssignment(statement)) {
         return bindingsFromExportAssignment(statement);
     }
     return [];

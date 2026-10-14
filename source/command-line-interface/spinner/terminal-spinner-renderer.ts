@@ -6,9 +6,9 @@ export const spinnerResultStatus = {
 type Status = (typeof spinnerResultStatus)[keyof typeof spinnerResultStatus];
 
 export type TerminalSpinnerRenderer = {
-    add: (id: string, label: string, message: string) => void;
-    updateMessage: (id: string, message: string) => void;
-    stop: (id: string, status: Status, message: string) => void;
+    add: (identifier: string, label: string, message: string) => void;
+    updateMessage: (identifier: string, message: string) => void;
+    stop: (identifier: string, status: Status, message: string) => void;
     stopAll: () => void;
 };
 
@@ -48,39 +48,39 @@ export function createTerminalSpinnerRenderer(
         return usedSlots.size;
     }
 
-    function getSpinnerById(id: string): SpinnerSlot {
-        const spinner = spinners.get(id);
+    function getSpinnerByIdentifier(identifier: string): SpinnerSlot {
+        const spinner = spinners.get(identifier);
         if (spinner === undefined) {
-            throw new Error(`Spinner with id ${id} does not exist`);
+            throw new Error(`Spinner with id ${identifier} does not exist`);
         }
         return spinner;
     }
 
-    function ensureIdDoesNotExist(id: string): void {
-        if (spinners.has(id)) {
-            throw new Error(`Spinner with id ${id} already exists`);
+    function ensureIdentifierDoesNotExist(identifier: string): void {
+        if (spinners.has(identifier)) {
+            throw new Error(`Spinner with id ${identifier} already exists`);
         }
     }
 
     return {
-        add(id, label, message) {
-            ensureIdDoesNotExist(id);
+        add(identifier, label, message) {
+            ensureIdentifierDoesNotExist(identifier);
 
             const slotIndex = nextFreeSlotIndex();
             usedSlots.add(slotIndex);
-            spinners.set(id, { slotIndex, label, message, status: 'running' });
+            spinners.set(identifier, { slotIndex, label, message, status: 'running' });
             backend.add(slotIndex, label, message);
         },
 
-        updateMessage(id, message) {
-            const spinner = getSpinnerById(id);
-            spinners.set(id, { ...spinner, message });
+        updateMessage(identifier, message) {
+            const spinner = getSpinnerByIdentifier(identifier);
+            spinners.set(identifier, { ...spinner, message });
             backend.update(spinner.slotIndex, spinner.label, message);
         },
 
-        stop(id, status, message) {
-            const spinner = getSpinnerById(id);
-            spinners.set(id, { ...spinner, message, status });
+        stop(identifier, status, message) {
+            const spinner = getSpinnerByIdentifier(identifier);
+            spinners.set(identifier, { ...spinner, message, status });
             const finalState = status === spinnerResultStatus.success ? 'succeeded' : 'failed';
             backend.finish(spinner.slotIndex, finalState, spinner.label, message);
         },

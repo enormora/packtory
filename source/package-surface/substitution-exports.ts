@@ -22,7 +22,7 @@ function collectRootInputFilePaths(bundle: SubstitutionBundle): ReadonlySet<stri
     const rootInputFilePaths = new Set<string>();
 
     for (const root of Object.values(bundle.roots)) {
-        rootInputFilePaths.add(root.js.inputFilePath);
+        rootInputFilePaths.add(root.javaScript.inputFilePath);
     }
 
     return rootInputFilePaths;
@@ -86,20 +86,20 @@ function findDeclarationCompanionTargetPath(
 
 function rejectMissingTypedDeclarationCompanion(
     bundleName: string,
-    jsTargetFilePath: string,
+    javaScriptTargetFilePath: string,
     candidatePaths: readonly string[]
 ): never {
+    const moduleDescription = `Package "${bundleName}" exposes substituted module "./${javaScriptTargetFilePath}" `;
+    const companions = candidatePaths.map(toImportTarget).join(' or ');
     throw new Error(
-        `Package "${bundleName}" exposes substituted module "./${jsTargetFilePath}" without declaration companion ${
-            candidatePaths.map(toImportTarget).join(' or ')
-        }`
+        `${moduleDescription}without declaration companion ${companions}`
     );
 }
 
 function existingDeclarationTargetFilePathFor(
     bundleName: string,
     lookups: SubstitutionBundleLookups,
-    jsTargetFilePath: string,
+    javaScriptTargetFilePath: string,
     declarationCandidates: readonly string[]
 ): string | undefined {
     const declarationTargetFilePath = findDeclarationCompanionTargetPath(
@@ -110,7 +110,7 @@ function existingDeclarationTargetFilePathFor(
         return declarationTargetFilePath;
     }
     if (lookups.hasDeclarationRoots) {
-        rejectMissingTypedDeclarationCompanion(bundleName, jsTargetFilePath, declarationCandidates);
+        rejectMissingTypedDeclarationCompanion(bundleName, javaScriptTargetFilePath, declarationCandidates);
     }
     return undefined;
 }
@@ -118,14 +118,14 @@ function existingDeclarationTargetFilePathFor(
 function declarationTargetFilePathFor(
     bundleName: string,
     lookups: SubstitutionBundleLookups,
-    jsTargetFilePath: string
+    javaScriptTargetFilePath: string
 ): string | undefined {
-    const declarationCandidates = declarationCompanionCandidates(jsTargetFilePath);
+    const declarationCandidates = declarationCompanionCandidates(javaScriptTargetFilePath);
     if (declarationCandidates.length === 0) {
         return undefined;
     }
 
-    return existingDeclarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath, declarationCandidates);
+    return existingDeclarationTargetFilePathFor(bundleName, lookups, javaScriptTargetFilePath, declarationCandidates);
 }
 
 function buildSubstitutionExportEntry(
@@ -138,19 +138,19 @@ function buildSubstitutionExportEntry(
     }
 
     const content = findBundleContent(bundleName, lookups.contentByInputFilePath, inputFilePath);
-    const jsTargetFilePath = content.fileDescription.targetFilePath;
-    if (isDeclarationCompanionFilePath(jsTargetFilePath)) {
+    const javaScriptTargetFilePath = content.fileDescription.targetFilePath;
+    if (isDeclarationCompanionFilePath(javaScriptTargetFilePath)) {
         return [
-            `./${jsTargetFilePath}`,
-            { types: toImportTarget(jsTargetFilePath) }
+            `./${javaScriptTargetFilePath}`,
+            { types: toImportTarget(javaScriptTargetFilePath) }
         ];
     }
-    const declarationTargetFilePath = declarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath);
+    const declarationTargetFilePath = declarationTargetFilePathFor(bundleName, lookups, javaScriptTargetFilePath);
     return [
-        `./${jsTargetFilePath}`,
+        `./${javaScriptTargetFilePath}`,
         pickBy(
             {
-                import: toImportTarget(jsTargetFilePath),
+                import: toImportTarget(javaScriptTargetFilePath),
                 types: declarationTargetFilePath === undefined ? undefined : toImportTarget(declarationTargetFilePath)
             },
             isDefined

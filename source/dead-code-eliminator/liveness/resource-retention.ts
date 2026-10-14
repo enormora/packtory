@@ -5,7 +5,7 @@ import { isDeclarationCodeTargetPath, isRuntimeCodeTargetPath } from './runtime-
 function rootTargetFilePaths(bundle: Pick<AnalyzedBundle, 'roots'>): ReadonlySet<string> {
     const paths = new Set<string>();
     for (const root of Object.values(bundle.roots)) {
-        paths.add(root.js.targetFilePath);
+        paths.add(root.javaScript.targetFilePath);
         if (root.declarationFile !== undefined) {
             paths.add(root.declarationFile.targetFilePath);
         }

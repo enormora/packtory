@@ -7,7 +7,7 @@ import type { EliminationInput } from './analyzed-bundle.ts';
 import { loadBundle } from './load-bundle.ts';
 
 const indexFile = {
-    inputFilePath: '/src/index.js',
+    inputFilePath: '/source/index.js',
     targetFilePath: 'index.js',
     content: 'export const value = 1;\n',
     isExecutable: false
@@ -15,7 +15,7 @@ const indexFile = {
 
 function indexResource(): LinkedBundleResource {
     return {
-        ...bundleResource('/src/index.js', {
+        ...bundleResource('/source/index.js', {
             content: indexFile.content,
             targetFilePath: indexFile.targetFilePath
         }),
@@ -26,7 +26,7 @@ function indexResource(): LinkedBundleResource {
 function packageABundle(overrides: Partial<Parameters<typeof linkedBundle>[0]> = {}): LinkedBundle {
     return linkedBundle({
         name: 'package-a',
-        roots: { main: { js: indexFile } },
+        roots: { main: { javaScript: indexFile } },
         contents: [ indexResource() ],
         ...overrides
     });
@@ -42,7 +42,7 @@ function loadInput(
 suite('load-bundle', function () {
     test('loadBundle() keeps non-code resources out of source-file analysis', function () {
         const resource = {
-            ...bundleResource('/src/readme.md', {
+            ...bundleResource('/source/readme.md', {
                 content: 'Hello',
                 targetFilePath: 'readme.md'
             }),
@@ -58,7 +58,7 @@ suite('load-bundle', function () {
 
     test('loadBundle() overwrites duplicate source files inside one project', function () {
         const duplicateResource = {
-            ...bundleResource('/src/index.js', {
+            ...bundleResource('/source/index.js', {
                 content: 'export const value = 2;\n',
                 targetFilePath: 'index.js'
             }),
@@ -89,7 +89,7 @@ suite('load-bundle', function () {
 
     test('loadBundle() seeds substitution public modules by target path', function () {
         const publicResource = {
-            ...bundleResource('/src/public.js', {
+            ...bundleResource('/source/public.js', {
                 content: 'export const api = 1;\n',
                 targetFilePath: 'public.js'
             }),
@@ -97,7 +97,7 @@ suite('load-bundle', function () {
         };
         const bundle = packageABundle({ contents: [ indexResource(), publicResource ] });
 
-        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/src/public.js' ])), undefined);
+        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/source/public.js' ])), undefined);
 
         assert.strictEqual(result.reachability.localReachable.has('public.js::api'), true);
     });
@@ -105,7 +105,7 @@ suite('load-bundle', function () {
     test('loadBundle() ignores missing substitution public modules', function () {
         const bundle = packageABundle();
 
-        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/src/missing.js' ])), undefined);
+        const result = loadBundle(createProject, loadInput(bundle, new Set([ '/source/missing.js' ])), undefined);
 
         assert.deepStrictEqual(result.reachability.localReachable, new Set([ 'index.js::value' ]));
     });

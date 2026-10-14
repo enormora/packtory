@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import {
+    validateConfigurationWithoutRegistry,
+    type ValidConfigurationWithoutRegistryResult
+} from '../configuration/validation.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
@@ -37,14 +40,14 @@ function legacyDependency(name: string, filePath: string): ExternalDependency {
 function orderedDependency(): ExternalDependency {
     return {
         name: 'ordered',
-        referencedFrom: [ 'pkg-a/z.js', 'pkg-a/a.js' ],
+        referencedFrom: [ 'package-a/z.js', 'package-a/a.js' ],
         references: [
-            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' },
-            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
-            { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
-            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
-            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
-            { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' }
+            { targetFilePath: 'package-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'package-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
+            { targetFilePath: 'package-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
+            { targetFilePath: 'package-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'package-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
+            { targetFilePath: 'package-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' }
         ]
     };
 }
@@ -55,7 +58,7 @@ function linkedBundle(name: string): LinkedBundle {
         contents: [],
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath: `/repo/${name}/index.js`,
@@ -64,32 +67,32 @@ function linkedBundle(name: string): LinkedBundle {
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
-        linkedBundleDependencies: name === 'pkg-a'
+        linkedBundleDependencies: name === 'package-a'
             ? new Map([
-                [ 'pkg-b', dependency('pkg-b', '/repo/pkg-a/index.js', './pkg-b.js', 'pkg-b') ],
-                [ 'pkg-c', dependency('pkg-c', '/repo/pkg-a/index.js', './pkg-c.js', 'pkg-c') ],
-                [ 'shared', dependency('shared', '/repo/pkg-a/index.js', './shared.js', 'shared') ]
+                [ 'package-b', dependency('package-b', '/repo/package-a/index.js', './package-b.js', 'package-b') ],
+                [ 'package-c', dependency('package-c', '/repo/package-a/index.js', './package-c.js', 'package-c') ],
+                [ 'shared', dependency('shared', '/repo/package-a/index.js', './shared.js', 'shared') ]
             ])
             : new Map(),
         substitutedInputFilePathsByPackageName: new Map(),
         sourceMapTransformsByTargetPath: new Map(),
-        externalDependencies: name === 'pkg-a'
+        externalDependencies: name === 'package-a'
             ? new Map([
-                [ 'aliased', dependency('aliased', '/repo/pkg-a/index.js') ],
+                [ 'aliased', dependency('aliased', '/repo/package-a/index.js') ],
                 [ 'ordered', orderedDependency() ],
                 [ 'path-tiebreak', {
                     name: 'path-tiebreak',
-                    referencedFrom: [ 'pkg-a/z.js', 'pkg-a/a.js' ],
+                    referencedFrom: [ 'package-a/z.js', 'package-a/a.js' ],
                     references: [
-                        { targetFilePath: 'pkg-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' },
-                        { targetFilePath: 'pkg-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' }
+                        { targetFilePath: 'package-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' },
+                        { targetFilePath: 'package-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' }
                     ]
                 } ],
-                [ 'peer-lib', dependency('peer-lib', '/repo/pkg-a/index.js') ],
-                [ 'react', dependency('react', '/repo/pkg-a/index.js', 'react/jsx-runtime') ],
-                [ 'shared', legacyDependency('shared', '/repo/pkg-a/legacy.js') ],
-                [ 'tarball', dependency('tarball', '/repo/pkg-a/index.js') ],
-                [ 'missing', dependency('missing', '/repo/pkg-a/index.js') ]
+                [ 'peer-lib', dependency('peer-lib', '/repo/package-a/index.js') ],
+                [ 'react', dependency('react', '/repo/package-a/index.js', 'react/jsx-runtime') ],
+                [ 'shared', legacyDependency('shared', '/repo/package-a/legacy.js') ],
+                [ 'tarball', dependency('tarball', '/repo/package-a/index.js') ],
+                [ 'missing', dependency('missing', '/repo/package-a/index.js') ]
             ])
             : new Map()
     };
@@ -137,11 +140,11 @@ const deadCodeEliminator = {
     }
 };
 
-function validatedConfig(): ValidConfigWithoutRegistryResult {
-    const validation = validateConfigWithoutRegistry({
+function validatedConfiguration(): ValidConfigurationWithoutRegistryResult {
+    const validation = validateConfigurationWithoutRegistry({
         commonPackageSettings: {
             sourcesFolder: '/repo',
-            mainPackageJson: {
+            mainPackageManifest: {
                 type: 'module',
                 dependencies: {
                     aliased: 'npm:other-pkg@git+https://github.com/foo/bar#main',
@@ -156,13 +159,13 @@ function validatedConfig(): ValidConfigWithoutRegistryResult {
             publishSettings: { access: 'public' }
         },
         packages: [
-            { name: 'pkg-b', roots: { main: { js: 'pkg-b/index.js' } } },
-            { name: 'pkg-c', roots: { main: { js: 'pkg-c/index.js' } } },
+            { name: 'package-b', roots: { main: { javaScript: 'package-b/index.js' } } },
+            { name: 'package-c', roots: { main: { javaScript: 'package-c/index.js' } } },
             {
-                name: 'pkg-a',
-                roots: { main: { js: 'pkg-a/index.js' } },
-                bundleDependencies: [ 'pkg-c' ],
-                bundlePeerDependencies: [ 'pkg-b' ]
+                name: 'package-a',
+                roots: { main: { javaScript: 'package-a/index.js' } },
+                bundleDependencies: [ 'package-c' ],
+                bundlePeerDependencies: [ 'package-b' ]
             }
         ]
     });
@@ -172,17 +175,17 @@ function validatedConfig(): ValidConfigWithoutRegistryResult {
     return validation.value;
 }
 
-function validatedConfigWithoutManifestDependencies(): ValidConfigWithoutRegistryResult {
-    const validation = validateConfigWithoutRegistry({
+function validatedConfigurationWithoutManifestDependencies(): ValidConfigurationWithoutRegistryResult {
+    const validation = validateConfigurationWithoutRegistry({
         commonPackageSettings: {
             sourcesFolder: '/repo',
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages: [
-            { name: 'pkg-b', roots: { main: { js: 'pkg-b/index.js' } } },
-            { name: 'pkg-c', roots: { main: { js: 'pkg-c/index.js' } } },
-            { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }
+            { name: 'package-b', roots: { main: { javaScript: 'package-b/index.js' } } },
+            { name: 'package-c', roots: { main: { javaScript: 'package-c/index.js' } } },
+            { name: 'package-a', roots: { main: { javaScript: 'package-a/index.js' } } }
         ]
     });
     if (validation.isErr) {
@@ -202,7 +205,7 @@ suite('packtory-package-dependencies', function () {
             deadCodeEliminator
         });
 
-        const result = await inspectPackageDependencies(validatedConfig(), 'pkg-a');
+        const result = await inspectPackageDependencies(validatedConfiguration(), 'package-a');
 
         if (result.isErr) {
             assert.fail('expected dependency inspection to succeed');
@@ -218,7 +221,7 @@ suite('packtory-package-dependencies', function () {
                     message: 'Error: aliases only work for registry deps'
                 },
                 references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: 'aliased', emittedSpecifier: 'aliased' }
+                    { sourcePath: 'package-a/index.js', sourceSpecifier: 'aliased', emittedSpecifier: 'aliased' }
                 ]
             },
             {
@@ -226,7 +229,7 @@ suite('packtory-package-dependencies', function () {
                 origin: 'external',
                 manifest: { type: 'missing-version' },
                 references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: 'missing', emittedSpecifier: 'missing' }
+                    { sourcePath: 'package-a/index.js', sourceSpecifier: 'missing', emittedSpecifier: 'missing' }
                 ]
             },
             {
@@ -234,12 +237,36 @@ suite('packtory-package-dependencies', function () {
                 origin: 'external',
                 manifest: { type: 'emitted', group: 'dependencies', version: '^2.0.0' },
                 references: [
-                    { sourcePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' },
-                    { sourcePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
-                    { sourcePath: 'pkg-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
-                    { sourcePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
-                    { sourcePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
-                    { sourcePath: 'pkg-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' }
+                    { sourcePath: 'package-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/a' },
+                    { sourcePath: 'package-a/a.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/z' },
+                    { sourcePath: 'package-a/a.js', sourceSpecifier: 'ordered/b', emittedSpecifier: 'ordered/z' },
+                    { sourcePath: 'package-a/z.js', sourceSpecifier: 'ordered/0', emittedSpecifier: 'ordered/0' },
+                    { sourcePath: 'package-a/z.js', sourceSpecifier: 'ordered/a', emittedSpecifier: 'ordered/0' },
+                    { sourcePath: 'package-a/z.js', sourceSpecifier: 'ordered/z', emittedSpecifier: 'ordered/z' }
+                ]
+            },
+            {
+                name: 'package-b',
+                origin: 'bundle-peer',
+                manifest: { type: 'emitted', group: 'peerDependencies', version: '0.0.0' },
+                references: [
+                    {
+                        sourcePath: 'package-a/index.js',
+                        sourceSpecifier: './package-b.js',
+                        emittedSpecifier: 'package-b'
+                    }
+                ]
+            },
+            {
+                name: 'package-c',
+                origin: 'bundle',
+                manifest: { type: 'emitted', group: 'dependencies', version: '0.0.0' },
+                references: [
+                    {
+                        sourcePath: 'package-a/index.js',
+                        sourceSpecifier: './package-c.js',
+                        emittedSpecifier: 'package-c'
+                    }
                 ]
             },
             {
@@ -247,8 +274,8 @@ suite('packtory-package-dependencies', function () {
                 origin: 'external',
                 manifest: { type: 'emitted', group: 'dependencies', version: '^4.0.0' },
                 references: [
-                    { sourcePath: 'pkg-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' },
-                    { sourcePath: 'pkg-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' }
+                    { sourcePath: 'package-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' },
+                    { sourcePath: 'package-a/z.js', sourceSpecifier: 'same', emittedSpecifier: 'a' }
                 ]
             },
             {
@@ -256,23 +283,7 @@ suite('packtory-package-dependencies', function () {
                 origin: 'external',
                 manifest: { type: 'emitted', group: 'peerDependencies', version: '^1.0.0' },
                 references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: 'peer-lib', emittedSpecifier: 'peer-lib' }
-                ]
-            },
-            {
-                name: 'pkg-b',
-                origin: 'bundle-peer',
-                manifest: { type: 'emitted', group: 'peerDependencies', version: '0.0.0' },
-                references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: './pkg-b.js', emittedSpecifier: 'pkg-b' }
-                ]
-            },
-            {
-                name: 'pkg-c',
-                origin: 'bundle',
-                manifest: { type: 'emitted', group: 'dependencies', version: '0.0.0' },
-                references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: './pkg-c.js', emittedSpecifier: 'pkg-c' }
+                    { sourcePath: 'package-a/index.js', sourceSpecifier: 'peer-lib', emittedSpecifier: 'peer-lib' }
                 ]
             },
             {
@@ -288,7 +299,7 @@ suite('packtory-package-dependencies', function () {
                 },
                 references: [
                     {
-                        sourcePath: 'pkg-a/index.js',
+                        sourcePath: 'package-a/index.js',
                         sourceSpecifier: 'react/jsx-runtime',
                         emittedSpecifier: 'react/jsx-runtime'
                     }
@@ -299,7 +310,7 @@ suite('packtory-package-dependencies', function () {
                 origin: 'bundle',
                 manifest: { type: 'emitted', group: 'dependencies', version: '0.0.0' },
                 references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: './shared.js', emittedSpecifier: 'shared' }
+                    { sourcePath: 'package-a/index.js', sourceSpecifier: './shared.js', emittedSpecifier: 'shared' }
                 ]
             },
             {
@@ -307,7 +318,7 @@ suite('packtory-package-dependencies', function () {
                 origin: 'external',
                 manifest: { type: 'emitted', group: 'dependencies', version: '^3.0.0' },
                 references: [
-                    { sourcePath: 'pkg-a/legacy.js', sourceSpecifier: 'shared', emittedSpecifier: 'shared' }
+                    { sourcePath: 'package-a/legacy.js', sourceSpecifier: 'shared', emittedSpecifier: 'shared' }
                 ]
             },
             {
@@ -320,7 +331,7 @@ suite('packtory-package-dependencies', function () {
                     message: 'Mutable remote dependency specifier is not allowed'
                 },
                 references: [
-                    { sourcePath: 'pkg-a/index.js', sourceSpecifier: 'tarball', emittedSpecifier: 'tarball' }
+                    { sourcePath: 'package-a/index.js', sourceSpecifier: 'tarball', emittedSpecifier: 'tarball' }
                 ]
             }
         ]);
@@ -337,7 +348,7 @@ suite('packtory-package-dependencies', function () {
             deadCodeEliminator
         });
 
-        const partialResult = await partialInspector(validatedConfig(), 'pkg-a');
+        const partialResult = await partialInspector(validatedConfiguration(), 'package-a');
 
         if (partialResult.isOk) {
             assert.fail('expected dependency inspection to fail');
@@ -358,7 +369,7 @@ suite('packtory-package-dependencies', function () {
             deadCodeEliminator
         });
 
-        const missingResult = await notFoundInspector(validatedConfig(), 'missing');
+        const missingResult = await notFoundInspector(validatedConfiguration(), 'missing');
 
         if (missingResult.isOk) {
             assert.fail('expected dependency inspection to fail');
@@ -376,7 +387,10 @@ suite('packtory-package-dependencies', function () {
             deadCodeEliminator
         });
 
-        const result = await inspectPackageDependencies(validatedConfigWithoutManifestDependencies(), 'pkg-a');
+        const result = await inspectPackageDependencies(
+            validatedConfigurationWithoutManifestDependencies(),
+            'package-a'
+        );
 
         if (result.isErr) {
             assert.fail('expected dependency inspection to succeed');

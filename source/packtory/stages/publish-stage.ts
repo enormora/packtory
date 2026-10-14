@@ -1,13 +1,13 @@
 import { Result } from 'true-myth';
-import type { PacktoryConfig } from '../../config/config.ts';
-import type { ConfigWithGraph, ValidConfigResult } from '../../config/validation.ts';
+import type { PacktoryConfiguration } from '../../configuration/configuration.ts';
+import type { ConfigurationWithGraph, ValidConfigurationResult } from '../../configuration/validation.ts';
 import { collectPublicModuleUsage } from '../../package-surface/public-module-usage.ts';
 import { withFailureCapture } from '../../report/decorators.ts';
 import {
-    configToBuildAndPublishOptions,
+    configurationToBuildAndPublishOptions,
     type BuildAndPublishOptions,
     type VersionSourceResolver
-} from '../map-config.ts';
+} from '../map-configuration.ts';
 import type { PackageProcessor } from '../package-processor.ts';
 import type { BuildAndPublishAllOptions, ProgressBroadcaster } from '../packtory-results.ts';
 import type { ResolvedPackage } from '../resolved-package.ts';
@@ -23,7 +23,7 @@ type PreparedPublish = {
 type BuildOptionsContext = {
     readonly packageName: string;
     readonly existing: readonly VersionedBundleWithManifest[];
-    readonly config: ConfigWithGraph<PacktoryConfig>;
+    readonly configuration: ConfigurationWithGraph<PacktoryConfiguration>;
 };
 type BuildOptionsFactory = (context: BuildOptionsContext) => BuildAndPublishOptions;
 type ProgressEventSource = {
@@ -39,14 +39,14 @@ type PreparedProgressEventSource = {
 };
 type PreparePublishesInput = {
     readonly dependencies: PublishStageDependencies;
-    readonly config: ValidConfigResult;
+    readonly configuration: ValidConfigurationResult;
     readonly publishStageInputs: PublishStageInputs;
     readonly stage: boolean;
     readonly emitDoneEvents: boolean;
 };
 type PublishPreparedResultsInput = {
     readonly dependencies: PublishStageDependencies;
-    readonly config: ValidConfigResult;
+    readonly configuration: ValidConfigurationResult;
     readonly publishStageInputs: PublishStageInputs;
     readonly preparedPublishes: readonly PreparedPublish[];
     readonly stage: boolean;
@@ -83,11 +83,11 @@ function createBuildOptionsFactory(
     dependencies: PublishStageDependencies
 ): BuildOptionsFactory {
     return function (context) {
-        const { packageName, existing, config: validatedConfig } = context;
-        return configToBuildAndPublishOptions(
+        const { packageName, existing, configuration: validatedConfiguration } = context;
+        return configurationToBuildAndPublishOptions(
             packageName,
-            validatedConfig.packageConfigs,
-            validatedConfig.packtoryConfig,
+            validatedConfiguration.packageConfigurations,
+            validatedConfiguration.packtoryConfiguration,
             {
                 existingBundles: existing,
                 repositoryFolder: dependencies.repositoryFolder,
@@ -118,7 +118,7 @@ function createProcessorOptions(
 
 function progressEvent(input: ProgressEventSource): PublishProgressEvent {
     return {
-        version: input.result.bundle.packageJson.version,
+        version: input.result.bundle.packageManifest.version,
         status: input.result.status,
         publication: input.result.publication
     };
@@ -131,15 +131,15 @@ function preparedProgressEvent(input: PreparedProgressEventSource): PublishProgr
 async function preparePublishes(
     input: PreparePublishesInput
 ): Promise<Result<readonly PreparedPublish[], PartialError<PreparedPublish>>> {
-    const { dependencies, config, publishStageInputs, stage, emitDoneEvents } = input;
+    const { dependencies, configuration, publishStageInputs, stage, emitDoneEvents } = input;
     const publicModuleUsageByName = collectPublicModuleUsage(publishStageInputs.analyzedBundles);
     return dependencies.scheduler.runForEachScheduledPackage<
         PreparedPublish,
         VersionedBundleWithManifest,
         BuildAndPublishOptions,
-        PacktoryConfig
+        PacktoryConfiguration
     >({
-        config,
+        configuration,
         createOptions: createBuildOptionsFactory(dependencies),
         execute: withFailureCapture(
             dependencies.progressBroadcaster.provider,
@@ -183,7 +183,7 @@ function publishResultFromPreparationFailure(
 async function publishPreparedResults(
     input: PublishPreparedResultsInput
 ): Promise<PublishStageResult> {
-    const { dependencies, config, publishStageInputs, preparedPublishes, stage } = input;
+    const { dependencies, configuration, publishStageInputs, preparedPublishes, stage } = input;
     const publicModuleUsageByName = collectPublicModuleUsage(publishStageInputs.analyzedBundles);
     const preparedPublishByName = new Map(
         preparedPublishes.map(function (preparedPublish) {
@@ -195,9 +195,9 @@ async function publishPreparedResults(
         BuildAndPublishResult,
         VersionedBundleWithManifest,
         BuildAndPublishOptions,
-        PacktoryConfig
+        PacktoryConfiguration
     >({
-        config,
+        configuration,
         createOptions: createBuildOptionsFactory(dependencies),
         execute: withFailureCapture(
             dependencies.progressBroadcaster.provider,
@@ -226,14 +226,14 @@ async function publishPreparedResults(
 
 export async function determineVersionAndPublishAll(
     dependencies: PublishStageDependencies,
-    config: ValidConfigResult,
+    configuration: ValidConfigurationResult,
     resolvedPackages: readonly ResolvedPackage[],
     options: BuildAndPublishAllOptions
 ): Promise<PublishStageResult> {
     const publishStageInputs = collectPublishStageInputs(resolvedPackages);
     const prepared = await preparePublishes({
         dependencies,
-        config,
+        configuration,
         publishStageInputs,
         stage: options.stage,
         emitDoneEvents: options.dryRun
@@ -250,7 +250,7 @@ export async function determineVersionAndPublishAll(
     }
     return publishPreparedResults({
         dependencies,
-        config,
+        configuration,
         publishStageInputs,
         preparedPublishes: prepared.value,
         stage: options.stage

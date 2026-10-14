@@ -14,7 +14,7 @@ type PackHandlerFixture = {
     readonly logSpy: SinonSpy;
     readonly stopAllSpy: SinonSpy;
     readonly packPackageSpy: SinonSpy;
-    readonly configLoadSpy: SinonSpy;
+    readonly configurationLoadSpy: SinonSpy;
 };
 
 function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
@@ -47,9 +47,9 @@ function makeOutcome(result: Readonly<PackOutcome['result']>): PackOutcome {
 function defaultFlags(overrides: Readonly<Partial<PackFlags>> = {}): PackFlags {
     return {
         all: false,
-        packageName: 'pkg-a',
+        packageName: 'package-a',
         format: 'zip',
-        outputPath: '/out/pkg-a.zip',
+        outputPath: '/out/package-a.zip',
         version: '0.0.0',
         vendorDependencies: false,
         trace: false,
@@ -64,7 +64,7 @@ function setup(
     const logSpy = fake();
     const stopAllSpy = fake();
     const packPackageSpy = fake();
-    const configLoadSpy = fake.resolves({});
+    const configurationLoadSpy = fake.resolves({});
     const flags = defaultFlags(overrides);
     return {
         dependencies: {
@@ -73,13 +73,13 @@ function setup(
             },
             packtory: packtoryStub(outcome, packPackageSpy, flags),
             spinnerRenderer: spinnerRendererCapturing(stopAllSpy),
-            configLoader: { load: configLoadSpy },
+            configurationLoader: { load: configurationLoadSpy },
             flags
         },
         logSpy,
         stopAllSpy,
         packPackageSpy,
-        configLoadSpy
+        configurationLoadSpy
     };
 }
 
@@ -93,13 +93,13 @@ suite('pack-handler', function () {
 
         assert.strictEqual(code, 0);
         assert.strictEqual(logSpy.callCount, 1);
-        assert.match(logSpy.firstCall.args[0] as string, /Packed "pkg-a" as zip to \/out\/pkg-a\.zip/u);
+        assert.match(logSpy.firstCall.args[0] as string, /Packed "package-a" as zip to \/out\/package-a\.zip/u);
     });
 
     test('forwards the flag values into packtory.packPackage', async function () {
         const { dependencies, packPackageSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
-            { packageName: 'pkg-b', format: 'tar', outputPath: '/out/pkg-b.tgz', version: '1.2.3' }
+            { packageName: 'package-b', format: 'tar', outputPath: '/out/package-b.tgz', version: '1.2.3' }
         );
 
         await runPackHandler(dependencies);
@@ -108,9 +108,9 @@ suite('pack-handler', function () {
         const packageArguments = packPackageSpy.firstCall.args as readonly unknown[];
         const options = packageArguments[1];
         assert.deepStrictEqual(options, {
-            packageName: 'pkg-b',
+            packageName: 'package-b',
             format: 'tar',
-            outputPath: '/out/pkg-b.tgz',
+            outputPath: '/out/package-b.tgz',
             version: '1.2.3',
             vendorDependencies: false
         });
@@ -120,7 +120,7 @@ suite('pack-handler', function () {
         overrides: Readonly<Partial<PackFlags>>,
         messagePattern: RegExp
     ): Promise<void> {
-        const { dependencies, logSpy, stopAllSpy, packPackageSpy, configLoadSpy } = setup(
+        const { dependencies, logSpy, stopAllSpy, packPackageSpy, configurationLoadSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
             overrides
         );
@@ -130,7 +130,7 @@ suite('pack-handler', function () {
         assert.strictEqual(code, 1);
         assert.strictEqual(logSpy.callCount, 1);
         assert.match(logSpy.firstCall.args[0] as string, messagePattern);
-        assert.strictEqual(configLoadSpy.callCount, 0);
+        assert.strictEqual(configurationLoadSpy.callCount, 0);
         assert.strictEqual(packPackageSpy.callCount, 0);
         assert.strictEqual(stopAllSpy.callCount, 0);
     }
@@ -138,7 +138,7 @@ suite('pack-handler', function () {
     suite('invalid modes', function () {
         test('rejects --all together with a package argument before loading config', async function () {
             await expectInvalidMode(
-                { all: true, packageName: 'pkg-a', format: 'folder' },
+                { all: true, packageName: 'package-a', format: 'folder' },
                 /Pass either --all or <package>, not both/u
             );
         });
@@ -180,7 +180,7 @@ suite('pack-handler', function () {
     suite('failures', function () {
         suite('issue failures', function () {
             test('prints the config issues separated by newlines with the total issue count', async function () {
-                await expectFailure({ type: 'config', issues: [ 'bad-one', 'bad-two' ] }, [
+                await expectFailure({ type: 'configuration', issues: [ 'bad-one', 'bad-two' ] }, [
                     /config is invalid/u,
                     /2 issue\(s\)/u,
                     /- bad-one\n- bad-two/u
@@ -203,7 +203,7 @@ suite('pack-handler', function () {
         });
 
         test('explains the missing vendor flag when bundle-dependencies-unsupported is reported', async function () {
-            await expectFailure({ type: 'bundle-dependencies-unsupported', packageName: 'pkg-a' }, [
+            await expectFailure({ type: 'bundle-dependencies-unsupported', packageName: 'package-a' }, [
                 /bundleDependencies which pack does not yet support/u
             ]);
         });
@@ -211,8 +211,8 @@ suite('pack-handler', function () {
         suite('output path failures', function () {
             test('prints output folder collision failures', async function () {
                 await expectFailure(
-                    { type: 'output-folder-exists', packageName: 'pkg-a', outputPath: '/out/pkg-a' },
-                    [ /Pack output folder "\/out\/pkg-a" for "pkg-a" already exists/u ]
+                    { type: 'output-folder-exists', packageName: 'package-a', outputPath: '/out/package-a' },
+                    [ /Pack output folder "\/out\/package-a" for "package-a" already exists/u ]
                 );
             });
 
@@ -226,8 +226,8 @@ suite('pack-handler', function () {
 
             test('prints unsafe output folder failures', async function () {
                 await expectFailure(
-                    { type: 'unsafe-output-folder', packageName: '../pkg-a', outputPath: '/pkg-a' },
-                    [ /Package "\.\.\/pkg-a" cannot be packed safely to "\/pkg-a"/u ]
+                    { type: 'unsafe-output-folder', packageName: '../package-a', outputPath: '/package-a' },
+                    [ /Package "\.\.\/package-a" cannot be packed safely to "\/package-a"/u ]
                 );
             });
         });
@@ -236,14 +236,14 @@ suite('pack-handler', function () {
             await expectFailure(
                 {
                     type: 'peer-dependencies-unsatisfied',
-                    packageName: 'pkg-a',
+                    packageName: 'package-a',
                     items: [
                         { packageName: 'react-dom', peer: 'react' },
                         { packageName: 'styled-components', peer: 'react' }
                     ]
                 },
                 [
-                    /Pack of "pkg-a" is missing 2 peer dependency\(ies\)/u,
+                    /Pack of "package-a" is missing 2 peer dependency\(ies\)/u,
                     /- "react-dom" needs peer "react"\n- "styled-components" needs peer "react"/u
                 ]
             );
@@ -254,13 +254,13 @@ suite('pack-handler', function () {
                 await expectFailure(
                     {
                         type: 'vendor-symlink-target-outside-package',
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         vendoredPackageName: 'evil-helper',
-                        entryRelativePath: 'config/defaults.json',
+                        entryRelativePath: 'configuration/defaults.json',
                         resolvedTargetPath: '/Users/victim/.npmrc'
                     },
                     [
-                        /escapes its package directory\n- "evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
+                        /escapes its package directory\n- "evil-helper" contains "configuration\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
                     ]
                 );
             });
@@ -269,7 +269,7 @@ suite('pack-handler', function () {
                 await expectFailure(
                     {
                         type: 'vendor-invalid-dependency-name',
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         sourcePackageName: 'legit-utils',
                         invalidDependencyName: '../../legit-utils'
                     },
@@ -283,7 +283,7 @@ suite('pack-handler', function () {
                 await expectFailure(
                     {
                         type: 'vendor-invalid-dependency-name',
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         sourcePackageName: undefined,
                         invalidDependencyName: '../escape'
                     },
@@ -295,7 +295,7 @@ suite('pack-handler', function () {
                 await expectFailure(
                     {
                         type: 'vendor-dependency-not-found',
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         sourcePackageName: 'left-pad',
                         dependencyName: 'missing-runtime'
                     },
@@ -310,7 +310,7 @@ suite('pack-handler', function () {
                 await expectFailure(
                     {
                         type: 'vendor-dependency-not-found',
-                        packageName: 'pkg-a',
+                        packageName: 'package-a',
                         sourcePackageName: undefined,
                         dependencyName: 'missing-runtime'
                     },

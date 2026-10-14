@@ -5,7 +5,7 @@ import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { Packtory } from '../../packtory/packtory.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import { createConfigurationLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import {
     runPackageDependenciesHandler,
     type PackageDependenciesHandlerDependencies
@@ -46,8 +46,8 @@ function setup(outcome: PackageDependenciesOutcome, trace = false): PackageDepen
             },
             packtory: packtoryStub(outcome, inspectPackageDependencies),
             spinnerRenderer: spinnerRenderer(stopAll),
-            configLoader: createConfigLoaderStub(),
-            flags: { packageName: 'pkg-a', trace }
+            configurationLoader: createConfigurationLoaderStub(),
+            flags: { packageName: 'package-a', trace }
         },
         inspectPackageDependencies,
         log,
@@ -59,7 +59,7 @@ suite('package-dependencies-handler', function () {
     test('prints dependency reasons on success', async function () {
         const { dependencies, inspectPackageDependencies, log } = setup({
             result: Result.ok({
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 dependencies: [
                     {
                         name: 'react',
@@ -67,7 +67,7 @@ suite('package-dependencies-handler', function () {
                         manifest: { type: 'emitted', group: 'dependencies', version: '^19.0.0' },
                         references: [
                             {
-                                sourcePath: 'src/index.js',
+                                sourcePath: 'source/index.js',
                                 sourceSpecifier: 'react/jsx-runtime',
                                 emittedSpecifier: 'react/jsx-runtime'
                             }
@@ -80,22 +80,22 @@ suite('package-dependencies-handler', function () {
         const exitCode = await runPackageDependenciesHandler(dependencies);
 
         assert.strictEqual(exitCode, 0);
-        assert.deepStrictEqual(inspectPackageDependencies.firstCall.args, [ {}, 'pkg-a' ]);
+        assert.deepStrictEqual(inspectPackageDependencies.firstCall.args, [ {}, 'package-a' ]);
         assert.strictEqual(
             log.firstCall.args[0],
             [
                 'Packtory dependency reasons [Dry run]',
-                'pkg-a',
+                'package-a',
                 'dependencies',
                 '  react ^19.0.0 (external)',
-                '    src/index.js: react/jsx-runtime'
+                '    source/index.js: react/jsx-runtime'
             ]
                 .join('\n')
         );
     });
 
     test('prints config and partial failures', async function () {
-        const configFailure = setup({ result: Result.err({ type: 'config', issues: [ 'bad config' ] }) });
+        const configurationFailure = setup({ result: Result.err({ type: 'configuration', issues: [ 'bad config' ] }) });
         const partialFailure = setup({
             result: Result.err({
                 type: 'partial',
@@ -106,9 +106,9 @@ suite('package-dependencies-handler', function () {
             })
         }, true);
 
-        assert.strictEqual(await runPackageDependenciesHandler(configFailure.dependencies), 1);
+        assert.strictEqual(await runPackageDependenciesHandler(configurationFailure.dependencies), 1);
         assert.strictEqual(
-            configFailure.log.firstCall.args[0],
+            configurationFailure.log.firstCall.args[0],
             'Packtory dependency reasons [Dry run]\nConfiguration issues\n- bad config'
         );
 
@@ -134,7 +134,7 @@ suite('package-dependencies-handler', function () {
         const fallback = setup({
             result: Result.err({ type: 'output-root-not-directory', outputPath: '/out' })
         });
-        const success = setup({ result: Result.ok({ packageName: 'pkg-a', dependencies: [] }) });
+        const success = setup({ result: Result.ok({ packageName: 'package-a', dependencies: [] }) });
 
         assert.strictEqual(await runPackageDependenciesHandler(fallback.dependencies), 1);
         assert.strictEqual(fallback.log.firstCall.args[0], 'Package dependencies could not be inspected');

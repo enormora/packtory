@@ -14,7 +14,7 @@ import {
     requireFileNodeAt,
     requireFileNodeByPath,
     requirePackageAt,
-    reportForPkgA,
+    reportForPackageA,
     workspaceFileManager
 } from '../../test-libraries/preview-document-test-support.ts';
 import { buildPreviewDocument } from './preview-document.ts';
@@ -35,7 +35,7 @@ suite('preview-document diffs', function () {
         const inputFilePath = '/workspace/index.js';
 
         const document = await buildPreviewDocument({
-            report: reportForPkgA([
+            report: reportForPackageA([
                 createArtifactEntryFixture({
                     path: 'index.js',
                     sizeBytes: 10,
@@ -78,7 +78,7 @@ suite('preview-document diffs', function () {
             'oldA();\nkeep1();\nkeep2();\nkeep3();\nkeep4();\nkeep5();\nkeep6();\nkeep7();\nkeep8();\noldB();\nkeep9();\nkeep10();\nkeep11();\nkeep12();\nkeep13();\nkeep14();\nkeep15();\nkeep16();\noldC();\n'
         );
 
-        const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
+        const { diff } = requireFileNodeByPath(document, 0, 'source/index.js').artifact;
         if (diff === undefined) {
             assert.fail('expected diff');
         }
@@ -101,7 +101,7 @@ suite('preview-document diffs', function () {
     test('buildPreviewDocument drops no-newline markers from diff lines', async function () {
         const document = await buildChangedSourceDiffDocument('changed', 'original');
 
-        const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
+        const { diff } = requireFileNodeByPath(document, 0, 'source/index.js').artifact;
         if (diff === undefined) {
             assert.fail('expected diff');
         }

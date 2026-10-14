@@ -23,7 +23,7 @@ function contentEntry(
         fileDescription: {
             content,
             isExecutable: options.isExecutable ?? false,
-            inputFilePath: `/src/${targetFilePath}`,
+            inputFilePath: `/source/${targetFilePath}`,
             targetFilePath
         }
     };
@@ -35,8 +35,8 @@ function contentEntry(
 
 function bundle(overrides: Partial<ArtifactSourcePackage> = {}): ArtifactSourcePackage {
     return {
-        name: 'pkg-a',
-        binField: undefined,
+        name: 'package-a',
+        executableField: undefined,
         manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false },
         contents: [],
         ...overrides
@@ -82,12 +82,12 @@ suite('content-collection', function () {
         test('collectArtifactContents appends extra files after the bundle contents', function () {
             assert.deepStrictEqual(
                 collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), undefined, [
-                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                    { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
                 ]),
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'a.txt', content: 'a', isExecutable: false },
-                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                    { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
                 ]
             );
         });
@@ -95,12 +95,16 @@ suite('content-collection', function () {
         test('collectArtifactContents applies the prefix to bundle contents and extra files', function () {
             assert.deepStrictEqual(
                 collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
-                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                    { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
                 ]),
                 [
                     { filePath: 'package/package.json', content: '{}', isExecutable: false },
                     { filePath: 'package/a.txt', content: 'a', isExecutable: false },
-                    { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
+                    {
+                        filePath: 'package/software-bill-of-materials.cyclonedx.json',
+                        content: '{}',
+                        isExecutable: false
+                    }
                 ]
             );
         });
@@ -110,7 +114,7 @@ suite('content-collection', function () {
                 collectArtifactContents(
                     bundle({
                         contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
-                        binField: { 'pkg-a': './cli.js' }
+                        executableField: { 'package-a': './cli.js' }
                     }),
                     undefined,
                     []
@@ -125,7 +129,10 @@ suite('content-collection', function () {
         test('collectArtifactContents forces a string bin target to executable', function () {
             assert.deepStrictEqual(
                 collectArtifactContents(
-                    bundle({ contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ], binField: './cli.js' }),
+                    bundle({
+                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                        executableField: './cli.js'
+                    }),
                     undefined,
                     []
                 ),
@@ -141,7 +148,7 @@ suite('content-collection', function () {
                 collectArtifactContents(
                     bundle({
                         contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
-                        binField: { 'pkg-a': './cli.js', broken: 123 as never }
+                        executableField: { 'package-a': './cli.js', broken: 123 as never }
                     }),
                     undefined,
                     []
@@ -158,7 +165,7 @@ suite('content-collection', function () {
                 collectArtifactContents(
                     bundle({
                         contents: [ contentEntry('nested/./cli.js', '#!/usr/bin/env node') ],
-                        binField: 'nested/./cli.js'
+                        executableField: 'nested/./cli.js'
                     }),
                     undefined,
                     []
@@ -185,7 +192,7 @@ suite('content-collection', function () {
                         filePath: 'a.txt',
                         content: 'a',
                         isExecutable: false,
-                        inputFilePath: '/src/a.txt',
+                        inputFilePath: '/source/a.txt',
                         isSubstituted: true
                     }
                 ]
@@ -201,7 +208,7 @@ suite('content-collection', function () {
         test('describeArtifactsForReport applies the prefix to manifest, contents, and extra files', function () {
             assert.deepStrictEqual(
                 describeArtifactsForReport(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
-                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                    { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
                 ]),
                 [
                     { filePath: 'package/package.json', content: '{}', isExecutable: false },
@@ -209,10 +216,14 @@ suite('content-collection', function () {
                         filePath: 'package/a.txt',
                         content: 'a',
                         isExecutable: false,
-                        inputFilePath: '/src/a.txt',
+                        inputFilePath: '/source/a.txt',
                         isSubstituted: false
                     },
-                    { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
+                    {
+                        filePath: 'package/software-bill-of-materials.cyclonedx.json',
+                        content: '{}',
+                        isExecutable: false
+                    }
                 ]
             );
         });

@@ -1,5 +1,5 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
@@ -61,7 +61,7 @@ function binaryBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: bool
 }
 
 function identifierBooleanValue(expression: Expression, facts: BooleanFacts): boolean | undefined {
-    return TsMorphNode.isIdentifier(expression) ? facts.get(expression.getText()) : undefined;
+    return TypeScriptMorphNode.isIdentifier(expression) ? facts.get(expression.getText()) : undefined;
 }
 
 function binaryBooleanValue(
@@ -69,7 +69,7 @@ function binaryBooleanValue(
     facts: BooleanFacts,
     evaluate: BooleanValueEvaluator
 ): boolean | undefined {
-    if (!TsMorphNode.isBinaryExpression(expression)) {
+    if (!TypeScriptMorphNode.isBinaryExpression(expression)) {
         return undefined;
     }
     const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
@@ -86,7 +86,7 @@ function prefixBooleanValue(
     facts: BooleanFacts,
     evaluate: BooleanValueEvaluator
 ): boolean | undefined {
-    if (!TsMorphNode.isPrefixUnaryExpression(expression)) {
+    if (!TypeScriptMorphNode.isPrefixUnaryExpression(expression)) {
         return undefined;
     }
     const operand = evaluate(expression.getOperand(), facts);
@@ -109,7 +109,7 @@ function collectBooleanFact(
 ): readonly [string, boolean] | undefined {
     const nameNode = declaration.getNameNode();
     const initializer = declaration.getInitializer();
-    if (initializer === undefined || !TsMorphNode.isIdentifier(nameNode)) {
+    if (initializer === undefined || !TypeScriptMorphNode.isIdentifier(nameNode)) {
         return undefined;
     }
     const value = booleanValue(initializer, facts);
@@ -132,5 +132,5 @@ function collectConstBooleanFacts(statement: VariableStatement, facts: BooleanFa
 }
 
 export function factsAfterStatement(statement: Statement, facts: BooleanFacts): BooleanFacts {
-    return TsMorphNode.isVariableStatement(statement) ? collectConstBooleanFacts(statement, facts) : facts;
+    return TypeScriptMorphNode.isVariableStatement(statement) ? collectConstBooleanFacts(statement, facts) : facts;
 }

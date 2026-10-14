@@ -3,7 +3,7 @@ import type { SpinnerRuntime } from './spinner-runtime.ts';
 import type { SpinnerBackend } from './terminal-spinner-renderer.ts';
 
 const shutdownFlushIntervals = 4;
-const minimumShutdownFlushTimeoutMs = 100;
+const minimumShutdownFlushTimeoutMilliseconds = 100;
 
 type SlotUpdate = {
     readonly slotIndex: number;
@@ -24,9 +24,9 @@ export type WorkerSpinnerBackendDependencies = {
 
 export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDependencies): SpinnerBackend {
     const { runtime } = dependencies;
-    const shutdownFlushTimeoutMs = Math.max(
-        runtime.accessors.getIntervalMs() * shutdownFlushIntervals,
-        minimumShutdownFlushTimeoutMs
+    const shutdownFlushTimeoutMilliseconds = Math.max(
+        runtime.accessors.getIntervalMilliseconds() * shutdownFlushIntervals,
+        minimumShutdownFlushTimeoutMilliseconds
     );
     let shutdownSignaled = false;
 
@@ -58,8 +58,8 @@ export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDep
             shutdownSignaled = true;
             runtime.accessors.requestShutdown();
             const shutdownMutation = runtime.accessors.markMutation();
-            if (runtime.accessors.getIntervalMs() > 0) {
-                runtime.accessors.waitForRenderedMutation(shutdownMutation, shutdownFlushTimeoutMs);
+            if (runtime.accessors.getIntervalMilliseconds() > 0) {
+                runtime.accessors.waitForRenderedMutation(shutdownMutation, shutdownFlushTimeoutMilliseconds);
             }
         }
     };

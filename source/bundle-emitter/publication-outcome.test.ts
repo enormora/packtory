@@ -14,7 +14,7 @@ suite('publication-outcome', function () {
     test('creates staged outcomes with the stage id', function () {
         assert.deepStrictEqual(stagedForApproval('stage-123'), {
             type: 'staged',
-            stageId: 'stage-123'
+            stageIdentifier: 'stage-123'
         });
     });
 });

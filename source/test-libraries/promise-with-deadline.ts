@@ -1,26 +1,26 @@
 import { clearTimeout as clearTimer, setTimeout as setTimer } from 'node:timers';
 
-const defaultDeadlineMs = 50;
+const defaultDeadlineMilliseconds = 50;
 
 export async function withPromiseDeadline<T>(
     promise: Promise<T>,
     description: string,
-    deadlineMs = defaultDeadlineMs
+    deadlineMilliseconds = defaultDeadlineMilliseconds
 ): Promise<T> {
-    const timeout = { id: undefined as ReturnType<typeof setTimer> | undefined };
+    const timeout = { identifier: undefined as ReturnType<typeof setTimer> | undefined };
 
     try {
         return await Promise.race([
             promise,
             new Promise<never>(function (_resolve, reject) {
-                timeout.id = setTimer(function () {
+                timeout.identifier = setTimer(function () {
                     reject(new Error(`Timed out waiting for ${description}`));
-                }, deadlineMs);
+                }, deadlineMilliseconds);
             })
         ]);
     } finally {
-        if (timeout.id !== undefined) {
-            clearTimer(timeout.id);
+        if (timeout.identifier !== undefined) {
+            clearTimer(timeout.identifier);
         }
     }
 }

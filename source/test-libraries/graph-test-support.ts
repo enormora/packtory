@@ -1,9 +1,11 @@
 import { createDirectedGraph, type DirectedGraph } from '../directed-graph/graph.ts';
 
-export type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
+export type GraphEdge<TIdentifier extends number | string> = Parameters<
+    DirectedGraph<TIdentifier, unknown>['connect']
+>[0];
 
 export type GraphWithNodesOptions = {
-    readonly nodes: readonly (readonly [id: string, data: string])[];
+    readonly nodes: readonly (readonly [identifier: string, data: string])[];
     readonly connections: readonly GraphEdge<string>[];
 };
 
@@ -11,8 +13,8 @@ export function createGraphWithNodes(options: GraphWithNodesOptions): DirectedGr
     const { nodes, connections } = options;
     const graph = createDirectedGraph<string, string>();
 
-    nodes.forEach(function ([ id, data ]) {
-        graph.addNode(id, data);
+    nodes.forEach(function ([ identifier, data ]) {
+        graph.addNode(identifier, data);
     });
 
     connections.forEach(function (edge) {
@@ -22,11 +24,11 @@ export function createGraphWithNodes(options: GraphWithNodesOptions): DirectedGr
     return graph;
 }
 
-export function collectFromGraph(graph: DirectedGraph<string, string>, startId: string): readonly string[] {
+export function collectFromGraph(graph: DirectedGraph<string, string>, startIdentifier: string): readonly string[] {
     const collected: string[] = [];
 
-    graph.visitBreadthFirstSearch(startId, function (node) {
-        collected.push(node.id);
+    graph.visitBreadthFirstSearch(startIdentifier, function (node) {
+        collected.push(node.identifier);
     });
 
     return collected;

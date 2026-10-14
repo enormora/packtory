@@ -8,9 +8,12 @@ import type { PartialError } from '../../packtory/scheduler.ts';
 export type PreviewResultType = (typeof previewResultType)[keyof typeof previewResultType];
 
 type CheckFailure = { readonly type: typeof previewResultType.checks; readonly issues: readonly string[]; };
-type ConfigFailure = { readonly type: typeof previewResultType.config; readonly issues: readonly string[]; };
+type ConfigurationFailure = {
+    readonly type: typeof previewResultType.configuration;
+    readonly issues: readonly string[];
+};
 type PartialFailure<T> = PartialError<T> & { readonly type: typeof partialFailureType; };
-type FailureLike<T> = CheckFailure | ConfigFailure | PartialFailure<T>;
+type FailureLike<T> = CheckFailure | ConfigurationFailure | PartialFailure<T>;
 
 type ResultLike<T> = Result<readonly T[], FailureLike<T>>;
 type PreviewResultDescription<T> = {

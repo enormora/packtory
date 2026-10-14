@@ -51,7 +51,7 @@ export function expectOk(
     return result.value;
 }
 
-export function expectErr(
+export function expectError(
     result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>
 ): VendorMaterializerFailure {
     if (result.isOk) {
@@ -72,7 +72,7 @@ export async function runExpectingFailure(
 ): Promise<VendorMaterializerFailure> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
-    return expectErr(await materializer.materializeExternals({ dependencySources: [ source ] }));
+    return expectError(await materializer.materializeExternals({ dependencySources: [ source ] }));
 }
 
 export function targetRelativePaths(result: MaterializedExternals): readonly string[] {

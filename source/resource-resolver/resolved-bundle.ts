@@ -60,7 +60,7 @@ export type ResolvedContent = BundleResource & {
 };
 
 export type RootFileDescription = {
-    readonly js: TransferableFileDescription;
+    readonly javaScript: TransferableFileDescription;
     readonly declarationFile?: TransferableFileDescription | undefined;
 };
 
@@ -69,7 +69,7 @@ export type ResolvedBundle = {
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
     readonly name: string;
-    readonly exportPackageJson?: true | undefined;
+    readonly exportPackageManifest?: true | undefined;
     readonly externalDependencies: ExternalDependencies;
 };
 

@@ -16,18 +16,18 @@ import {
     resolveAndLinkAll
 } from 'packtory';
 
-await buildAndPublishAll(config, { dryRun: true, stage: false });
-await resolveAndLinkAll(config);
-await inspectPackageDependencies(config, 'pkg');
-await inspectPackageSideEffects(config, 'pkg');
-await packPackage(config, {
-    packageName: 'pkg',
+await buildAndPublishAll(configuration, { dryRun: true, stage: false });
+await resolveAndLinkAll(configuration);
+await inspectPackageDependencies(configuration, 'package');
+await inspectPackageSideEffects(configuration, 'package');
+await packPackage(configuration, {
+    packageName: 'package',
     format: 'zip',
-    outputPath: './dist/pkg.zip',
+    outputPath: './dist/package.zip',
     version: '1.0.0',
     vendorDependencies: true
 });
-await packAllPackages(config, {
+await packAllPackages(configuration, {
     outputPath: './dist/packages',
     version: '1.0.0',
     vendorDependencies: false

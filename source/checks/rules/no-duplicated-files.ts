@@ -7,7 +7,7 @@ import {
     type RuleRunInput
 } from '../rule.ts';
 import { duplicateMessage, hasMultipleOwners } from './duplicate-detection.ts';
-import { collectFileOwnership, type OwnerInfo } from './file-ownership.ts';
+import { collectFileOwnership, type OwnerInformation } from './file-ownership.ts';
 
 function ruleName(): 'noDuplicatedFiles' {
     return 'noDuplicatedFiles';
@@ -22,13 +22,13 @@ function perPackageSchema(): typeof pathAllowListPerPackageSchema {
 }
 
 type RuleName = ReturnType<typeof ruleName>;
-type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
-type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
-type RunInput = RuleRunInput<RuleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
+type PerPackageConfiguration = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
+type RunInput = RuleRunInput<RuleName, GlobalConfiguration, PerPackageConfiguration>;
 
 function everyOwnerConsents(
     filePath: string,
-    owners: readonly OwnerInfo[],
+    owners: readonly OwnerInformation[],
     perPackageSettings: RunInput['perPackageSettings']
 ): boolean {
     return owners.every(function (owner) {
@@ -40,9 +40,9 @@ function everyOwnerConsents(
 function findDuplicateIssues(
     bundles: readonly AnalyzedBundle[],
     perPackageSettings: RunInput['perPackageSettings'],
-    globalConfig: GlobalConfig
+    globalConfiguration: GlobalConfiguration
 ): readonly string[] {
-    const globallyAllowed = new Set(globalConfig.allowList);
+    const globallyAllowed = new Set(globalConfiguration.allowList);
     return Array.from(collectFileOwnership(bundles)).flatMap(function ([ filePath, owners ]) {
         if (!hasMultipleOwners(owners)) {
             return [];
@@ -59,14 +59,14 @@ function findDuplicateIssues(
 }
 
 async function run(input: RunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.noDuplicatedFiles;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.noDuplicatedFiles;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
-    return findDuplicateIssues(input.bundles, input.perPackageSettings, globalConfig);
+    return findDuplicateIssues(input.bundles, input.perPackageSettings, globalConfiguration);
 }
 
-export const noDuplicatedFilesRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+export const noDuplicatedFilesRule: CheckRuleDefinition<RuleName, GlobalConfiguration, PerPackageConfiguration> = {
     get name() {
         return ruleName();
     },

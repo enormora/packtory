@@ -32,14 +32,14 @@ function buildRuntimeWithFakeAccessors(overrides: Partial<SpinnerSharedAccessors
     return { runtime: { accessors, slotCount: 4 }, accessors };
 }
 
-function collectShutdownWaitCalls(intervalMs = 0): readonly (readonly [number, number])[] {
+function collectShutdownWaitCalls(intervalMilliseconds = 0): readonly (readonly [number, number])[] {
     const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
     const { runtime } = buildRuntimeWithFakeAccessors({
-        getIntervalMs() {
-            return intervalMs;
+        getIntervalMilliseconds() {
+            return intervalMilliseconds;
         },
-        waitForRenderedMutation(mutation, timeoutMs) {
-            waitForRenderedMutationCalls.push([ mutation, timeoutMs ]);
+        waitForRenderedMutation(mutation, timeoutMilliseconds) {
+            waitForRenderedMutationCalls.push([ mutation, timeoutMilliseconds ]);
             return true;
         }
     });
@@ -57,16 +57,16 @@ suite('spinner-worker-backend', function () {
 
             const runtime = createSpinnerRuntime({
                 slotCount: 8,
-                intervalMs: 25,
-                stdoutFileDescriptor: 7,
-                stdoutColumns: 132,
+                intervalMilliseconds: 25,
+                standardOutputFileDescriptor: 7,
+                standardOutputColumns: 132,
                 spawnWorker(request) {
                     spawnWorker(request);
                 }
             });
 
             assert.strictEqual(runtime.slotCount, 8);
-            assert.strictEqual(runtime.accessors.getIntervalMs(), 25);
+            assert.strictEqual(runtime.accessors.getIntervalMilliseconds(), 25);
             assert.strictEqual(runtime.accessors.getColumns(), 132);
         });
 
@@ -75,8 +75,8 @@ suite('spinner-worker-backend', function () {
 
             const runtime = createSpinnerRuntime({
                 slotCount: 2,
-                stdoutFileDescriptor: 5,
-                stdoutColumns: 120,
+                standardOutputFileDescriptor: 5,
+                standardOutputColumns: 120,
                 spawnWorker(request) {
                     spawnWorker(request);
                 }
@@ -87,7 +87,7 @@ suite('spinner-worker-backend', function () {
             assert.partialDeepStrictEqual(request, {
                 buffer: runtime.accessors.buffer,
                 slotCount: 2,
-                stdoutFileDescriptor: 5
+                standardOutputFileDescriptor: 5
             });
         });
 
@@ -95,15 +95,15 @@ suite('spinner-worker-backend', function () {
             const spawnWorker = fake();
 
             const runtime = createSpinnerRuntime({
-                stdoutFileDescriptor: 1,
-                stdoutColumns: 80,
+                standardOutputFileDescriptor: 1,
+                standardOutputColumns: 80,
                 spawnWorker(request) {
                     spawnWorker(request);
                 }
             });
 
             assert.strictEqual(runtime.slotCount, 64);
-            assert.strictEqual(runtime.accessors.getIntervalMs(), 80);
+            assert.strictEqual(runtime.accessors.getIntervalMilliseconds(), 80);
             assert.strictEqual(runtime.accessors.getColumns(), 80);
         });
     });
@@ -113,9 +113,9 @@ suite('spinner-worker-backend', function () {
             const { runtime, accessors } = buildRuntime();
             const backend = createWorkerSpinnerBackend({ runtime });
 
-            backend.add(2, 'pkg', 'starting');
+            backend.add(2, 'package', 'starting');
 
-            assert.deepStrictEqual(accessors.readSlot(2), { state: 'running', label: 'pkg', message: 'starting' });
+            assert.deepStrictEqual(accessors.readSlot(2), { state: 'running', label: 'package', message: 'starting' });
             assert.strictEqual(accessors.getLatestMutation(), 1);
         });
 
@@ -123,10 +123,10 @@ suite('spinner-worker-backend', function () {
             const { runtime, accessors } = buildRuntime();
             const backend = createWorkerSpinnerBackend({ runtime });
 
-            backend.add(0, 'pkg', 'one');
-            backend.update(0, 'pkg', 'two');
+            backend.add(0, 'package', 'one');
+            backend.update(0, 'package', 'two');
 
-            assert.deepStrictEqual(accessors.readSlot(0), { state: 'running', label: 'pkg', message: 'two' });
+            assert.deepStrictEqual(accessors.readSlot(0), { state: 'running', label: 'package', message: 'two' });
             assert.strictEqual(accessors.getLatestMutation(), 2);
         });
 
@@ -134,9 +134,9 @@ suite('spinner-worker-backend', function () {
             const { runtime, accessors } = buildRuntime();
             const backend = createWorkerSpinnerBackend({ runtime });
 
-            backend.finish(1, 'succeeded', 'pkg', 'done');
+            backend.finish(1, 'succeeded', 'package', 'done');
 
-            assert.deepStrictEqual(accessors.readSlot(1), { state: 'succeeded', label: 'pkg', message: 'done' });
+            assert.deepStrictEqual(accessors.readSlot(1), { state: 'succeeded', label: 'package', message: 'done' });
             assert.strictEqual(accessors.getLatestMutation(), 1);
         });
     });
@@ -147,7 +147,7 @@ suite('spinner-worker-backend', function () {
             const backend = createWorkerSpinnerBackend({ runtime });
 
             assert.throws(function () {
-                backend.add(2, 'pkg', 'msg');
+                backend.add(2, 'package', 'msg');
             }, /Spinner slot index 2 exceeds backend capacity 2; increase slotCount/u);
         });
 
@@ -156,7 +156,7 @@ suite('spinner-worker-backend', function () {
             const backend = createWorkerSpinnerBackend({ runtime });
 
             assert.throws(function () {
-                backend.update(5, 'pkg', 'msg');
+                backend.update(5, 'package', 'msg');
             }, /exceeds backend capacity 1/u);
         });
 
@@ -165,7 +165,7 @@ suite('spinner-worker-backend', function () {
             const backend = createWorkerSpinnerBackend({ runtime });
 
             assert.throws(function () {
-                backend.finish(5, 'failed', 'pkg', 'msg');
+                backend.finish(5, 'failed', 'package', 'msg');
             }, /exceeds backend capacity 1/u);
         });
     });
@@ -196,11 +196,11 @@ suite('spinner-worker-backend', function () {
         test('createWorkerSpinnerBackend.shutdown is idempotent when invoked multiple times', function () {
             const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
             const { runtime, accessors } = buildRuntimeWithFakeAccessors({
-                getIntervalMs() {
+                getIntervalMilliseconds() {
                     return 80;
                 },
-                waitForRenderedMutation(mutation, timeoutMs) {
-                    waitForRenderedMutationCalls.push([ mutation, timeoutMs ]);
+                waitForRenderedMutation(mutation, timeoutMilliseconds) {
+                    waitForRenderedMutationCalls.push([ mutation, timeoutMilliseconds ]);
                     return true;
                 }
             });

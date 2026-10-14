@@ -1,13 +1,13 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PullRequestDetails } from './release-pr-github-client.ts';
+import type { PullRequestDetails } from './release-pull-request-github-client.ts';
 import {
     authorizeReleasePublishFromCommit,
     authorizeReleasePublishFromPullRequest
 } from './release-publish-authorization.ts';
-import type { ReleasePullRequestPolicyConfig } from './release-pull-request-policy.ts';
+import type { ReleasePullRequestPolicyConfiguration } from './release-pull-request-policy.ts';
 
-const policyConfig: ReleasePullRequestPolicyConfig = {
+const policyConfiguration: ReleasePullRequestPolicyConfiguration = {
     allowedFiles: new Set([ 'CHANGELOG.md' ]),
     automationAuthor: 'github-actions[bot]',
     branch: 'release/packtory',
@@ -19,12 +19,12 @@ const policyConfig: ReleasePullRequestPolicyConfig = {
 
 const releasePullRequest: PullRequestDetails = {
     author: 'github-actions[bot]',
-    baseRef: 'main',
+    baseReference: 'main',
     changedFiles: [ 'CHANGELOG.md' ],
-    headRef: 'release/packtory',
+    headReference: 'release/packtory',
     headRepository: 'owner/repo',
     labels: [ 'release' ],
-    mergeCommitSha: 'merge-sha',
+    mergeCommitHash: 'merge-sha',
     merged: true,
     number: 12,
     subject: 'Release packages',
@@ -35,13 +35,13 @@ suite('release-publish-authorization', function () {
     test('skips normal commits without a release PR', function () {
         assert.deepStrictEqual(
             authorizeReleasePublishFromCommit({
-                commitSha: 'commit-sha',
-                config: policyConfig,
+                commitHash: 'commit-sha',
+                configuration: policyConfiguration,
                 pullRequests: [
                     {
                         ...releasePullRequest,
                         labels: [ 'bug' ],
-                        mergeCommitSha: 'commit-sha'
+                        mergeCommitHash: 'commit-sha'
                     }
                 ],
                 repository: 'owner/repo'
@@ -53,14 +53,14 @@ suite('release-publish-authorization', function () {
     test('authorizes a commit associated with exactly one merged release PR', function () {
         assert.deepStrictEqual(
             authorizeReleasePublishFromCommit({
-                commitSha: 'merge-sha',
-                config: policyConfig,
+                commitHash: 'merge-sha',
+                configuration: policyConfiguration,
                 pullRequests: [ releasePullRequest ],
                 repository: 'owner/repo'
             }),
             {
-                publishCommitSha: 'merge-sha',
-                releaseCommitSha: 'merge-sha',
+                publishCommitHash: 'merge-sha',
+                releaseCommitHash: 'merge-sha',
                 releasePullRequestNumber: 12,
                 shouldPublish: true
             }
@@ -71,8 +71,8 @@ suite('release-publish-authorization', function () {
         assert.throws(
             function () {
                 authorizeReleasePublishFromCommit({
-                    commitSha: 'merge-sha',
-                    config: policyConfig,
+                    commitHash: 'merge-sha',
+                    configuration: policyConfiguration,
                     pullRequests: [ releasePullRequest, { ...releasePullRequest, number: 13 } ],
                     repository: 'owner/repo'
                 });
@@ -85,10 +85,10 @@ suite('release-publish-authorization', function () {
         assert.throws(
             function () {
                 authorizeReleasePublishFromPullRequest({
-                    config: policyConfig,
+                    configuration: policyConfiguration,
                     pullRequest: {
                         ...releasePullRequest,
-                        mergeCommitSha: undefined,
+                        mergeCommitHash: undefined,
                         merged: false
                     },
                     repository: 'owner/repo'

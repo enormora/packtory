@@ -1,10 +1,10 @@
 import type { FileSystemHost } from 'ts-morph';
 import { isBoolean } from 'remeda';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { MainPackageManifest } from '../configuration/package-manifest.ts';
 import { isDeclarationFile, isTypesRootFolder } from './file-host-predicates.ts';
-import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
+import { bindRequiredMethod, synchronousMethodNames } from './host-method-binding.ts';
 import { createNodeModulesManifestSynthesizingHost } from './node-modules-manifest-synthesizer.ts';
-import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
+import { createVirtualPackageManifestHost } from './virtual-package-manifest-host.ts';
 
 export type FileSystemAdaptersDependencies = {
     readonly fileSystemHost: FileSystemHost;
@@ -13,18 +13,23 @@ export type FileSystemAdaptersDependencies = {
 export type FileSystemAdapters = {
     readonly fileSystemHostWithoutFilter: FileSystemHost;
     readonly fileSystemHostFilteringDeclarationFiles: FileSystemHost;
-    readonly withVirtualPackageJson: (
+    readonly withVirtualPackageManifest: (
         fileSystemHost: FileSystemHost,
         folder: string,
-        mainPackageJson: MainPackageJson
+        mainPackageManifest: MainPackageManifest
     ) => FileSystemHost;
 };
 
 function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSystemHost {
-    const fileExistsSync = bindRequiredMethod(fileSystemHost, syncMethodNames.fileExists, 'a boolean', isBoolean);
+    const fileExistsSync = bindRequiredMethod(
+        fileSystemHost,
+        synchronousMethodNames.fileExists,
+        'a boolean',
+        isBoolean
+    );
     const directoryExistsSync = bindRequiredMethod(
         fileSystemHost,
-        syncMethodNames.directoryExists,
+        synchronousMethodNames.directoryExists,
         'a boolean',
         isBoolean
     );
@@ -38,7 +43,7 @@ function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSys
 
             return fileSystemHost.fileExists(filePath);
         },
-        [syncMethodNames.fileExists](filePath: string): boolean {
+        [synchronousMethodNames.fileExists](filePath: string): boolean {
             if (isDeclarationFile(filePath)) {
                 return false;
             }
@@ -53,7 +58,7 @@ function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSys
 
             return fileSystemHost.directoryExists(directoryPath);
         },
-        [syncMethodNames.directoryExists](directoryPath: string): boolean {
+        [synchronousMethodNames.directoryExists](directoryPath: string): boolean {
             if (isTypesRootFolder(directoryPath)) {
                 return false;
             }
@@ -72,6 +77,6 @@ export function createFileSystemAdapters(dependencies: FileSystemAdaptersDepende
     return {
         fileSystemHostWithoutFilter: synthesizingHost,
         fileSystemHostFilteringDeclarationFiles: createDeclarationFilteringHost(synthesizingHost),
-        withVirtualPackageJson: createVirtualPackageJsonHost
+        withVirtualPackageManifest: createVirtualPackageManifestHost
     };
 }

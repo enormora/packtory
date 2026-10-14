@@ -1,17 +1,20 @@
 import assert from 'node:assert';
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { suite, test } from 'mocha';
 import { ModuleKind, Project, ScriptTarget } from 'ts-morph';
 import { createFileManager } from '../../source/file-manager/file-manager.ts';
-import { packAllPackages, type PacktoryConfig } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { createPackageConfig } from './publish-fixture-support.ts';
+import { packAllPackages, type PacktoryConfiguration } from '../../source/packages/packtory/packtory.entry-point.ts';
+import { createPackageConfiguration } from './publish-fixture-support.ts';
 
-const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 
-async function createIdentityConfig(projectFolder: string, deadCodeElimination: boolean): Promise<PacktoryConfig> {
-    const sourcesFolder = path.join(projectFolder, 'src');
+async function createIdentityConfiguration(
+    projectFolder: string,
+    deadCodeElimination: boolean
+): Promise<PacktoryConfiguration> {
+    const sourcesFolder = path.join(projectFolder, 'source');
     await fileManager.writeFile(path.join(sourcesFolder, 'peer.js'), 'export const token = "peer";\n');
     await fileManager.writeFile(path.join(sourcesFolder, 'peer.d.ts'), 'export declare const token: string;\n');
     await fileManager.writeFile(path.join(sourcesFolder, 'leaf.js'), 'export { token } from "./peer.js";\n');
@@ -33,16 +36,16 @@ async function createIdentityConfig(projectFolder: string, deadCodeElimination: 
     return {
         commonPackageSettings: {
             sourcesFolder,
-            mainPackageJson: { type: 'module' },
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' },
             deadCodeElimination: { enabled: deadCodeElimination }
         },
         packages: [
-            createPackageConfig(projectFolder, 'identity-peer', 'peer'),
-            createPackageConfig(projectFolder, 'identity-leaf', 'leaf', {
+            createPackageConfiguration(projectFolder, 'identity-peer', 'peer'),
+            createPackageConfiguration(projectFolder, 'identity-leaf', 'leaf', {
                 bundlePeerDependencies: [ 'identity-peer' ]
             }),
-            createPackageConfig(projectFolder, 'identity-bundle', 'bundle', {
+            createPackageConfiguration(projectFolder, 'identity-bundle', 'bundle', {
                 bundleDependencies: [ 'identity-leaf', 'identity-peer' ]
             })
         ]
@@ -51,7 +54,7 @@ async function createIdentityConfig(projectFolder: string, deadCodeElimination: 
 
 async function verifyPackedIdentity(projectFolder: string, deadCodeElimination: boolean): Promise<void> {
     const outputPath = path.join(projectFolder, 'node_modules');
-    const outcome = await packAllPackages(await createIdentityConfig(projectFolder, deadCodeElimination), {
+    const outcome = await packAllPackages(await createIdentityConfiguration(projectFolder, deadCodeElimination), {
         outputPath,
         version: '1.2.3',
         vendorDependencies: true
@@ -91,12 +94,12 @@ async function verifyPackedIdentity(projectFolder: string, deadCodeElimination: 
 
 suite('packed peer dependency identity', function () {
     for (const deadCodeElimination of [ false, true ]) {
-        test(`preserves standalone and bundled branded types with DCE ${deadCodeElimination}`, async function () {
-            const projectFolder = await fs.promises.mkdtemp(path.join(tmpdir(), 'packtory-peer-identity-'));
+        test(`preserves branded peer types with dead code elimination ${deadCodeElimination}`, async function () {
+            const projectFolder = await fileSystem.promises.mkdtemp(path.join(tmpdir(), 'packtory-peer-identity-'));
             try {
                 await verifyPackedIdentity(projectFolder, deadCodeElimination);
             } finally {
-                await fs.promises.rm(projectFolder, { recursive: true, force: true });
+                await fileSystem.promises.rm(projectFolder, { recursive: true, force: true });
             }
         });
     }

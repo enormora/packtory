@@ -9,7 +9,10 @@ function hasStatistics(
     return result.state === 'aborted-with-statistics' || result.state === 'completed';
 }
 
-export async function measureAsyncTask(name: string, execute: () => Promise<void>): Promise<TinybenchMeasurement> {
+export async function measureAsynchronousTask(
+    name: string,
+    execute: () => Promise<void>
+): Promise<TinybenchMeasurement> {
     const bench = new Bench({
         name,
         iterations: benchmarkMeasuredIterations,
@@ -29,7 +32,7 @@ export async function measureAsyncTask(name: string, execute: () => Promise<void
     assert.ok(hasStatistics(task.result), `Benchmark task "${name}" did not complete successfully`);
 
     return {
-        medianMs: task.result.latency.p50,
+        medianMilliseconds: task.result.latency.p50,
         sampleCount: task.result.latency.samplesCount
     };
 }

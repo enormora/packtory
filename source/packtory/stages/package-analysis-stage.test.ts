@@ -5,8 +5,11 @@ import type {
     DeadCodeEliminator,
     EliminationInput
 } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
-import { packageConfigFixture, validConfigWithoutRegistryFixture } from '../../test-libraries/config-fixtures.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
+import {
+    packageConfigurationFixture,
+    validConfigurationWithoutRegistryFixture
+} from '../../test-libraries/configuration-fixtures.ts';
 import {
     createAnalyzedBundle,
     createLinkedBundle,
@@ -15,12 +18,12 @@ import {
 import { analyzeResolvedPackages } from './package-analysis-stage.ts';
 import type { LinkedPackage } from './package-resolution-stage.ts';
 
-function configWithPackages(
+function configurationWithPackages(
     ...packages: readonly { readonly name: string; readonly enabled?: boolean; }[]
-): ValidConfigWithoutRegistryResult {
-    return validConfigWithoutRegistryFixture({
+): ValidConfigurationWithoutRegistryResult {
+    return validConfigurationWithoutRegistryFixture({
         packages: packages.map(function (packageEntry) {
-            return packageConfigFixture({
+            return packageConfigurationFixture({
                 name: packageEntry.name,
                 ...packageEntry.enabled === undefined ? {} : { deadCodeElimination: { enabled: packageEntry.enabled } }
             });
@@ -71,7 +74,7 @@ suite('package-analysis-stage', function () {
                     return [];
                 })
             },
-            configWithPackages(),
+            configurationWithPackages(),
             []
         );
 
@@ -79,8 +82,8 @@ suite('package-analysis-stage', function () {
     });
 
     test('analyzeResolvedPackages passes each linked bundle into the dead-code eliminator', async function () {
-        const linkedPackage = linkedPackageNamed('pkg-a');
-        const analyzed = [ createAnalyzedBundle('pkg-a') ];
+        const linkedPackage = linkedPackageNamed('package-a');
+        const analyzed = [ createAnalyzedBundle('package-a') ];
         const eliminator = stubEliminator(async function (inputs) {
             assert.strictEqual(inputs[0]?.bundle, linkedPackage.linkedBundle);
             return analyzed;
@@ -88,7 +91,7 @@ suite('package-analysis-stage', function () {
 
         const result = await analyzeResolvedPackages(
             { deadCodeEliminator: eliminator },
-            configWithPackages({ name: 'pkg-a' }),
+            configurationWithPackages({ name: 'package-a' }),
             [ linkedPackage ]
         );
 
@@ -97,13 +100,13 @@ suite('package-analysis-stage', function () {
     });
 
     test('analyzeResolvedPackages forwards substitution-public module paths to the matching package', async function () {
-        const provider = linkedPackageNamed('pkg-a');
+        const provider = linkedPackageNamed('package-a');
         const consumer = {
             ...linkedPackageNamed('consumer'),
             linkedBundle: {
                 ...createLinkedBundle('consumer'),
                 substitutedInputFilePathsByPackageName: new Map([
-                    [ 'pkg-a', new Set([ '/provider/feature.js', '/provider/feature.d.ts' ]) ]
+                    [ 'package-a', new Set([ '/provider/feature.js', '/provider/feature.d.ts' ]) ]
                 ])
             }
         };
@@ -113,12 +116,12 @@ suite('package-analysis-stage', function () {
                 new Set([ '/provider/feature.js', '/provider/feature.d.ts' ])
             );
             assert.deepStrictEqual(inputs[1]?.substitutionPublicModuleInputFilePaths, new Set<string>());
-            return [ createAnalyzedBundle('pkg-a'), createAnalyzedBundle('consumer') ];
+            return [ createAnalyzedBundle('package-a'), createAnalyzedBundle('consumer') ];
         });
 
         await analyzeResolvedPackages(
             { deadCodeEliminator: eliminator },
-            configWithPackages({ name: 'pkg-a' }, { name: 'consumer' }),
+            configurationWithPackages({ name: 'package-a' }, { name: 'consumer' }),
             [ provider, consumer ]
         );
     });
@@ -128,8 +131,8 @@ suite('package-analysis-stage', function () {
 
         await analyzeResolvedPackages(
             { deadCodeEliminator: eliminator },
-            configWithPackages({ name: 'pkg-a', enabled: false }),
-            [ linkedPackageNamed('pkg-a') ]
+            configurationWithPackages({ name: 'package-a', enabled: false }),
+            [ linkedPackageNamed('package-a') ]
         );
 
         assert.strictEqual(getObserved(), false);
@@ -138,9 +141,13 @@ suite('package-analysis-stage', function () {
     test('analyzeResolvedPackages defaults transformationsEnabled to true when no dead-code-elimination settings are configured', async function () {
         const { eliminator, getObserved } = captureTransformationsEnabled();
 
-        await analyzeResolvedPackages({ deadCodeEliminator: eliminator }, configWithPackages({ name: 'pkg-a' }), [
-            linkedPackageNamed('pkg-a')
-        ]);
+        await analyzeResolvedPackages(
+            { deadCodeEliminator: eliminator },
+            configurationWithPackages({ name: 'package-a' }),
+            [
+                linkedPackageNamed('package-a')
+            ]
+        );
 
         assert.strictEqual(getObserved(), true);
     });
@@ -153,13 +160,13 @@ suite('package-analysis-stage', function () {
                         return [];
                     })
                 },
-                configWithPackages({ name: 'pkg-missing' }),
-                [ linkedPackageNamed('pkg-missing') ]
+                configurationWithPackages({ name: 'package-missing' }),
+                [ linkedPackageNamed('package-missing') ]
             );
             assert.fail('expected analyzeResolvedPackages to throw');
         } catch (error) {
             assert.ok(error instanceof Error);
-            assert.strictEqual(error.message, 'Analyzed bundle missing for package "pkg-missing"');
+            assert.strictEqual(error.message, 'Analyzed bundle missing for package "package-missing"');
         }
     });
 
@@ -171,15 +178,15 @@ suite('package-analysis-stage', function () {
                         return [];
                     })
                 },
-                configWithPackages(),
+                configurationWithPackages(),
                 [
-                    linkedPackageNamed('pkg-unmapped')
+                    linkedPackageNamed('package-unmapped')
                 ]
             );
             assert.fail('expected analyzeResolvedPackages to throw');
         } catch (error) {
             assert.ok(error instanceof Error);
-            assert.strictEqual(error.message, 'Missing dead-code elimination settings for package "pkg-unmapped"');
+            assert.strictEqual(error.message, 'Missing dead-code elimination settings for package "package-unmapped"');
         }
     });
 });

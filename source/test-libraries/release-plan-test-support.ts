@@ -17,7 +17,7 @@ import {
     createReleaseTestDependencies,
     previousReleaseArtifactsFor,
     resolvedPackagesFor as sharedResolvedPackagesFor,
-    validatedReleaseConfigFor,
+    validatedReleaseConfigurationFor,
     type ReleaseFileCollection,
     type ReleaseTestDependencies
 } from './release-orchestrator-fixtures.ts';
@@ -26,9 +26,9 @@ type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
 type ReleasePlanFileManager = ReleaseTestDependencies['fileManager'];
 type ReleasePlanner = ReturnType<typeof createPlanReleaseAgainstLatestPublishedValidated>;
-type ValidatedReleaseConfig = Parameters<ReleasePlanner>[0];
+type ValidatedReleaseConfiguration = Parameters<ReleasePlanner>[0];
 export type ReleasePackageResolver = Parameters<ReleasePlanner>[1];
-type ReleasePlannerSpec = {
+type ReleasePlannerSpecification = {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: FileCollection;
@@ -37,7 +37,7 @@ type ReleasePlannerSpec = {
     readonly packageProcessor?: PackageProcessor;
     readonly repositoryFolder?: string | undefined;
 };
-type ReleasePlanSpec = {
+type ReleasePlanSpecification = {
     readonly packageNames: readonly string[];
     readonly buildResults: readonly BuildAndPublishResult[];
     readonly collectContents: FileCollection;
@@ -53,12 +53,12 @@ export type ReleaseArtifactDescription = {
 };
 type ReleasePlanPartialFailure = Extract<ReleasePlanFailure, { readonly type: typeof partialFailureType; }>;
 
-export function createPlanner(input: ReleasePlannerSpec): ReleasePlanner {
+export function createPlanner(input: ReleasePlannerSpecification): ReleasePlanner {
     return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(input));
 }
 
 export function resolvedPackagesFor(
-    validated: ValidatedReleaseConfig,
+    validated: ValidatedReleaseConfiguration,
     bundleContents: Readonly<Record<string, ResolvedPackage['analyzedBundle']['contents']>> = {}
 ): readonly ResolvedPackage[] {
     return sharedResolvedPackagesFor(validated, {
@@ -69,8 +69,8 @@ export function resolvedPackagesFor(
     });
 }
 
-export async function planFor(input: ReleasePlanSpec): Promise<ReleasePlanResult> {
-    const validated = validatedReleaseConfigFor(input.packageNames);
+export async function planFor(input: ReleasePlanSpecification): Promise<ReleasePlanResult> {
+    const validated = validatedReleaseConfigurationFor(input.packageNames);
     const plan = createPlanner({
         packageNames: input.packageNames,
         buildResults: input.buildResults,
@@ -92,7 +92,7 @@ export function publishedBuildResultFor(
 ): BuildAndPublishResult {
     return buildResultFor({
         status,
-        packageName: 'pkg-a',
+        packageName: 'package-a',
         previousReleaseArtifacts: previousReleaseArtifactsFor({
             version: '1.0.0',
             publishedAt: new Date('2026-05-01T00:00:00.000Z'),

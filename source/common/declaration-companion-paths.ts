@@ -1,23 +1,23 @@
 type DeclarationCompanionRule = {
     readonly declarationExtensions: readonly string[];
-    readonly jsExtension: string;
+    readonly javaScriptExtension: string;
 };
 
 const declarationCompanionRules: readonly DeclarationCompanionRule[] = [
-    { declarationExtensions: [ '.d.mts', '.d.ts' ], jsExtension: '.mjs' },
-    { declarationExtensions: [ '.d.cts', '.d.ts' ], jsExtension: '.cjs' },
-    { declarationExtensions: [ '.d.ts' ], jsExtension: '.js' }
+    { declarationExtensions: [ '.d.mts', '.d.ts' ], javaScriptExtension: '.mjs' },
+    { declarationExtensions: [ '.d.cts', '.d.ts' ], javaScriptExtension: '.cjs' },
+    { declarationExtensions: [ '.d.ts' ], javaScriptExtension: '.js' }
 ];
 
 export function declarationCompanionCandidates(filePath: string): readonly string[] {
     const rule = declarationCompanionRules.find(function (candidate) {
-        return filePath.endsWith(candidate.jsExtension);
+        return filePath.endsWith(candidate.javaScriptExtension);
     });
     if (rule === undefined) {
         return [];
     }
 
-    const pathWithoutExtension = filePath.slice(0, -rule.jsExtension.length);
+    const pathWithoutExtension = filePath.slice(0, -rule.javaScriptExtension.length);
     return rule.declarationExtensions.map(function (declarationExtension) {
         return `${pathWithoutExtension}${declarationExtension}`;
     });

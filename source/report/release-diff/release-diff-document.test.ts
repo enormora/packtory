@@ -40,9 +40,9 @@ suite('release-diff-document', function () {
     test('counts only packages with a failure (asymmetric mix to detect equality-operator inversion)', function () {
         const report = buildReport({
             packages: {
-                'pkg-a': packageReport(),
-                'pkg-b': packageReport(),
-                'pkg-broken': packageReport({ failure: { stage: 'publish', message: 'kaboom' } })
+                'package-a': packageReport(),
+                'package-b': packageReport(),
+                'package-broken': packageReport({ failure: { stage: 'publish', message: 'kaboom' } })
             }
         });
         const document = buildReleaseDiffDocument({
@@ -54,7 +54,7 @@ suite('release-diff-document', function () {
     });
 
     test('forwards the package list into the document verbatim', function () {
-        const packageDiff = releaseDiffPackage({ name: 'pkg-x', state: 'first-publish' });
+        const packageDiff = releaseDiffPackage({ name: 'package-x', state: 'first-publish' });
         const document = buildReleaseDiffDocument({
             report: buildReport(),
             result: successResult,

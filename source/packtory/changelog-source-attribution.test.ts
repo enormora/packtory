@@ -278,7 +278,7 @@ function registerManifestInputTests(): void {
         );
         assert.deepStrictEqual(
             collectManifestChangelogSourceFiles(
-                { additionalPackageJsonAttributes: { engines: { node: '^24.0.0' } } },
+                { additionalPackageManifestAttributes: { engines: { node: '^24.0.0' } } },
                 []
             ),
             [ 'package.json' ]
@@ -301,7 +301,7 @@ function registerManifestInputTests(): void {
         assert.strictEqual(isPackageManifestInputPath('npm-shrinkwrap.json'), true);
         assert.strictEqual(isPackageManifestInputPath('pnpm-lock.yaml'), true);
         assert.strictEqual(isPackageManifestInputPath('yarn.lock'), true);
-        assert.strictEqual(isPackageManifestInputPath('packages/pkg/package.json'), false);
+        assert.strictEqual(isPackageManifestInputPath('packages/package/package.json'), false);
         assert.strictEqual(isPackageManifestInputPath('README.md'), false);
     });
 

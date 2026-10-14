@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
@@ -42,16 +42,16 @@ function resolvedRuntimeSourceFile(
 
 function objectPropertyInitializer(expression: ObjectLiteralExpression, propertyName: string): Expression | undefined {
     const property = expression.getProperty(propertyName);
-    return TsMorphNode.isPropertyAssignment(property) ? property.getInitializerOrThrow() : undefined;
+    return TypeScriptMorphNode.isPropertyAssignment(property) ? property.getInitializerOrThrow() : undefined;
 }
 
 function primitiveKeyExpression(expression: Expression | undefined): boolean {
-    return TsMorphNode.isStringLiteral(unwrapExpression(expression));
+    return TypeScriptMorphNode.isStringLiteral(unwrapExpression(expression));
 }
 
 function expressionMemberIsPrimitiveKey(expression: Expression | undefined, propertyName: string): boolean {
     const unwrapped = unwrapExpression(expression);
-    if (!TsMorphNode.isObjectLiteralExpression(unwrapped)) {
+    if (!TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)) {
         return false;
     }
     return primitiveKeyExpression(objectPropertyInitializer(unwrapped, propertyName));
@@ -91,7 +91,7 @@ export function computedPropertyNameIsPure(
     expression: Expression,
     factFor: ExpressionFactResolver
 ): boolean {
-    if (TsMorphNode.isPropertyAccessExpression(unwrapExpression(expression))) {
+    if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(expression))) {
         return importedExpressionIsPrimitiveKey(expression);
     }
     return expressionFactIsPure(factFor(expression)) || importedExpressionIsPrimitiveKey(expression);

@@ -99,8 +99,8 @@ suite('node-engine dependency tree', function () {
         const bundle = analyzedBundle({
             name: 'root',
             contents: [
-                analyzedBundleResource('/workspace/b/src/index.d.ts', { targetFilePath: 'b.d.ts' }),
-                analyzedBundleResource('/workspace/a/src/index.js', { targetFilePath: 'a.js' }),
+                analyzedBundleResource('/workspace/b/source/index.d.ts', { targetFilePath: 'b.d.ts' }),
+                analyzedBundleResource('/workspace/a/source/index.js', { targetFilePath: 'a.js' }),
                 analyzedBundleResource('/workspace/unrelated.js', { targetFilePath: 'unrelated.js' })
             ],
             externalDependencies: new Map([ [ 'direct', externalDependency('direct', [ 'a.js', 'b.d.ts' ]) ] ])
@@ -148,7 +148,7 @@ suite('node-engine dependency tree', function () {
         const issues = await rule.run({
             ...input,
             bundles: [ root, sibling ],
-            sourceFolders: new Map([ [ 'root', '/repo/src' ], [ 'sibling', '/sibling/src' ] ]),
+            sourceFolders: new Map([ [ 'root', '/repo/source' ], [ 'sibling', '/sibling/source' ] ]),
             publishedPackages: new Map([
                 [
                     'root',

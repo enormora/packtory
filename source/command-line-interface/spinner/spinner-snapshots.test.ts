@@ -16,14 +16,14 @@ function createAccessors(slotCount: number): SpinnerSharedAccessors {
 suite('spinner-snapshots', function () {
     test('readAllSnapshots returns one snapshot per slot in slot order', function () {
         const accessors = createAccessors(3);
-        accessors.writeSlot(0, 'running', 'pkg-a', 'msg-a');
-        accessors.writeSlot(1, 'succeeded', 'pkg-b', 'msg-b');
+        accessors.writeSlot(0, 'running', 'package-a', 'msg-a');
+        accessors.writeSlot(1, 'succeeded', 'package-b', 'msg-b');
         accessors.writeSlot(2, 'empty', '', '');
 
         const snapshots = readAllSnapshots(accessors);
 
         assert.strictEqual(snapshots.length, 3);
-        assert.strictEqual(snapshots[0]?.label, 'pkg-a');
+        assert.strictEqual(snapshots[0]?.label, 'package-a');
         assert.strictEqual(snapshots[1]?.state, 'succeeded');
     });
 

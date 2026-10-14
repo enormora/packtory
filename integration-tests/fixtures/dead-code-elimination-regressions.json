@@ -3,23 +3,23 @@
         "type": "consumer-producer-api",
         "id": "declaration-companion-runtime-export",
         "fixture": "dead-code-elimination-declaration-companion-regression",
-        "entryPackage": "pkg-producer",
-        "entryTargetFilePath": "pkg-producer/index.js",
+        "entryPackage": "package-producer",
+        "entryTargetFilePath": "package-producer/index.js",
         "expectedApiResult": "error",
         "contentAssertions": [
             {
                 "type": "contains-text",
-                "targetFilePath": "pkg-producer/shared.js",
+                "targetFilePath": "package-producer/shared.js",
                 "text": "export const sharedConfig"
             },
             {
                 "type": "omits-text",
-                "targetFilePath": "pkg-producer/shared.js",
+                "targetFilePath": "package-producer/shared.js",
                 "text": "unusedConfig"
             }
         ],
-        "fixtureSha256": "dcd2416ebb66df374851ef9907c3352fbb658bdf745018fd4bbd617b2aa6838e",
-        "assertionSha256": "945ad23f61901e23554f8bf11c71a385df897d7720060dffce5ca61b85006f9e"
+        "fixtureSha256": "4c6c27457a4efde5f615153552af22ac2606f60b40929271dc23985e60887e78",
+        "assertionSha256": "9ecfe4dd1038117e33e6719b66bc93fab293cb92ece5ae13938b436acc2aefc9"
     },
     {
         "type": "artifact-bundle-content",
@@ -63,12 +63,16 @@
             {
                 "type": "source-map-sources",
                 "targetFilePath": "file-manager/file-manager.js.map",
-                "sources": ["../source/file-manager/file-manager.ts"]
+                "sources": [
+                    "../source/file-manager/file-manager.ts"
+                ]
             },
             {
                 "type": "source-map-sources",
                 "targetFilePath": "file-manager/permissions.js.map",
-                "sources": ["../source/file-manager/permissions.ts"]
+                "sources": [
+                    "../source/file-manager/permissions.ts"
+                ]
             }
         ],
         "fixtureSha256": "3f71764fde5abdf9918af191a41931d2f186db2c88636f56213cab94ea4afcd2",
@@ -111,7 +115,9 @@
             {
                 "type": "source-map-sources",
                 "targetFilePath": "dead-code-eliminator/imported-expression-origin.js.map",
-                "sources": ["../source/dead-code-eliminator/imported-expression-origin.ts"]
+                "sources": [
+                    "../source/dead-code-eliminator/imported-expression-origin.ts"
+                ]
             }
         ],
         "fixtureSha256": "ae3aaac24ee152bdc2d259f95fb554460ca0fada3a0f34b53d24f72c5f860172",

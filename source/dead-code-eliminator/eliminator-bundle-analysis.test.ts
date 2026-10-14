@@ -8,8 +8,8 @@ import { createProject } from '../test-libraries/typescript-project.ts';
 import {
     bundleForCodeFile,
     collectTargetPaths,
-    indexTsBundle,
-    indexTsContent,
+    indexTypeScriptBundle,
+    indexTypeScriptContent,
     inputWithoutTransformations,
     inputs
 } from '../test-libraries/eliminator-test-support.ts';
@@ -37,7 +37,7 @@ function originalIndexMap(): string {
         version: 3,
         file: 'index.ts',
         sources: [ 'index.ts' ],
-        sourcesContent: [ indexTsContent ],
+        sourcesContent: [ indexTypeScriptContent ],
         names: [],
         mappings: 'AAAA,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC;AAC5B,OAAO,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC,CAAC'
     });
@@ -45,7 +45,7 @@ function originalIndexMap(): string {
 
 function pairedMapResource(originalMap: string): LinkedBundleResource {
     return {
-        ...bundleResource('/src/index.ts.map', { content: originalMap, targetFilePath: 'index.ts.map' }),
+        ...bundleResource('/source/index.ts.map', { content: originalMap, targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
 }
@@ -77,8 +77,8 @@ suite('eliminator bundle analysis', function () {
 
         test('eliminate preserves the bundle name', async function () {
             const eliminator = createTestEliminator();
-            const [ analyzed ] = await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg' })));
-            assert.strictEqual(analyzed?.name, 'pkg');
+            const [ analyzed ] = await eliminator.eliminate(inputs(linkedBundle({ name: 'package' })));
+            assert.strictEqual(analyzed?.name, 'package');
         });
 
         test('eliminate returns no bundles when given no input', async function () {
@@ -101,9 +101,11 @@ suite('eliminator bundle analysis', function () {
                 trace: undefined
             });
 
-            await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg-a' }), linkedBundle({ name: 'pkg-b' })));
+            await eliminator.eliminate(
+                inputs(linkedBundle({ name: 'package-a' }), linkedBundle({ name: 'package-b' }))
+            );
 
-            assert.deepStrictEqual(received, [ [ 'pkg-a', 'pkg-b' ] ]);
+            assert.deepStrictEqual(received, [ [ 'package-a', 'package-b' ] ]);
         });
 
         test('eliminate populates analysis on every resource', async function () {
@@ -111,7 +113,7 @@ suite('eliminator bundle analysis', function () {
             const [ analyzed ] = await eliminator.eliminate(
                 inputs(
                     linkedBundle({
-                        name: 'pkg',
+                        name: 'package',
                         contents: [
                             {
                                 ...bundleResource('/a.ts', { isExplicitlyIncluded: true }),
@@ -145,9 +147,9 @@ suite('eliminator bundle analysis', function () {
 
         test('eliminate preserves resource fields and uses empty analysis defaults on non-code files', async function () {
             const eliminator = createTestEliminator();
-            const resource = { ...bundleResource('/src/LICENSE', { content: 'Hello' }), isSubstituted: false };
+            const resource = { ...bundleResource('/source/LICENSE', { content: 'Hello' }), isSubstituted: false };
             const [ analyzed ] = await eliminator.eliminate(
-                inputs(linkedBundle({ name: 'pkg', contents: [ resource ] }))
+                inputs(linkedBundle({ name: 'package', contents: [ resource ] }))
             );
             const emitted = analyzed?.contents[0];
             assertDefined(emitted);
@@ -168,17 +170,17 @@ suite('eliminator bundle analysis', function () {
     suite('transformed code and source maps', function () {
         test('eliminate accepts an analyzed bundle fixture and treats it like any linked bundle', async function () {
             const eliminator = createTestEliminator();
-            const input: AnalyzedBundle = analyzedBundle({ name: 'pkg' });
+            const input: AnalyzedBundle = analyzedBundle({ name: 'package' });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.partialDeepStrictEqual(analyzed, {
-                name: 'pkg',
+                name: 'package',
                 sideEffectsField: false
             });
         });
 
         test('eliminate removes an unreachable function declaration and records the surviving bindings when transformations are enabled', async function () {
             const eliminator = createTestEliminator();
-            const [ analyzed ] = await eliminator.eliminate(inputs(indexTsBundle()));
+            const [ analyzed ] = await eliminator.eliminate(inputs(indexTypeScriptBundle()));
             const emitted = analyzed?.contents[0];
             assertDefined(emitted);
             assert.strictEqual(emitted.fileDescription.content.includes('dead'), false);
@@ -189,8 +191,8 @@ suite('eliminator bundle analysis', function () {
         test('eliminate keeps exported destructuring bindings in an entry file', async function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
-                name: 'pkg',
-                inputFilePath: '/src/index.ts',
+                name: 'package',
+                inputFilePath: '/source/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'const api = { live() { return 1; }, dead() { return 2; } };',
@@ -208,8 +210,8 @@ suite('eliminator bundle analysis', function () {
         test('eliminate keeps a whole destructuring declarator when one bound identifier is reachable', async function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
-                name: 'pkg',
-                inputFilePath: '/src/index.ts',
+                name: 'package',
+                inputFilePath: '/source/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'function build() { return { helper() { return 1; }, other() { return 2; } }; }',
@@ -228,8 +230,8 @@ suite('eliminator bundle analysis', function () {
         test('eliminate preserves a pure destructuring declarator when one bound identifier is reachable', async function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
-                name: 'pkg',
-                inputFilePath: '/src/index.ts',
+                name: 'package',
+                inputFilePath: '/source/index.ts',
                 targetFilePath: 'index.ts',
                 content: [ 'const { helper, other } = { helper: 1, other: 2 };', 'export const live = helper;' ].join(
                     '\n'
@@ -248,8 +250,8 @@ suite('eliminator bundle analysis', function () {
         test('eliminate keeps shorthand property value bindings when an exported object literal uses them', async function () {
             const eliminator = createTestEliminator();
             const bundle = bundleForCodeFile({
-                name: 'pkg',
-                inputFilePath: '/src/index.ts',
+                name: 'package',
+                inputFilePath: '/source/index.ts',
                 targetFilePath: 'index.ts',
                 content: [
                     'const globalSchema = 1;',
@@ -273,17 +275,17 @@ suite('eliminator bundle analysis', function () {
 
         test('eliminate keeps unreachable declarations when transformations are disabled', async function () {
             const eliminator = createTestEliminator();
-            const result = await eliminator.eliminate(inputWithoutTransformations(indexTsBundle()));
+            const result = await eliminator.eliminate(inputWithoutTransformations(indexTypeScriptBundle()));
             const emitted = result[0]?.contents[0];
             assertDefined(emitted);
-            assert.strictEqual(emitted.fileDescription.content, indexTsContent);
+            assert.strictEqual(emitted.fileDescription.content, indexTypeScriptContent);
         });
 
         test('eliminate recomposes the paired source map when a code file is transformed', async function () {
             const eliminator = createTestEliminator();
             const originalMap = originalIndexMap();
             const mapResource = pairedMapResource(originalMap);
-            const [ analyzed ] = await eliminator.eliminate(inputs(indexTsBundle([ mapResource ])));
+            const [ analyzed ] = await eliminator.eliminate(inputs(indexTypeScriptBundle([ mapResource ])));
             assertRecomposedMap(analyzed, originalMap);
         });
     });

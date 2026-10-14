@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
-import { buildPackageGraph } from '../../config/package-graph-builder.ts';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+import type { PackageConfiguration, PacktoryConfigurationWithoutRegistry } from '../../configuration/configuration.ts';
+import { buildPackageGraph } from '../../configuration/package-graph-builder.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import {
@@ -28,40 +28,42 @@ type ResolutionInput = {
     readonly name: string;
 };
 
-function packageConfig(name: string): PackageConfig {
+function packageConfiguration(name: string): PackageConfiguration {
     return {
         name,
-        roots: { main: { js: `${name}/index.js` } },
-        sourcesFolder: '/src',
-        mainPackageJson: { type: 'module' },
+        roots: { main: { javaScript: `${name}/index.js` } },
+        sourcesFolder: '/source',
+        mainPackageManifest: { type: 'module' },
         publishSettings: { access: 'public' }
     };
 }
 
-function configWithoutRegistry(packages: readonly PackageConfig[]): ValidConfigWithoutRegistryResult {
-    const packageConfigs: Readonly<Record<string, PackageConfig>> = Object.fromEntries(
+function configurationWithoutRegistry(
+    packages: readonly PackageConfiguration[]
+): ValidConfigurationWithoutRegistryResult {
+    const packageConfigurations: Readonly<Record<string, PackageConfiguration>> = Object.fromEntries(
         packages.map(function (entry) {
             return [ entry.name, entry ];
         })
     );
-    const packtoryConfig: PacktoryConfigWithoutRegistry = {
+    const packtoryConfiguration: PacktoryConfigurationWithoutRegistry = {
         commonPackageSettings: {
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
+            sourcesFolder: '/source',
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages
     };
 
-    return { packageConfigs, packtoryConfig, packageGraph: buildPackageGraph(packageConfigs) };
+    return { packageConfigurations, packtoryConfiguration, packageGraph: buildPackageGraph(packageConfigurations) };
 }
 
-function emptyConfig(): ValidConfigWithoutRegistryResult {
-    return configWithoutRegistry([]);
+function emptyConfiguration(): ValidConfigurationWithoutRegistryResult {
+    return configurationWithoutRegistry([]);
 }
 
-function configWithPackage(name: string): ValidConfigWithoutRegistryResult {
-    return configWithoutRegistry([ packageConfig(name) ]);
+function configurationWithPackage(name: string): ValidConfigurationWithoutRegistryResult {
+    return configurationWithoutRegistry([ packageConfiguration(name) ]);
 }
 
 function linkedBundle(
@@ -73,7 +75,12 @@ function linkedBundle(
         contents: [],
         roots: {
             main: {
-                js: { content: '', isExecutable: false, inputFilePath: '/src/index.js', targetFilePath: 'index.js' }
+                javaScript: {
+                    content: '',
+                    isExecutable: false,
+                    inputFilePath: '/source/index.js',
+                    targetFilePath: 'index.js'
+                }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -92,7 +99,7 @@ suite('package-resolution-stage', function () {
                 scheduler: emptyScheduler,
                 progressBroadcaster: stubProgressBroadcaster
             },
-            emptyConfig()
+            emptyConfiguration()
         );
 
         assert.strictEqual(result.isOk, true);
@@ -100,7 +107,7 @@ suite('package-resolution-stage', function () {
 
     test('resolvePackages forwards scheduler failures unchanged to its caller', async function () {
         const result = await resolvePackages(failingDependencies('boom'), {
-            ...emptyConfig()
+            ...emptyConfiguration()
         });
 
         assert.strictEqual(result.isErr, true);
@@ -121,14 +128,19 @@ suite('package-resolution-stage', function () {
         await resolvePackages(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster
             },
-            configWithPackage('pkg-a')
+            configurationWithPackage('package-a')
         );
 
         assert.deepStrictEqual(received, [
-            { packageName: 'pkg-a', roots: { main: '/src/pkg-a/index.js' }, sourceFileCount: 0, siblingVersions: {} }
+            {
+                packageName: 'package-a',
+                roots: { main: '/source/package-a/index.js' },
+                sourceFileCount: 0,
+                siblingVersions: {}
+            }
         ]);
     });
 
@@ -138,10 +150,10 @@ suite('package-resolution-stage', function () {
         await resolvePackages(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler([ 'pkg-a' ], capture),
+                scheduler: iteratingScheduler([ 'package-a' ], capture),
                 progressBroadcaster: stubProgressBroadcaster
             },
-            configWithPackage('pkg-a')
+            configurationWithPackage('package-a')
         );
 
         assert.strictEqual(capture.emitScheduledEvents, true);
@@ -156,8 +168,11 @@ suite('package-resolution-stage', function () {
         let resolveAndLinkCallCount = 0;
         async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
             resolveAndLinkCallCount += 1;
-            const substitutions = options.name === 'pkg-b'
-                ? new Map([ [ 'pkg-a', new Set([ '/src/pkg-a/internal.js', '/src/pkg-a/internal.d.ts' ]) ] ])
+            const substitutions = options.name === 'package-b'
+                ? new Map([ [
+                    'package-a',
+                    new Set([ '/source/package-a/internal.js', '/source/package-a/internal.d.ts' ])
+                ] ])
                 : new Map();
             return linkedBundle(options.name, substitutions);
         }
@@ -172,15 +187,15 @@ suite('package-resolution-stage', function () {
                         return linkedBundle(options.name, new Map());
                     }
                 },
-                scheduler: iteratingScheduler([ 'pkg-a', 'pkg-b' ], capture),
+                scheduler: iteratingScheduler([ 'package-a', 'package-b' ], capture),
                 progressBroadcaster: stubProgressBroadcaster
             },
-            configWithoutRegistry([ packageConfig('pkg-a'), packageConfig('pkg-b') ])
+            configurationWithoutRegistry([ packageConfiguration('package-a'), packageConfiguration('package-b') ])
         );
 
         assert.strictEqual(resolveAndLinkCallCount, 3);
         assert.deepStrictEqual(promotionCalls, [
-            { packageName: 'pkg-a', inputFilePaths: new Set([ '/src/pkg-a/internal.js' ]) }
+            { packageName: 'package-a', inputFilePaths: new Set([ '/source/package-a/internal.js' ]) }
         ]);
         assert.strictEqual(capture.emitScheduledEvents, false);
     });
@@ -189,7 +204,7 @@ suite('package-resolution-stage', function () {
         let resolveAndLinkCallCount = 0;
         async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
             resolveAndLinkCallCount += 1;
-            const substitutions = new Map([ [ 'pkg-a', new Set<string>() ] ]);
+            const substitutions = new Map([ [ 'package-a', new Set<string>() ] ]);
             return linkedBundle(options.name, substitutions);
         }
 
@@ -199,10 +214,10 @@ suite('package-resolution-stage', function () {
                     ...stubPackageProcessor,
                     resolveAndLink
                 },
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: stubProgressBroadcaster
             },
-            configWithPackage('pkg-a')
+            configurationWithPackage('package-a')
         );
 
         assert.strictEqual(resolveAndLinkCallCount, 1);
@@ -223,14 +238,14 @@ suite('package-resolution-stage', function () {
                         throw new Error('resolve failed');
                     }
                 },
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster
             },
-            configWithPackage('pkg-a')
+            configurationWithPackage('package-a')
         );
 
         assert.deepStrictEqual(failures, [
-            { packageName: 'pkg-a', stage: 'resolveAndLink', message: 'resolve failed' }
+            { packageName: 'package-a', stage: 'resolveAndLink', message: 'resolve failed' }
         ]);
     });
 
@@ -255,10 +270,10 @@ suite('package-resolution-stage', function () {
         await resolvePackages(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: trackingBroadcaster
             },
-            configWithPackage('pkg-a')
+            configurationWithPackage('package-a')
         );
 
         assert.strictEqual(emitCount, 0);

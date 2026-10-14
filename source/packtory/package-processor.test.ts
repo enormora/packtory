@@ -11,7 +11,7 @@ import {
     createResolveOptions,
     createTransferableFile,
     createVersionedBundle,
-    getCallArgs
+    getCallArguments
 } from '../test-libraries/package-processor-test-support.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
@@ -45,7 +45,7 @@ suite('package-processor', function () {
         const resolve = fake.resolves({
             name: 'package-a',
             contents: [],
-            roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+            roots: { main: { javaScript: createTransferableFile('/entry.js') } } as const,
             surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
             externalDependencies: new Map()
         });
@@ -62,7 +62,7 @@ suite('package-processor', function () {
                 bundle: {
                     name: 'package-a',
                     contents: [],
-                    roots: { main: { js: createTransferableFile('/entry.js') } },
+                    roots: { main: { javaScript: createTransferableFile('/entry.js') } },
                     surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                     externalDependencies: new Map()
                 },
@@ -70,7 +70,7 @@ suite('package-processor', function () {
                 bundlePeerDependencies: options.bundlePeerDependencies
             }
         ]);
-        assert.deepStrictEqual(getCallArgs(emit), [
+        assert.deepStrictEqual(getCallArguments(emit), [
             [ 'resolving', { packageName: 'package-a' } ],
             [ 'linking', { packageName: 'package-a' } ]
         ]);
@@ -87,15 +87,15 @@ suite('package-processor', function () {
             version: '3.4.5'
         });
 
-        assert.strictEqual(result.packageJson.version, '1.2.3');
+        assert.strictEqual(result.packageManifest.version, '1.2.3');
         assert.deepStrictEqual(addVersionSpy.firstCall.args, [
             {
                 bundle: { ...linkedBundle, contents: [], sideEffectsField: undefined },
                 version: '3.4.5',
-                mainPackageJson: { type: 'module', dependencies: { dependency: '^1.0.0' } },
+                mainPackageManifest: { type: 'module', dependencies: { dependency: '^1.0.0' } },
                 bundleDependencies: [ createVersionedBundle('bundle-dependency', '1.0.0') ],
                 bundlePeerDependencies: [ createVersionedBundle('peer-dependency', '2.0.0') ],
-                additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+                additionalPackageManifestAttributes: { publishConfig: { access: 'public' } },
                 allowMutableSpecifiers: []
             }
         ]);
@@ -203,10 +203,13 @@ suite('package-processor', function () {
         assert.deepStrictEqual(checkBundleAlreadyPublished.firstCall.args, [
             {
                 bundle: versionedBundle,
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
             }
         ]);
-        assert.deepStrictEqual(getCallArgs(emit), [ [ 'building', { packageName: 'package-a', version: '0.0.0' } ] ]);
+        assert.deepStrictEqual(getCallArguments(emit), [ [ 'building', {
+            packageName: 'package-a',
+            version: '0.0.0'
+        } ] ]);
     });
 
     test('tryBuildAndPublish() rebuilds with an increased version for the first publish', async function () {
@@ -231,12 +234,12 @@ suite('package-processor', function () {
         assert.deepStrictEqual(determineCurrentVersion.firstCall.args, [
             {
                 name: 'package-a',
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
                 stage: false,
                 versioning: { automatic: true }
             }
         ]);
-        assert.deepStrictEqual(getCallArgs(emit), [
+        assert.deepStrictEqual(getCallArguments(emit), [
             [ 'building', { packageName: 'package-a', version: '0.0.0' } ],
             [ 'rebuilding', { packageName: 'package-a', version: '0.0.0' } ]
         ]);

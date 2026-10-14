@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import type { ValidConfigResult } from '../config/validation.ts';
+import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import {
     partialFailureType,
     releaseAnalysisPartialFailure,
@@ -17,7 +17,7 @@ import type { ResolvedPackage } from './resolved-package.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigResult
+    configuration: ValidConfigurationResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 export type ReleaseAnalysisOrchestratorDependencies = PublishStageDependencies & {
@@ -102,7 +102,7 @@ function toFinalReleaseAnalysisResult(
 export function createAnalyzeReleaseAgainstLatestPublishedValidated(
     dependencies: ReleaseAnalysisOrchestratorDependencies
 ): (
-    validated: ValidConfigResult,
+    validated: ValidConfigurationResult,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<ReleaseAnalysisResult> {
     return async function analyzeReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated) {

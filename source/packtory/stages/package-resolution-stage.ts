@@ -1,10 +1,10 @@
 import { mapValues } from 'remeda';
 import type { Result } from 'true-myth';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
 import { resolveRootsAndSurface } from '../../resource-resolver/resource-resolve-options.ts';
 import { withFailureCapture } from '../../report/decorators.ts';
-import { configToResolveAndLinkOptions, type ResolveAndLinkOptions } from '../map-config.ts';
+import { configurationToResolveAndLinkOptions, type ResolveAndLinkOptions } from '../map-configuration.ts';
 import type { PackageProcessor } from '../package-processor.ts';
 import type { ProgressBroadcaster } from '../packtory-results.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
@@ -26,9 +26,14 @@ export type PackageResolutionDependencies = {
 function createResolveOptions(
     packageName: string,
     existing: readonly LinkedBundle[],
-    config: ValidConfigWithoutRegistryResult
+    configuration: ValidConfigurationWithoutRegistryResult
 ): ResolveAndLinkOptions {
-    return configToResolveAndLinkOptions(packageName, config.packageConfigs, config.packtoryConfig, existing);
+    return configurationToResolveAndLinkOptions(
+        packageName,
+        configuration.packageConfigurations,
+        configuration.packtoryConfiguration,
+        existing
+    );
 }
 
 function emitInputsResolved(
@@ -42,7 +47,7 @@ function emitInputsResolved(
     dependencies.progressBroadcaster.provider.emit('inputsResolved', {
         packageName: options.name,
         roots: mapValues(normalizedInputs.roots, function (root) {
-            return root.js;
+            return root.javaScript;
         }),
         sourceFileCount: 0,
         siblingVersions: {}
@@ -77,7 +82,7 @@ function hasPromotionCandidates(promotedSourcePathsByPackageName: ReadonlyMap<st
 
 async function resolvePackagesWithPromotions(
     dependencies: PackageResolutionDependencies,
-    config: ValidConfigWithoutRegistryResult,
+    configuration: ValidConfigurationWithoutRegistryResult,
     promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
     emitScheduledEvents: boolean
 ): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
@@ -85,11 +90,11 @@ async function resolvePackagesWithPromotions(
         LinkedPackage,
         LinkedBundle,
         ResolveAndLinkOptions,
-        ValidConfigWithoutRegistryResult['packtoryConfig']
+        ValidConfigurationWithoutRegistryResult['packtoryConfiguration']
     >({
-        config,
+        configuration,
         createOptions(context) {
-            const options = createResolveOptions(context.packageName, context.existing, context.config);
+            const options = createResolveOptions(context.packageName, context.existing, context.configuration);
             emitInputsResolved(dependencies, options);
             return options;
         },
@@ -119,9 +124,9 @@ async function resolvePackagesWithPromotions(
 
 export async function resolvePackages(
     dependencies: PackageResolutionDependencies,
-    config: ValidConfigWithoutRegistryResult
+    configuration: ValidConfigurationWithoutRegistryResult
 ): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
-    const firstPassResult = await resolvePackagesWithPromotions(dependencies, config, new Map(), true);
+    const firstPassResult = await resolvePackagesWithPromotions(dependencies, configuration, new Map(), true);
     if (firstPassResult.isErr) {
         return firstPassResult;
     }
@@ -131,5 +136,5 @@ export async function resolvePackages(
         return firstPassResult;
     }
 
-    return await resolvePackagesWithPromotions(dependencies, config, promotedSourcePathsByPackageName, false);
+    return await resolvePackagesWithPromotions(dependencies, configuration, promotedSourcePathsByPackageName, false);
 }

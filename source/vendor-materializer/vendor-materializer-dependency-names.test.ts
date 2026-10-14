@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    expectErr,
+    expectError,
     runExpectingFailure,
     runWith,
     setupFileManager
@@ -15,16 +15,16 @@ async function expectInvalidVendoredDependencyFailure(
     const failure = await runExpectingFailure(
         {
             readabilities: [ { value: { isReadable: true } } ],
-            realPaths: [ { value: '/repo/node_modules/pkg' } ],
+            realPaths: [ { value: '/repo/node_modules/package' } ],
             listings: [ { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] } ],
             fileReads: [ { value: JSON.stringify({ dependencies }) } ]
         },
-        { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
+        { initialDependencyNames: [ 'package' ], projectFolder: '/repo' }
     );
 
     assert.deepStrictEqual(failure, {
         type: 'invalid-dependency-name',
-        sourcePackageName: 'pkg',
+        sourcePackageName: 'package',
         invalidDependencyName
     });
 }
@@ -56,7 +56,7 @@ suite('vendor-materializer dependency names', function () {
         const fileManager = setupFileManager({ readabilities: [], realPaths: [], listings: [], fileReads: [] });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const failure = expectErr(
+        const failure = expectError(
             await materializer.materializeExternals({
                 dependencySources: [ { initialDependencyNames: [ '../escape' ], projectFolder: '/repo' } ]
             })

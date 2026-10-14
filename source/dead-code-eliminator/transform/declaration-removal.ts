@@ -1,12 +1,12 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type ImportDeclaration,
     type SourceFile,
     type Statement
 } from 'ts-morph';
 import { isDeclarationCodeTargetPath } from '../liveness/runtime-code.ts';
-import { bindingId } from '../reachability/binding-id.ts';
+import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import {
     collectVariableDeclarationBindings,
     variableDeclarationSurvives
@@ -19,7 +19,7 @@ function recordBindingRemoved(plan: RemovalPlan, name: string): void {
         plan.trace.collector.record({
             type: 'binding-removed',
             bundleName: plan.bundleName,
-            bindingId: bindingId(plan.targetFilePath, name),
+            bindingIdentifier: bindingIdentifier(plan.targetFilePath, name),
             inputFilePath: plan.inputFilePath
         });
     }
@@ -39,7 +39,7 @@ function processNamedDeclaration(statement: Statement, plan: RemovalPlan): boole
 }
 
 function processVariableStatement(statement: Statement, plan: RemovalPlan): boolean {
-    if (!TsMorphNode.isVariableStatement(statement)) {
+    if (!TypeScriptMorphNode.isVariableStatement(statement)) {
         return false;
     }
     const removedDeclarators = statement.getDeclarations().filter(function (declarator) {
@@ -188,7 +188,7 @@ function repairImport(declaration: ImportDeclaration, plan: RemovalPlan): void {
 }
 
 function hasExport(statement: Statement): boolean {
-    return TsMorphNode.isModifierable(statement) && statement.hasModifier(SyntaxKind.ExportKeyword);
+    return TypeScriptMorphNode.isModifierable(statement) && statement.hasModifier(SyntaxKind.ExportKeyword);
 }
 
 function hasModuleSyntax(sourceFile: SourceFile): boolean {

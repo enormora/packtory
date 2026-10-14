@@ -1,6 +1,6 @@
-import type { MainPackageJson } from '../../config/package-json.ts';
+import type { MainPackageManifest } from '../../configuration/package-manifest.ts';
 
-export type ImportsField = NonNullable<MainPackageJson['imports']>;
+export type ImportsField = NonNullable<MainPackageManifest['imports']>;
 
 function escapeRegExp(value: string): string {
     return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -18,8 +18,8 @@ export function findMatchingImportEntryKey(specifier: string, importsField: Impo
         .keys(importsField)
         .filter(function (key) {
             const wildcardPattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
-            const wildcardRegex = new RegExp(wildcardPattern);
-            return wildcardRegex.test(specifier);
+            const wildcardRegularExpression = new RegExp(wildcardPattern);
+            return wildcardRegularExpression.test(specifier);
         })
         .toSorted(function (left, right) {
             return compareKeyRelevance(specifier, left, right);

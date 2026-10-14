@@ -1,5 +1,5 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     type ExportDeclaration,
     type SourceFile,
     type Statement
@@ -53,7 +53,7 @@ function exportedName(namedExport: ReturnType<ExportDeclaration['getNamedExports
 }
 
 function exportAssignmentNames(statement: Statement): readonly string[] {
-    return TsMorphNode.isExportAssignment(statement) && !statement.isExportEquals() ? [ 'default' ] : [];
+    return TypeScriptMorphNode.isExportAssignment(statement) && !statement.isExportEquals() ? [ 'default' ] : [];
 }
 
 function exportedDeclarationName(declaration: ExportableDeclaration): readonly string[] {
@@ -64,37 +64,37 @@ function exportedDeclarationName(declaration: ExportableDeclaration): readonly s
 }
 
 function functionExportNames(statement: Statement): readonly string[] {
-    if (!TsMorphNode.isFunctionDeclaration(statement)) {
+    if (!TypeScriptMorphNode.isFunctionDeclaration(statement)) {
         return [];
     }
     return statement.isDefaultExport() ? [ 'default' ] : exportedDeclarationName(statement);
 }
 
 function classExportNames(statement: Statement): readonly string[] {
-    if (!TsMorphNode.isClassDeclaration(statement)) {
+    if (!TypeScriptMorphNode.isClassDeclaration(statement)) {
         return [];
     }
     return statement.isDefaultExport() ? [ 'default' ] : exportedDeclarationName(statement);
 }
 
 function interfaceExportNames(statement: Statement): readonly string[] {
-    return TsMorphNode.isInterfaceDeclaration(statement) ? exportedDeclarationName(statement) : [];
+    return TypeScriptMorphNode.isInterfaceDeclaration(statement) ? exportedDeclarationName(statement) : [];
 }
 
 function typeAliasExportNames(statement: Statement): readonly string[] {
-    return TsMorphNode.isTypeAliasDeclaration(statement) ? exportedDeclarationName(statement) : [];
+    return TypeScriptMorphNode.isTypeAliasDeclaration(statement) ? exportedDeclarationName(statement) : [];
 }
 
 function enumExportNames(statement: Statement): readonly string[] {
-    return TsMorphNode.isEnumDeclaration(statement) ? exportedDeclarationName(statement) : [];
+    return TypeScriptMorphNode.isEnumDeclaration(statement) ? exportedDeclarationName(statement) : [];
 }
 
 function moduleExportNames(statement: Statement): readonly string[] {
-    return TsMorphNode.isModuleDeclaration(statement) ? exportedDeclarationName(statement) : [];
+    return TypeScriptMorphNode.isModuleDeclaration(statement) ? exportedDeclarationName(statement) : [];
 }
 
 function variableExportNames(statement: Statement): readonly string[] {
-    if (!TsMorphNode.isVariableStatement(statement) || !statement.isExported()) {
+    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.isExported()) {
         return [];
     }
     return statement.getDeclarations().flatMap(function (declaration) {

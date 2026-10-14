@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { fake, type SinonSpy } from 'sinon';
-import type { PublicPublishSettings } from '../config/publish-settings.ts';
-import type { PublishAuthStrategy } from '../config/registry-settings.ts';
+import type { PublicPublishSettings } from '../configuration/publish-settings.ts';
+import type { PublishAuthenticationStrategy } from '../configuration/registry-settings.ts';
 import {
     createRegistryClient,
     type RegistryClient,
@@ -11,45 +11,38 @@ import { createFakeClock, type FakeClock } from './fake-clock.ts';
 
 type NpmFetchOverrides = {
     readonly buffer?: Readonly<SinonSpy>;
-    readonly json?: Readonly<SinonSpy>;
+    readonly javaScriptObjectNotation?: Readonly<SinonSpy>;
 };
 
-type FetchSpyCall = {
-    readonly args: readonly unknown[];
-    readonly firstArg: unknown;
-};
-
-type FetchSpyAssertions = {
-    readonly callCount: number;
-    readonly firstCall: FetchSpyCall;
-    readonly secondCall: FetchSpyCall;
-};
+type FetchSpyAssertions = Readonly<Pick<SinonSpy, 'callCount' | 'firstCall' | 'secondCall'>>;
 
 type FakeNpmFetch = FetchSpyAssertions & {
-    (url: string, options?: unknown): Promise<{ readonly buffer: Readonly<SinonSpy>; }>;
-    readonly json: Readonly<SinonSpy> & { readonly stream: Readonly<SinonSpy>; };
+    (address: string, options?: unknown): Promise<{ readonly buffer: Readonly<SinonSpy>; }>;
+    readonly javaScriptObjectNotation: Readonly<SinonSpy> & { readonly stream: Readonly<SinonSpy>; };
     readonly pickRegistry: Readonly<SinonSpy>;
 };
 
 function createFakeNpmFetch(overrides: NpmFetchOverrides = {}): FakeNpmFetch {
     const buffer = overrides.buffer ?? fake();
-    const json = overrides.json ?? fake();
-    const jsonWithStream = Object.assign(json, { stream: fake() });
+    const javaScriptObjectNotation = overrides.javaScriptObjectNotation ?? fake();
+    const javaScriptObjectNotationWithStream = Object.assign(javaScriptObjectNotation, { stream: fake() });
     return Object.assign(fake.resolves({ buffer }), {
-        json: jsonWithStream,
+        javaScriptObjectNotation: javaScriptObjectNotationWithStream,
         pickRegistry: fake()
     });
 }
 
-type ResolveIdToken = (auth: Extract<PublishAuthStrategy, { readonly type: 'npm-oidc'; }>) => Promise<string>;
+type ResolveIdentifierToken = (
+    authentication: Extract<PublishAuthenticationStrategy, { readonly type: 'npm-open-identity-connect'; }>
+) => Promise<string>;
 
 export type RegistryClientOverrides = {
     readonly publish?: SinonSpy;
-    readonly npmFetchJson?: Readonly<SinonSpy>;
+    readonly npmFetchJavaScriptObjectNotation?: Readonly<SinonSpy>;
     readonly npmFetch?: FakeNpmFetch;
     readonly fetch?: typeof globalThis.fetch;
     readonly clock?: FakeClock;
-    readonly resolveIdToken?: ResolveIdToken;
+    readonly resolveIdentifierToken?: ResolveIdentifierToken;
     readonly promptForOneTimePassword?: () => Promise<string | undefined>;
 };
 
@@ -63,30 +56,34 @@ function createDefaultFetch(): typeof globalThis.fetch {
 }
 
 type DefaultRegistryClientOverrides = Required<
-    Pick<RegistryClientOverrides, 'clock' | 'fetch' | 'npmFetchJson' | 'publish' | 'resolveIdToken'>
+    Pick<
+        RegistryClientOverrides,
+        'clock' | 'fetch' | 'npmFetchJavaScriptObjectNotation' | 'publish' | 'resolveIdentifierToken'
+    >
 >;
 
 function createDefaultOverrides(): DefaultRegistryClientOverrides {
     return {
         publish: fake(),
-        npmFetchJson: fake(),
+        npmFetchJavaScriptObjectNotation: fake(),
         fetch: createDefaultFetch(),
         clock: createFakeClock({ initialTimestamp: Date.parse('2026-05-06T10:00:00.000Z') }),
-        resolveIdToken: fake.resolves('upstream-id-token')
+        resolveIdentifierToken: fake.resolves('upstream-id-token')
     };
 }
 
 export function registryClientFactory(overrides: RegistryClientOverrides = {}): RegistryClient {
     const defaults = createDefaultOverrides();
     const resolved = { ...defaults, ...overrides };
-    const npmFetch = overrides.npmFetch ?? createFakeNpmFetch({ json: resolved.npmFetchJson });
+    const npmFetch = overrides.npmFetch ??
+        createFakeNpmFetch({ javaScriptObjectNotation: resolved.npmFetchJavaScriptObjectNotation });
 
     const dependencies: RegistryClientDependencies = {
         publish: resolved.publish,
         npmFetch: npmFetch as unknown as RegistryClientDependencies['npmFetch'],
         fetch: resolved.fetch,
         clock: resolved.clock,
-        resolveIdToken: resolved.resolveIdToken,
+        resolveIdentifierToken: resolved.resolveIdentifierToken,
         promptForOneTimePassword: overrides.promptForOneTimePassword
     };
     return createRegistryClient(dependencies);
@@ -109,7 +106,7 @@ function hasPublishedTokenOptions(value: unknown): value is PublishedTokenOption
     return typeof value.forceAuth.token === 'string';
 }
 
-type OidcExchangeFetchOptions = {
+type OpenIdentityConnectExchangeFetchOptions = {
     readonly ok?: boolean;
     readonly status?: number;
     readonly response?: unknown;
@@ -118,16 +115,16 @@ type OidcExchangeFetchOptions = {
 };
 
 type RegistrySettingsOptions = {
-    readonly registryUrl?: string;
+    readonly registryAddress?: string;
 };
 
-type PackageInfo = {
+type PackageInformation = {
     readonly name: string;
     readonly version: string;
 };
 
-const packageInfo = { name: 'the-name', version: '1.0.0' } as const;
-const bearerTokenAuth = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const packageInformation = { name: 'the-name', version: '1.0.0' } as const;
+const bearerTokenAuthentication = { authentication: { type: 'bearer-token', token: 'the-token' } } as const;
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 type LatestVersionResponse = {
@@ -144,9 +141,9 @@ type LatestVersionResponse = {
     };
 };
 
-export const metadataAutoBearerAuth = {
+export const metadataAutomaticBearerAuthentication = {
     publish: { type: 'bearer-token', token: 'writer-token' },
-    metadata: 'auto'
+    metadata: 'automatic'
 } as const;
 
 export function errorWithStatus(message: string, statusCode: number): Error {
@@ -173,15 +170,15 @@ export function createRetryingMetadataFetch(statusCode: number): SinonSpy {
     });
 }
 
-type NpmOidcRegistrySettings = {
-    readonly registryUrl?: string;
-    readonly auth: {
-        readonly publish: { readonly type: 'npm-oidc'; readonly provider: 'env'; };
+type NpmOpenIdentityConnectRegistrySettings = {
+    readonly registryAddress?: string;
+    readonly authentication: {
+        readonly publish: { readonly type: 'npm-open-identity-connect'; readonly provider: 'environment'; };
         readonly metadata: 'anonymous';
     };
 };
 
-function createOidcExchangeResponse(options: OidcExchangeFetchOptions): unknown {
+function createOpenIdentityConnectExchangeResponse(options: OpenIdentityConnectExchangeFetchOptions): unknown {
     if (Object.hasOwn(options, 'response')) {
         return options.response;
     }
@@ -193,11 +190,13 @@ function createOidcExchangeResponse(options: OidcExchangeFetchOptions): unknown 
     };
 }
 
-export function createOidcExchangeFetch(options: OidcExchangeFetchOptions = {}): typeof globalThis.fetch {
+export function createOpenIdentityConnectExchangeFetch(
+    options: OpenIdentityConnectExchangeFetchOptions = {}
+): typeof globalThis.fetch {
     const response = {
         ok: options.ok ?? true,
         status: options.status ?? 201,
-        json: fake.resolves(createOidcExchangeResponse(options))
+        json: fake.resolves(createOpenIdentityConnectExchangeResponse(options))
     } as unknown as Response;
     return fake.resolves(response);
 }
@@ -206,22 +205,30 @@ export function requireFetchSpy(fetchFunction: typeof globalThis.fetch): SinonSp
     return fetchFunction as unknown as SinonSpy;
 }
 
-export function npmOidcRegistrySettings(options: RegistrySettingsOptions = {}): NpmOidcRegistrySettings {
+export function npmOpenIdentityConnectRegistrySettings(
+    options: RegistrySettingsOptions = {}
+): NpmOpenIdentityConnectRegistrySettings {
     return {
-        ...options.registryUrl === undefined ? {} : { registryUrl: options.registryUrl },
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
+        ...options.registryAddress === undefined ? {} : { registryAddress: options.registryAddress },
+        authentication: {
+            publish: { type: 'npm-open-identity-connect', provider: 'environment' },
             metadata: 'anonymous'
         }
     } as const;
 }
 
-export async function publishWithNpmOidc(
+export async function publishWithNpmOpenIdentityConnect(
     registryClient: RegistryClient,
-    publishedPackageInfo: PackageInfo = { name: '@scope/the-name', version: '1.0.0' },
-    settings: NpmOidcRegistrySettings = npmOidcRegistrySettings()
+    publishedPackageInformation: PackageInformation = { name: '@scope/the-name', version: '1.0.0' },
+    settings: NpmOpenIdentityConnectRegistrySettings = npmOpenIdentityConnectRegistrySettings()
 ): Promise<void> {
-    await registryClient.publishPackage(publishedPackageInfo, Buffer.from([]), settings, { access: 'public' }, false);
+    await registryClient.publishPackage(
+        publishedPackageInformation,
+        Buffer.from([]),
+        settings,
+        { access: 'public' },
+        false
+    );
 }
 
 export async function publishWithBearerToken(
@@ -229,7 +236,13 @@ export async function publishWithBearerToken(
     publishSettings: PublicPublishSettings,
     stage: boolean
 ): Promise<unknown> {
-    return registryClient.publishPackage(packageInfo, Buffer.from([]), bearerTokenAuth, publishSettings, stage);
+    return registryClient.publishPackage(
+        packageInformation,
+        Buffer.from([]),
+        bearerTokenAuthentication,
+        publishSettings,
+        stage
+    );
 }
 
 export function getPublishedToken(publish: SinonSpy, callIndex = 0): string {
@@ -252,7 +265,7 @@ export async function expectFailure(action: () => Promise<unknown>, expectedErro
     }
 }
 
-export function buildLatestVersionFetchJson(): SinonSpy {
+export function buildLatestVersionFetchJavaScriptObjectNotation(): SinonSpy {
     return fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -260,7 +273,7 @@ export function buildLatestVersionFetchJson(): SinonSpy {
     });
 }
 
-export function buildStagedVersionsFetchJson(
+export function buildStagedVersionsFetchJavaScriptObjectNotation(
     pages: readonly { readonly items: readonly { readonly version: string; }[]; readonly total: number; }[]
 ): SinonSpy {
     let callIndex = 0;

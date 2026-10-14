@@ -10,12 +10,16 @@ const emptyIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 function registryClient(): RegistryClient {
     return createRegistryClient({
-        npmFetch,
+        npmFetch: {
+            async javaScriptObjectNotation(address, options) {
+                return npmFetch.json(address, options);
+            }
+        },
         fetch,
         async publish() {
             throw new Error('Publishing is outside this test');
         },
-        async resolveIdToken() {
+        async resolveIdentifierToken() {
             throw new Error('OIDC is outside this test');
         },
         clock: {
@@ -36,11 +40,11 @@ suite('registry tarball redirects', function () {
             await withRegistryServer(function (_request, response) {
                 response.writeHead(302, { location: `${otherRegistry}artifact` });
                 response.end();
-            }, async function (registryUrl) {
+            }, async function (registryAddress) {
                 await assert.rejects(
-                    registryClient().fetchTarball(`${registryUrl}artifact`, emptyIntegrity, {
-                        registryUrl,
-                        auth: { type: 'bearer-token', token: 'audit-sentinel' }
+                    registryClient().fetchTarball(`${registryAddress}artifact`, emptyIntegrity, {
+                        registryAddress,
+                        authentication: { type: 'bearer-token', token: 'audit-sentinel' }
                     }),
                     /differs from the configured registry origin/u
                 );
@@ -59,10 +63,10 @@ suite('registry tarball redirects', function () {
                 return;
             }
             response.end('artifact');
-        }, async function (registryUrl) {
-            const artifact = await registryClient().fetchTarball(`${registryUrl}start`, emptyIntegrity, {
-                registryUrl,
-                auth: { type: 'basic', username: 'reader', password: 'secret' }
+        }, async function (registryAddress) {
+            const artifact = await registryClient().fetchTarball(`${registryAddress}start`, emptyIntegrity, {
+                registryAddress,
+                authentication: { type: 'basic', username: 'reader', password: 'secret' }
             });
             assert.deepStrictEqual(artifact, Buffer.from('artifact'));
         });

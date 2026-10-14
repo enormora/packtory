@@ -9,7 +9,7 @@ suite('current-git-head', function () {
             async runGitCommand(command, commandArguments) {
                 assert.strictEqual(command, 'git');
                 assert.deepStrictEqual(commandArguments, [ '-C', '/repo', 'rev-parse', '--verify', 'HEAD' ]);
-                return { stdout: 'abcdef123456\n', stderr: '' };
+                return { standardOutput: 'abcdef123456\n', standardError: '' };
             }
         });
 
@@ -20,7 +20,7 @@ suite('current-git-head', function () {
         const reader = createCurrentGitHeadReader({
             repositoryFolder: '/repo',
             async runGitCommand() {
-                return { stdout: '\n', stderr: '' };
+                return { standardOutput: '\n', standardError: '' };
             }
         });
 

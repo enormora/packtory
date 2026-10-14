@@ -13,15 +13,15 @@ function materializeInputs(entry: MutablePackageReport): Inputs {
         sourceFileCount: entry.sourceFileCount ?? 0
     };
 
-    if (entry.effectiveConfig === undefined) {
+    if (entry.effectiveConfiguration === undefined) {
         return inputs;
     }
 
-    return { ...inputs, effectiveConfig: entry.effectiveConfig };
+    return { ...inputs, effectiveConfiguration: entry.effectiveConfiguration };
 }
 
 function buildInputs(entry: MutablePackageReport): Inputs | undefined {
-    if (entry.roots === undefined && entry.effectiveConfig === undefined) {
+    if (entry.roots === undefined && entry.effectiveConfiguration === undefined) {
         return undefined;
     }
 

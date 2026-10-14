@@ -3,12 +3,12 @@ import { suite, test } from 'mocha';
 import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { MainPackageManifest } from '../configuration/package-manifest.ts';
 import type { DependencyFiles } from './dependency-graph.ts';
 import type { ModuleReference } from './source-file-references.ts';
 import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.ts';
 
-const defaultMainPackageJson: MainPackageJson = { type: 'module' };
+const defaultMainPackageManifest: MainPackageManifest = { type: 'module' };
 
 type ProjectOverrides = {
     readonly getReferencedModules?: SinonSpy;
@@ -72,14 +72,14 @@ suite('scanner', function () {
             const analyzeProject = createFakeAnalyzeProject();
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-            await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
+            await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageManifest: defaultMainPackageManifest });
 
             assertDeepSubset(analyzeProject, {
                 callCount: 1,
                 firstCall: {
-                    args: [
+                    arguments: [
                         '/foo',
-                        { resolveDeclarationFiles: false, mainPackageJson: defaultMainPackageJson }
+                        { resolveDeclarationFiles: false, mainPackageManifest: defaultMainPackageManifest }
                     ]
                 }
             });
@@ -91,15 +91,15 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/foo/bar.js', '/foo', {
                 resolveDeclarationFiles: true,
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
 
             assertDeepSubset(analyzeProject, {
                 callCount: 1,
                 firstCall: {
-                    args: [
+                    arguments: [
                         '/foo',
-                        { resolveDeclarationFiles: true, mainPackageJson: defaultMainPackageJson }
+                        { resolveDeclarationFiles: true, mainPackageManifest: defaultMainPackageManifest }
                     ]
                 }
             });
@@ -110,12 +110,12 @@ suite('scanner', function () {
             const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-            await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
+            await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageManifest: defaultMainPackageManifest });
 
             assertDeepSubset(getReferencedModules, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/bar.js' ]
+                    arguments: [ '/foo/bar.js' ]
                 }
             });
         });
@@ -126,7 +126,7 @@ suite('scanner', function () {
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
             await dependencyScanner.scanEntries([ '/foo/first.js', '/foo/second.js' ], '/foo', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
 
             assert.strictEqual(analyzeProject.callCount, 1);
@@ -148,7 +148,7 @@ suite('scanner', function () {
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
             await dependencyScanner.scanEntries([ '/foo/first.js', '/foo/second.js' ], '/foo', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
 
             assert.deepStrictEqual(
@@ -161,7 +161,7 @@ suite('scanner', function () {
     });
 
     suite('source maps', function () {
-        async function expectScanReturnsOnlyEntry(scanArgs: Parameters<DependencyScanner['scan']>): Promise<void> {
+        async function expectScanReturnsOnlyEntry(scanArguments: Parameters<DependencyScanner['scan']>): Promise<void> {
             const getReferencedModules = fake.returns([]);
             const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
             const dependencyScanner = dependencyScannerFactory({
@@ -169,7 +169,7 @@ suite('scanner', function () {
                 locate: fake.resolves(Maybe.just('/dir/foo.map'))
             });
 
-            const graph = await dependencyScanner.scan(...scanArgs);
+            const graph = await dependencyScanner.scan(...scanArguments);
             const result = graph.flatten('/dir/entry.js');
 
             assert.partialDeepStrictEqual(result, {
@@ -179,14 +179,16 @@ suite('scanner', function () {
         }
 
         test('returns no dependencies if the given file doesn’t have any dependencies', async function () {
-            await expectScanReturnsOnlyEntry([ '/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson } ]);
+            await expectScanReturnsOnlyEntry([ '/dir/entry.js', '/dir', {
+                mainPackageManifest: defaultMainPackageManifest
+            } ]);
         });
 
         test('doesn’t try to locate source map files by default', async function () {
             const locate = fake.resolves(Maybe.nothing());
             const dependencyScanner = dependencyScannerFactory({ locate });
 
-            await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
+            await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageManifest: defaultMainPackageManifest });
 
             assert.strictEqual(locate.callCount, 0);
         });
@@ -205,16 +207,16 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/dir/entry.js', '/dir', {
                 includeSourceMapFiles: true,
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
 
             assertDeepSubset(locate, {
                 callCount: 2,
                 firstCall: {
-                    args: [ '/dir/entry.js', '/dir' ]
+                    arguments: [ '/dir/entry.js', '/dir' ]
                 },
                 secondCall: {
-                    args: [ '/dir/foo.js', '/dir' ]
+                    arguments: [ '/dir/foo.js', '/dir' ]
                 }
             });
         });
@@ -226,7 +228,7 @@ suite('scanner', function () {
 
             const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
                 includeSourceMapFiles: true,
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
             return graph.flatten('/dir/entry.js');
         }
@@ -262,7 +264,7 @@ suite('scanner', function () {
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
             const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
             const result = graph.flatten('/dir/entry.js');
 
@@ -292,20 +294,20 @@ suite('scanner', function () {
             });
 
             const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
             const result = graph.flatten('/dir/entry.js');
 
             assertDeepSubset(getReferencedModules, {
                 callCount: 4,
                 firstCall: {
-                    args: [ '/dir/entry.js' ]
+                    arguments: [ '/dir/entry.js' ]
                 },
                 secondCall: {
-                    args: [ '/dir/foo.js' ]
+                    arguments: [ '/dir/foo.js' ]
                 },
                 thirdCall: {
-                    args: [ '/dir/bar.js' ]
+                    arguments: [ '/dir/bar.js' ]
                 }
             });
             assert.deepStrictEqual(getReferencedModules.getCall(3).args, [ '/dir/baz.js' ]);
@@ -329,7 +331,7 @@ suite('scanner', function () {
             const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
             const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
             return graph.flatten('/dir/entry.js');
         }
@@ -340,7 +342,7 @@ suite('scanner', function () {
             });
 
             const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageJson: defaultMainPackageJson
+                mainPackageManifest: defaultMainPackageManifest
             });
 
             return graph.flatten('/dir/entry.js');

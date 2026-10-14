@@ -1,19 +1,25 @@
-import fs from 'node:fs';
-import { execFile, type ExecFileException } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import fileSystem from 'node:fs';
+import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { InMemoryFileSystemHost, RealFileSystemHost, type FileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
-import { getProxyForUrl } from 'proxy-from-env';
+import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
-import { createRegistryJsonFetch, withRegistryTransport } from '../bundle-emitter/registry/registry-transport.ts';
+import {
+    createRegistryJavaScriptObjectNotationFetch,
+    withRegistryTransport
+} from '../bundle-emitter/registry/registry-transport.ts';
 import { createPackEmitter, type PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import { createVendorMaterializer, type VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
-import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
+import {
+    getContinuousIntegrationRepositoryAddress,
+    type ContinuousIntegrationEnvironment
+} from '../bundle-emitter/repository-coherence.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
@@ -29,7 +35,7 @@ import {
     type PublishedArtifactSmokeGateDependencies,
     type SmokeProbeInput
 } from '../packtory/published-artifact-smoke-gate.ts';
-import type { VersionSourceResolver } from '../packtory/map-config.ts';
+import type { VersionSourceResolver } from '../packtory/map-configuration.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
@@ -43,28 +49,31 @@ import {
     createGitCommandRunner,
     spawnChildProcessGitCommand
 } from '../git/git-command.ts';
-import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
-import { createLicenseResolver } from '../sbom/license-resolver.ts';
-import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
-import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
-import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
+import * as npmIdentity from '../npm-open-identity-connect-identifier-token-resolver.ts';
+import { createLicenseResolver } from '../software-bill-of-materials/license-resolver.ts';
+import {
+    createSoftwareBillOfMaterialsFileBuilder,
+    type SoftwareBillOfMaterialsFileBuilder
+} from '../software-bill-of-materials/software-bill-of-materials-file.ts';
+import * as inventory from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
+import { createPacktoryToolVersionResolver } from '../software-bill-of-materials/tool-version.ts';
 
-async function importPackageJson(specifier: string): Promise<unknown> {
+async function importPackageManifest(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
 }
 
-function outputErrorMessage(stdout: string, stderr: string): string | undefined {
-    const stderrOutput = stderr.trim();
-    const stdoutOutput = stdout.trim();
-    if (stderrOutput.length > 0) {
-        return stderrOutput;
+function outputErrorMessage(standardOutput: string, standardError: string): string | undefined {
+    const standardErrorOutput = standardError.trim();
+    const standardOutputOutput = standardOutput.trim();
+    if (standardErrorOutput.length > 0) {
+        return standardErrorOutput;
     }
-    return stdoutOutput.length > 0 ? stdoutOutput : undefined;
+    return standardOutputOutput.length > 0 ? standardOutputOutput : undefined;
 }
 
-function noOutputImportProbeErrorMessage(error: ExecFileException, timeoutMs: number): string {
+function noOutputImportProbeErrorMessage(error: ExecuteFileException, timeoutMilliseconds: number): string {
     if (error.killed === true && error.signal === 'SIGTERM') {
-        return `Import probe timed out after ${String(timeoutMs)} ms without output.`;
+        return `Import probe timed out after ${String(timeoutMilliseconds)} ms without output.`;
     }
     if (error.code !== undefined && error.code !== null) {
         return `Import probe exited with code ${String(error.code)} without output.`;
@@ -75,8 +84,14 @@ function noOutputImportProbeErrorMessage(error: ExecFileException, timeoutMs: nu
     return error.message;
 }
 
-function importProbeErrorMessage(error: ExecFileException, stdout: string, stderr: string, timeoutMs: number): string {
-    return outputErrorMessage(stdout, stderr) ?? noOutputImportProbeErrorMessage(error, timeoutMs);
+function importProbeErrorMessage(
+    error: ExecuteFileException,
+    standardOutput: string,
+    standardError: string,
+    timeoutMilliseconds: number
+): string {
+    return outputErrorMessage(standardOutput, standardError) ??
+        noOutputImportProbeErrorMessage(error, timeoutMilliseconds);
 }
 
 async function runImportProbe(input: SmokeProbeInput): Promise<void> {
@@ -89,16 +104,18 @@ async function runImportProbe(input: SmokeProbeInput): Promise<void> {
         }
     `;
     return new Promise(function (resolve, reject) {
-        execFile(
+        executeFile(
             process.execPath,
             [ '--experimental-strip-types', '--enable-source-maps', '--input-type=module', '-e', script ],
-            { cwd: input.cwd, encoding: 'utf8', timeout: input.timeoutMs },
-            function (error, stdout, stderr) {
+            { cwd: input.cwd, encoding: 'utf8', timeout: input.timeoutMilliseconds },
+            function (error, standardOutput, standardError) {
                 if (error === null) {
                     resolve();
                     return;
                 }
-                reject(new Error(importProbeErrorMessage(error, stdout, stderr, input.timeoutMs)));
+                reject(
+                    new Error(importProbeErrorMessage(error, standardOutput, standardError, input.timeoutMilliseconds))
+                );
             }
         );
     });
@@ -109,16 +126,16 @@ async function linkDirectory(
     targetPath: string,
     type: PublishedArtifactSmokeGateDependencies['dependencyLinkType']
 ): Promise<void> {
-    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-    await fs.promises.symlink(sourcePath, targetPath, type);
+    await fileSystem.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    await fileSystem.promises.symlink(sourcePath, targetPath, type);
 }
 
 async function createTemporaryFolder(prefix: string): Promise<string> {
-    return await fs.promises.mkdtemp(path.join(tmpdir(), prefix));
+    return await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), prefix));
 }
 
 async function removeFolder(folderPath: string): Promise<void> {
-    await fs.promises.rm(folderPath, { recursive: true, force: true });
+    await fileSystem.promises.rm(folderPath, { recursive: true, force: true });
 }
 
 export type PackageProcessorComposition = {
@@ -136,7 +153,7 @@ export type PackageProcessorComposition = {
 
 export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
-    readonly ciEnvironment: CiEnvironment;
+    readonly continuousIntegrationEnvironment: ContinuousIntegrationEnvironment;
     readonly repositoryFolder?: string | undefined;
     readonly resolveVersionSource?: VersionSourceResolver | undefined;
 };
@@ -159,10 +176,10 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
 
 function buildRegistryClient(options: PackageProcessorCompositionOptions, clock: Clock): RegistryClient {
     return createRegistryClient({
-        npmFetch: createRegistryJsonFetch({ npmFetch, resolveProxy: getProxyForUrl, clock }),
+        npmFetch: createRegistryJavaScriptObjectNotationFetch({ npmFetch, resolveProxy: getProxyForAddress, clock }),
         async publish(manifest, tarData, publishOptions) {
             return withRegistryTransport(
-                { resolveProxy: getProxyForUrl, clock },
+                { resolveProxy: getProxyForAddress, clock },
                 publishOptions ?? {},
                 async function (requestOptions) {
                     return publish(manifest, tarData, requestOptions);
@@ -171,7 +188,7 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
         },
         fetch,
         clock,
-        resolveIdToken: createNpmOidcIdTokenResolver({
+        resolveIdentifierToken: npmIdentity.createNpmOpenIdentityConnectIdentifierTokenResolver({
             fetch,
             getEnvironmentVariable
         }),
@@ -179,11 +196,11 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
     });
 }
 
-function buildSbomFileBuilder(fileManager: FileManager): SbomFileBuilder {
-    return createSbomFileBuilder({
+function buildSoftwareBillOfMaterialsFileBuilder(fileManager: FileManager): SoftwareBillOfMaterialsFileBuilder {
+    return createSoftwareBillOfMaterialsFileBuilder({
         licenseResolver: createLicenseResolver({ fileManager }),
-        sbomSerializer: createSbomSerializer(),
-        toolVersionProvider: createPacktoryToolVersionResolver({ importPackageJson }),
+        softwareBillOfMaterialsSerializer: inventory.createSoftwareBillOfMaterialsSerializer(),
+        toolVersionProvider: createPacktoryToolVersionResolver({ importPackageManifest }),
         projectFolder: process.cwd()
     });
 }
@@ -197,12 +214,14 @@ function buildBundleEmitter(
     return createBundleEmitter({
         registryClient,
         artifactsBuilder,
-        ciRepositoryUrl: getCiRepositoryUrl(options.ciEnvironment),
+        continuousIntegrationRepositoryAddress: getContinuousIntegrationRepositoryAddress(
+            options.continuousIntegrationEnvironment
+        ),
         readCurrentGitHead
     });
 }
 
-function createDeadCodeEliminationProject(fileSystem: FileSystemHost): Project {
+function createDeadCodeEliminationProject(hostFileSystem: FileSystemHost): Project {
     return new Project({
         compilerOptions: {
             allowJs: true,
@@ -213,7 +232,7 @@ function createDeadCodeEliminationProject(fileSystem: FileSystemHost): Project {
             moduleResolution: ModuleResolutionKind.Node16
         },
         skipLoadingLibFiles: true,
-        fileSystem
+        fileSystem: hostFileSystem
     });
 }
 
@@ -233,7 +252,7 @@ type CompositionParts = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly bundleEmitter: BundleEmitter;
     readonly resourceResolver: ResourceResolver;
-    readonly sbomFileBuilder: SbomFileBuilder;
+    readonly softwareBillOfMaterialsFileBuilder: SoftwareBillOfMaterialsFileBuilder;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly readCurrentGitHead: CurrentGitHeadReader;
     readonly repositoryFolder: string;
@@ -241,7 +260,7 @@ type CompositionParts = {
 
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
     const repositoryFolder = options.repositoryFolder ?? process.cwd();
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
     const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
     const readCurrentGitHead = createCurrentGitHeadReader({
         repositoryFolder,
@@ -261,7 +280,7 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
         artifactsBuilder,
         bundleEmitter: buildBundleEmitter(options, artifactsBuilder, readCurrentGitHead),
         resourceResolver: createResourceResolver({ fileManager, dependencyScanner }),
-        sbomFileBuilder: buildSbomFileBuilder(fileManager),
+        softwareBillOfMaterialsFileBuilder: buildSoftwareBillOfMaterialsFileBuilder(fileManager),
         deadCodeEliminator: buildDeadCodeEliminator(progressBroadcaster),
         readCurrentGitHead,
         repositoryFolder
@@ -279,7 +298,7 @@ export function buildPackageProcessorComposition(
         bundleEmitter: parts.bundleEmitter,
         linker: createBundleLinker(),
         resourceResolver: parts.resourceResolver,
-        sbomFileBuilder: parts.sbomFileBuilder,
+        softwareBillOfMaterialsFileBuilder: parts.softwareBillOfMaterialsFileBuilder,
         deadCodeEliminator: parts.deadCodeEliminator,
         fileManager: parts.fileManager,
         publishedArtifactSmokeGate: createPublishedArtifactSmokeGate({

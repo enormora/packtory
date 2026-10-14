@@ -58,8 +58,8 @@ function summarize(options: SummarizeOptions): readonly string[] {
     });
 
     return summarizeDeclarationIntegrity(
-        'pkg',
-        checkPublishedPackage('pkg', options.manifestContent, options.files),
+        'package',
+        checkPublishedPackage('package', options.manifestContent, options.files),
         options.declarationMode,
         new Map()
     );
@@ -79,13 +79,13 @@ suite('type-script-declaration-integrity', function () {
         });
 
         summarizeDeclarationIntegrity(
-            'pkg',
-            checkPublishedPackage('pkg', '{"types":"./index.d.ts"}', { 'index.d.ts': 'export {};\n' }),
+            'package',
+            checkPublishedPackage('package', '{"types":"./index.d.ts"}', { 'index.d.ts': 'export {};\n' }),
             'all',
             new Map([
                 [
-                    'pkg',
-                    checkPublishedPackage('pkg', '{"types":"./index.d.ts"}', {
+                    'package',
+                    checkPublishedPackage('package', '{"types":"./index.d.ts"}', {
                         'index.d.ts': 'export {};\n'
                     })
                 ],
@@ -99,7 +99,7 @@ suite('type-script-declaration-integrity', function () {
         );
 
         assert.deepStrictEqual(createDeclarationProjects.args, [ [
-            'pkg',
+            'package',
             [
                 { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
                 { filePath: 'index.d.ts', content: 'export {};\n' }
@@ -128,9 +128,9 @@ suite('type-script-declaration-integrity', function () {
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity in node16-esm: index.d.ts:1 TS2305: ' +
+            'Package "package" failed TypeScript integrity in node16-esm: index.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'.",
-            'Package "pkg" failed TypeScript integrity in bundler: index.d.ts:1 TS2305: ' +
+            'Package "package" failed TypeScript integrity in bundler: index.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
     });
@@ -153,7 +153,7 @@ suite('type-script-declaration-integrity', function () {
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity in node16-esm: index.d.ts:7 TS2430: incompatible\n  details'
+            'Package "package" failed TypeScript integrity in node16-esm: index.d.ts:7 TS2430: incompatible\n  details'
         ]);
     });
 
@@ -186,7 +186,7 @@ suite('type-script-declaration-integrity', function () {
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity in node16-esm: internal.d.ts:1 TS2305: ' +
+            'Package "package" failed TypeScript integrity in node16-esm: internal.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
     });
@@ -228,7 +228,7 @@ suite('type-script-declaration-integrity', function () {
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity in node16-esm: reachable.d.ts:1 TS2305: ' +
+            'Package "package" failed TypeScript integrity in node16-esm: reachable.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
     });
@@ -249,7 +249,7 @@ suite('type-script-declaration-integrity', function () {
         });
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" failed TypeScript integrity in node16-esm: .packtory-consumer-entrypoints.ts:1 TS2305: ' +
+            'Package "package" failed TypeScript integrity in node16-esm: .packtory-consumer-entrypoints.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
     });

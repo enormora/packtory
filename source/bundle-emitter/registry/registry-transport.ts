@@ -1,14 +1,14 @@
 import type { Clock } from '../../common/clock.ts';
 import { createRegistryAgent, type RegistryProxyResolver } from './registry-agent.ts';
-import { npmRegistryUrl, type NpmFetchOptions } from './registry-auth-config.ts';
+import { npmRegistryAddress, type NpmFetchOptions } from './registry-authentication-configuration.ts';
 
 type RegistryRequestOptions = Readonly<Record<string, unknown>>;
 type TransportDependencies = {
     readonly resolveProxy: RegistryProxyResolver;
     readonly clock: Clock;
 };
-type RegistryJsonDependencies = TransportDependencies & {
-    readonly npmFetch: (url: string, options: NpmFetchOptions) => Promise<RegistryResponse>;
+type RegistryJavaScriptObjectNotationDependencies = TransportDependencies & {
+    readonly npmFetch: (address: string, options: NpmFetchOptions) => Promise<RegistryResponse>;
 };
 type RegistryResponse = {
     readonly body: unknown;
@@ -30,7 +30,7 @@ function assertMetadataChunk(chunk: unknown, receivedBytes: number): asserts chu
     }
 }
 
-async function readRegistryJson(response: RegistryResponse): Promise<unknown> {
+async function readRegistryJavaScriptObjectNotation(response: RegistryResponse): Promise<unknown> {
     const chunks: Uint8Array[] = [];
     let receivedBytes = 0;
     if (!isResponseStream(response.body)) {
@@ -49,7 +49,7 @@ export async function withRegistryTransport<T>(
     options: RegistryRequestOptions,
     request: (options: RegistryRequestOptions) => Promise<T>
 ): Promise<T> {
-    const registry = typeof options.registry === 'string' ? options.registry : npmRegistryUrl;
+    const registry = typeof options.registry === 'string' ? options.registry : npmRegistryAddress;
     const agent = createRegistryAgent(registry, dependencies.resolveProxy);
     const controller = new AbortController();
     const timeout = dependencies.clock.setTimeout(function () {
@@ -66,15 +66,17 @@ export async function withRegistryTransport<T>(
     }
 }
 
-type RegistryJsonFetch = {
-    readonly json: (url: string, options: NpmFetchOptions) => Promise<unknown>;
+type RegistryJavaScriptObjectNotationFetch = {
+    readonly javaScriptObjectNotation: (address: string, options: NpmFetchOptions) => Promise<unknown>;
 };
 
-export function createRegistryJsonFetch(dependencies: RegistryJsonDependencies): RegistryJsonFetch {
+export function createRegistryJavaScriptObjectNotationFetch(
+    dependencies: RegistryJavaScriptObjectNotationDependencies
+): RegistryJavaScriptObjectNotationFetch {
     return {
-        async json(url, options) {
+        async javaScriptObjectNotation(address, options) {
             return withRegistryTransport(dependencies, options, async function (requestOptions) {
-                return readRegistryJson(await dependencies.npmFetch(url, requestOptions));
+                return readRegistryJavaScriptObjectNotation(await dependencies.npmFetch(address, requestOptions));
             });
         }
     };

@@ -32,35 +32,35 @@ function renderStopLine(status: Status, label: string, message: string): string 
 
 export function createLineSpinnerRenderer(dependencies: LineSpinnerRendererDependencies): TerminalSpinnerRenderer {
     const { log } = dependencies;
-    const labelsById = new Map<string, string>();
+    const labelsByIdentifier = new Map<string, string>();
 
-    function getLabel(id: string): string {
-        const label = labelsById.get(id);
+    function getLabel(identifier: string): string {
+        const label = labelsByIdentifier.get(identifier);
         if (label !== undefined) {
             return label;
         }
-        throw new Error(`Spinner with id ${id} does not exist`);
+        throw new Error(`Spinner with id ${identifier} does not exist`);
     }
 
     return {
-        add(id, label, message) {
-            if (labelsById.has(id)) {
-                throw new Error(`Spinner with id ${id} already exists`);
+        add(identifier, label, message) {
+            if (labelsByIdentifier.has(identifier)) {
+                throw new Error(`Spinner with id ${identifier} already exists`);
             }
-            labelsById.set(id, label);
+            labelsByIdentifier.set(identifier, label);
             log(renderProgressLine(label, message));
         },
 
-        updateMessage(id, message) {
-            log(renderProgressLine(getLabel(id), message));
+        updateMessage(identifier, message) {
+            log(renderProgressLine(getLabel(identifier), message));
         },
 
-        stop(id, status, message) {
-            log(renderStopLine(status, getLabel(id), message));
+        stop(identifier, status, message) {
+            log(renderStopLine(status, getLabel(identifier), message));
         },
 
         stopAll() {
-            labelsById.clear();
+            labelsByIdentifier.clear();
         }
     };
 }

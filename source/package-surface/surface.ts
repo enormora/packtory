@@ -1,4 +1,4 @@
-import type { PackageInterface } from '../config/package-interface.ts';
+import type { PackageInterface } from '../configuration/package-interface.ts';
 
 export type ImplicitPackageSurface = {
     readonly mode: 'implicit';

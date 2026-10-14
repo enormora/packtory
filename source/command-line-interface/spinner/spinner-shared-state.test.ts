@@ -62,9 +62,9 @@ type ControlledAtomicsOverrides = {
         index: number,
         realLoad: SpinnerSharedAtomics['load']
     ) => number;
-    readonly wait?: (input: ControlledWaitArgs) => WaitResult;
+    readonly wait?: (input: ControlledWaitArguments) => WaitResult;
 };
-type ControlledWaitArgs = {
+type ControlledWaitArguments = {
     readonly typedArray: Int32Array;
     readonly index: number;
     readonly value: number;
@@ -181,12 +181,12 @@ suite('spinner-shared-state', function () {
             assert.strictEqual(accessors.getColumns(), 120);
         });
 
-        test('setIntervalMs and getIntervalMs round-trip the value', function () {
+        test('setIntervalMilliseconds and getIntervalMilliseconds round-trip the value', function () {
             const accessors = createAccessors();
 
-            accessors.setIntervalMs(50);
+            accessors.setIntervalMilliseconds(50);
 
-            assert.strictEqual(accessors.getIntervalMs(), 50);
+            assert.strictEqual(accessors.getIntervalMilliseconds(), 50);
         });
 
         test('markMutation increments and getLatestMutation reads the latest mutation number', function () {
@@ -461,7 +461,7 @@ suite('spinner-shared-state', function () {
                 }
             });
             const accessors = createAccessors(4, { atomics });
-            accessors.writeSlot(0, 'running', 'pkg', 'building');
+            accessors.writeSlot(0, 'running', 'package', 'building');
 
             assert.throws(function () {
                 accessors.readSlot(0);

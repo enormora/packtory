@@ -169,7 +169,7 @@ suite('file-set-diff', function () {
     suite('text hunks', function () {
         test('builds a single-line content change', function () {
             const hunk = singleHunk(
-                singleTextChange([ file('src/index.ts', 'one\n') ], [ file('src/index.ts', 'two\n') ])
+                singleTextChange([ file('source/index.ts', 'one\n') ], [ file('source/index.ts', 'two\n') ])
             );
             const addLine = hunk.lines.find(function (line) {
                 return line.type === 'add';
@@ -185,8 +185,8 @@ suite('file-set-diff', function () {
 
         test('strips no-newline markers', function () {
             const change = singleTextChange(
-                [ file('src/index.ts', 'one') ],
-                [ file('src/index.ts', 'two') ]
+                [ file('source/index.ts', 'one') ],
+                [ file('source/index.ts', 'two') ]
             );
             const hunkLines = change.hunks.flatMap(function (hunk) {
                 return hunk.lines;

@@ -1,5 +1,5 @@
 import type { SourceFile } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectStatement } from '../analyzed-bundle.ts';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import { classifySideEffects } from '../side-effect-classifier.ts';

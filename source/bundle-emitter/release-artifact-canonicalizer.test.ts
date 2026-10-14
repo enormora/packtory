@@ -14,15 +14,15 @@ function canonicalizePackageManifest(filePath: string, content: string): string 
 suite('release-artifact-canonicalizer', function () {
     test('removes top-level gitHead from root package manifests', function () {
         assert.strictEqual(
-            canonicalizePackageManifest('package.json', '{"name":"pkg","gitHead":"abcdef","version":"1.0.0"}'),
-            [ '{', '    "name": "pkg",', '    "version": "1.0.0"', '}' ].join('\n')
+            canonicalizePackageManifest('package.json', '{"name":"package","gitHead":"abcdef","version":"1.0.0"}'),
+            [ '{', '    "name": "package",', '    "version": "1.0.0"', '}' ].join('\n')
         );
     });
 
     test('removes top-level gitHead from package-prefixed manifests', function () {
         assert.strictEqual(
-            canonicalizePackageManifest('package/package.json', '{"name":"pkg","gitHead":"abcdef"}'),
-            [ '{', '    "name": "pkg"', '}' ].join('\n')
+            canonicalizePackageManifest('package/package.json', '{"name":"package","gitHead":"abcdef"}'),
+            [ '{', '    "name": "package"', '}' ].join('\n')
         );
     });
 

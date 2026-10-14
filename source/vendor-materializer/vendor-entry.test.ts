@@ -5,16 +5,16 @@ import { applyPrefixToVendorEntry, validateVendorEntrySource } from './vendor-en
 suite('vendor-entry', function () {
     test('prepends the supplied prefix to the target relative path while preserving the other fields', function () {
         const prefixed = applyPrefixToVendorEntry('package', {
-            sourceAbsolutePath: '/src/index.js',
-            sourcePackageRootPath: '/src',
-            targetRelativePath: 'node_modules/pkg/index.js',
+            sourceAbsolutePath: '/source/index.js',
+            sourcePackageRootPath: '/source',
+            targetRelativePath: 'node_modules/package/index.js',
             isExecutable: true
         });
 
         assert.deepStrictEqual(prefixed, {
-            sourceAbsolutePath: '/src/index.js',
-            sourcePackageRootPath: '/src',
-            targetRelativePath: 'package/node_modules/pkg/index.js',
+            sourceAbsolutePath: '/source/index.js',
+            sourcePackageRootPath: '/source',
+            targetRelativePath: 'package/node_modules/package/index.js',
             isExecutable: true
         });
     });
@@ -26,18 +26,18 @@ suite('vendor-entry', function () {
             {
                 async getRealPath(path) {
                     requestedPath = path;
-                    return '/src';
+                    return '/source';
                 }
             },
             {
-                sourceAbsolutePath: '/src',
-                sourcePackageRootPath: '/src',
-                targetRelativePath: 'node_modules/pkg',
+                sourceAbsolutePath: '/source',
+                sourcePackageRootPath: '/source',
+                targetRelativePath: 'node_modules/package',
                 isExecutable: true
             }
         );
 
-        assert.strictEqual(requestedPath, '/src');
+        assert.strictEqual(requestedPath, '/source');
     });
 
     test('rejects a vendored source path that resolves outside the package root', async function () {
@@ -46,19 +46,19 @@ suite('vendor-entry', function () {
                 await validateVendorEntrySource(
                     {
                         async getRealPath() {
-                            return '/src/pkg-other/index.js';
+                            return '/source/package-other/index.js';
                         }
                     },
                     {
-                        sourceAbsolutePath: '/src/pkg/index.js',
-                        sourcePackageRootPath: '/src/pkg',
-                        targetRelativePath: 'node_modules/pkg/index.js',
+                        sourceAbsolutePath: '/source/package/index.js',
+                        sourcePackageRootPath: '/source/package',
+                        targetRelativePath: 'node_modules/package/index.js',
                         isExecutable: false
                     }
                 );
             },
             {
-                message: 'Vendored file "/src/pkg/index.js" resolved outside package root "/src/pkg"'
+                message: 'Vendored file "/source/package/index.js" resolved outside package root "/source/package"'
             }
         );
     });

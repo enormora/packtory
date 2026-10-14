@@ -1,354 +1,22 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
-import { Maybe, Result } from 'true-myth';
-import { fakeCheckRunner } from '../test-libraries/check-fixtures.ts';
+import { fake } from 'sinon';
+import { Result } from 'true-myth';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import {
-    analyzedBundleResource,
-    bundleResource,
-    linkedBundle,
-    versionedBundleWithManifest,
-    type BundleFixtureLinkedBundle,
-    type BundleFixtureVersionedBundleWithManifest
-} from '../test-libraries/bundle-fixtures.ts';
-import { createTestEliminator, type TestEliminator } from '../test-libraries/eliminator-fixtures.ts';
+    createConfigurationWithoutRegistry,
+    createConfigurationWithRegistry,
+    createLinkedBundle,
+    createPacktoryUnderTest,
+    createPureSideEffectsEliminator,
+    twoPackageEntries,
+    type PacktoryUnderTest,
+    type ResolveOptionsInput
+} from '../test-libraries/package-orchestration-fixtures.ts';
 import {
-    createTestProgressBroadcaster,
-    type TestProgressBroadcaster,
-    getErrResult,
+    getErrorResult,
     getOkResult
 } from '../test-libraries/result-helpers.ts';
-import { createPacktory, type Packtory } from './packtory.ts';
-
-type PublicationOutcome = { readonly type: 'none'; } | { readonly type: 'published'; };
-type ProgressEventInput = {
-    readonly packageName: string;
-    readonly result: unknown;
-    readonly options: unknown;
-};
-
-type ProgressEvent = {
-    readonly version: string;
-    readonly status: 'already-published' | 'initial-version' | 'new-version';
-    readonly publication: PublicationOutcome;
-};
-
-type StageResultList = readonly unknown[] & {
-    readonly push: (value: unknown) => unknown;
-};
-
-type StageCreateOptionsInput = {
-    readonly packageName: string;
-    readonly existing: StageResultList;
-    readonly config: unknown;
-};
-
-type SelectNextInput = {
-    readonly result: unknown;
-    readonly options: unknown;
-};
-
-type PackageEntryConfig = {
-    readonly name: string;
-};
-
-type SchedulerConfig = {
-    readonly packtoryConfig: { readonly packages: readonly PackageEntryConfig[]; };
-};
-
-type TestProgressBroadcasterFixture = TestProgressBroadcaster;
-
-type TestDeadCodeEliminator = TestEliminator;
-
-type TestPackageProcessor = {
-    readonly resolveAndLink: SinonSpy;
-    readonly resolveAndLinkWithPromotedDeclarationCompanions: SinonSpy;
-    readonly tryBuildAndPublish: SinonSpy;
-    readonly buildAndPublish: SinonSpy;
-    readonly publishPreparedPackage: SinonSpy;
-    readonly build: () => Promise<never>;
-};
-
-type CollectContents = () => readonly {
-    readonly filePath: string;
-    readonly content: string;
-    readonly isExecutable: boolean;
-}[];
-
-type ResolveOptionsInput = {
-    readonly name: string;
-};
-
-type BuildOptionsInput = {
-    readonly buildOptions: { readonly name: string; };
-};
-
-const noPublicationOutcome: Extract<PublicationOutcome, { readonly type: 'none'; }> = { type: 'none' };
-const publishedOutcome: Extract<PublicationOutcome, { readonly type: 'published'; }> = { type: 'published' };
-
-const releasePlanFileReader = {
-    async checkDirectory() {
-        return { exists: false as const };
-    },
-    async checkReadability() {
-        return { isReadable: true };
-    },
-    async readFile() {
-        return '';
-    }
-};
-
-function createLinkedBundle(name: string, inputFilePath = `/${name}/index.js`): BundleFixtureLinkedBundle {
-    return linkedBundle({
-        name,
-        contents: [ { ...bundleResource(inputFilePath, { targetFilePath: 'index.js' }), isSubstituted: false } ],
-        roots: { main: { js: { inputFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } } }
-    });
-}
-
-function createVersionedBundle(name: string, version = '1.0.0'): BundleFixtureVersionedBundleWithManifest {
-    return versionedBundleWithManifest({
-        name,
-        version,
-        mainFile: { inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
-        packageJson: { name, version },
-        manifestFile: { filePath: 'package.json', content: '{}' }
-    });
-}
-
-function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return {
-        commonPackageSettings: {
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
-            publishSettings: { access: 'public' }
-        },
-        packages: [ { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } } ],
-        ...overrides
-    };
-}
-
-function createConfigWithRegistry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return {
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        ...createConfigWithoutRegistry(),
-        ...overrides
-    };
-}
-
-type CreateProgressEvent = (input: ProgressEventInput) => ProgressEvent;
-
-type StageInput = {
-    readonly createOptions: (context: StageCreateOptionsInput) => unknown;
-    readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (input: SelectNextInput) => unknown;
-    readonly createProgressEvent?: CreateProgressEvent | undefined;
-    readonly config: SchedulerConfig;
-};
-
-type SchedulerOverrides = {
-    readonly resolveStage?: (input: StageInput) => Promise<Result<readonly unknown[], unknown>>;
-    readonly publishStage?: (input: StageInput) => Promise<Result<readonly unknown[], unknown>>;
-};
-
-type PacktoryFactoryOverrides = SchedulerOverrides & {
-    readonly collectContents?: CollectContents;
-    readonly resolveAndLink?: SinonSpy;
-    readonly tryBuildAndPublish?: SinonSpy;
-    readonly buildAndPublish?: SinonSpy;
-    readonly deadCodeEliminator?: TestDeadCodeEliminator;
-    readonly packEmitterPack?: SinonSpy;
-    readonly versionManagerAddVersion?: SinonSpy;
-};
-
-type ScheduledStageInput = StageInput & {
-    readonly emitScheduledEvents?: boolean;
-};
-
-type DefaultRunStage = (input: StageInput) => Promise<Result<unknown[], never>>;
-
-type PacktoryUnderTest = {
-    readonly packtory: Packtory;
-    readonly resolveAndLink: SinonSpy;
-    readonly tryBuildAndPublish: SinonSpy;
-    readonly buildAndPublish: SinonSpy;
-    readonly scheduler: {
-        readonly runForEachScheduledPackage: SinonSpy;
-    };
-    readonly progressBroadcaster: TestProgressBroadcasterFixture;
-};
-
-type TestPackageEntry = {
-    readonly name: string;
-    readonly roots: { readonly main: { readonly js: string; }; };
-};
-
-const twoPackageEntries: readonly TestPackageEntry[] = [
-    { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } },
-    { name: 'package-b', roots: { main: { js: 'package-b/index.js' } } }
-];
-
-function fallback<TValue>(value: TValue | undefined, defaultValue: TValue): TValue {
-    return value ?? defaultValue;
-}
-
-function createResolveAndLinkSpy(): SinonSpy {
-    return fake(async function (options: ResolveOptionsInput) {
-        return createLinkedBundle(options.name);
-    });
-}
-
-function createTryBuildAndPublishSpy(): SinonSpy {
-    return fake(async function (options: BuildOptionsInput) {
-        return {
-            bundle: createVersionedBundle(options.buildOptions.name),
-            status: 'initial-version' as const,
-            publication: noPublicationOutcome,
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.nothing()
-        };
-    });
-}
-
-function createBuildAndPublishSpy(): SinonSpy {
-    return fake(async function (options: BuildOptionsInput) {
-        return {
-            bundle: createVersionedBundle(options.buildOptions.name),
-            status: 'new-version' as const,
-            publication: publishedOutcome,
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.nothing()
-        };
-    });
-}
-
-function createDefaultRunStage(): DefaultRunStage {
-    return async function (input: StageInput): Promise<Result<unknown[], never>> {
-        const existing: unknown[] = [];
-        const results: unknown[] = [];
-
-        for (const packageConfig of input.config.packtoryConfig.packages) {
-            const options = input.createOptions({
-                packageName: packageConfig.name,
-                existing,
-                config: input.config
-            });
-            const result = await input.execute(options);
-            input.createProgressEvent?.({ packageName: packageConfig.name, result, options });
-            existing.push(input.selectNext({ result, options }));
-            results.push(result);
-        }
-
-        return Result.ok(results);
-    };
-}
-
-async function runScheduledStage(
-    input: ScheduledStageInput,
-    overrides: SchedulerOverrides,
-    defaultRunStage: DefaultRunStage
-): Promise<Result<readonly unknown[], unknown>> {
-    if (input.emitScheduledEvents === false) {
-        return overrides.publishStage === undefined ? defaultRunStage(input) : overrides.publishStage(input);
-    }
-    return overrides.resolveStage === undefined ? defaultRunStage(input) : overrides.resolveStage(input);
-}
-
-function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): PacktoryUnderTest {
-    const resolveAndLink = fallback(overrides.resolveAndLink, createResolveAndLinkSpy());
-    const tryBuildAndPublish = fallback(overrides.tryBuildAndPublish, createTryBuildAndPublishSpy());
-    const buildAndPublish = fallback(overrides.buildAndPublish, createBuildAndPublishSpy());
-    const defaultRunStage = createDefaultRunStage();
-
-    const scheduler = {
-        runForEachScheduledPackage: fake(
-            async function (input: ScheduledStageInput) {
-                return runScheduledStage(input, overrides, defaultRunStage);
-            }
-        )
-    };
-    const packageProcessor: TestPackageProcessor = {
-        resolveAndLink,
-        resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,
-        tryBuildAndPublish,
-        buildAndPublish,
-        publishPreparedPackage: buildAndPublish,
-        async build() {
-            throw new Error('Not implemented in tests');
-        }
-    };
-
-    const progressBroadcaster = createTestProgressBroadcaster();
-    return {
-        packtory: createPacktory({
-            packageProcessor,
-            scheduler: scheduler as never,
-            deadCodeEliminator: fallback(overrides.deadCodeEliminator, createTestEliminator()),
-            progressBroadcaster,
-            artifactsBuilder: {
-                collectContents: fallback(overrides.collectContents, function () {
-                    return [];
-                })
-            },
-            fileManager: releasePlanFileReader,
-            repositoryFolder: '/',
-            runChecks: fakeCheckRunner(),
-            versionManager: {
-                addVersion: fallback(
-                    overrides.versionManagerAddVersion,
-                    fake(function () {
-                        throw new Error('versionManager.addVersion not implemented in tests');
-                    })
-                ) as never,
-                increaseVersion() {
-                    throw new Error('versionManager.increaseVersion not implemented in tests');
-                }
-            },
-            packEmitter: {
-                pack: fallback(
-                    overrides.packEmitterPack,
-                    fake(async function () {
-                        throw new Error('packEmitter.pack not implemented in tests');
-                    })
-                ) as never
-            },
-            vendorMaterializer: {
-                async materializeExternals() {
-                    return Result.ok({
-                        entries: [],
-                        packageNames: [],
-                        peerRequirements: new Map<string, readonly string[]>()
-                    });
-                }
-            },
-            async readCurrentGitHead() {
-                return undefined;
-            }
-        }),
-        resolveAndLink,
-        tryBuildAndPublish,
-        buildAndPublish,
-        scheduler,
-        progressBroadcaster
-    };
-}
-
-function createPureSideEffectsEliminator(): TestDeadCodeEliminator {
-    return {
-        async eliminate(inputs) {
-            return inputs.map(function (input) {
-                return {
-                    ...input.bundle,
-                    contents: [
-                        analyzedBundleResource('/package-a/index.js', { targetFilePath: 'index.js' })
-                    ],
-                    sideEffectsField: false
-                };
-            });
-        }
-    };
-}
 
 suite('packtory', function () {
     suite('resolve', function () {
@@ -357,8 +25,8 @@ suite('packtory', function () {
 
             const { result } = await packtory.resolveAndLinkAll({ invalid: true });
 
-            const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
-            assert.strictEqual(error.type, 'config');
+            const error = getErrorResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
+            assert.strictEqual(error.type, 'configuration');
         });
 
         function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
@@ -373,7 +41,7 @@ suite('packtory', function () {
             const { packtory } = createPacktoryThatSharesSourceFile();
 
             const { result } = await packtory.resolveAndLinkAll(
-                createConfigWithoutRegistry({
+                createConfigurationWithoutRegistry({
                     checks: { noDuplicatedFiles: { enabled: true } },
                     packages: twoPackageEntries
                 })
@@ -392,12 +60,12 @@ suite('packtory', function () {
             const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
 
             const { result } = await packtory.resolveAndLinkAll(
-                createConfigWithoutRegistry({
+                createConfigurationWithoutRegistry({
                     packages: [
-                        { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
+                        { name: 'dependency', roots: { main: { javaScript: 'dependency/index.js' } } },
                         {
                             name: 'package-a',
-                            roots: { main: { js: 'package-a/index.js' } },
+                            roots: { main: { javaScript: 'package-a/index.js' } },
                             bundleDependencies: [ 'dependency' ]
                         }
                     ]
@@ -426,24 +94,24 @@ suite('packtory', function () {
                     stage: false
                 });
 
-                const error = getErrResult(result, 'Expected buildAndPublishAll() should fail but it did not');
-                assert.strictEqual(error.type, 'config');
+                const error = getErrorResult(result, 'Expected buildAndPublishAll() should fail but it did not');
+                assert.strictEqual(error.type, 'configuration');
             });
 
             test('buildAndPublishAll() rejects real publishes without registry auth', async function () {
                 const { packtory } = createPacktoryUnderTest();
 
-                const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+                const { result } = await packtory.buildAndPublishAll(createConfigurationWithoutRegistry(), {
                     dryRun: false,
                     stage: false
                 });
 
                 assert.deepStrictEqual(
-                    getErrResult(result, 'Expected buildAndPublishAll() should fail but it did not'),
+                    getErrorResult(result, 'Expected buildAndPublishAll() should fail but it did not'),
                     {
-                        type: 'config',
+                        type: 'configuration',
                         issues: [
-                            'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.'
+                            'registrySettings.authentication must be configured to publish; run with dryRun=true to skip the registry write.'
                         ]
                     }
                 );
@@ -452,7 +120,7 @@ suite('packtory', function () {
             test('buildAndPublishAll() allows dry runs without registry auth', async function () {
                 const { packtory, tryBuildAndPublish } = createPacktoryUnderTest();
 
-                const { result, getReport } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+                const { result, getReport } = await packtory.buildAndPublishAll(createConfigurationWithoutRegistry(), {
                     dryRun: true,
                     stage: false,
                     collectReport: true
@@ -466,7 +134,7 @@ suite('packtory', function () {
             test('buildAndPublishAll() runs real publishes when registry auth is configured', async function () {
                 const { packtory, buildAndPublish } = createPacktoryUnderTest();
 
-                const { result } = await packtory.buildAndPublishAll(createConfigWithRegistry(), {
+                const { result } = await packtory.buildAndPublishAll(createConfigurationWithRegistry(), {
                     dryRun: false,
                     stage: false
                 });
@@ -480,7 +148,9 @@ suite('packtory', function () {
             test('diffAgainstLatestPublished() returns a required report and removes report subscribers', async function () {
                 const { packtory, progressBroadcaster } = createPacktoryUnderTest();
 
-                const { result, getReport } = await packtory.diffAgainstLatestPublished(createConfigWithRegistry());
+                const { result, getReport } = await packtory.diffAgainstLatestPublished(
+                    createConfigurationWithRegistry()
+                );
 
                 assert.strictEqual(
                     getOkResult(result, 'Expected diffAgainstLatestPublished() should succeed').length,
@@ -495,15 +165,18 @@ suite('packtory', function () {
 
                 const { result } = await packtory.diffAgainstLatestPublished({ invalid: true });
 
-                const error = getErrResult(result, 'Expected diffAgainstLatestPublished() should fail but it did not');
-                assert.strictEqual(error.type, 'config');
+                const error = getErrorResult(
+                    result,
+                    'Expected diffAgainstLatestPublished() should fail but it did not'
+                );
+                assert.strictEqual(error.type, 'configuration');
             });
 
             test('analyzeReleaseAgainstLatestPublished() returns analysis with a required report', async function () {
                 const { packtory, progressBroadcaster } = createPacktoryUnderTest();
 
                 const { result, getReport } = await packtory.analyzeReleaseAgainstLatestPublished(
-                    createConfigWithRegistry()
+                    createConfigurationWithRegistry()
                 );
 
                 assert.strictEqual(
@@ -520,18 +193,18 @@ suite('packtory', function () {
 
                 const { result } = await packtory.analyzeReleaseAgainstLatestPublished({ invalid: true });
 
-                const error = getErrResult(
+                const error = getErrorResult(
                     result,
                     'Expected analyzeReleaseAgainstLatestPublished() should fail but it did not'
                 );
-                assert.strictEqual(error.type, 'config');
+                assert.strictEqual(error.type, 'configuration');
             });
 
             test('planReleaseAgainstLatestPublished() returns a release plan with a required report', async function () {
                 const { packtory, progressBroadcaster } = createPacktoryUnderTest();
 
                 const { result, getReport } = await packtory.planReleaseAgainstLatestPublished(
-                    createConfigWithRegistry()
+                    createConfigurationWithRegistry()
                 );
 
                 assert.strictEqual(
@@ -547,11 +220,11 @@ suite('packtory', function () {
 
                 const { result } = await packtory.planReleaseAgainstLatestPublished({ invalid: true });
 
-                const error = getErrResult(
+                const error = getErrorResult(
                     result,
                     'Expected planReleaseAgainstLatestPublished() should fail but it did not'
                 );
-                assert.strictEqual(error.type, 'config');
+                assert.strictEqual(error.type, 'configuration');
             });
         });
 
@@ -561,8 +234,8 @@ suite('packtory', function () {
 
                 const { result } = await packtory.inspectPackageSideEffects({ invalid: true }, 'package-a');
 
-                const error = getErrResult(result, 'Expected inspectPackageSideEffects() should fail but it did not');
-                assert.strictEqual(error.type, 'config');
+                const error = getErrorResult(result, 'Expected inspectPackageSideEffects() should fail but it did not');
+                assert.strictEqual(error.type, 'configuration');
             });
 
             test('inspectPackageSideEffects() returns side effect inspection on success', async function () {
@@ -570,13 +243,16 @@ suite('packtory', function () {
                     deadCodeEliminator: createPureSideEffectsEliminator()
                 });
 
-                const { result } = await packtory.inspectPackageSideEffects(createConfigWithoutRegistry(), 'package-a');
+                const { result } = await packtory.inspectPackageSideEffects(
+                    createConfigurationWithoutRegistry(),
+                    'package-a'
+                );
 
                 assert.deepStrictEqual(
                     getOkResult(result, 'Expected inspectPackageSideEffects() should succeed'),
                     {
                         packageName: 'package-a',
-                        packageJsonDecision: { type: 'side-effects-false' },
+                        packageManifestDecision: { type: 'side-effects-false' },
                         impureFiles: []
                     }
                 );

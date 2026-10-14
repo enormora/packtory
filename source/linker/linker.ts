@@ -17,9 +17,9 @@ export type BundleLinker = {
 function flattenRoots(roots: ResolvedBundle['roots']): string[] {
     return Object.values(roots).flatMap(function (root) {
         if (rootHasDeclarationFile(root)) {
-            return [ root.js.inputFilePath, root.declarationFile.inputFilePath ];
+            return [ root.javaScript.inputFilePath, root.declarationFile.inputFilePath ];
         }
-        return [ root.js.inputFilePath ];
+        return [ root.javaScript.inputFilePath ];
     });
 }
 
@@ -69,7 +69,7 @@ export function createBundleLinker(): BundleLinker {
             return {
                 ...substitutedGraph.flatten([ ...rootFilePaths, ...companionRoots ]),
                 name: bundle.name,
-                exportPackageJson: bundle.exportPackageJson,
+                exportPackageManifest: bundle.exportPackageManifest,
                 roots: bundle.roots,
                 surface: bundle.surface
             };

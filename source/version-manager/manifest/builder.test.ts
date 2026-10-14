@@ -32,7 +32,7 @@ function registerManifestFieldTests(): void {
                 peerDependencies: { react: '^19.0.0' },
                 packageType: 'module',
                 typesMainFile: {
-                    inputFilePath: '/src/index.d.ts',
+                    inputFilePath: '/source/index.d.ts',
                     targetFilePath: 'index.d.ts',
                     content: '',
                     isExecutable: false
@@ -59,8 +59,8 @@ function registerManifestFieldTests(): void {
         const result = buildPackageManifest(
             createBundle({
                 importsField: {
-                    '#foo': './src/foo.js',
-                    '#bar/*': { default: [ './src/bar/*.js', './fallback/*.js' ] }
+                    '#foo': './source/foo.js',
+                    '#bar/*': { default: [ './source/bar/*.js', './fallback/*.js' ] }
                 }
             })
         );
@@ -69,8 +69,8 @@ function registerManifestFieldTests(): void {
             name: 'package-a',
             version: '1.2.3',
             imports: {
-                '#foo': './src/foo.js',
-                '#bar/*': { default: [ './src/bar/*.js', './fallback/*.js' ] }
+                '#foo': './source/foo.js',
+                '#bar/*': { default: [ './source/bar/*.js', './fallback/*.js' ] }
             },
             exports: {
                 '.': {
@@ -85,7 +85,7 @@ function registerManifestFieldTests(): void {
     test('buildPackageManifest() preserves string bin entries when present', function () {
         const result = buildPackageManifest(
             createBundle({
-                binField: './cli.js'
+                executableField: './cli.js'
             })
         );
 
@@ -106,8 +106,8 @@ function registerManifestFieldTests(): void {
     test('buildPackageManifest() drops undefined entries from object bin fields', function () {
         const result = buildPackageManifest(
             createBundle({
-                binField: { packageA: './cli.js', ignored: undefined } as unknown as NonNullable<
-                    VersionedBundle['binField']
+                executableField: { packageA: './cli.js', ignored: undefined } as unknown as NonNullable<
+                    VersionedBundle['executableField']
                 >
             })
         );

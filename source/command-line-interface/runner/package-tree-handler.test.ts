@@ -4,7 +4,7 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import { createConfigurationLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runPackageTreeHandler, type PackageTreeHandlerDependencies } from './package-tree-handler.ts';
 
@@ -40,8 +40,8 @@ function setup(outcome: PackageTreeOutcome, trace = false): PackageTreeHandlerFi
             },
             packtory: packtoryStub(outcome, inspectPackageTree),
             spinnerRenderer: spinnerRendererCapturing(stopAll),
-            configLoader: createConfigLoaderStub(),
-            flags: { packageName: 'pkg-a', trace }
+            configurationLoader: createConfigurationLoaderStub(),
+            flags: { packageName: 'package-a', trace }
         },
         inspectPackageTree,
         log,
@@ -53,7 +53,7 @@ suite('package-tree-handler', function () {
     test('prints the rendered package tree on success', async function () {
         const { dependencies, inspectPackageTree, log } = setup({
             result: Result.ok({
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 entries: [
                     { path: 'package.json', sizeBytes: 2, kind: 'manifest', status: 'generated', badges: [] }
                 ]
@@ -63,13 +63,13 @@ suite('package-tree-handler', function () {
         const code = await runPackageTreeHandler(dependencies);
 
         assert.strictEqual(code, 0);
-        assert.deepStrictEqual(inspectPackageTree.firstCall.args, [ {}, 'pkg-a' ]);
-        assert.strictEqual(log.firstCall.args[0], 'pkg-a\n  • package.json (manifest, 2 B) [generated]');
+        assert.deepStrictEqual(inspectPackageTree.firstCall.args, [ {}, 'package-a' ]);
+        assert.strictEqual(log.firstCall.args[0], 'package-a\n  • package.json (manifest, 2 B) [generated]');
     });
 
     test('prints config issues and exits 1', async function () {
         const { dependencies, log } = setup({
-            result: Result.err({ type: 'config', issues: [ 'bad config' ] })
+            result: Result.err({ type: 'configuration', issues: [ 'bad config' ] })
         });
 
         const code = await runPackageTreeHandler(dependencies);
@@ -104,7 +104,7 @@ suite('package-tree-handler', function () {
         const { dependencies, log } = setup({
             result: Result.err({
                 type: 'peer-dependencies-unsatisfied',
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 items: [ { packageName: 'dep', peer: 'react' } ]
             })
         });
@@ -112,7 +112,7 @@ suite('package-tree-handler', function () {
         const code = await runPackageTreeHandler(dependencies);
 
         assert.strictEqual(code, 1);
-        assert.strictEqual(log.firstCall.args[0], 'Package "pkg-a" could not be inspected');
+        assert.strictEqual(log.firstCall.args[0], 'Package "package-a" could not be inspected');
     });
 
     test('prints a generic fallback for package failures without a package name', async function () {
@@ -149,7 +149,7 @@ suite('package-tree-handler', function () {
 
     test('stops spinners both after the call and in the finally block', async function () {
         const { dependencies, stopAll } = setup({
-            result: Result.ok({ packageName: 'pkg-a', entries: [] })
+            result: Result.ok({ packageName: 'package-a', entries: [] })
         });
 
         await runPackageTreeHandler(dependencies);

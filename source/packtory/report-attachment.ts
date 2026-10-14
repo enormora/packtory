@@ -1,6 +1,6 @@
-import type { PacktoryConfig } from '../config/config.ts';
+import type { PacktoryConfiguration } from '../configuration/configuration.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
-import { redactConfigForPackage } from '../report/config-redactor.ts';
+import { redactConfigurationForPackage } from '../report/configuration-redactor.ts';
 import { createReportAggregator } from '../report/aggregator/report-aggregator.ts';
 import type { BuildReport } from '../report/aggregator/report-types.ts';
 
@@ -26,17 +26,17 @@ export function attachAggregator(progressBroadcaster: ProgressBroadcaster): Requ
     };
 }
 
-export function emitEffectiveConfigPerPackage(
+export function emitEffectiveConfigurationPerPackage(
     progressBroadcaster: ProgressBroadcaster,
-    packtoryConfig: PacktoryConfig
+    packtoryConfiguration: PacktoryConfiguration
 ): void {
-    if (!progressBroadcaster.provider.hasSubscribers('effectiveConfigResolved')) {
+    if (!progressBroadcaster.provider.hasSubscribers('effectiveConfigurationResolved')) {
         return;
     }
-    for (const packageConfig of packtoryConfig.packages) {
-        progressBroadcaster.provider.emit('effectiveConfigResolved', {
-            packageName: packageConfig.name,
-            config: redactConfigForPackage(packtoryConfig, packageConfig.name)
+    for (const packageConfiguration of packtoryConfiguration.packages) {
+        progressBroadcaster.provider.emit('effectiveConfigurationResolved', {
+            packageName: packageConfiguration.name,
+            configuration: redactConfigurationForPackage(packtoryConfiguration, packageConfiguration.name)
         });
     }
 }

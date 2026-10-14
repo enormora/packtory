@@ -18,7 +18,7 @@ function resourceWithDependencies(
 }
 
 function bundleWith(contents: readonly AnalyzedBundleResource[]): AnalyzedBundle {
-    return analyzedBundle({ name: 'pkg', contents });
+    return analyzedBundle({ name: 'package', contents });
 }
 
 function assertInvariantFailure(bundle: AnalyzedBundle, pattern: RegExp): void {
@@ -32,11 +32,11 @@ suite('dead code elimination invariant assertions', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     'import { value } from "./value.js";\nexport const api = value;\n'
                 ),
-                resource('/src/value.js', 'value.js', 'export const value = 1;\n')
+                resource('/source/value.js', 'value.js', 'export const value = 1;\n')
             ])
         ]);
     });
@@ -44,8 +44,8 @@ suite('dead code elimination invariant assertions', function () {
     test('rejects duplicate emitted target paths within a bundle', function () {
         assertInvariantFailure(
             bundleWith([
-                resource('/src/a.js', 'index.js', 'export const a = 1;\n'),
-                resource('/src/b.js', 'index.js', 'export const b = 1;\n')
+                resource('/source/a.js', 'index.js', 'export const a = 1;\n'),
+                resource('/source/b.js', 'index.js', 'export const b = 1;\n')
             ]),
             /duplicate emitted target path index\.js/u
         );
@@ -55,7 +55,7 @@ suite('dead code elimination invariant assertions', function () {
         assertInvariantFailure(
             bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     'import { value } from "./missing.js";\nexport const api = value;\n'
                 )
@@ -68,11 +68,11 @@ suite('dead code elimination invariant assertions', function () {
         assertInvariantFailure(
             bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     'import { value } from "./value.js";\nexport const api = value;\n'
                 ),
-                resource('/src/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
+                resource('/source/value.d.ts', 'value.d.ts', 'export declare const value: number;\n')
             ]),
             /only declaration targets remain: value\.d\.ts/u
         );
@@ -82,7 +82,7 @@ suite('dead code elimination invariant assertions', function () {
         assertInvariantFailure(
             bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     [
                         'import { missing } from "./named.js";',
@@ -92,8 +92,8 @@ suite('dead code elimination invariant assertions', function () {
                     ]
                         .join('\n')
                 ),
-                resource('/src/named.js', 'named.js', 'export const value = 1;\n'),
-                resource('/src/default.js', 'default.js', 'export const value = 1;\n')
+                resource('/source/named.js', 'named.js', 'export const value = 1;\n'),
+                resource('/source/default.js', 'default.js', 'export const value = 1;\n')
             ]),
             /named\.js does not export it[\s\S]*default\.js does not export it/u
         );
@@ -103,7 +103,7 @@ suite('dead code elimination invariant assertions', function () {
         assertInvariantFailure(
             bundleWith([
                 resource(
-                    '/src/imported-expression-origin.ts',
+                    '/source/imported-expression-origin.ts',
                     'dead-code-eliminator/imported-expression-origin.js',
                     'export { arePureCallArguments };\n'
                 )
@@ -116,21 +116,21 @@ suite('dead code elimination invariant assertions', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
                 resource(
-                    '/src/index.d.ts',
+                    '/source/index.d.ts',
                     'index.d.ts',
                     'import type { Api } from "./types.js";\nexport type Public = Api;\n'
                 ),
-                resource('/src/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
+                resource('/source/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
             ])
         ]);
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
                 resource(
-                    '/src/index.d.ts',
+                    '/source/index.d.ts',
                     'index.d.ts',
                     'import type { Api } from "./types.ts";\nexport type Public = Api;\n'
                 ),
-                resource('/src/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
+                resource('/source/types.d.ts', 'types.d.ts', 'export type Api = string;\n')
             ])
         ]);
     });
@@ -138,9 +138,9 @@ suite('dead code elimination invariant assertions', function () {
     test('rejects dependency metadata that references a pruned target file', function () {
         assertInvariantFailure(
             analyzedBundle({
-                name: 'pkg',
-                contents: [ resource('/src/index.js', 'index.js', 'export const api = 1;\n') ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/missing.js' ]) ] ])
+                name: 'package',
+                contents: [ resource('/source/index.js', 'index.js', 'export const api = 1;\n') ],
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/missing.js' ]) ] ])
             }),
             /external dependency dep references pruned target file missing\.js/u
         );
@@ -150,7 +150,7 @@ suite('dead code elimination invariant assertions', function () {
         assertInvariantFailure(
             bundleWith([
                 resourceWithDependencies(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     'export const api = 1;\n',
                     new Set([ 'dead.js' ])
@@ -164,11 +164,11 @@ suite('dead code elimination invariant assertions', function () {
         assertValidDeadCodeEliminationOutput('case', [
             bundleWith([
                 resource(
-                    '/src/index.js',
+                    '/source/index.js',
                     'index.js',
                     'import data from "./data.json" with { type: "json" };\nexport default data;\n'
                 ),
-                resource('/src/data.json', 'data.json', '{"value":1}\n')
+                resource('/source/data.json', 'data.json', '{"value":1}\n')
             ])
         ]);
     });

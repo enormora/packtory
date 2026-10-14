@@ -5,12 +5,12 @@ import { fake } from 'sinon';
 import { fetchTarballForTest } from '../../test-libraries/registry-fetch-fixtures.ts';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 
-const settings = { auth: { type: 'bearer-token', token: 'tok' } } as const;
-const tarballUrl = 'https://registry.npmjs.org/pkg.tgz';
+const settings = { authentication: { type: 'bearer-token', token: 'tok' } } as const;
+const tarballAddress = 'https://registry.npmjs.org/pkg.tgz';
 const emptyIntegrity = { integrity: undefined, shasum: undefined } as const;
 const tarballBytes = Buffer.from('tarball-bytes');
-const downgradedTarballUrl = new URL(tarballUrl);
-downgradedTarballUrl.protocol = 'http:';
+const downgradedTarballAddress = new URL(tarballAddress);
+downgradedTarballAddress.protocol = 'http:';
 
 suite('tarball-redirects', function () {
     suite('response policy', function () {
@@ -18,7 +18,12 @@ suite('tarball-redirects', function () {
             const fetchImplementation = fake.resolves(new Response(tarballBytes));
             const integrity = `sha512-${createHash('sha512').update(tarballBytes).digest('base64')}`;
             assert.deepStrictEqual(
-                await fetchTarballForTest(fetchImplementation, tarballUrl, { integrity, shasum: undefined }, settings),
+                await fetchTarballForTest(
+                    fetchImplementation,
+                    tarballAddress,
+                    { integrity, shasum: undefined },
+                    settings
+                ),
                 tarballBytes
             );
             assert.partialDeepStrictEqual(fetchImplementation.firstCall.lastArg, {
@@ -32,7 +37,7 @@ suite('tarball-redirects', function () {
             await assert.rejects(
                 fetchTarballForTest(
                     fake.resolves(new Response(tarballBytes)),
-                    tarballUrl,
+                    tarballAddress,
                     { integrity, shasum: undefined },
                     settings
                 ),
@@ -43,7 +48,7 @@ suite('tarball-redirects', function () {
         test('supports custom registries with anonymous metadata access', async function () {
             const receivedHeaders: Headers[] = [];
             const fetchImplementation = fake(
-                async function (_url: unknown, options: Readonly<RequestInit> | undefined) {
+                async function (_address: unknown, options: Readonly<RequestInit> | undefined) {
                     receivedHeaders.push(new Headers(options?.headers));
                     return new Response(tarballBytes);
                 }
@@ -54,8 +59,8 @@ suite('tarball-redirects', function () {
                     'https://registry.example.test/pkg.tgz',
                     emptyIntegrity,
                     {
-                        registryUrl: 'https://registry.example.test/',
-                        auth: { publish: { type: 'npm-oidc' }, metadata: 'anonymous' }
+                        registryAddress: 'https://registry.example.test/',
+                        authentication: { publish: { type: 'npm-open-identity-connect' }, metadata: 'anonymous' }
                     }
                 ),
                 tarballBytes
@@ -67,7 +72,7 @@ suite('tarball-redirects', function () {
             await assert.rejects(
                 fetchTarballForTest(
                     fake.resolves(new Response('error', { status: 500 })),
-                    tarballUrl,
+                    tarballAddress,
                     emptyIntegrity,
                     settings
                 ),
@@ -87,12 +92,12 @@ suite('tarball-redirects', function () {
                         : new Response(tarballBytes);
                 });
                 assert.deepStrictEqual(
-                    await fetchTarballForTest(fetchImplementation, tarballUrl, emptyIntegrity, settings),
+                    await fetchTarballForTest(fetchImplementation, tarballAddress, emptyIntegrity, settings),
                     tarballBytes
                 );
                 assertDeepSubset(fetchImplementation, {
                     secondCall: {
-                        args: [
+                        arguments: [
                             'https://registry.npmjs.org/redirected',
                             { headers: { Authorization: 'Bearer tok' } }
                         ]
@@ -104,14 +109,14 @@ suite('tarball-redirects', function () {
         for (
             const location of [
                 'https://attacker.example/pkg.tgz',
-                downgradedTarballUrl.href,
+                downgradedTarballAddress.href,
                 'https://registry.npmjs.org:8443/pkg.tgz'
             ]
         ) {
             test(`rejects redirects outside the configured origin: ${location}`, async function () {
                 const fetchImplementation = fake.resolves(new Response(null, { status: 302, headers: { location } }));
                 await assert.rejects(
-                    fetchTarballForTest(fetchImplementation, tarballUrl, emptyIntegrity, settings),
+                    fetchTarballForTest(fetchImplementation, tarballAddress, emptyIntegrity, settings),
                     /differs from the configured registry origin/u
                 );
                 assert.strictEqual(fetchImplementation.callCount, 1);
@@ -122,7 +127,7 @@ suite('tarball-redirects', function () {
             await assert.rejects(
                 fetchTarballForTest(
                     fake.resolves(new Response(null, { status: 302 })),
-                    tarballUrl,
+                    tarballAddress,
                     emptyIntegrity,
                     settings
                 ),
@@ -138,7 +143,7 @@ suite('tarball-redirects', function () {
                 return new Response(null, { status: 302, headers: { location: '/loop' } });
             });
             await assert.rejects(
-                fetchTarballForTest(fetchImplementation, tarballUrl, emptyIntegrity, settings),
+                fetchTarballForTest(fetchImplementation, tarballAddress, emptyIntegrity, settings),
                 /^Error: Registry tarball download exceeded 20 redirects$/u
             );
             assert.strictEqual(fetchImplementation.callCount, 21);
@@ -153,7 +158,7 @@ suite('tarball-redirects', function () {
                     : new Response(tarballBytes);
             });
             assert.deepStrictEqual(
-                await fetchTarballForTest(fetchImplementation, tarballUrl, emptyIntegrity, settings),
+                await fetchTarballForTest(fetchImplementation, tarballAddress, emptyIntegrity, settings),
                 tarballBytes
             );
             assert.strictEqual(fetchImplementation.callCount, 21);

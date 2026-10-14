@@ -28,7 +28,7 @@ export function inputWithoutTransformations(bundle: LinkedBundle): readonly Elim
     ];
 }
 
-type CodeFileSpec = {
+type CodeFileSpecification = {
     readonly name: string;
     readonly inputFilePath: string;
     readonly targetFilePath: string;
@@ -60,9 +60,9 @@ function withLinkedProducerReferences(bundleName: string, resource: LinkedBundle
     };
 }
 
-export function bundleForCodeFile(input: CodeFileSpec): LinkedBundle {
+export function bundleForCodeFile(input: CodeFileSpecification): LinkedBundle {
     const root = {
-        js: {
+        javaScript: {
             content: input.content,
             isExecutable: false,
             inputFilePath: input.inputFilePath,
@@ -88,14 +88,16 @@ export function collectTargetPaths(analyzed: AnalyzedBundle | undefined): readon
     });
 }
 
-export const indexTsContent = [ 'function dead() { return 1; }', 'export function live() { return 2; }' ].join('\n');
+export const indexTypeScriptContent = [ 'function dead() { return 1; }', 'export function live() { return 2; }' ].join(
+    '\n'
+);
 
-export function indexTsBundle(extraResources: readonly LinkedBundleResource[] = []): LinkedBundle {
+export function indexTypeScriptBundle(extraResources: readonly LinkedBundleResource[] = []): LinkedBundle {
     return bundleForCodeFile({
-        name: 'pkg',
-        inputFilePath: '/src/index.ts',
+        name: 'package',
+        inputFilePath: '/source/index.ts',
         targetFilePath: 'index.ts',
-        content: indexTsContent,
+        content: indexTypeScriptContent,
         extraResources
     });
 }
@@ -110,7 +112,7 @@ export function producerBundleWith(helpersContent: string): LinkedBundle {
         contents: [ producerHelpers ],
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath: '/producer/index.js',

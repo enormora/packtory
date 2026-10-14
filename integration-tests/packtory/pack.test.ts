@@ -1,31 +1,31 @@
 import path from 'node:path';
 import assert from 'node:assert';
 import { mkdtemp, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import { suite, test } from 'mocha';
 import {
     packAllPackages,
     packPackage,
-    type PacktoryConfig
+    type PacktoryConfiguration
 } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import {
-    createPackageConfig,
-    createPackageConfigList,
+    createPackageConfiguration,
+    createPackageConfigurationList,
     getFixturePath
 } from './publish-fixture-support.ts';
 
-async function createPackConfig(fixturePath: string): Promise<PacktoryConfig> {
+async function createPackConfiguration(fixturePath: string): Promise<PacktoryConfiguration> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' },
             deadCodeElimination: { enabled: false }
         },
-        packages: createPackageConfigList(
-            createPackageConfig(fixturePath, 'second', 'entry2'),
-            createPackageConfig(fixturePath, 'third', 'entry3', { bundlePeerDependencies: [ 'second' ] })
+        packages: createPackageConfigurationList(
+            createPackageConfiguration(fixturePath, 'second', 'entry2'),
+            createPackageConfiguration(fixturePath, 'third', 'entry3', { bundlePeerDependencies: [ 'second' ] })
         )
     };
 }
@@ -33,9 +33,9 @@ async function createPackConfig(fixturePath: string): Promise<PacktoryConfig> {
 suite('pack', function () {
     test('writes configured bundle peer dependencies into packed package metadata', async function () {
         const fixturePath = getFixturePath('multiple-packages-with-substitution');
-        const outputPath = path.join(await mkdtemp(path.join(tmpdir(), 'packtory-pack-')), 'third');
+        const outputPath = path.join(await mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-')), 'third');
 
-        const outcome = await packPackage(await createPackConfig(fixturePath), {
+        const outcome = await packPackage(await createPackConfiguration(fixturePath), {
             packageName: 'third',
             format: 'folder',
             outputPath,
@@ -60,9 +60,9 @@ suite('pack', function () {
 
     test('writes every configured package into a package-named folder', async function () {
         const fixturePath = getFixturePath('multiple-packages-with-substitution');
-        const outputPath = path.join(await mkdtemp(path.join(tmpdir(), 'packtory-pack-all-')), 'packages');
+        const outputPath = path.join(await mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-all-')), 'packages');
 
-        const outcome = await packAllPackages(await createPackConfig(fixturePath), {
+        const outcome = await packAllPackages(await createPackConfiguration(fixturePath), {
             outputPath,
             version: '2.3.4',
             vendorDependencies: false

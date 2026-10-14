@@ -17,9 +17,9 @@ suite('registry', function () {
                 return left.localeCompare(right);
             });
         assert.deepStrictEqual(names, [
-            'maxBundleSize',
+            'maximumBundleSize',
             'nodeEngineCompatibility',
-            'noDevDependencyImports',
+            'noDevelopmentDependencyImports',
             'noDuplicatedFiles',
             'noSideEffects',
             'noUnexposedExecutables',

@@ -44,12 +44,12 @@ suite('line-spinner-renderer', function () {
     test('add() logs the initial spinner message as a plain line', function () {
         const { log, renderer } = createRendererWithLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
 
         assertDeepSubset(log, {
             callCount: 1,
             firstCall: {
-                args: [ 'pkg-a: Scheduled ...' ]
+                arguments: [ 'package-a: Scheduled ...' ]
             }
         });
     });
@@ -57,13 +57,13 @@ suite('line-spinner-renderer', function () {
     test('updateMessage() logs message updates as plain lines', function () {
         const { log, renderer } = createRendererWithLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
         renderer.updateMessage('the-id', 'Building package with version 1.2.3');
 
         assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
-                args: [ 'pkg-a: Building package with version 1.2.3' ]
+                arguments: [ 'package-a: Building package with version 1.2.3' ]
             }
         });
     });
@@ -71,10 +71,10 @@ suite('line-spinner-renderer', function () {
     test('add() throws when adding two spinners with the same id', function () {
         const renderer = createRendererWithoutLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
 
         expectErrorMessage(function () {
-            renderer.add('the-id', 'pkg-a', 'Scheduled again');
+            renderer.add('the-id', 'package-a', 'Scheduled again');
         }, 'Spinner with id the-id already exists');
     });
 
@@ -89,13 +89,13 @@ suite('line-spinner-renderer', function () {
     test('stop() logs a success line with the final message', function () {
         const { log, renderer } = createRendererWithLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
         renderer.stop('the-id', 'success', 'First version 1.2.3 has been published');
 
         assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
-                args: [ '✔ pkg-a: First version 1.2.3 has been published' ]
+                arguments: [ '✔ package-a: First version 1.2.3 has been published' ]
             }
         });
     });
@@ -103,13 +103,13 @@ suite('line-spinner-renderer', function () {
     test('stop() logs a failure line with the final message', function () {
         const { log, renderer } = createRendererWithLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
         renderer.stop('the-id', 'failure', 'publish failed');
 
         assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
-                args: [ '✖ pkg-a: publish failed' ]
+                arguments: [ '✖ package-a: publish failed' ]
             }
         });
     });
@@ -125,17 +125,17 @@ suite('line-spinner-renderer', function () {
     test('stopAll() clears tracked spinners without logging cancellation lines', function () {
         const { log, renderer } = createRendererWithLog();
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled ...');
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
         renderer.stopAll();
 
         assert.strictEqual(log.callCount, 1);
 
-        renderer.add('the-id', 'pkg-a', 'Scheduled again');
+        renderer.add('the-id', 'package-a', 'Scheduled again');
 
         assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
-                args: [ 'pkg-a: Scheduled again' ]
+                arguments: [ 'package-a: Scheduled again' ]
             }
         });
     });

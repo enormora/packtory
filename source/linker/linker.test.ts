@@ -27,7 +27,7 @@ function testFileDescription(
 }
 
 function sourceTargetFilePath(inputFilePath: string): string {
-    return inputFilePath.replace(/^\/src\//u, '');
+    return inputFilePath.replace(/^\/source\//u, '');
 }
 
 function testSubstitutionResource(inputFilePath: string): BundleSubstitutionSource['contents'][number] {
@@ -47,9 +47,9 @@ function testBundleDependency(
         name: 'bundle-dependency',
         roots: {
             main: {
-                js: testFileDescription(rootInputFilePath, rootTargetFilePath, ''),
-                declarationFile: inputFilePaths.includes('/src/dep.d.ts')
-                    ? testFileDescription('/src/dep.d.ts', 'dep.d.ts', '')
+                javaScript: testFileDescription(rootInputFilePath, rootTargetFilePath, ''),
+                declarationFile: inputFilePaths.includes('/source/dep.d.ts')
+                    ? testFileDescription('/source/dep.d.ts', 'dep.d.ts', '')
                     : undefined
             }
         },
@@ -74,8 +74,8 @@ function testResource(
 
 function testRootWithDeclaration(): ResolvedBundle['roots'][string] {
     return {
-        js: testFileDescription('/src/index.js', 'index.js', ''),
-        declarationFile: testFileDescription('/src/index.d.ts', 'index.d.ts', '')
+        javaScript: testFileDescription('/source/index.js', 'index.js', ''),
+        declarationFile: testFileDescription('/source/index.d.ts', 'index.d.ts', '')
     };
 }
 
@@ -109,10 +109,10 @@ suite('linker', function () {
     test('linkBundle() keeps js-only roots when there are no bundle substitutions', async function () {
         const linker = createBundleLinker();
         const root = {
-            js: {
+            javaScript: {
                 content: '',
                 isExecutable: false,
-                inputFilePath: '/src/index.js',
+                inputFilePath: '/source/index.js',
                 targetFilePath: 'index.js'
             }
         } as const;
@@ -120,13 +120,13 @@ suite('linker', function () {
         const result = await linker.linkBundle({
             bundle: {
                 name: 'package-a',
-                exportPackageJson: true,
+                exportPackageManifest: true,
                 contents: [
                     {
                         fileDescription: {
                             content: 'import "./internal.js";',
                             isExecutable: false,
-                            inputFilePath: '/src/index.js',
+                            inputFilePath: '/source/index.js',
                             targetFilePath: 'index.js'
                         },
                         directDependencies: new Set([ 'internal.js' ]),
@@ -134,8 +134,8 @@ suite('linker', function () {
                         isExplicitlyIncluded: false,
                         project: createProject({
                             withFiles: [
-                                { filePath: '/src/index.js', content: 'import "./internal.js";' },
-                                { filePath: '/src/internal.js', content: 'export {};' }
+                                { filePath: '/source/index.js', content: 'import "./internal.js";' },
+                                { filePath: '/source/internal.js', content: 'export {};' }
                             ]
                         })
                     },
@@ -143,7 +143,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export {};',
                             isExecutable: false,
-                            inputFilePath: '/src/internal.js',
+                            inputFilePath: '/source/internal.js',
                             targetFilePath: 'internal.js'
                         },
                         directDependencies: new Set(),
@@ -161,13 +161,13 @@ suite('linker', function () {
 
         assertDeepSubset(result, {
             name: 'package-a',
-            exportPackageJson: true,
+            exportPackageManifest: true,
             roots: {
                 main: {
-                    js: {
+                    javaScript: {
                         content: '',
                         isExecutable: false,
-                        inputFilePath: '/src/index.js',
+                        inputFilePath: '/source/index.js',
                         targetFilePath: 'index.js'
                     }
                 }
@@ -181,22 +181,22 @@ suite('linker', function () {
     test('linkBundle() flattens declaration roots and substitutes matching bundle dependencies', async function () {
         const project = createProject({
             withFiles: [
-                { filePath: '/src/index.js', content: 'import "./dep.js";' },
-                { filePath: '/src/index.d.ts', content: 'export * from "./dep.d.ts";' }
+                { filePath: '/source/index.js', content: 'import "./dep.js";' },
+                { filePath: '/source/index.d.ts', content: 'export * from "./dep.d.ts";' }
             ]
         });
         const linker = createBundleLinker();
         const root = {
-            js: {
+            javaScript: {
                 content: '',
                 isExecutable: false,
-                inputFilePath: '/src/index.js',
+                inputFilePath: '/source/index.js',
                 targetFilePath: 'index.js'
             },
             declarationFile: {
                 content: '',
                 isExecutable: false,
-                inputFilePath: '/src/index.d.ts',
+                inputFilePath: '/source/index.d.ts',
                 targetFilePath: 'index.d.ts'
             }
         } as const;
@@ -209,7 +209,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./dep.js";',
                             isExecutable: false,
-                            inputFilePath: '/src/index.js',
+                            inputFilePath: '/source/index.js',
                             targetFilePath: 'index.js'
                         },
                         directDependencies: new Set([ 'dep.js' ]),
@@ -228,7 +228,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export * from "./dep.d.ts";',
                             isExecutable: false,
-                            inputFilePath: '/src/index.d.ts',
+                            inputFilePath: '/source/index.d.ts',
                             targetFilePath: 'index.d.ts'
                         },
                         directDependencies: new Set([ 'dep.d.ts' ]),
@@ -247,7 +247,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export const dep = 1;',
                             isExecutable: false,
-                            inputFilePath: '/src/dep.js',
+                            inputFilePath: '/source/dep.js',
                             targetFilePath: 'dep.js'
                         },
                         directDependencies: new Set(),
@@ -258,7 +258,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export declare const dep: number;',
                             isExecutable: false,
-                            inputFilePath: '/src/dep.d.ts',
+                            inputFilePath: '/source/dep.d.ts',
                             targetFilePath: 'dep.d.ts'
                         },
                         directDependencies: new Set(),
@@ -270,7 +270,7 @@ suite('linker', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
-            bundleDependencies: [ testBundleDependency([ '/src/dep.js', '/src/dep.d.ts' ]) ],
+            bundleDependencies: [ testBundleDependency([ '/source/dep.js', '/source/dep.d.ts' ]) ],
             bundlePeerDependencies: []
         });
 
@@ -280,7 +280,7 @@ suite('linker', function () {
         assert.deepStrictEqual(
             result.substitutedInputFilePathsByPackageName,
             new Map([
-                [ 'bundle-dependency', new Set([ '/src/dep.js', '/src/dep.d.ts' ]) ]
+                [ 'bundle-dependency', new Set([ '/source/dep.js', '/source/dep.d.ts' ]) ]
             ])
         );
     });
@@ -288,14 +288,14 @@ suite('linker', function () {
     test('linkBundle() excludes local declaration companions for substituted dependency sources', async function () {
         const project = createProject({
             withFiles: [
-                { filePath: '/src/index.js', content: 'import "./dep.js";' },
-                { filePath: '/src/dep.js', content: 'export const dep = 1;' },
-                { filePath: '/src/dep.d.ts', content: 'export declare const dep: number;' }
+                { filePath: '/source/index.js', content: 'import "./dep.js";' },
+                { filePath: '/source/dep.js', content: 'export const dep = 1;' },
+                { filePath: '/source/dep.d.ts', content: 'export declare const dep: number;' }
             ]
         });
         const linker = createBundleLinker();
         const root = {
-            js: testFileDescription('/src/index.js', 'index.js', '')
+            javaScript: testFileDescription('/source/index.js', 'index.js', '')
         };
 
         const result = await linker.linkBundle({
@@ -303,50 +303,50 @@ suite('linker', function () {
                 name: 'package-a',
                 contents: [
                     {
-                        ...testResource('/src/index.js', 'index.js', 'import "./dep.js";', [ '/src/dep.js' ]),
+                        ...testResource('/source/index.js', 'index.js', 'import "./dep.js";', [ '/source/dep.js' ]),
                         project
                     },
-                    testResource('/src/dep.js', 'dep.js', 'export const dep = 1;', []),
-                    testResource('/src/dep.d.ts', 'dep.d.ts', 'export declare const dep: number;', [])
+                    testResource('/source/dep.js', 'dep.js', 'export const dep = 1;', []),
+                    testResource('/source/dep.d.ts', 'dep.d.ts', 'export declare const dep: number;', [])
                 ],
                 roots: { main: root },
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
-            bundleDependencies: [ testBundleDependency([ '/src/dep.js' ]) ],
+            bundleDependencies: [ testBundleDependency([ '/source/dep.js' ]) ],
             bundlePeerDependencies: []
         });
 
-        assert.deepStrictEqual(inputFilePathsOf(result.contents), [ '/src/index.js' ]);
+        assert.deepStrictEqual(inputFilePathsOf(result.contents), [ '/source/index.js' ]);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
     });
 
     test('linkBundle() keeps declaration companions for non-root js files', async function () {
         const root = testRootWithDeclaration();
         const result = await linkTestBundle(root, [
-            testResource('/src/index.js', 'index.js', 'import "./public.js";', [ '/src/public.js' ]),
-            testResource('/src/index.d.ts', 'index.d.ts', 'export declare const root: string;', []),
-            testResource('/src/public.js', 'public.js', 'export const publicValue = "value";', []),
-            testResource('/src/public.d.ts', 'public.d.ts', 'export declare const publicValue: string;', [])
+            testResource('/source/index.js', 'index.js', 'import "./public.js";', [ '/source/public.js' ]),
+            testResource('/source/index.d.ts', 'index.d.ts', 'export declare const root: string;', []),
+            testResource('/source/public.js', 'public.js', 'export const publicValue = "value";', []),
+            testResource('/source/public.d.ts', 'public.d.ts', 'export declare const publicValue: string;', [])
         ]);
 
         assert.deepStrictEqual(
             inputFilePathsOf(result.contents),
-            [ '/src/index.js', '/src/public.js', '/src/index.d.ts', '/src/public.d.ts' ]
+            [ '/source/index.js', '/source/public.js', '/source/index.d.ts', '/source/public.d.ts' ]
         );
     });
 
     test('linkBundle() keeps private runtime files without retaining their substituted declaration companions', async function () {
         const runtimeProject = createProject({
             withFiles: [
-                { filePath: '/src/index.js', content: 'import "./local.js";' },
-                { filePath: '/src/local.js', content: 'export const local = 1;' }
+                { filePath: '/source/index.js', content: 'import "./local.js";' },
+                { filePath: '/source/local.js', content: 'export const local = 1;' }
             ]
         });
         const declarationProject = createProject({
             withFiles: [
-                { filePath: '/src/index.d.ts', content: 'export type { Local } from "./local.d.ts";' },
-                { filePath: '/src/local.d.ts', content: 'export interface Local {}' }
+                { filePath: '/source/index.d.ts', content: 'export type { Local } from "./local.d.ts";' },
+                { filePath: '/source/local.d.ts', content: 'export interface Local {}' }
             ]
         });
         const result = await createBundleLinker().linkBundle({
@@ -357,17 +357,22 @@ suite('linker', function () {
                 externalDependencies: new Map(),
                 contents: [
                     {
-                        ...testResource('/src/index.js', 'index.js', 'import "./local.js";', [ '/src/local.js' ]),
+                        ...testResource('/source/index.js', 'index.js', 'import "./local.js";', [ '/source/local.js' ]),
                         project: runtimeProject
                     },
                     {
-                        ...testResource('/src/index.d.ts', 'index.d.ts', 'export type { Local } from "./local.d.ts";', [
-                            '/src/local.d.ts'
-                        ]),
+                        ...testResource(
+                            '/source/index.d.ts',
+                            'index.d.ts',
+                            'export type { Local } from "./local.d.ts";',
+                            [
+                                '/source/local.d.ts'
+                            ]
+                        ),
                         project: declarationProject
                     },
-                    testResource('/src/local.js', 'local.js', 'export const local = 1;', []),
-                    testResource('/src/local.d.ts', 'local.d.ts', 'export interface Local {}', [])
+                    testResource('/source/local.js', 'local.js', 'export const local = 1;', []),
+                    testResource('/source/local.d.ts', 'local.d.ts', 'export interface Local {}', [])
                 ]
             },
             bundleDependencies: [ {
@@ -375,23 +380,23 @@ suite('linker', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 roots: {
                     main: {
-                        js: testFileDescription('/dependency.js', 'dependency.js', ''),
+                        javaScript: testFileDescription('/dependency.js', 'dependency.js', ''),
                         declarationFile: testFileDescription(
-                            '/src/local.d.ts',
+                            '/source/local.d.ts',
                             'local.d.ts',
                             'export interface Local {}'
                         )
                     }
                 },
-                contents: [ testSubstitutionResource('/src/local.d.ts') ]
+                contents: [ testSubstitutionResource('/source/local.d.ts') ]
             } ],
             bundlePeerDependencies: []
         });
 
         assert.deepStrictEqual(inputFilePathsOf(result.contents), [
-            '/src/index.js',
-            '/src/local.js',
-            '/src/index.d.ts'
+            '/source/index.js',
+            '/source/local.js',
+            '/source/index.d.ts'
         ]);
         assert.strictEqual(result.contents[0]?.fileDescription.content, 'import "./local.js";');
         assert.strictEqual(result.contents[2]?.fileDescription.content, 'export type { Local } from "package-b";');
@@ -399,26 +404,26 @@ suite('linker', function () {
 
     test('linkBundle() keeps declaration roots that are not js companions', async function () {
         const root = {
-            js: testFileDescription('/src/index.js', 'index.js', ''),
-            declarationFile: testFileDescription('/src/types/root.d.ts', 'types/root.d.ts', '')
+            javaScript: testFileDescription('/source/index.js', 'index.js', ''),
+            declarationFile: testFileDescription('/source/types/root.d.ts', 'types/root.d.ts', '')
         };
         const result = await linkTestBundle(root, [
-            testResource('/src/index.js', 'index.js', 'export {};', []),
-            testResource('/src/types/root.d.ts', 'types/root.d.ts', 'export {};', [])
+            testResource('/source/index.js', 'index.js', 'export {};', []),
+            testResource('/source/types/root.d.ts', 'types/root.d.ts', 'export {};', [])
         ]);
 
         assert.deepStrictEqual(
             inputFilePathsOf(result.contents),
-            [ '/src/index.js', '/src/types/root.d.ts' ]
+            [ '/source/index.js', '/source/types/root.d.ts' ]
         );
     });
 
     test('linkBundle() tolerates explicit roots that share transitive files', async function () {
         const project = createProject({
             withFiles: [
-                { filePath: '/src/cli.js', content: 'import "./shared.js";' },
-                { filePath: '/src/worker.js', content: 'import "./shared.js";' },
-                { filePath: '/src/shared.js', content: 'export const shared = 1;' }
+                { filePath: '/source/cli.js', content: 'import "./shared.js";' },
+                { filePath: '/source/worker.js', content: 'import "./shared.js";' },
+                { filePath: '/source/shared.js', content: 'export const shared = 1;' }
             ]
         });
         const linker = createBundleLinker();
@@ -431,7 +436,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./shared.js";',
                             isExecutable: true,
-                            inputFilePath: '/src/cli.js',
+                            inputFilePath: '/source/cli.js',
                             targetFilePath: 'cli.js'
                         },
                         directDependencies: new Set([ 'shared.js' ]),
@@ -443,10 +448,10 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'import "./shared.js";',
                             isExecutable: false,
-                            inputFilePath: '/src/worker.js',
+                            inputFilePath: '/source/worker.js',
                             targetFilePath: 'worker.js'
                         },
-                        directDependencies: new Set([ '/src/shared.js' ]),
+                        directDependencies: new Set([ '/source/shared.js' ]),
                         moduleReferences: [],
                         isExplicitlyIncluded: false,
                         project
@@ -455,7 +460,7 @@ suite('linker', function () {
                         fileDescription: {
                             content: 'export const shared = 1;',
                             isExecutable: false,
-                            inputFilePath: '/src/shared.js',
+                            inputFilePath: '/source/shared.js',
                             targetFilePath: 'shared.js'
                         },
                         directDependencies: new Set(),
@@ -465,19 +470,19 @@ suite('linker', function () {
                     }
                 ],
                 roots: {
-                    cli: {
-                        js: {
+                    commandLineInterface: {
+                        javaScript: {
                             content: '#!/usr/bin/env node\nimport "./shared.js";',
                             isExecutable: true,
-                            inputFilePath: '/src/cli.js',
+                            inputFilePath: '/source/cli.js',
                             targetFilePath: 'cli.js'
                         }
                     },
                     worker: {
-                        js: {
+                        javaScript: {
                             content: 'import "./shared.js";',
                             isExecutable: false,
-                            inputFilePath: '/src/worker.js',
+                            inputFilePath: '/source/worker.js',
                             targetFilePath: 'worker.js'
                         }
                     }
@@ -485,7 +490,7 @@ suite('linker', function () {
                 surface: {
                     mode: 'explicit',
                     packageInterface: {
-                        bins: [ { root: 'cli', name: 'packtory' } ],
+                        executables: [ { root: 'commandLineInterface', name: 'packtory' } ],
                         privateRoots: [ 'worker' ]
                     }
                 },
@@ -503,7 +508,7 @@ suite('linker', function () {
                     return entry.fileDescription.inputFilePath;
                 })
                 .toSorted(compareText),
-            [ '/src/cli.js', '/src/worker.js', '/src/shared.js' ].toSorted(compareText)
+            [ '/source/cli.js', '/source/worker.js', '/source/shared.js' ].toSorted(compareText)
         );
     });
 });

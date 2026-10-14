@@ -10,7 +10,7 @@ export type Colors = {
     readonly yellow: (value: string) => string;
 };
 
-const ansi = {
+const terminalControl = {
     bold: { open: 1, close: 22 },
     dim: { open: 2, close: 22 },
     green: { open: 32, close: 39 },
@@ -22,7 +22,7 @@ function identity(value: string): string {
     return value;
 }
 
-function withAnsi(openCode: number, closeCode: number): (value: string) => string {
+function withTerminalControl(openCode: number, closeCode: number): (value: string) => string {
     return function (value) {
         return `\u{1B}[${openCode}m${value}\u{1B}[${closeCode}m`;
     };
@@ -35,11 +35,11 @@ function createDisabledColors(): Colors {
 export function createColors(enabled: boolean | undefined): Colors {
     if (enabled === true) {
         return {
-            bold: withAnsi(ansi.bold.open, ansi.bold.close),
-            dim: withAnsi(ansi.dim.open, ansi.dim.close),
-            green: withAnsi(ansi.green.open, ansi.green.close),
-            red: withAnsi(ansi.red.open, ansi.red.close),
-            yellow: withAnsi(ansi.yellow.open, ansi.yellow.close)
+            bold: withTerminalControl(terminalControl.bold.open, terminalControl.bold.close),
+            dim: withTerminalControl(terminalControl.dim.open, terminalControl.dim.close),
+            green: withTerminalControl(terminalControl.green.open, terminalControl.green.close),
+            red: withTerminalControl(terminalControl.red.open, terminalControl.red.close),
+            yellow: withTerminalControl(terminalControl.yellow.open, terminalControl.yellow.close)
         };
     }
     if (enabled === undefined) {
@@ -66,7 +66,7 @@ export type FailureDocumentHeader = {
 };
 
 function resultTypeHeading(resultType: FailureDocumentHeader['resultType']): string {
-    if (resultType === previewResultType.config) {
+    if (resultType === previewResultType.configuration) {
         return 'Configuration issues';
     }
     if (resultType === previewResultType.checks) {

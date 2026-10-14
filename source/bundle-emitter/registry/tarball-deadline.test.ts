@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import { createFakeClock } from '../../test-libraries/fake-clock.ts';
 import { fetchPackageTarball } from './package-tarball-fetcher.ts';
 
-const settings = { auth: { type: 'bearer-token', token: 'tok' } } as const;
-const tarballUrl = 'https://registry.npmjs.org/pkg.tgz';
+const settings = { authentication: { type: 'bearer-token', token: 'tok' } } as const;
+const tarballAddress = 'https://registry.npmjs.org/pkg.tgz';
 const emptyIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 suite('tarball-deadline', function () {
@@ -14,7 +14,7 @@ suite('tarball-deadline', function () {
         const download = fetchPackageTarball(
             {
                 clock,
-                async fetch(_url, options) {
+                async fetch(_address, options) {
                     const signal = options?.signal;
                     assert.ok(signal instanceof AbortSignal);
                     requestSignals.push(signal);
@@ -27,7 +27,7 @@ suite('tarball-deadline', function () {
                     });
                 }
             },
-            tarballUrl,
+            tarballAddress,
             emptyIntegrity,
             settings
         );
@@ -45,14 +45,14 @@ suite('tarball-deadline', function () {
         const downloaded = await fetchPackageTarball(
             {
                 clock,
-                async fetch(_url, options) {
+                async fetch(_address, options) {
                     const signal = options?.signal;
                     assert.ok(signal instanceof AbortSignal);
                     requestSignals.push(signal);
                     return new Response('artifact');
                 }
             },
-            tarballUrl,
+            tarballAddress,
             emptyIntegrity,
             settings
         );

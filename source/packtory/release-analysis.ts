@@ -1,6 +1,10 @@
 import { isDeepStrictEqual } from 'node:util';
-import { maxDate } from '../common/max-date.ts';
-import { bundleRelativePath, packageManifestFilePath, sbomArtifactFilePath } from '../common/package-layout.ts';
+import { maximumDate } from '../common/maximum-date.ts';
+import {
+    bundleRelativePath,
+    packageManifestFilePath,
+    softwareBillOfMaterialsArtifactFilePath
+} from '../common/package-layout.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
@@ -13,7 +17,7 @@ import { publishedReleaseStatus } from './published-release-state.ts';
 
 type PackageReleaseAnalysisWithPublishedDate = PackageReleaseAnalysis & { readonly latestPublishedAt: Date; };
 
-function dependencyOnlyPackageJsonFields(): readonly string[] {
+function dependencyOnlyPackageManifestFields(): readonly string[] {
     return [
         'bundleDependencies',
         'bundledDependencies',
@@ -25,11 +29,11 @@ function dependencyOnlyPackageJsonFields(): readonly string[] {
     ];
 }
 
-function isDependencyOnlyPackageJsonField(key: string): boolean {
-    return dependencyOnlyPackageJsonFields().includes(key);
+function isDependencyOnlyPackageManifestField(key: string): boolean {
+    return dependencyOnlyPackageManifestFields().includes(key);
 }
 
-function parseJsonFile(fileContent: string): unknown {
+function parseJavaScriptObjectNotationFile(fileContent: string): unknown {
     try {
         return JSON.parse(fileContent) as unknown;
     } catch {
@@ -37,9 +41,11 @@ function parseJsonFile(fileContent: string): unknown {
     }
 }
 
-function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
-    const packageJsonFile = index.get(packageManifestFilePath);
-    return packageJsonFile === undefined ? Number.NEGATIVE_INFINITY : parseJsonFile(packageJsonFile.content);
+function packageManifestValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
+    const packageManifestFile = index.get(packageManifestFilePath);
+    return packageManifestFile === undefined
+        ? Number.NEGATIVE_INFINITY
+        : parseJavaScriptObjectNotationFile(packageManifestFile.content);
 }
 
 function includesClassification(
@@ -75,20 +81,20 @@ function isChangedPackageAnalysis(analysis: PackageReleaseAnalysis): boolean {
     return analysis.classification !== releaseAnalysisClassification.unchanged;
 }
 
-function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
+function hasInvalidPackageManifestValues(previousValue: unknown, newValue: unknown): boolean {
     return previousValue === Number.NEGATIVE_INFINITY || newValue === Number.NEGATIVE_INFINITY;
 }
 
-function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
+function normalizePackageManifestForDependencyComparison(value: unknown): unknown {
     return JSON.parse(
         JSON.stringify(value, function (key, entryValue: unknown) {
-            return isDependencyOnlyPackageJsonField(key) ? undefined : entryValue;
+            return isDependencyOnlyPackageManifestField(key) ? undefined : entryValue;
         })
     ) as unknown;
 }
 
 function isDependencyDerivedFilePath(filePath: string): boolean {
-    return filePath === packageManifestFilePath || filePath === sbomArtifactFilePath;
+    return filePath === packageManifestFilePath || filePath === softwareBillOfMaterialsArtifactFilePath;
 }
 
 function nonDependencyDerivedFilesMatch(
@@ -105,20 +111,20 @@ function nonDependencyDerivedFilesMatch(
     return true;
 }
 
-function packageJsonChangeIsDependencyOnly(
+function packageManifestChangeIsDependencyOnly(
     previousIndex: ReadonlyMap<string, FileDescription>,
     newIndex: ReadonlyMap<string, FileDescription>
 ): boolean {
-    const previousPackageJsonValue = packageJsonValueForComparison(previousIndex);
-    const newPackageJsonValue = packageJsonValueForComparison(newIndex);
+    const previousPackageManifestValue = packageManifestValueForComparison(previousIndex);
+    const newPackageManifestValue = packageManifestValueForComparison(newIndex);
 
-    if (hasInvalidPackageJsonValues(previousPackageJsonValue, newPackageJsonValue)) {
+    if (hasInvalidPackageManifestValues(previousPackageManifestValue, newPackageManifestValue)) {
         return false;
     }
 
     return isDeepStrictEqual(
-        normalizePackageJsonForDependencyComparison(previousPackageJsonValue),
-        normalizePackageJsonForDependencyComparison(newPackageJsonValue)
+        normalizePackageManifestForDependencyComparison(previousPackageManifestValue),
+        normalizePackageManifestForDependencyComparison(newPackageManifestValue)
     );
 }
 
@@ -159,7 +165,7 @@ function isDependencyOnlyPublishedChange(
         return false;
     }
 
-    return packageJsonChangeIsDependencyOnly(previousIndex, newIndex);
+    return packageManifestChangeIsDependencyOnly(previousIndex, newIndex);
 }
 
 export function classifyPackageRelease(
@@ -207,7 +213,7 @@ export function classifyPackageRelease(
 
 function mostRecentPublishedAt(publishedDates: readonly Date[]): Date | undefined {
     return publishedDates.reduce<Date | undefined>(function (currentMostRecent, publishedAt) {
-        return currentMostRecent === undefined ? publishedAt : maxDate(currentMostRecent, [ publishedAt ]);
+        return currentMostRecent === undefined ? publishedAt : maximumDate(currentMostRecent, [ publishedAt ]);
     }, undefined);
 }
 

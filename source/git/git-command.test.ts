@@ -11,7 +11,7 @@ type FakeGitCommandChildProcess = {
     readonly once: (eventName: 'close', listener: () => void) => FakeGitCommandChildProcess;
 };
 
-const realChildProcessDeadlineMs = 5000;
+const realChildProcessDeadlineMilliseconds = 5000;
 
 function createFakeGitCommandChildProcess(
     recordCloseListener: (listener: () => void) => void
@@ -31,27 +31,27 @@ suite('git-command', function () {
         const runner = createGitCommandRunner(async function (command, commandArguments) {
             assert.strictEqual(command, 'git');
             assert.deepStrictEqual(commandArguments, [ 'status', '--short' ]);
-            return { stdout: Buffer.from('stdout'), stderr: 'stderr' };
+            return { standardOutput: Buffer.from('stdout'), standardError: 'stderr' };
         });
 
         assert.deepStrictEqual(await runner('git', [ 'status', '--short' ]), {
-            stdout: 'stdout',
-            stderr: 'stderr'
+            standardOutput: 'stdout',
+            standardError: 'stderr'
         });
     });
 
-    test('createGitCommandRunner copies readonly args before calling execFile', async function () {
-        const sourceArgs = [ 'rev-parse', 'HEAD' ] as const;
-        let receivedArgs: readonly string[] = [];
+    test('createGitCommandRunner copies readonly args before calling executeFile', async function () {
+        const sourceArguments = [ 'rev-parse', 'HEAD' ] as const;
+        let receivedArguments: readonly string[] = [];
         const runner = createGitCommandRunner(async function (_command, commandArguments) {
-            receivedArgs = commandArguments;
-            return { stdout: '', stderr: '' };
+            receivedArguments = commandArguments;
+            return { standardOutput: '', standardError: '' };
         });
 
-        await runner('git', sourceArgs);
+        await runner('git', sourceArguments);
 
-        assert.deepStrictEqual(sourceArgs, [ 'rev-parse', 'HEAD' ]);
-        assert.notStrictEqual(receivedArgs, sourceArgs);
+        assert.deepStrictEqual(sourceArguments, [ 'rev-parse', 'HEAD' ]);
+        assert.notStrictEqual(receivedArguments, sourceArguments);
     });
 
     test('createGitCommandRunner rejects executor errors', async function () {
@@ -73,11 +73,11 @@ suite('git-command', function () {
     });
 
     test('createChildProcessGitCommandExecutor resolves stdout and stderr from the child callback', async function () {
-        const sourceArgs = [ 'status', '--short' ] as const;
+        const sourceArguments = [ 'status', '--short' ] as const;
         const executeGitCommand = createChildProcessGitCommandExecutor(function (command, commandArguments, callback) {
             assert.strictEqual(command, 'git');
             assert.deepStrictEqual(commandArguments, [ 'status', '--short' ]);
-            assert.notStrictEqual(commandArguments, sourceArgs);
+            assert.notStrictEqual(commandArguments, sourceArguments);
             callback(null, 'stdout', 'stderr');
             return createFakeGitCommandChildProcess(function (listener) {
                 assert.strictEqual(typeof listener, 'function');
@@ -85,10 +85,10 @@ suite('git-command', function () {
         });
 
         assert.deepStrictEqual(
-            await withPromiseDeadline(executeGitCommand('git', sourceArgs), 'child process git command callback'),
+            await withPromiseDeadline(executeGitCommand('git', sourceArguments), 'child process git command callback'),
             {
-                stdout: 'stdout',
-                stderr: 'stderr'
+                standardOutput: 'stdout',
+                standardError: 'stderr'
             }
         );
     });
@@ -120,10 +120,10 @@ suite('git-command', function () {
                 'process.stdout.write("stdout"); process.stderr.write("stderr");'
             ]),
             'child process git command success',
-            realChildProcessDeadlineMs
+            realChildProcessDeadlineMilliseconds
         );
 
-        assert.deepStrictEqual(result, { stdout: 'stdout', stderr: 'stderr' });
+        assert.deepStrictEqual(result, { standardOutput: 'stdout', standardError: 'stderr' });
     });
 
     test('runChildProcessGitCommand rejects failed child processes', async function () {
@@ -132,7 +132,7 @@ suite('git-command', function () {
             withPromiseDeadline(
                 runChildProcessGitCommand(process.execPath, [ '-e', 'process.exit(13);' ]),
                 'failed child process git command',
-                realChildProcessDeadlineMs
+                realChildProcessDeadlineMilliseconds
             ),
             /Command failed/u
         );
@@ -144,7 +144,7 @@ suite('git-command', function () {
             withPromiseDeadline(
                 runChildProcessGitCommand('/definitely-missing/packtory-git-command', []),
                 'missing child process git command',
-                realChildProcessDeadlineMs
+                realChildProcessDeadlineMilliseconds
             ),
             /^Error: spawn \/definitely-missing\/packtory-git-command ENOENT$/u
         );

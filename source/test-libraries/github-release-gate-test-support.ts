@@ -1,17 +1,18 @@
-import type { AddressInfo } from 'node:net';
+import type { AddressInfo as AddressInformation } from 'node:net';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { execFile } from 'node:child_process';
+import { execFile as executeFile } from 'node:child_process';
 import { mkdtemp, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
+import { toGitHubResponse } from './github-response.ts';
 
-export const ciRunsPath =
-    '/repos/enormora/packtory/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha=abc123&per_page=100';
+export const continuousIntegrationRunsPath =
+    '/repos/enormora/packtory/actions/workflows/continuous-integration.yml/runs?branch=main&event=push&head_sha=abc123&per_page=100';
 export const pullsPath = '/repos/enormora/packtory/pulls?state=open&base=main&per_page=100';
 export const timelinePath = '/repos/enormora/packtory/issues/1/timeline?per_page=100';
 export const workspaceOutputPath = '/workspace/github-output.txt';
 
-const applicationJsonContentType = 'application/json';
+const applicationJavaScriptObjectNotationContentType = 'application/json';
 const localhostAddress = '127.0.0.1';
 const githubReleaseGateTemporaryFolderPrefix = 'packtory-github-release-gate-';
 const okStatus = 200;
@@ -27,22 +28,22 @@ export type RouteResponse = {
 
 export type RouteMap = Readonly<Record<string, RouteResponse>>;
 type EnvironmentVariableReader = (variableName: string) => string | undefined;
-type EntryPointScriptExecFileOptions = {
+type EntryPointScriptExecuteFileOptions = {
     readonly cwd: string;
     readonly encoding: 'utf8';
-    readonly env: Readonly<Record<string, string | undefined>>;
+    readonly environment: Readonly<Record<string, string | undefined>>;
 };
 type EntryPointScriptReadFileOptions = {
     readonly encoding: 'utf8';
 };
-type EntryPointScriptExecFileError = {
+type EntryPointScriptExecuteFileError = {
     readonly code?: number | string | null;
 };
-type EntryPointScriptExecFile = (
+type EntryPointScriptExecuteFile = (
     file: string,
     commandArguments: readonly string[],
-    options: EntryPointScriptExecFileOptions,
-    callback: (error: EntryPointScriptExecFileError | null, stdout: string, stderr: string) => void
+    options: EntryPointScriptExecuteFileOptions,
+    callback: (error: EntryPointScriptExecuteFileError | null, standardOutput: string, standardError: string) => void
 ) => void;
 type EntryPointScriptReadFile = (
     filePath: string,
@@ -59,11 +60,11 @@ type EntryPointScriptExecutionResult = {
 };
 export type EntryPointScriptDependencies = {
     readonly cwd: string;
-    readonly execFile: EntryPointScriptExecFile;
+    readonly executeFile: EntryPointScriptExecuteFile;
     readonly mkdtemp: (prefix: string) => Promise<string>;
-    readonly processExecPath: string;
+    readonly processExecutePath: string;
     readonly readFile: EntryPointScriptReadFile;
-    readonly tmpdir: () => string;
+    readonly temporaryDirectory: () => string;
 };
 
 export function createEnvironmentVariableReader(
@@ -76,13 +77,13 @@ export function createEnvironmentVariableReader(
 
 export function createBaseEnvironment(overrides: FakeEnvironment = {}): FakeEnvironment {
     return {
-        CI_WORKFLOW_FILE: 'ci.yml',
+        CI_WORKFLOW_FILE: 'continuous-integration.yml',
         DEFAULT_BRANCH: 'main',
-        DEPENDENCY_ONLY_MIN_AGE_DAYS: '7',
+        DEPENDENCY_ONLY_MINIMUM_AGE_DAYS: '7',
         GITHUB_OUTPUT: workspaceOutputPath,
         GITHUB_REPOSITORY: 'enormora/packtory',
         GITHUB_TOKEN: 'token',
-        MAX_LATENCY_HOURS: '24',
+        MAXIMUM_LATENCY_HOURS: '24',
         QUIET_PERIOD_MINUTES: '45',
         ...overrides
     };
@@ -91,9 +92,9 @@ export function createBaseEnvironment(overrides: FakeEnvironment = {}): FakeEnvi
 export function createBaseRoutes(): RouteMap {
     return {
         '/repos/enormora/packtory/branches/main': {
-            body: { commit: { sha: 'abc123' } }
+            body: { commit: { hash: 'abc123' } }
         },
-        [ciRunsPath]: {
+        [continuousIntegrationRunsPath]: {
             body: {
                 workflow_runs: [
                     {
@@ -129,15 +130,15 @@ export function createBaseRoutes(): RouteMap {
 }
 
 type AddressableServer = {
-    readonly address: () => AddressInfo | string | null;
+    readonly address: () => AddressInformation | string | null;
 };
 
 type ClosableServer = {
     readonly close: (callback: (error?: Error) => void) => void;
 };
 
-export function getRouteKey(requestUrl: string | undefined): string {
-    return requestUrl ?? '/';
+export function getRouteKey(requestAddress: string | undefined): string {
+    return requestAddress ?? '/';
 }
 
 export function getServerPort(server: AddressableServer): number {
@@ -174,22 +175,25 @@ async function readEntryPointOutput(
     }
 }
 
-export async function withGitHubApiServer<T>(routes: RouteMap, action: (apiBaseUrl: string) => Promise<T>): Promise<T> {
+export async function withGitHubApplicationProgrammingInterfaceServer<T>(
+    routes: RouteMap,
+    action: (applicationProgrammingInterfaceBaseAddress: string) => Promise<T>
+): Promise<T> {
     const server = createServer(function (request: IncomingMessage, response: ServerResponse) {
-        const requestUrl = getRouteKey(request.url);
-        const route = routes[requestUrl];
+        const requestAddress = getRouteKey(request.url);
+        const route = routes[requestAddress];
 
         if (route === undefined) {
-            response.writeHead(notFoundStatus, { 'content-type': applicationJsonContentType });
-            response.end(JSON.stringify({ message: `No route for ${requestUrl}` }));
+            response.writeHead(notFoundStatus, { 'content-type': applicationJavaScriptObjectNotationContentType });
+            response.end(JSON.stringify({ message: `No route for ${requestAddress}` }));
             return;
         }
 
         response.writeHead(route.status ?? okStatus, {
-            'content-type': applicationJsonContentType,
+            'content-type': applicationJavaScriptObjectNotationContentType,
             ...route.headers
         });
-        response.end(JSON.stringify(route.body));
+        response.end(JSON.stringify(toGitHubResponse(route.body)));
     });
 
     await new Promise<void>(function (resolve) {
@@ -210,31 +214,35 @@ export async function runEntryPointScript(
     environmentVariables: FakeEnvironment,
     dependencies: Readonly<EntryPointScriptDependencies> = {
         cwd: process.cwd(),
-        execFile(file, commandArguments, options, callback) {
-            execFile(file, commandArguments, options, callback);
+        executeFile(file, commandArguments, options, callback) {
+            executeFile(file, commandArguments, {
+                cwd: options.cwd,
+                encoding: options.encoding,
+                env: options.environment
+            }, callback);
         },
         async mkdtemp(prefix) {
             return await mkdtemp(prefix);
         },
-        processExecPath: process.execPath,
+        processExecutePath: process.execPath,
         async readFile(filePath, options) {
             return await readFile(filePath, options);
         },
-        tmpdir
+        temporaryDirectory
     }
 ): Promise<EntryPointScriptResult> {
     const temporaryFolder = await dependencies.mkdtemp(
-        path.join(dependencies.tmpdir(), githubReleaseGateTemporaryFolderPrefix)
+        path.join(dependencies.temporaryDirectory(), githubReleaseGateTemporaryFolderPrefix)
     );
     const outputPath = path.join(temporaryFolder, 'github-output.txt');
     const executionResult = await new Promise<EntryPointScriptExecutionResult>(function (resolve) {
-        dependencies.execFile(
-            dependencies.processExecPath,
+        dependencies.executeFile(
+            dependencies.processExecutePath,
             [ '--experimental-strip-types', '--enable-source-maps', entryPointPath ],
             {
                 cwd: dependencies.cwd,
                 encoding: 'utf8',
-                env: {
+                environment: {
                     ...environmentVariables,
                     GITHUB_OUTPUT: outputPath
                 }

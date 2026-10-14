@@ -1,12 +1,17 @@
 import assert from 'node:assert';
-import type { PrLogEngine, PrLogEngineOptions, PullRequest, PullRequestWithLabel } from '@pr-log/core';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import type {
+    PullRequestLogEngine,
+    PullRequestLogEngineOptions,
+    PullRequest,
+    PullRequestWithLabel
+} from '../../changelog/pull-request-log.ts';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
-import { pullRequestChangedFileFactory } from '../../test-libraries/pr-log-fixtures.ts';
+import { pullRequestChangedFileFactory } from '../../test-libraries/pull-request-log-fixtures.ts';
 import {
     loadPlannedRelease,
     prepareReleaseChangelogs,
@@ -14,7 +19,7 @@ import {
     type ReleasePreparationDependencies
 } from './release-preparation.ts';
 
-type EngineSpec = {
+type EngineSpecification = {
     readonly pullRequests: readonly PullRequest[];
     readonly labeledPullRequests: readonly PullRequestWithLabel[];
     readonly renderedMarkdown: string;
@@ -31,8 +36,8 @@ type PullRequestLabelInput = {
     readonly pullRequests: readonly PullRequest[];
 };
 
-type DependencySpec = {
-    readonly createPrLogEngine: SinonSpy;
+type DependencySpecification = {
+    readonly createPullRequestLogEngine: SinonSpy;
     readonly fileManager: FakeFileManager;
     readonly log: SinonSpy;
     readonly packtory: Packtory;
@@ -41,20 +46,20 @@ type DependencySpec = {
 };
 
 type CreatedReleasePreparationDependencies = ReleasePreparationDependencies & {
-    readonly createPrLogEngine: SinonSpy;
+    readonly createPullRequestLogEngine: SinonSpy;
     readonly fileManager: FakeFileManager;
     readonly log: SinonSpy;
     readonly stopAll: SinonSpy;
 };
 
-const validConfig = {
+const validConfiguration = {
     changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] },
     packages: [
         {
-            sourcesFolder: 'src/pkg-a',
-            mainPackageJson: { type: 'module' },
-            name: 'pkg-a',
-            roots: { main: { js: 'index.js' } },
+            sourcesFolder: 'source/package-a',
+            mainPackageManifest: { type: 'module' },
+            name: 'package-a',
+            roots: { main: { javaScript: 'index.js' } },
             publishSettings: { access: 'public' }
         }
     ]
@@ -62,7 +67,7 @@ const validConfig = {
 
 function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
@@ -73,22 +78,22 @@ function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): Rele
         latestRegistryMetadata: undefined,
         artifactFiles: [ 'index.js' ],
         changedArtifactFiles: [ 'index.js' ],
-        sourceFiles: [ 'src/pkg-a/index.ts' ],
+        sourceFiles: [ 'source/package-a/index.ts' ],
         changelogDependencyNames: [],
         changelogDependencyUpdates: [],
-        changelogSourceFiles: [ 'src/pkg-a/index.ts' ],
+        changelogSourceFiles: [ 'source/package-a/index.ts' ],
         ...overrides
     };
 }
 
-function createEngine(input: EngineSpec): PrLogEngine {
+function createEngine(input: EngineSpecification): PullRequestLogEngine {
     return {
         collectMergedPullRequests: fake.resolves(input.pullRequests),
         filterPullRequestsByTargetFiles: fake(function () {
             return input.pullRequests;
         }),
         readPullRequestChangedFiles: fake.resolves(
-            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'src/pkg-a/index.ts' }) ] ] ])
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a/index.ts' }) ] ] ])
         ),
         readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
         extractChangelogReleaseSection: fake(function (): never {
@@ -97,8 +102,8 @@ function createEngine(input: EngineSpec): PrLogEngine {
         renderChangelog: fake.returns(''),
         renderGroupedTargetChangelog: fake.returns(input.renderedMarkdown),
         renderTargetChangelog: fake.returns(input.renderedMarkdown),
-        resolveChangelogBaseRef: fake.resolves({ ref: 'old-head' }),
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
+        resolveChangelogBaseReference: fake.resolves({ reference: 'old-head' }),
+        resolveLatestSemverChangelogBaseReference: fake.resolves({ reference: 'latest-semver' }),
         resolvePullRequestLabels: fake.resolves(input.labeledPullRequests),
         resolveVersionNumber: fake.returns('1.0.1'),
         updateChangelog: fake(function (changelogUpdate: ChangelogUpdateInput) {
@@ -131,11 +136,11 @@ function createPacktory(result: ReleasePlanResult): Packtory {
     };
 }
 
-function createDefaultEngine(): PrLogEngine {
+function createDefaultEngine(): PullRequestLogEngine {
     return createEngine({
-        labeledPullRequests: [ { id: 1, label: 'bug', title: 'Fix package' } ],
-        pullRequests: [ { id: 1, title: 'Fix package' } ],
-        renderedMarkdown: '## pkg-a 1.0.1\n'
+        labeledPullRequests: [ { identifier: 1, label: 'bug', title: 'Fix package' } ],
+        pullRequests: [ { identifier: 1, title: 'Fix package' } ],
+        renderedMarkdown: '## package-a 1.0.1\n'
     });
 }
 
@@ -143,9 +148,9 @@ function readDefaultEnvironmentVariable(name: 'GH_TOKEN' | 'GITHUB_TOKEN'): stri
     return name === 'GH_TOKEN' ? 'gh-token' : undefined;
 }
 
-function createDefaultDependencySpec(): DependencySpec {
+function createDefaultDependencySpecification(): DependencySpecification {
     return {
-        createPrLogEngine: fake.returns(createDefaultEngine()),
+        createPullRequestLogEngine: fake.returns(createDefaultEngine()),
         fileManager: createFakeFileManager(),
         log: fake(),
         packtory: createPacktory(Result.ok({ packages: [ createReleasePackage() ] })),
@@ -154,15 +159,15 @@ function createDefaultDependencySpec(): DependencySpec {
     };
 }
 
-function mergeDependencySpec(overrides: Partial<DependencySpec>): DependencySpec {
-    return { ...createDefaultDependencySpec(), ...overrides };
+function mergeDependencySpecification(overrides: Partial<DependencySpecification>): DependencySpecification {
+    return { ...createDefaultDependencySpecification(), ...overrides };
 }
 
-function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedReleasePreparationDependencies {
-    const input = mergeDependencySpec(overrides);
+function createDependencies(overrides: Partial<DependencySpecification> = {}): CreatedReleasePreparationDependencies {
+    const input = mergeDependencySpecification(overrides);
 
     return {
-        createPrLogEngine: input.createPrLogEngine,
+        createPullRequestLogEngine: input.createPullRequestLogEngine,
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
         },
@@ -170,7 +175,7 @@ function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedRel
         log: input.log,
         packtory: input.packtory,
         readEnvironmentVariable: input.readEnvironmentVariable,
-        async readPackageInfo() {
+        async readPackageInformation() {
             return { repository: { url: 'https://github.com/owner/repo' } };
         },
         spinnerRenderer: {
@@ -178,7 +183,7 @@ function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedRel
                 input.stopAll();
             }
         },
-        configLoader: { load: fake.resolves(validConfig) },
+        configurationLoader: { load: fake.resolves(validConfiguration) },
         trace: false,
         workingDirectory: '/repo',
         stopAll: input.stopAll
@@ -186,12 +191,12 @@ function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedRel
 }
 
 function plannedRelease(packages: readonly ReleasePlanPackage[] = [ createReleasePackage() ]): PlannedRelease {
-    return { config: validConfig, packages };
+    return { configuration: validConfiguration, packages };
 }
 
 function createEmptyChangelogDependencies(): CreatedReleasePreparationDependencies {
     return createDependencies({
-        createPrLogEngine: fake.returns(createEngine({
+        createPullRequestLogEngine: fake.returns(createEngine({
             labeledPullRequests: [],
             pullRequests: [],
             renderedMarkdown: ''
@@ -209,7 +214,7 @@ suite('release-preparation', function () {
 
     test('logs release plan failures without returning a planned release', async function () {
         const dependencies = createDependencies({
-            packtory: createPacktory(Result.err({ type: 'config', issues: [ 'bad config' ] }))
+            packtory: createPacktory(Result.err({ type: 'configuration', issues: [ 'bad config' ] }))
         });
 
         assert.strictEqual(await loadPlannedRelease(dependencies), undefined);
@@ -219,19 +224,19 @@ suite('release-preparation', function () {
     });
 
     test('uses GITHUB_TOKEN for changelog generation when GH_TOKEN is absent', async function () {
-        const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
+        const createPullRequestLogEngine = fake(function (options: Readonly<PullRequestLogEngineOptions>) {
             assert.partialDeepStrictEqual(options, {
                 githubToken: 'github-token',
                 workingDirectory: '/repo'
             });
             return createEngine({
-                labeledPullRequests: [ { id: 1, label: 'bug', title: 'Fix package' } ],
-                pullRequests: [ { id: 1, title: 'Fix package' } ],
-                renderedMarkdown: '## pkg-a 1.0.1\n'
+                labeledPullRequests: [ { identifier: 1, label: 'bug', title: 'Fix package' } ],
+                pullRequests: [ { identifier: 1, title: 'Fix package' } ],
+                renderedMarkdown: '## package-a 1.0.1\n'
             });
         });
         const dependencies = createDependencies({
-            createPrLogEngine,
+            createPullRequestLogEngine,
             readEnvironmentVariable(name) {
                 return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
             }
@@ -239,17 +244,17 @@ suite('release-preparation', function () {
 
         const { changelog } = await prepareReleaseChangelogs(dependencies, plannedRelease(), true);
 
-        assert.strictEqual(changelog.changelog.groupedMarkdown, '## pkg-a 1.0.1\n');
-        assert.strictEqual(createPrLogEngine.callCount, 1);
+        assert.strictEqual(changelog.changelog.groupedMarkdown, '## package-a 1.0.1\n');
+        assert.strictEqual(createPullRequestLogEngine.callCount, 1);
     });
 
     test('prefers GH_TOKEN over GITHUB_TOKEN for changelog generation', async function () {
-        const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
+        const createPullRequestLogEngine = fake(function (options: Readonly<PullRequestLogEngineOptions>) {
             assert.strictEqual(options.githubToken, 'gh-token');
             return createDefaultEngine();
         });
         const dependencies = createDependencies({
-            createPrLogEngine,
+            createPullRequestLogEngine,
             readEnvironmentVariable(name) {
                 return name === 'GH_TOKEN' ? 'gh-token' : 'github-token';
             }
@@ -257,17 +262,17 @@ suite('release-preparation', function () {
 
         await prepareReleaseChangelogs(dependencies, plannedRelease(), true);
 
-        assert.strictEqual(createPrLogEngine.callCount, 1);
+        assert.strictEqual(createPullRequestLogEngine.callCount, 1);
     });
 
     test('rejects invalid changelog config before creating pr-log', async function () {
         const dependencies = createDependencies();
 
         await assert.rejects(
-            prepareReleaseChangelogs(dependencies, { config: {}, packages: [ createReleasePackage() ] }, true),
+            prepareReleaseChangelogs(dependencies, { configuration: {}, packages: [ createReleasePackage() ] }, true),
             /The loaded config is invalid for changelog generation/u
         );
-        assert.strictEqual(dependencies.createPrLogEngine.callCount, 0);
+        assert.strictEqual(dependencies.createPullRequestLogEngine.callCount, 0);
     });
 
     test('prepares configured changelog files and returns their paths', async function () {
@@ -277,7 +282,7 @@ suite('release-preparation', function () {
 
         assert.deepStrictEqual(writtenPaths, [ '/repo/CHANGELOG.md' ]);
         assert.deepStrictEqual(writtenFiles, [
-            { content: 'updated:\n## pkg-a 1.0.1\n', filePath: '/repo/CHANGELOG.md' }
+            { content: 'updated:\n## package-a 1.0.1\n', filePath: '/repo/CHANGELOG.md' }
         ]);
         assert.deepStrictEqual(dependencies.fileManager.getAllWriteFileCalls(), []);
     });
@@ -302,48 +307,48 @@ suite('release-preparation', function () {
             dependencies,
             plannedRelease([
                 createReleasePackage(),
-                createReleasePackage({ name: 'pkg-b', changelogSourceFiles: [ 'src/pkg-b/index.ts' ] })
+                createReleasePackage({ name: 'package-b', changelogSourceFiles: [ 'source/package-b/index.ts' ] })
             ]),
             false
         );
 
         assert.deepStrictEqual(result.writtenPaths, []);
         assert.deepStrictEqual(dependencies.log.firstCall.args, [
-            'No changelog files were written; changelog attribution found no pull requests for pkg-a, pkg-b.'
+            'No changelog files were written; changelog attribution found no pull requests for package-a, package-b.'
         ]);
     });
 
     test('reports only changed packages without changelog entries', async function () {
-        const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Fix package' } ];
+        const pullRequests: readonly PullRequest[] = [ { identifier: 1, title: 'Fix package' } ];
         const engine = {
             ...createEngine({
-                labeledPullRequests: [ { id: 1, label: 'bug', title: 'Fix package' } ],
+                labeledPullRequests: [ { identifier: 1, label: 'bug', title: 'Fix package' } ],
                 pullRequests,
-                renderedMarkdown: '## pkg-a 1.0.1\n'
+                renderedMarkdown: '## package-a 1.0.1\n'
             }),
             filterPullRequestsByTargetFiles: fake(function (input: PullRequestFilterInput) {
-                return input.targetName === 'pkg-a' ? input.pullRequests : [];
+                return input.targetName === 'package-a' ? input.pullRequests : [];
             }),
             resolvePullRequestLabels: fake(async function (input: PullRequestLabelInput) {
                 return input.pullRequests.map(function (pullRequest) {
-                    return { id: pullRequest.id, label: 'bug', title: pullRequest.title };
+                    return { identifier: pullRequest.identifier, label: 'bug', title: pullRequest.title };
                 });
             })
         };
         const dependencies = createDependencies({
-            createPrLogEngine: fake.returns(engine)
+            createPullRequestLogEngine: fake.returns(engine)
         });
 
         const result = await prepareReleaseChangelogs(
             dependencies,
             plannedRelease([
                 createReleasePackage(),
-                createReleasePackage({ name: 'pkg-b', changelogSourceFiles: [ 'src/pkg-b/index.ts' ] })
+                createReleasePackage({ name: 'package-b', changelogSourceFiles: [ 'source/package-b/index.ts' ] })
             ]),
             true
         );
 
-        assert.deepStrictEqual(result.changelog.changelog.packageNamesWithoutChangelogEntries, [ 'pkg-b' ]);
+        assert.deepStrictEqual(result.changelog.changelog.packageNamesWithoutChangelogEntries, [ 'package-b' ]);
     });
 
     test('rejects required changelog generation when no files are written', async function () {
@@ -351,7 +356,7 @@ suite('release-preparation', function () {
 
         await assert.rejects(
             prepareReleaseChangelogs(dependencies, plannedRelease(), true),
-            /No changelog files were written; changelog attribution found no pull requests for pkg-a\./u
+            /No changelog files were written; changelog attribution found no pull requests for package-a\./u
         );
         assert.deepStrictEqual(dependencies.log.getCalls(), []);
     });

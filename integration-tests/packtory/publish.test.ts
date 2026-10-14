@@ -1,85 +1,27 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { checkWithRegistry, type RegistryDetails } from '../registry.ts';
+import { checkWithRegistry } from '../registry.ts';
 import {
-    assertPackageNotPublished,
-    assertPublishSucceeded,
-    createPackageConfig,
-    createPackageConfigList,
-    fetchPublishedPackage,
-    getFixturePath,
-    getPublishedFile,
-    publishTaggedRegistryVersion,
-    publishFixturePackages
-} from './publish-fixture-support.ts';
+    assertFirstPackageSoftwareBillOfMaterials,
+    assertFixturePublishResult,
+    softwareBillOfMaterialsPackages
+} from './publication-assertions.ts';
 import {
     expectedFirstPackageVersion,
     expectedSecondPackageFirstRunVersion,
     expectedSecondPackageSecondRunVersion
 } from './publish-fixture-expectations.ts';
-
-async function assertFixturePublishResult(
-    fixturePath: string,
-    registryDetails: RegistryDetails,
-    expectedSecondPackageVersion: Readonly<Record<string, unknown>>
-): Promise<void> {
-    const result = await publishFixturePackages({ fixturePath, registryDetails });
-    assertPublishSucceeded(result);
-
-    const latestVersionOfFirstPackage = await fetchPublishedPackage('first', registryDetails);
-    const latestVersionOfSecondPackage = await fetchPublishedPackage('second', registryDetails);
-
-    assert.deepStrictEqual(
-        {
-            version: latestVersionOfFirstPackage.version,
-            files: latestVersionOfFirstPackage.files
-        },
-        expectedFirstPackageVersion
-    );
-    assert.deepStrictEqual(
-        {
-            version: latestVersionOfSecondPackage.version,
-            files: latestVersionOfSecondPackage.files
-        },
-        expectedSecondPackageVersion
-    );
-}
-
-function sbomPackages(fixturePath: string): ReturnType<typeof createPackageConfigList> {
-    return createPackageConfigList(
-        createPackageConfig(fixturePath, 'first', 'entry1', {
-            publishSettings: { access: 'public', sbom: { enabled: true } }
-        }),
-        createPackageConfig(fixturePath, 'second', 'entry2', {
-            bundleDependencies: [ 'first' ],
-            publishSettings: { access: 'public', sbom: { enabled: true } }
-        })
-    );
-}
-
-type SbomMetadata = {
-    readonly component: {
-        readonly 'bom-ref': string;
-        readonly name: string;
-        readonly version: string;
-    };
-};
-
-function assertFirstPackageSbom(sbom: Readonly<Record<string, unknown>>): void {
-    assert.partialDeepStrictEqual(sbom, {
-        bomFormat: 'CycloneDX',
-        specVersion: '1.6'
-    });
-    const metadata = sbom.metadata as SbomMetadata;
-    assert.strictEqual(metadata.component['bom-ref'], 'pkg:npm/first@0.0.1');
-    assert.partialDeepStrictEqual(metadata, {
-        component: {
-            name: 'first',
-            version: '0.0.1'
-        }
-    });
-    assert.deepStrictEqual(sbom.components, []);
-}
+import {
+    assertPackageNotPublished,
+    assertPublishSucceeded,
+    createPackageConfiguration,
+    createPackageConfigurationList,
+    fetchPublishedPackage,
+    getFixturePath,
+    getPublishedFile,
+    publishFixturePackages,
+    publishTaggedRegistryVersion
+} from './publish-fixture-support.ts';
 
 suite('publish', function () {
     suite('publish cases 1', function () {
@@ -181,8 +123,8 @@ suite('publish', function () {
             'publishes the configured manual version and keeps it stable for an unchanged rerun',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1', {
                         versioning: { automatic: false, version: '3.2.1' }
                     })
                 );
@@ -209,14 +151,16 @@ suite('publish', function () {
             'publishes successfully with explicit basic auth against the registry',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(createPackageConfig(fixturePathValue, 'first', 'entry1'));
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1')
+                );
 
                 assertPublishSucceeded(
                     await publishFixturePackages({
                         fixturePath: fixturePathValue,
                         registryDetails,
                         packages,
-                        authMode: 'basic'
+                        authenticationMode: 'basic'
                     })
                 );
 
@@ -235,8 +179,8 @@ suite('publish', function () {
             'publishes the configured minimumVersion for the first automatic publish',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1', {
                         versioning: { automatic: true, minimumVersion: '1.2.3' }
                     })
                 );
@@ -260,10 +204,12 @@ suite('publish', function () {
             'publishes bundle peer dependencies into peerDependencies and keeps the substituted imports',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1'),
-                    createPackageConfig(fixturePathValue, 'second', 'entry2', { bundleDependencies: [ 'first' ] }),
-                    createPackageConfig(fixturePathValue, 'third', 'entry3', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1'),
+                    createPackageConfiguration(fixturePathValue, 'second', 'entry2', {
+                        bundleDependencies: [ 'first' ]
+                    }),
+                    createPackageConfiguration(fixturePathValue, 'third', 'entry3', {
                         bundleDependencies: [ 'first' ],
                         bundlePeerDependencies: [ 'second' ]
                     })
@@ -296,17 +242,23 @@ suite('publish', function () {
             'includes a CycloneDX SBOM next to the manifest when SBOM is enabled',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = sbomPackages(fixturePathValue);
+                const packages = softwareBillOfMaterialsPackages(fixturePathValue);
 
                 assertPublishSucceeded(
                     await publishFixturePackages({ fixturePath: fixturePathValue, registryDetails, packages })
                 );
 
                 const firstPackage = await fetchPublishedPackage('first', registryDetails);
-                const sbomFile = getPublishedFile(firstPackage, 'package/sbom.cdx.json');
-                const sbom = JSON.parse(sbomFile.content) as Record<string, unknown>;
+                const softwareBillOfMaterialsFile = getPublishedFile(
+                    firstPackage,
+                    'package/software-bill-of-materials.cyclonedx.json'
+                );
+                const softwareBillOfMaterials = JSON.parse(softwareBillOfMaterialsFile.content) as Record<
+                    string,
+                    unknown
+                >;
 
-                assertFirstPackageSbom(sbom);
+                assertFirstPackageSoftwareBillOfMaterials(softwareBillOfMaterials);
             })
         );
 
@@ -314,14 +266,14 @@ suite('publish', function () {
             'omits retained private authoring imports from SBOM package dependencies',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1', {
                         packageInterface: { modules: [ { export: '.', root: 'main' } ] },
-                        publishSettings: { access: 'public', sbom: { enabled: true } }
+                        publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: true } }
                     }),
-                    createPackageConfig(fixturePathValue, 'second', 'entry2', {
+                    createPackageConfiguration(fixturePathValue, 'second', 'entry2', {
                         bundleDependencies: [ 'first' ],
-                        publishSettings: { access: 'public', sbom: { enabled: true } }
+                        publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: true } }
                     })
                 );
 
@@ -330,18 +282,24 @@ suite('publish', function () {
                 );
 
                 const secondPackage = await fetchPublishedPackage('second', registryDetails);
-                const sbomFile = getPublishedFile(secondPackage, 'package/sbom.cdx.json');
-                const sbom = JSON.parse(sbomFile.content) as {
+                const softwareBillOfMaterialsFile = getPublishedFile(
+                    secondPackage,
+                    'package/software-bill-of-materials.cyclonedx.json'
+                );
+                const softwareBillOfMaterials = JSON.parse(softwareBillOfMaterialsFile.content) as {
                     readonly components: readonly {
                         readonly name: string;
                         readonly version: string;
                         readonly 'bom-ref': string;
                         readonly scope: string;
                     }[];
-                    readonly dependencies: readonly { readonly ref: string; readonly dependsOn?: readonly string[]; }[];
+                    readonly dependencies: readonly {
+                        readonly reference: string;
+                        readonly dependsOn?: readonly string[];
+                    }[];
                 };
 
-                assert.partialDeepStrictEqual(sbom, {
+                assert.partialDeepStrictEqual(softwareBillOfMaterials, {
                     metadata: { component: { name: 'second', version: '0.0.1', 'bom-ref': 'pkg:npm/second@0.0.1' } },
                     components: [],
                     dependencies: []
@@ -355,11 +313,13 @@ suite('publish', function () {
             'publishes retained private modules without exposing private package paths',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('substitution-type-check');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'pkg-a', 'a-entry', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'package-a', 'a-entry', {
                         packageInterface: { modules: [ { export: '.', root: 'main' } ] }
                     }),
-                    createPackageConfig(fixturePathValue, 'pkg-b', 'b-entry', { bundleDependencies: [ 'pkg-a' ] })
+                    createPackageConfiguration(fixturePathValue, 'package-b', 'b-entry', {
+                        bundleDependencies: [ 'package-a' ]
+                    })
                 );
                 assertPublishSucceeded(
                     await publishFixturePackages({
@@ -368,8 +328,8 @@ suite('publish', function () {
                         packages
                     })
                 );
-                const publishedProducer = await fetchPublishedPackage('pkg-a', registryDetails);
-                const publishedConsumer = await fetchPublishedPackage('pkg-b', registryDetails);
+                const publishedProducer = await fetchPublishedPackage('package-a', registryDetails);
+                const publishedConsumer = await fetchPublishedPackage('package-b', registryDetails);
                 assert.deepStrictEqual(publishedProducer.manifest.exports, {
                     '.': { import: './a-entry.js', types: './a-entry.d.ts' }
                 });
@@ -387,9 +347,9 @@ suite('publish', function () {
             'produces byte-identical SBOMs across two unchanged publish runs',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1', {
-                        publishSettings: { access: 'public', sbom: { enabled: true } }
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1', {
+                        publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: true } }
                     })
                 );
 
@@ -404,8 +364,8 @@ suite('publish', function () {
                 const secondRun = await fetchPublishedPackage('first', registryDetails);
 
                 assert.strictEqual(
-                    getPublishedFile(secondRun, 'package/sbom.cdx.json').content,
-                    getPublishedFile(firstRun, 'package/sbom.cdx.json').content
+                    getPublishedFile(secondRun, 'package/software-bill-of-materials.cyclonedx.json').content,
+                    getPublishedFile(firstRun, 'package/software-bill-of-materials.cyclonedx.json').content
                 );
                 assert.strictEqual(secondRun.version, firstRun.version);
             })
@@ -415,16 +375,16 @@ suite('publish', function () {
             'rejects publishing a bundle whose external dependency uses a mutable git+https specifier',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('with-local-builtin-and-node-module-dependencies');
-                const packages = createPackageConfigList({
+                const packages = createPackageConfigurationList({
                     name: 'mutable-rejection-fixture',
-                    roots: { main: { js: `${fixturePathValue}/src/entry.js` } }
+                    roots: { main: { javaScript: `${fixturePathValue}/source/entry.js` } }
                 });
 
                 const result = await publishFixturePackages({
                     fixturePath: fixturePathValue,
                     registryDetails,
                     packages,
-                    mainPackageJsonOverrides: {
+                    mainPackageManifestOverrides: {
                         dependencies: { 'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0' }
                     }
                 });
@@ -453,9 +413,9 @@ suite('publish', function () {
             'allows a mutable git+https specifier when the dep is allow-listed and preserves it in the published manifest',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('with-local-builtin-and-node-module-dependencies');
-                const packages = createPackageConfigList({
+                const packages = createPackageConfigurationList({
                     name: 'mutable-allow-list-fixture',
-                    roots: { main: { js: `${fixturePathValue}/src/entry.js` } }
+                    roots: { main: { javaScript: `${fixturePathValue}/source/entry.js` } }
                 });
 
                 assertPublishSucceeded(
@@ -463,7 +423,7 @@ suite('publish', function () {
                         fixturePath: fixturePathValue,
                         registryDetails,
                         packages,
-                        mainPackageJsonOverrides: {
+                        mainPackageManifestOverrides: {
                             dependencies: { 'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0' }
                         },
                         commonPackageSettings: {
@@ -484,15 +444,15 @@ suite('publish', function () {
             'merges common and per-package publish settings in a single happy path',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
-                const packages = createPackageConfigList(
-                    createPackageConfig(fixturePathValue, 'first', 'entry1', {
+                const packages = createPackageConfigurationList(
+                    createPackageConfiguration(fixturePathValue, 'first', 'entry1', {
                         additionalFiles: [
                             {
-                                inputFilePath: `${fixturePathValue}/docs/first.txt`,
-                                targetFilePath: 'docs/first.txt'
+                                inputFilePath: `${fixturePathValue}/documentation/first.txt`,
+                                targetFilePath: 'documentation/first.txt'
                             }
                         ],
-                        additionalPackageJsonAttributes: {
+                        additionalPackageManifestAttributes: {
                             description: 'first package'
                         }
                     })
@@ -507,11 +467,11 @@ suite('publish', function () {
                             includeSourceMapFiles: true,
                             additionalFiles: [
                                 {
-                                    inputFilePath: `${fixturePathValue}/docs/common.txt`,
-                                    targetFilePath: 'docs/common.txt'
+                                    inputFilePath: `${fixturePathValue}/documentation/common.txt`,
+                                    targetFilePath: 'documentation/common.txt'
                                 }
                             ],
-                            additionalPackageJsonAttributes: {
+                            additionalPackageManifestAttributes: {
                                 license: 'MIT'
                             }
                         }
@@ -528,18 +488,18 @@ suite('publish', function () {
                 });
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/entry1.js.map').content,
-                    '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n'
+                    '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./source/entry.ts"],"names":[],"mappings":""}\n'
                 );
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/qux.js.map').content,
-                    '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n'
+                    '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./source/entry.ts"],"names":[],"mappings":""}\n'
                 );
                 assert.strictEqual(
-                    getPublishedFile(publishedPackage, 'package/docs/common.txt').content,
+                    getPublishedFile(publishedPackage, 'package/documentation/common.txt').content,
                     'common file\n'
                 );
                 assert.strictEqual(
-                    getPublishedFile(publishedPackage, 'package/docs/first.txt').content,
+                    getPublishedFile(publishedPackage, 'package/documentation/first.txt').content,
                     'package file\n'
                 );
             })

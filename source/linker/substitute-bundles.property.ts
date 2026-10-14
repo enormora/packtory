@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import type { Except } from 'type-fest';
 import { packageManifestFilePath } from '../common/package-layout.ts';
@@ -9,7 +9,7 @@ import type { LinkedBundle } from './linked-bundle.ts';
 import { createGraphFromResolvedBundle, type ResourceGraph } from './resource-graph.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
 
-const importCountArbitrary = fc.integer({ min: 0, max: 4 });
+const importCountArbitrary = fastCheck.integer({ min: 0, max: 4 });
 type SubstitutionScenario = {
     readonly bundleDependencies: readonly VersionedBundleWithManifest[];
     readonly importPaths: readonly string[];
@@ -31,7 +31,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
     return {
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath,
@@ -59,7 +59,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
                 }
             }
         ],
-        packageJson: { name: `package-${index}`, version: '1.0.0' },
+        packageManifest: { name: `package-${index}`, version: '1.0.0' },
         name: `package-${index}`,
         version: '1.0.0',
         dependencies: {},
@@ -116,7 +116,7 @@ function createSubstitutionGraph(importPaths: readonly string[]): ResourceGraph 
     return createGraphFromResolvedBundle({
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
                     inputFilePath: '/entry.js',
@@ -221,10 +221,10 @@ function assertSubstitutionResult(assertion: SubstitutionAssertion): void {
 
 suite('substitute-bundles', function () {
     test('substituteDependencies() only rewrites matched imports and never invents unrelated files', function () {
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 importCountArbitrary,
-                fc.array(fc.boolean(), { minLength: 0, maxLength: 4 }),
+                fastCheck.array(fastCheck.boolean(), { minLength: 0, maxLength: 4 }),
                 function (importCount, replacementFlags) {
                     const scenario = createSubstitutionScenario(importCount, replacementFlags);
                     const graph = createSubstitutionGraph(scenario.importPaths);
