@@ -14,9 +14,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a trusted imported call as pure', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+                classify('import { bold } from "formatting-library"; const x = bold("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'bold' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'bold' ] } ]
                 }),
                 []
             );
@@ -24,19 +24,22 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a wrapped trusted imported call and spread arguments as pure', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = (((bold as typeof bold))!)(...[\'hi\']);', {
-                    enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'bold' ] } ]
-                }),
+                classify(
+                    'import { bold } from "formatting-library"; const x = (((bold as typeof bold))!)(...[\'hi\']);',
+                    {
+                        enabled: true,
+                        pureImports: [ { from: 'formatting-library', imports: [ 'bold' ] } ]
+                    }
+                ),
                 []
             );
         });
 
         test('treats a const with a trusted namespace import call as pure', function () {
             assert.deepStrictEqual(
-                classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+                classify('import * as colors from "formatting-library"; const x = colors.green("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors' } ]
+                    pureImports: [ { from: 'formatting-library' } ]
                 }),
                 []
             );
@@ -44,9 +47,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a trusted namespace import call as pure when the allow-list names the accessed member', function () {
             assert.deepStrictEqual(
-                classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+                classify('import * as colors from "formatting-library"; const x = colors.green("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'green' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'green' ] } ]
                 }),
                 []
             );
@@ -54,9 +57,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a namespace import call chain as impure when only a later accessed member is trusted', function () {
             assert.deepStrictEqual(
-                classify('import * as colors from "yoctocolors"; const x = colors.bold.green("hi");', {
+                classify('import * as colors from "formatting-library"; const x = colors.bold.green("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'green' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'green' ] } ]
                 }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
@@ -76,9 +79,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a named import as impure when only default imports are trusted', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+                classify('import { bold } from "formatting-library"; const x = bold("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'default' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'default' ] } ]
                 }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
@@ -86,9 +89,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a trusted imported call as pure when a later trust rule matches', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+                classify('import { bold } from "formatting-library"; const x = bold("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'trusted-formatter' }, { from: 'yoctocolors', imports: [ 'bold' ] } ]
+                    pureImports: [ { from: 'trusted-formatter' }, { from: 'formatting-library', imports: [ 'bold' ] } ]
                 }),
                 []
             );
@@ -96,19 +99,22 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with a trusted namespace builder call chain as pure', function () {
             assert.deepStrictEqual(
-                classify('import { z } from "zod/mini"; const x = z.string().check(z.minLength(1));', {
-                    enabled: true,
-                    pureImports: [ { from: 'zod/mini' } ]
-                }),
+                classify(
+                    'import { builder } from "builder-library"; const x = builder.create().configure(builder.option(1));',
+                    {
+                        enabled: true,
+                        pureImports: [ { from: 'builder-library' } ]
+                    }
+                ),
                 []
             );
         });
 
         test('treats an untrusted imported call as impure', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+                classify('import { bold } from "formatting-library"; const x = bold("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'green' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'green' ] } ]
                 }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
@@ -116,7 +122,7 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a namespace import call as impure when the module is not trusted', function () {
             assert.deepStrictEqual(
-                classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+                classify('import * as colors from "formatting-library"; const x = colors.green("hi");', {
                     enabled: true,
                     pureImports: [ { from: 'trusted-formatter' } ]
                 }),
@@ -126,13 +132,13 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a const with an imported call as impure when no pure import settings are configured', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold("hi");', { enabled: true }),
+                classify('import { bold } from "formatting-library"; const x = bold("hi");', { enabled: true }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
         });
 
         test('treats a const with an imported call as impure when purity settings are omitted entirely', function () {
-            assert.deepStrictEqual(classify('import { bold } from "yoctocolors"; const x = bold("hi");'), [
+            assert.deepStrictEqual(classify('import { bold } from "formatting-library"; const x = bold("hi");'), [
                 { line: 1, kind: 'variable initializer' }
             ]);
         });
@@ -141,9 +147,9 @@ suite('side-effect-classifier trusted calls', function () {
     suite('side-effect-classifier constructors and properties', function () {
         test('treats a trusted imported call with an impure argument as impure', function () {
             assert.deepStrictEqual(
-                classify('import { bold } from "yoctocolors"; const x = bold(compute());', {
+                classify('import { bold } from "formatting-library"; const x = bold(compute());', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors', imports: [ 'bold' ] } ]
+                    pureImports: [ { from: 'formatting-library', imports: [ 'bold' ] } ]
                 }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
@@ -158,9 +164,9 @@ suite('side-effect-classifier trusted calls', function () {
 
         test('treats a call through an unsupported imported element access as impure', function () {
             assert.deepStrictEqual(
-                classify('import * as colors from "yoctocolors"; const x = colors["green"]("hi");', {
+                classify('import * as colors from "formatting-library"; const x = colors["green"]("hi");', {
                     enabled: true,
-                    pureImports: [ { from: 'yoctocolors' } ]
+                    pureImports: [ { from: 'formatting-library' } ]
                 }),
                 [ { line: 1, kind: 'variable initializer' } ]
             );
