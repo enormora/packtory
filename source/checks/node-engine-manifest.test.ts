@@ -39,6 +39,13 @@ suite('node-engine-manifest', function () {
     });
 
     suite('node-engine-manifest dependency metadata', function () {
+        test('orders dependencies consistently across locales', function () {
+            assert.deepStrictEqual(
+                readNodeEngineManifest({ dependencies: { a: '*', B: '*' } }).requiredDependencyNames,
+                [ 'B', 'a' ]
+            );
+        });
+
         test('reports schema validation errors instead of accessing failed parse results', function () {
             assert.throws(function () {
                 readNodeEngineManifest({ dependencies: { dep: 1 } });

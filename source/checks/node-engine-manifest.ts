@@ -2,6 +2,7 @@ import parsePackageArgument from 'npm-package-arg';
 import { subset, validRange } from 'semver';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
+import { compareValues } from '../common/sort-values.ts';
 
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
 const manifestSchema = z.object({
@@ -48,9 +49,7 @@ export function readNodeEngineManifest(manifest: unknown): NodeEngineManifest {
     const peers = Object.keys(parsed.peerDependencies ?? {}).filter(function (name) {
         return parsed.peerDependenciesMeta?.[name]?.optional !== true;
     });
-    const requiredDependencyNames = Array.from(new Set([ ...dependencies, ...peers ])).toSorted(function (left, right) {
-        return left.localeCompare(right);
-    });
+    const requiredDependencyNames = Array.from(new Set([ ...dependencies, ...peers ])).toSorted(compareValues);
     for (const name of requiredDependencyNames) {
         validateDependencyName(name);
     }

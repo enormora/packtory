@@ -6,6 +6,7 @@ import {
     packageManifestPathIn
 } from '../../common/package-layout.ts';
 import { createWorklist } from '../../common/worklist.ts';
+import { compareValues } from '../../common/sort-values.ts';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
@@ -43,11 +44,6 @@ type DependencyRequest = {
     readonly chain: readonly string[];
 };
 
-type DependencyNodeCache = {
-    readonly get: (identity: string) => DependencyNode | undefined;
-    readonly set: (identity: string, node: DependencyNode) => unknown;
-};
-
 type DependencyNode = {
     readonly identity: string;
     readonly folder: string;
@@ -76,9 +72,7 @@ function dependencySourceFolders(
     });
     return folders.length === 0
         ? [ sourceFolder(input, bundle.name) ]
-        : Array.from(new Set(folders)).toSorted(function (left, right) {
-            return left.localeCompare(right);
-        });
+        : Array.from(new Set(folders)).toSorted(compareValues);
 }
 
 function dependencyRequests(
@@ -110,11 +104,8 @@ function publishedPackageFor(input: RunInput, name: string): PublishedPackageWit
     return publishedPackage;
 }
 
-function generatedNode(
-    input: RunInput,
-    name: string,
-    publishedPackage: PublishedPackageWithManifest
-): DependencyNode {
+function generatedNode(input: RunInput, name: string): DependencyNode {
+    const publishedPackage = publishedPackageFor(input, name);
     const bundle = input.bundles.find(function (candidate) {
         return candidate.name === name;
     });
@@ -167,7 +158,10 @@ export function createNodeEngineCompatibilityRule(
     const { fileManager } = dependencies;
     const { readFile: readManifest } = fileManager;
 
-    async function readInstalledNode(folder: string, nodes: DependencyNodeCache): Promise<DependencyNode> {
+    async function readInstalledNode(
+        folder: string,
+        nodes: Readonly<Map<string, DependencyNode>>
+    ): Promise<DependencyNode> {
         const cached = nodes.get(folder);
         if (cached !== undefined) {
             return cached;
@@ -181,10 +175,10 @@ export function createNodeEngineCompatibilityRule(
     async function resolveNode(
         input: RunInput,
         request: DependencyRequest,
-        nodes: DependencyNodeCache
+        nodes: Readonly<Map<string, DependencyNode>>
     ): Promise<DependencyNode> {
         if (request.sibling) {
-            return generatedNode(input, request.name, publishedPackageFor(input, request.name));
+            return generatedNode(input, request.name);
         }
         const folder = await resolveInstalledPackage(fileManager, request.name, request.fromFolder);
         if (folder === undefined) {
@@ -243,7 +237,7 @@ export function createNodeEngineCompatibilityRule(
             return [];
         }
         try {
-            return await checkTree(input, generatedNode(input, name, publishedPackage), name, validateNodeRange(range));
+            return await checkTree(input, generatedNode(input, name), name, validateNodeRange(range));
         } catch (error) {
             return [ engineIssue(name, [ name ], String(error)) ];
         }
@@ -261,16 +255,12 @@ export function createNodeEngineCompatibilityRule(
                 .map(function (bundle) {
                     return bundle.name;
                 })
-                .toSorted(function (left, right) {
-                    return left.localeCompare(right);
-                });
+                .toSorted(compareValues);
             const issues: string[] = [];
             for (const name of names) {
                 issues.push(...await checkPackage(input, name));
             }
-            return issues.toSorted(function (left, right) {
-                return left.localeCompare(right);
-            });
+            return issues.toSorted(compareValues);
         }
     };
 }
