@@ -65,7 +65,7 @@
         "type-fest": "5.10.0",
         "unix-permissions": "6.0.2",
         "yoctocolors": "2.2.0",
-        "zod": "4.6.6"
+        "zod": "4.6.7"
     },
     "devDependencies": {
         "@enormora/eslint-config-base": "0.0.61",
