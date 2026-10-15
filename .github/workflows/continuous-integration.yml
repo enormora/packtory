@@ -42,10 +42,8 @@ jobs:
               run: npx just compile
             - name: Run tests
               run: npx just test
-            - name: Dry-run publish
-              run: npx just publish-dry-run
-              env:
-                  NPM_TOKEN: dry-run
+            - name: Check package artifacts
+              run: npx just check-packages
 
     mutation-testing:
         runs-on: ubuntu-latest

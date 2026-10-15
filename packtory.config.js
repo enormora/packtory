@@ -39,52 +39,6 @@ const noSideEffectsAllowList = [
         return path.join(sourcesFolder, filePath);
     });
 
-const publishingToolFieldNames = {
-    registryAddress: 'registryUrl',
-    authentication: 'auth',
-    javaScript: 'js',
-    mainPackageManifest: 'mainPackageJson',
-    additionalPackageManifestAttributes: 'additionalPackageJsonAttributes',
-    exportPackageManifest: 'exportPackageJson',
-    maximumBundleSize: 'maxBundleSize',
-    noDevelopmentDependencyImports: 'noDevDependencyImports',
-    softwareBillOfMaterials: 'sbom',
-    executables: 'bins'
-};
-
-const publishingToolValues = {
-    automatic: 'auto',
-    environment: 'env',
-    'npm-open-identity-connect': 'npm-oidc',
-    'inherit-publish-authentication': 'inherit-publish-auth'
-};
-
-/**
-@param {unknown} value @returns {unknown}
-*/
-function toPublishingToolConfiguration(value) {
-    if (typeof value === 'string') {
-        return Object.hasOwn(publishingToolValues, value) ? Reflect.get(publishingToolValues, value) : value;
-    }
-    if (Array.isArray(value)) {
-        return value.map(toPublishingToolConfiguration);
-    }
-    if (value === null || typeof value !== 'object') {
-        return value;
-    }
-    return Object.fromEntries(
-        Object.entries(value).map(function ([ key, field ]) {
-            const fieldName = Object.hasOwn(publishingToolFieldNames, key)
-                ? Reflect.get(publishingToolFieldNames, key)
-                : key;
-            const fieldValue = key === 'mainPackageManifest' || key === 'additionalPackageManifestAttributes'
-                ? field
-                : toPublishingToolConfiguration(field);
-            return [ fieldName, fieldValue ];
-        })
-    );
-}
-
 /**
 @returns {Promise<import('./source/packages/command-line-interface/command-line-interface.entry-point.ts').PacktoryConfiguration>}
 */
@@ -107,7 +61,9 @@ export async function buildConfiguration() {
             noUnusedBundleDependencies: { enabled: true },
             noDevelopmentDependencyImports: { enabled: true },
             uniqueTargetPaths: { enabled: true },
-            noSideEffects: { enabled: true, allowList: noSideEffectsAllowList }
+            noSideEffects: { enabled: true, allowList: noSideEffectsAllowList },
+            noUnexposedExecutables: { enabled: true },
+            nodeEngineCompatibility: { enabled: true }
         },
         commonPackageSettings: {
             sourcesFolder,
@@ -127,7 +83,7 @@ export async function buildConfiguration() {
             },
             additionalFiles: [
                 {
-                    sourceFilePath: sharedLicensePath,
+                    inputFilePath: sharedLicensePath,
                     targetFilePath: 'LICENSE'
                 }
             ],
@@ -156,7 +112,7 @@ export async function buildConfiguration() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: packtoryReadmePath,
+                        inputFilePath: packtoryReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ]
@@ -178,7 +134,7 @@ export async function buildConfiguration() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: githubReleaseGateReadmePath,
+                        inputFilePath: githubReleaseGateReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -206,7 +162,7 @@ export async function buildConfiguration() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: commandLineInterfaceReadmePath,
+                        inputFilePath: commandLineInterfaceReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -229,7 +185,7 @@ export async function buildConfiguration() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: bootstrapNpmPackageReadmePath,
+                        inputFilePath: bootstrapNpmPackageReadmePath,
                         targetFilePath: 'readme.md'
                     }
                 ],
@@ -238,9 +194,3 @@ export async function buildConfiguration() {
         ]
     };
 }
-
-async function buildPublishingToolConfiguration() {
-    return toPublishingToolConfiguration(await buildConfiguration());
-}
-
-export { buildPublishingToolConfiguration as buildConfig };
