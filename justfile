@@ -57,6 +57,3 @@ benchmark:
 
 publish-dry-run: compile
     packtory publish
-
-check-packages: compile
-    packtory tree packtory

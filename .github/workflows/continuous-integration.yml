@@ -42,8 +42,8 @@ jobs:
               run: npx just compile
             - name: Run tests
               run: npx just test
-            - name: Check package artifacts
-              run: npx just check-packages
+            - name: Publish dry run
+              run: npx just publish-dry-run
 
     mutation-testing:
         runs-on: ubuntu-latest
