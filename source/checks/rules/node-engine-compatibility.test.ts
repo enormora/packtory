@@ -37,6 +37,28 @@ suite('node-engine-compatibility', function () {
             );
         });
 
+        test('accepts historical dependency engines and continues into required children', async function () {
+            assert.deepStrictEqual(
+                await check(rootFields, {
+                    '/repo/node_modules/direct': { engines: [ 'node >= 0.2.0' ], dependencies: { leaf: '*' } },
+                    '/repo/node_modules/leaf': { version: '2.0.0', engines: { node: '>=24' } }
+                }),
+                [
+                    'Package "root" failed Node engine compatibility via root -> direct -> leaf@2.0.0: ' +
+                    'engines.node ">=22" is not a subset of ">=24"'
+                ]
+            );
+        });
+
+        test('enforces Node ranges declared in historical dependency engines', async function () {
+            assert.deepStrictEqual(
+                await check(rootFields, {
+                    '/repo/node_modules/direct': { version: '1.0.0', engines: [ 'node >=24' ] }
+                }),
+                [ mismatch ]
+            );
+        });
+
         test('follows transitive dependencies and peers through packages with no Node engine', async function () {
             assert.deepStrictEqual(
                 await check(rootFields, {

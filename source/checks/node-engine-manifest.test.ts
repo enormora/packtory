@@ -109,4 +109,53 @@ suite('node-engine-manifest', function () {
             });
         }
     });
+
+    suite('Historical engine metadata', function () {
+        test('reads historical engine arrays without dropping required dependencies', function () {
+            assert.deepStrictEqual(
+                readNodeEngineManifest({
+                    version: '1.3.1',
+                    engines: [ 'node >= 0.2.0', 'npm >=1' ],
+                    dependencies: { required: '*' }
+                }),
+                {
+                    nodeRange: '>= 0.2.0',
+                    version: '1.3.1',
+                    requiredDependencyNames: [ 'required' ]
+                }
+            );
+        });
+
+        test('keeps historical manifests without a Node requirement unconstrained', function () {
+            assert.strictEqual(readNodeEngineManifest({ engines: [ 'npm >=1' ] }).nodeRange, undefined);
+        });
+
+        test('normalizes whitespace in historical engine requirements', function () {
+            assert.strictEqual(readNodeEngineManifest({ engines: [ '\t node\t >= 0.2.0 \n' ] }).nodeRange, '>= 0.2.0');
+        });
+
+        test('accepts single-character names for other historical engines', function () {
+            assert.strictEqual(readNodeEngineManifest({ engines: [ 'v >=1' ] }).nodeRange, undefined);
+        });
+
+        test('identifies historical requirements without a range', function () {
+            assert.throws(function () {
+                readNodeEngineManifest({ engines: [ 'node' ] });
+            }, { message: 'Invalid legacy engine requirement: "node"' });
+        });
+
+        test('identifies duplicate historical requirements', function () {
+            assert.throws(function () {
+                readNodeEngineManifest({ engines: [ 'node >=20', 'node >=22' ] });
+            }, { message: 'Duplicate legacy engine requirements' });
+        });
+
+        for (const engines of [ [ 'node' ], [ 'node invalid' ], [ 22 ], [ 'node >=20', 'node >=22' ] ]) {
+            test(`rejects malformed historical engines ${JSON.stringify(engines)}`, function () {
+                assert.throws(function () {
+                    readNodeEngineManifest({ engines });
+                }, Error);
+            });
+        }
+    });
 });
