@@ -216,7 +216,7 @@ suite('graph topology and traversal', function () {
             const visited: string[] = [];
 
             graph.traverse(function (node) {
-                visited.push(`${node.id}:${node.incomingEdges}`);
+                visited.push(`${node.identifier}:${node.incomingEdges}`);
             });
 
             assert.deepStrictEqual(visited, [ 'a:0', 'b:1', 'c:1', 'd:0', 'e:1' ]);
@@ -268,32 +268,32 @@ suite('graph topology and traversal', function () {
 
             assert.deepStrictEqual(collectedNodes, [
                 {
-                    id: 'b',
+                    identifier: 'b',
                     data: 'bar',
-                    adjacentNodeIds: new Set([ 'a' ]),
+                    adjacentNodeIdentifiers: new Set([ 'a' ]),
                     incomingEdges: 0
                 },
                 {
-                    id: 'a',
+                    identifier: 'a',
                     data: 'foo',
-                    adjacentNodeIds: new Set(),
+                    adjacentNodeIdentifiers: new Set(),
                     incomingEdges: 1
                 }
             ]);
         });
 
-        test('getAdjacentIds() returns an empty Set if the requested node doesn’t have any connections', function () {
+        test('getAdjacentIdentifiers() returns an empty Set if the requested node doesn’t have any connections', function () {
             const graph = createGraphWithNodes({
                 nodes: [ [ 'a', '' ] ],
                 connections: []
             });
 
-            const adjacentIds = graph.getAdjacentIds('a');
+            const adjacentIdentifiers = graph.getAdjacentIdentifiers('a');
 
-            assert.deepStrictEqual(Array.from(adjacentIds), []);
+            assert.deepStrictEqual(Array.from(adjacentIdentifiers), []);
         });
 
-        test('getAdjacentIds() returns all connected ids for the requested node', function () {
+        test('getAdjacentIdentifiers() returns all connected ids for the requested node', function () {
             const graph = createGraphWithNodes({
                 nodes: [
                     [ 'a', '' ],
@@ -310,20 +310,20 @@ suite('graph topology and traversal', function () {
                 ]
             });
 
-            const adjacentIds = graph.getAdjacentIds('a');
+            const adjacentIdentifiers = graph.getAdjacentIdentifiers('a');
 
-            assert.deepStrictEqual(Array.from(adjacentIds), [ 'b', 'c', 'd' ]);
+            assert.deepStrictEqual(Array.from(adjacentIdentifiers), [ 'b', 'c', 'd' ]);
         });
 
-        test('getAdjacentIds() throws when the requested node doesn’t exist', function () {
+        test('getAdjacentIdentifiers() throws when the requested node doesn’t exist', function () {
             const graph = createGraphWithNodes({
                 nodes: [],
                 connections: []
             });
 
             try {
-                graph.getAdjacentIds('a');
-                assert.fail('Expected getAdjacentIds() to fail but it did not');
+                graph.getAdjacentIdentifiers('a');
+                assert.fail('Expected getAdjacentIdentifiers() to fail but it did not');
             } catch (error: unknown) {
                 assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
             }

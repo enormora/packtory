@@ -1,8 +1,8 @@
 import type { Maybe } from 'true-myth';
-import type { BuildAndPublishOptions } from '../map-config.ts';
+import type { BuildAndPublishOptions } from '../map-configuration.ts';
 import type { VersionTrigger } from '../../progress/progress-broadcaster.ts';
-import { hasVersionProvider } from '../../config/versioning-settings.ts';
-import { validateManualVersion, type VersionProviderInput } from '../../config/manual-versioning-settings.ts';
+import { hasVersionProvider } from '../../configuration/versioning-settings.ts';
+import { validateManualVersion, type VersionProviderInput } from '../../configuration/manual-versioning-settings.ts';
 
 export type VersionProviderContext = Pick<
     VersionProviderInput,

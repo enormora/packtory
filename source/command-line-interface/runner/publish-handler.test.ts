@@ -3,15 +3,15 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
-import { configError, publishPartialFailure } from '../../packtory/packtory-results.ts';
+import { configurationError, publishPartialFailure } from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import {
     buildOutcome,
-    configLoaderStub,
+    configurationLoaderStub,
     fileManagerStub,
     packtoryStub,
     spinnerRendererStub
-} from '../../test-libraries/cli-handler-fixtures.ts';
+} from '../../test-libraries/command-line-interface-handler-fixtures.ts';
 import { createBuildResultFixture } from '../../test-libraries/preview-fixtures.ts';
 import { runPublishHandler } from './publish-handler.ts';
 
@@ -19,8 +19,8 @@ type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
 type PublishFlags = {
     readonly noDryRun: boolean;
     readonly stage: boolean;
-    readonly reportJson: boolean;
-    readonly reportHtml: boolean;
+    readonly reportJavaScriptObjectNotation: boolean;
+    readonly reportHypertextMarkupLanguage: boolean;
     readonly trace: boolean;
 };
 type CapturedPublishMessages = {
@@ -39,7 +39,7 @@ async function captureMessages(
         },
         packtory: packtoryStub(outcome),
         spinnerRenderer: spinnerRendererStub(),
-        configLoader: configLoaderStub(),
+        configurationLoader: configurationLoaderStub(),
         fileManager: fileManagerStub(),
         flags
     });
@@ -49,7 +49,13 @@ async function captureMessages(
 suite('publish-handler', function () {
     test('runPublishHandler returns 0 and logs a success summary when the build succeeds', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false },
+            {
+                noDryRun: true,
+                stage: false,
+                reportJavaScriptObjectNotation: false,
+                reportHypertextMarkupLanguage: false,
+                trace: false
+            },
             buildOutcome({
                 result: Result.ok([ createBuildResultFixture() ])
             })
@@ -63,7 +69,13 @@ suite('publish-handler', function () {
 
     test('runPublishHandler passes stage mode through to the success summary', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: true, reportJson: false, reportHtml: false, trace: false },
+            {
+                noDryRun: true,
+                stage: true,
+                reportJavaScriptObjectNotation: false,
+                reportHypertextMarkupLanguage: false,
+                trace: false
+            },
             buildOutcome({
                 result: Result.ok([
                     createBuildResultFixture({
@@ -84,9 +96,15 @@ suite('publish-handler', function () {
 
     test('runPublishHandler returns 1 and logs the publish failure when the build fails', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false },
+            {
+                noDryRun: true,
+                stage: false,
+                reportJavaScriptObjectNotation: false,
+                reportHypertextMarkupLanguage: false,
+                trace: false
+            },
             buildOutcome({
-                result: Result.err(configError([ 'missing field' ]))
+                result: Result.err(configurationError([ 'missing field' ]))
             })
         );
 
@@ -98,7 +116,13 @@ suite('publish-handler', function () {
 
     test('runPublishHandler passes stage mode through to the publish failure summary', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: true, reportJson: false, reportHtml: false, trace: false },
+            {
+                noDryRun: true,
+                stage: true,
+                reportJavaScriptObjectNotation: false,
+                reportHypertextMarkupLanguage: false,
+                trace: false
+            },
             buildOutcome({
                 result: Result.err(
                     publishPartialFailure({
@@ -124,7 +148,13 @@ suite('publish-handler', function () {
 
     test('runPublishHandler appends the dry-run reminder when noDryRun is false', async function () {
         const { messages } = await captureMessages(
-            { noDryRun: false, stage: false, reportJson: false, reportHtml: false, trace: false },
+            {
+                noDryRun: false,
+                stage: false,
+                reportJavaScriptObjectNotation: false,
+                reportHypertextMarkupLanguage: false,
+                trace: false
+            },
             buildOutcome()
         );
 
@@ -145,9 +175,15 @@ suite('publish-handler', function () {
                 },
                 packtory,
                 spinnerRenderer: spinner,
-                configLoader: configLoaderStub(),
+                configurationLoader: configurationLoaderStub(),
                 fileManager: fileManagerStub(),
-                flags: { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false }
+                flags: {
+                    noDryRun: true,
+                    stage: false,
+                    reportJavaScriptObjectNotation: false,
+                    reportHypertextMarkupLanguage: false,
+                    trace: false
+                }
             });
             assert.fail('Expected runPublishHandler to throw');
         } catch (error: unknown) {

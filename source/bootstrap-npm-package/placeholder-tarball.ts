@@ -26,10 +26,10 @@ export type PlaceholderTarballBuilder = {
 
 const staticFileModificationTimeEpochMilliseconds = 0;
 const regularFileMode = 420;
-const manifestJsonIndent = 2;
+const manifestJavaScriptObjectNotationIndent = 2;
 
 function serializeManifest(manifest: PlaceholderManifest): string {
-    return `${JSON.stringify(manifest, null, manifestJsonIndent)}\n`;
+    return `${JSON.stringify(manifest, null, manifestJavaScriptObjectNotationIndent)}\n`;
 }
 
 function appendFile(pack: Readonly<tar.Pack>, name: string, content: string): void {

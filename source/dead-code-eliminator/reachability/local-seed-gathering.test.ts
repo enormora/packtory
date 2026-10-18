@@ -1,9 +1,9 @@
 import assert from 'node:assert';
-import type { Node as TsMorphNode, SourceFile, Statement } from 'ts-morph';
+import type { Node as TypeScriptMorphNode, SourceFile, Statement } from 'ts-morph';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
-import { buildDeclarationNodeIndex } from './binding-id.ts';
+import { buildDeclarationNodeIndex } from './binding-identifier.ts';
 import { gatherLocalSeeds, type FileBindings } from './local-seed-gathering.ts';
 
 function sourceFileFor(content: string): SourceFile {
@@ -26,10 +26,10 @@ function fileBindings(
     };
 }
 
-const statementStub = { id: 'stmt' };
-const referenceStub = { id: 'ref' };
+const statementStub = { identifier: 'stmt' };
+const referenceStub = { identifier: 'ref' };
 
-function createBinding(name: string, isExported: boolean, declarationNode: TsMorphNode): BindingDescriptor {
+function createBinding(name: string, isExported: boolean, declarationNode: TypeScriptMorphNode): BindingDescriptor {
     return {
         name,
         isExported,
@@ -37,7 +37,7 @@ function createBinding(name: string, isExported: boolean, declarationNode: TsMor
         statement: statementStub as unknown as Statement,
         declarationNode,
 
-        referenceNode: referenceStub as unknown as TsMorphNode
+        referenceNode: referenceStub as unknown as TypeScriptMorphNode
     };
 }
 
@@ -57,7 +57,7 @@ function gatherSeedsForSingleBinding(
         entryPointFilePaths: entryPoints,
         declarationIndex: buildDeclarationNodeIndex([ file ]),
         deadCodeElimination: undefined,
-        bundleName: 'pkg',
+        bundleName: 'package',
         trace: undefined
     });
 }

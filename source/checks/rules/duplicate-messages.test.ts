@@ -1,32 +1,32 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { OwnerInfo } from './file-ownership.ts';
+import type { OwnerInformation } from './file-ownership.ts';
 import { formatPathLevelMessage, formatSharedDeclarationsMessage } from './duplicate-messages.ts';
 
-function owner(bundleName: string, survivingBindings: readonly string[] = []): OwnerInfo {
+function owner(bundleName: string, survivingBindings: readonly string[] = []): OwnerInformation {
     return { bundleName, survivingBindings: new Set(survivingBindings) };
 }
 
 suite('duplicate-messages', function () {
     test('formatPathLevelMessage lists the owners alphabetically after the path', function () {
         assert.strictEqual(
-            formatPathLevelMessage('/src/dup.ts', [ owner('pkg-c'), owner('pkg-a'), owner('pkg-b') ]),
-            'File "/src/dup.ts" is included in multiple packages: pkg-a, pkg-b, pkg-c'
+            formatPathLevelMessage('/source/dup.ts', [ owner('package-c'), owner('package-a'), owner('package-b') ]),
+            'File "/source/dup.ts" is included in multiple packages: package-a, package-b, package-c'
         );
     });
 
     test('formatSharedDeclarationsMessage sorts the shared declarations and owners alphabetically', function () {
-        const message = formatSharedDeclarationsMessage('/src/dup.ts', new Set([ 'z', 'a' ]), [
-            owner('pkg-b'),
-            owner('pkg-a')
+        const message = formatSharedDeclarationsMessage('/source/dup.ts', new Set([ 'z', 'a' ]), [
+            owner('package-b'),
+            owner('package-a')
         ]);
 
         assert.strictEqual(
             message,
             [
-                'File "/src/dup.ts" has shared declarations across multiple packages:',
-                '  - "a" → pkg-a, pkg-b',
-                '  - "z" → pkg-a, pkg-b'
+                'File "/source/dup.ts" has shared declarations across multiple packages:',
+                '  - "a" → package-a, package-b',
+                '  - "z" → package-a, package-b'
             ]
                 .join('\n')
         );

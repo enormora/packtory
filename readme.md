@@ -20,7 +20,7 @@ Say goodbye to:
 
 - **Organize with Freedom**: Manage your monorepo without confining conventions or workspace limitations. packtory simplifies it, just like a single codebase.
 - **Effortless Dependency Bundling**: Forget manual dependency linking. packtory automatically detects and bundles dependencies, freeing you to focus on your code.
-- **Clean and Efficient Packaging**: Package only essential files, excluding devDependencies, CI configurations, and tests. Keep your npm package clean and efficient.
+- **Clean and Efficient Packaging**: Package only essential files, excluding development dependencies, CI configurations, and tests. Keep your npm package clean and efficient.
 - **Revolutionary Automatic Versioning**: Choose manual versioning or let packtory handle it. In automatic mode, it calculates versions intelligently, ensuring reproducibility without complexity.
 - **Seamless CI Pipeline Integration**: Easily integrate packtory into your CI pipelines for automatic publishing with every commit. No more intricate checks to decide what to publish.
 - **On-Disk Artifacts for Non-Registry Targets**: Produce a single configured package as a zip, tarball, or expanded folder - ideal for AWS Lambda deployments, container builds, and any workflow where the destination isn't an npm registry.
@@ -29,7 +29,7 @@ Say goodbye to:
 
 ## Quick Start
 
-The quickest way to leverage packtory is through its command-line interface (CLI).
+The quickest way to leverage packtory is through its command-line interface (command line interface).
 
 **Installation:**
 
@@ -49,15 +49,17 @@ import fs from 'node:fs';
 
 const npmToken = process.env.NPM_TOKEN;
 
-export const config = {
+export const configuration = {
     // `registrySettings` is only required to publish (non-dry-run). Pack, dry-run publish,
     // release-diff and release analysis read registry metadata anonymously when omitted.
-    ...(npmToken === undefined ? {} : { registrySettings: { auth: { type: 'bearer-token', token: npmToken } } }),
+    ...(npmToken === undefined
+        ? {}
+        : { registrySettings: { authentication: { type: 'bearer-token', token: npmToken } } }),
 
     // Common settings shared among packages
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'dist/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        mainPackageManifest: fs.readFileSynchronous('./package.json', { encoding: 'utf8' }),
         publishSettings: { access: 'public' }
     },
 
@@ -65,11 +67,11 @@ export const config = {
     packages: [
         {
             name: 'first-package',
-            roots: { main: { js: 'first.js' } }
+            roots: { main: { javaScript: 'first.js' } }
         },
         {
             name: 'second-package',
-            roots: { main: { js: 'second.js' } },
+            roots: { main: { javaScript: 'second.js' } },
             bundleDependencies: [ 'first-package' ]
         }
     ]
@@ -92,15 +94,15 @@ npx packtory publish --no-dry-run --stage
 
 Staged publishing is npm-only. The package must already exist on npm, and automatic versioning in stage mode must be able to list pending staged versions before it picks the next version.
 
-For a reviewed release PR flow, use `release-pr`:
+For a reviewed release PR flow, use `release-pull-request`:
 
 ```bash
-npx packtory release-pr maintain --no-dry-run
-npx packtory release-pr validate
-npx packtory release-pr authorize-publish
+npx packtory release-pull-request maintain --no-dry-run
+npx packtory release-pull-request validate
+npx packtory release-pull-request authorize-publish
 ```
 
-`release-pr maintain` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
+`release-pull-request maintain` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR. `release-pull-request validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pull-request authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
 
 After a release PR merge, `release` can publish changed packages and create package tags and GitHub releases through the GitHub API:
 
@@ -112,9 +114,9 @@ npx packtory release --publish --tag --push --github-release --no-dry-run
 
 Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 
-The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory cancels stale dispatched runs, dispatches the configured workflow on the release branch, waits for the fresh run, and mirrors the configured job names back as commit statuses. Dispatched validation runs on the release branch skip maintenance to avoid recursive release PR updates. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
+The optional `releasePullRequest.githubActionsContinuousIntegration` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory cancels stale dispatched runs, dispatches the configured workflow on the release branch, waits for the fresh run, and mirrors the configured job names back as commit statuses. Dispatched validation runs on the release branch skip maintenance to avoid recursive release PR updates. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
 
-For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
+For more details about the command line interface application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 
 ## Concept
 
@@ -130,7 +132,7 @@ Packtory guarantees minimal packages with:
 1. All source files referenced from the configured roots are resolved into a graph. Both static `import` / `export … from` / `require` / `import(...)` literals and `import.meta.resolve('<static-string>')` call sites are recognized; the argument to `import.meta.resolve` must be a single static string literal - dynamic expressions are rejected.
 2. Imports of `node_modules` and node built-ins are detected and tracked to create a minimal `package.json` later. When `import.meta.resolve(...)` points at a file inside a `node_modules` package, the owning package is added as a dependency; individual files inside the package are not tracked.
 3. If bundle dependencies are given, some import statements will be rewritten. For example, if a file in package `first` imports a file in package `second`, the import statement will be rewritten accordingly (e.g., from `import bar from './bar.js'` to `import bar from 'second/bar.js'`).
-4. A `package.json` will be generated, and the version numbers of `node_modules` will be taken from the `mainPackageJson` provided in the configuration.
+4. A `package.json` will be generated, and the version numbers of `node_modules` will be taken from the `mainPackageManifest` provided in the configuration.
 
 ### Publishing
 
@@ -160,7 +162,7 @@ versioning: {
     automatic: false,
     async provideVersion({ currentVersion, targetSourceFiles }) {
         const touchedRuntimeSource = targetSourceFiles.some((filePath) => {
-            return filePath.startsWith('src/');
+            return filePath.startsWith('source/');
         });
         return touchedRuntimeSource ? '1.2.4' : (currentVersion ?? '1.2.3');
     }
@@ -176,7 +178,7 @@ versioning: {
 }
 ```
 
-This source uses the same pull request attribution files as changelog generation. It inspects merged pull request labels since the package's current version tag and applies `changelog.prLog.versionBumps`. If no attributed pull request has a matching label, it returns the current version.
+This source uses the same pull request attribution files as changelog generation. It inspects merged pull request labels since the package's current version tag and applies `changelog.pullRequestLog.versionBumps`. If no attributed pull request has a matching label, it returns the current version.
 
 ### Pack (on-disk artifacts)
 
@@ -187,79 +189,100 @@ This source uses the same pull request attribution files as changelog generation
 - **Format**: `zip` (the format AWS Lambda accepts directly, with deterministic metadata for byte-identical builds), `tar` (the same gzipped tarball shape `publish` would upload), or `folder` (the artifact expanded into a directory).
 - **Output path**: where to write the archive or, for `folder`, the directory to populate.
 - **Version**: stamped into the generated manifest. Defaults to `0.0.0` - `pack` is intentionally decoupled from the registry-driven automatic versioning, so the caller decides the version (often the CI build's release tag).
-- **Vendor dependencies**: an opt-in `--vendor-dependencies` (CLI) / `vendorDependencies: true` (API) flag materializes every transitive runtime dependency from the local `node_modules` directly into `node_modules/` inside the artifact. This is what makes the output self-contained for runtimes that cannot run `npm install` (AWS Lambda, distroless containers). Nested dependency versions and symlink layouts created by npm, yarn-classic, and pnpm are preserved. Packages declared in `bundleDependencies` are materialized too, with their original cross-package import paths preserved.
+- **Vendor dependencies**: an opt-in `--vendor-dependencies` (command line interface) / `vendorDependencies: true` (API) flag materializes every transitive runtime dependency from the local `node_modules` directly into `node_modules/` inside the artifact. This is what makes the output self-contained for runtimes that cannot run `npm install` (AWS Lambda, distroless containers). Nested dependency versions and symlink layouts created by npm, yarn-classic, and pnpm are preserved. Packages declared in `bundleDependencies` are materialized too, with their original cross-package import paths preserved.
     External dependencies used by any package in the internal bundle dependency tree are included, using that package's source folder to resolve installed dependencies.
+    The artifact's top-level manifest omits runtime dependency declarations but retains peer dependency metadata so TypeScript can identify matching standalone and bundled package copies.
 
-Use `pack --all --format folder --out <path>` to build every configured package into child folders below one output root. The layout follows npm package names: `pkg-a` writes to `<path>/pkg-a`, and `@scope/pkg-a` writes to `<path>/@scope/pkg-a`. The output root may already exist when it is a directory, but each package child folder must not already exist.
+Use `pack --all --format folder --out <path>` to build every configured package into child folders below one output root. The layout follows npm package names: `package-a` writes to `<path>/package-a`, and `@scope/package-a` writes to `<path>/@scope/package-a`. The output root may already exist when it is a directory, but each package child folder must not already exist.
 
 ```bash
-npx packtory pack image-resizer-cli --format zip --out ./dist/image-resizer-cli.zip --vendor-dependencies
+npx packtory pack image-resizer-command-line-interface --format zip --out ./dist/image-resizer-command-line-interface.zip --vendor-dependencies
 npx packtory pack --all --format folder --out ./dist/packages
 ```
 
-See the [CLI documentation](./source/packages/command-line-interface/readme.md) for the full flag reference and the programmatic API in [`packtory`](./source/packages/packtory/readme.md) for `packPackage(config, options)`.
+See the [command line interface documentation](./source/packages/command-line-interface/readme.md) for the full flag reference and the programmatic API in [`packtory`](./source/packages/packtory/readme.md) for `packPackage(configuration, options)`.
 
 For a deeper look at the pipeline, the package graph, parallel scheduling, the tree-shaking algorithm, import-path rewriting, and automatic version detection, see [How it works under the hood](./documentation/how-it-works.md).
 
 ## Configuration
 
+Export `configuration` or an asynchronous `buildConfiguration` function from `packtory.config.js`.
+
+Configuration names use full spellings. The loader translates published configuration exports and fields at its boundary. Use these names in owned configuration code:
+
+| Previous name                                        | Current name                                                 |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| `config`, `buildConfig` exports                      | `configuration`, `buildConfiguration`                        |
+| `registryUrl`, `auth`                                | `registryAddress`, `authentication`                          |
+| `mainPackageJson`, `additionalPackageJsonAttributes` | `mainPackageManifest`, `additionalPackageManifestAttributes` |
+| `exportPackageJson`                                  | `exportPackageManifest`                                      |
+| Root `js`, interface `bins`                          | Root `javaScript`, interface `executables`                   |
+| `maxBundleSize`, `noDevDependencyImports`            | `maximumBundleSize`, `noDevelopmentDependencyImports`        |
+| `sbom`, `prLog`                                      | `softwareBillOfMaterials`, `pullRequestLog`                  |
+| `auto`, `env`, `npm-oidc`                            | `automatic`, `environment`, `npm-open-identity-connect`      |
+| `inherit-publish-auth`                               | `inherit-publish-authentication`                             |
+
+Commands use `configuration inspect` and `release-pull-request`. Standard npm manifest fields, environment variables, and external package names retain their required spellings.
+
 The configuration for `packtory` is an object with the following properties:
 
 1. **`registrySettings`** (Optional):
-    - Only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `auth`) is omitted. Non-dry-run publish fails fast with one config error before any package is built when `auth` is missing.
-    - `auth` (Optional): the credentials used to read metadata and/or publish.
-    - `registryUrl` (Optional): a custom registry URL.
+    - Only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `authentication`) is omitted. Non-dry-run publish fails fast with one config error before any package is built when `authentication` is missing.
+    - `authentication` (Optional): the credentials used to read metadata and/or publish.
+    - `registryAddress` (Optional): a custom registry URL.
     - Supported publish auth strategies:
         - `type: 'bearer-token'` with a `token`
         - `type: 'basic'` with `username` and `password`
-        - `type: 'npm-oidc'` for npm trusted publishing token exchange
-    - `auth` supports two forms:
+        - `type: 'npm-open-identity-connect'` for npm trusted publishing token exchange
+    - `authentication` supports two forms:
         - Shorthand: one auth strategy used for both publish and metadata access
         - Expanded: `{ publish, metadata }`
     - Supported metadata modes:
-        - `'inherit-publish-auth'`
+        - `'inherit-publish-authentication'`
         - `'anonymous'`
-        - `'auto'`
+        - `'automatic'`
         - explicit bearer/basic auth
     - `packtory` does not read `.npmrc`; provide auth explicitly in `packtory.config.js`.
-    - To keep environment-variable reads lazy, gate `registrySettings` on the env var inside `buildConfig`:
+    - To keep environment-variable reads lazy, gate `registrySettings` on the env var inside `buildConfiguration`:
         ```js
         const npmToken = process.env.NPM_TOKEN;
         return {
-            ...(npmToken === undefined ? {} : { registrySettings: { auth: { type: 'bearer-token', token: npmToken } } })
+            ...(npmToken === undefined
+                ? {}
+                : { registrySettings: { authentication: { type: 'bearer-token', token: npmToken } } })
             // …
         };
         ```
 
 2. **`commonPackageSettings`** (Optional):
     - Defines settings that can be shared for all packages.
-    - Allowed settings: `sourcesFolder`, `mainPackageJson`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageJsonAttributes`, `publishSettings`.
+    - Allowed settings: `sourcesFolder`, `mainPackageManifest`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageManifestAttributes`, `publishSettings`.
 
 3. **`checks`** (Optional, Object):
     - Toggles and configures the cross-package checks that run after every bundle has been linked. Lives at the top level (not inside `commonPackageSettings`) because every check operates over the full set of bundles. See [Checks](#checks).
 
 4. **`changelog`** (Optional, Object):
-    - Configures changelog generation and outputs for `packtory changelog` and `packtory release-pr maintain`.
+    - Configures changelog generation and outputs for `packtory changelog` and `packtory release-pull-request maintain`.
     - If omitted, `packtory changelog` prints grouped Markdown to the pager and writes no files.
-    - `prLog` passes changelog behavior into `@pr-log/core`.
-    - `prLog.validLabels` extends or overrides the default pull request label to changelog section mapping.
-    - `prLog.ignoredLabels` skips pull request labels during changelog attribution.
-    - `prLog.versionBumps` configures the `major`, `minor`, and `patch` label groups used by `versioning.source: 'pull-request-labels'`.
-    - `prLog.dateFormat` customizes rendered changelog dates.
-    - `prLog.collapseRules` groups repeated pull request entries with a configured label, regular expression, replacement, and optional chain, highest-version, or same-title collapse fields.
-    - `prLog.labelLookupIntervalMilliseconds` and `prLog.maximumRateLimitRetryCount` tune GitHub label lookup timing and retry behavior.
+    - `pullRequestLog` passes changelog behavior into `@pr-log/core`.
+    - `pullRequestLog.validLabels` extends or overrides the default pull request label to changelog section mapping.
+    - `pullRequestLog.ignoredLabels` skips pull request labels during changelog attribution.
+    - `pullRequestLog.versionBumps` configures the `major`, `minor`, and `patch` label groups used by `versioning.source: 'pull-request-labels'`.
+    - `pullRequestLog.dateFormat` customizes rendered changelog dates.
+    - `pullRequestLog.collapseRules` groups repeated pull request entries with a configured label, regular expression, replacement, and optional chain, highest-version, or same-title collapse fields.
+    - `pullRequestLog.labelLookupIntervalMilliseconds` and `pullRequestLog.maximumRateLimitRetryCount` tune GitHub label lookup timing and retry behavior.
     - `targetScopedLabelPattern` customizes package-specific labels. It must contain `{targetName}` and `{label}`.
-    - `packageTagFormat` customizes package tag lookup for changelog base refs. `explicitBaseRef` uses one fixed base ref instead.
+    - `packageTagFormat` customizes package tag lookup for changelog base refs. `explicitBaseReference` uses one fixed base ref instead.
     - `outputs` is a non-empty array of:
         - `{ kind: 'repository-file', path: 'CHANGELOG.md' }`: writes one grouped changelog at a repository-relative path.
         - `{ kind: 'package-file', path: 'CHANGELOG.md' }`: writes one package-specific changelog below each changed package's effective `sourcesFolder`.
-        - `{ kind: 'package-file', paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' } }`: writes package-specific changelogs to explicit repository-relative paths. Every changed package must have a configured path.
+        - `{ kind: 'package-file', paths: { 'package-a': 'packages/package-a/CHANGELOG.md' } }`: writes package-specific changelogs to explicit repository-relative paths. Every changed package must have a configured path.
         - `{ kind: 'github-release' }`: prints grouped release-body Markdown to the pager. Remote GitHub release creation is not implemented by `packtory changelog`.
-    - `outputs` can be omitted when only `prLog` or base-ref settings are configured.
+    - `outputs` can be omitted when only `pullRequestLog` or base-ref settings are configured.
     - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.
     - Duplicate `github-release` outputs, duplicate repository-file paths, and package-file destinations that resolve to the same file are rejected.
     - Generated changelog files are ignored during pull request source attribution.
-    - Generated `package.json` changes are attributed to manifest inputs, including root `package.json` fields used through `mainPackageJson` or `additionalPackageJsonAttributes`.
+    - Generated `package.json` changes are attributed to manifest inputs, including root `package.json` fields used through `mainPackageManifest` or `additionalPackageManifestAttributes`.
     - JavaScript files are attributed through referenced source maps when they have a `sourceMappingURL`. Without that reference, the JavaScript file itself is attributed.
     - Changelog outputs are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a generated changelog.
 
@@ -274,16 +297,16 @@ The configuration for `packtory` is an object with the following properties:
         - The absolute path to the base folder of the source files.
         - All other file paths are resolved relative to this path.
 
-    - **`mainPackageJson`** (Required):
+    - **`mainPackageManifest`** (Required):
         - The parsed content of the project's `package.json`.
         - It must contain `"type": "module"`.
         - Needed to obtain version numbers of third-party dependencies.
 
     - **`roots`** (Required, Object):
-        - A map of root ids to source files, e.g. `{ main: { js: 'file.js', declarationFile: 'file.d.ts' } }`.
+        - A map of root ids to source files, e.g. `{ main: { javaScript: 'file.js', declarationFile: 'file.d.ts' } }`.
         - `js` is required. `declarationFile` is optional.
         - Roots seed scanning, linking, and dead-code analysis. They are internal build anchors, not automatically the full published API.
-        - On bin-only packages, `declarationFile` can describe package-level types for TypeScript annotations such as `import("pkg").Type`; it does not make the bin a runtime module API.
+        - On bin-only packages, `declarationFile` can describe package-level types for TypeScript annotations such as `import("package").Type`; it does not make the bin a runtime module API.
 
     - **`defaultModuleRoot`** (Optional in single-root packages, required in implicit multi-root packages):
         - Selects which root becomes the package root export `"."` when `packageInterface` is not configured.
@@ -291,8 +314,8 @@ The configuration for `packtory` is an object with the following properties:
     - **`packageInterface`** (Optional, Object):
         - Switches packtory into explicit package-surface mode.
         - `modules` declares the published module exports with `{ root, export }`.
-        - `bins` declares published executables with `{ root, name }`.
-        - Packages with `bins` and no `modules` are supported as bin-only packages. If their bin root has a `declarationFile`, packtory emits a type-only `"."` export.
+        - `executables` declares published executables with `{ root, name }`.
+        - Packages with `executables` and no `modules` are supported as bin-only packages. If their bin root has a `declarationFile`, packtory emits a type-only `"."` export.
         - If omitted, packtory derives `exports` implicitly from roots and cross-package substitution needs.
 
     - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
@@ -306,7 +329,7 @@ The configuration for `packtory` is an object with the following properties:
         - `package.json` is reserved for packtory's generated manifest and cannot be used as an `additionalFiles.targetFilePath`.
         - `targetFilePath` must be a bundle-relative path. Absolute paths (POSIX `/foo` or Windows `C:\\foo`) and parent-traversing paths (`..`, `foo/../bar`) are rejected at config-validation time so a malicious or mistaken config cannot write outside the artifact target during `pack --format folder`.
 
-    - **`additionalPackageJsonAttributes`** (Optional, Object):
+    - **`additionalPackageManifestAttributes`** (Optional, Object):
         - An object to be merged directly into the generated `package.json`.
         - Useful for setting meta properties like `description` or `keywords`.
         - If defined in both per-package and common settings, they are merged.
@@ -329,10 +352,10 @@ The configuration for `packtory` is an object with the following properties:
             - `{ access: 'public' }` - publishes the package as public on the registry. Only `'public'` allows provenance.
             - `{ access: 'restricted' }` - publishes the package as restricted (paid feature on npmjs.org for scoped packages). Provenance is not allowed in this mode.
         - When `access: 'public'`, an optional `provenance` field enables sigstore-signed [npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
-            - `provenance: { type: 'auto' }` - let `libnpmpublish` detect the CI environment and generate the provenance statement. Currently supported CIs: GitHub Actions and GitLab CI.
+            - `provenance: { type: 'automatic' }` - let `libnpmpublish` detect the CI environment and generate the provenance statement. Currently supported CIs: GitHub Actions and GitLab CI.
             - `provenance: { type: 'file', path: './build/pkg.sigstore' }` - pass a pre-generated sigstore bundle. Use this for any CI not natively supported by `auto` mode (e.g. CircleCI, Jenkins, BuildKite). The bundle must have been signed against the exact tarball packtory builds; mismatches are rejected with a clear error.
         - Per-package `publishSettings` replaces the whole common-level block (no field-level merging) so the `access` ↔ `provenance` constraint stays internally consistent at every scope.
-        - An optional `allowScripts` boolean is accepted on both branches and is `false` by default. It must be explicitly set to `true` to allow a `scripts` block in `additionalPackageJsonAttributes` to flow into the published `package.json`. This default-off behaviour exists to prevent shipping npm lifecycle scripts - the canonical supply-chain attack vector - and the opt-in lives on `publishSettings` (replace-merged per package) so it cannot be silently inherited from common settings.
+        - An optional `allowScripts` boolean is accepted on both branches and is `false` by default. It must be explicitly set to `true` to allow a `scripts` block in `additionalPackageManifestAttributes` to flow into the published `package.json`. This default-off behaviour exists to prevent shipping npm lifecycle scripts - the canonical supply-chain attack vector - and the opt-in lives on `publishSettings` (replace-merged per package) so it cannot be silently inherited from common settings.
 
 **Note**: Per-package settings override or merge with common settings when both are defined.
 
@@ -343,7 +366,7 @@ This comprehensive configuration allows fine-tuning for individual packages and 
 Checks are post-bundling validations that run after every bundle has been linked. They operate over the full set of bundles, so a single rule can flag issues that span multiple packages (e.g. duplicated files). Configuration is split across two scopes:
 
 - **Top-level `checks`** - a sibling of `commonPackageSettings` and `packages`. Toggles each rule via `enabled` and holds any cross-package or default settings the rule needs. A rule cannot be disabled per package.
-- **Per-package `checks`** - lives on each `PackageConfig`. Carries that package's contribution to (or override of) a rule's settings. Only rules that document per-package fields accept anything beyond `{}` here.
+- **Per-package `checks`** - lives on each `PackageConfiguration`. Carries that package's contribution to (or override of) a rule's settings. Only rules that document per-package fields accept anything beyond `{}` here.
 
 If `checks` is omitted, every rule is off.
 
@@ -352,14 +375,36 @@ checks: {
     typeScriptIntegrity: { enabled: true },
     noDuplicatedFiles: { enabled: true },
     requiredFiles: { enabled: true, files: ['LICENSE'] },
-    maxBundleSize: { enabled: true, bytes: 500_000 },
+    maximumBundleSize: { enabled: true, bytes: 500_000 },
     noUnusedBundleDependencies: { enabled: true },
-    noDevDependencyImports: { enabled: true },
+    noDevelopmentDependencyImports: { enabled: true },
     uniqueTargetPaths: { enabled: true },
     noSideEffects: { enabled: true },
-    noUnexposedExecutables: { enabled: true }
+    noUnexposedExecutables: { enabled: true },
+    nodeEngineCompatibility: { enabled: true }
 }
 ```
+
+### `nodeEngineCompatibility`
+
+Validates the Node support declared by each generated package against its required dependency tree.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}`.
+- Packages without `engines.node` in their final generated manifest are skipped.
+- The package's Node range must be a subset of every required direct, transitive, and peer dependency's range. Dependencies without `engines.node` impose no constraint, but their required dependencies are still checked.
+- Development dependency edges, optional dependencies and peers, and dependencies fully removed by DCE are excluded. Declaration-only dependencies emitted in the manifest are included. A package reachable through a required path is checked even if it also has an optional path.
+- Generated sibling packages use their generated manifests. External packages use locally resolved manifests, including nested and symlinked installations. Missing required packages, unreadable or malformed manifests, and invalid Node ranges fail the check.
+- Historical engine arrays such as `["node >= 0.2.0"]` are supported. Their ranges are validated, and duplicate Node requirements are rejected.
+- Checks use npm's prerelease-inclusive range semantics. No package code runs and no dependency installation or registry lookup occurs.
+
+For example, a package advertising `>=22` fails when a required dependency declares `>=24`:
+
+```text
+Package "example" failed Node engine compatibility via example -> dependency@1.0.0: engines.node ">=22" is not a subset of ">=24"
+```
+
+Change the dependency or explicitly adjust the published support range. The check never rewrites engine requirements. It validates the currently installed tree and declared metadata, not future dependency resolutions or actual execution on every supported Node version. DCE exclusions apply to Packtory's generated artifacts; retained external packages keep their declared required dependency trees.
 
 ### `typeScriptIntegrity`
 
@@ -385,17 +430,17 @@ checks: { noDuplicatedFiles: { enabled: true, allowList: [path.join(projectFolde
 ```
 
 ```javascript
-// Per-package consent - pkg-a and pkg-b agree to share util.ts; nobody else may
+// Per-package consent - package-a and package-b agree to share util.ts; nobody else may
 checks: { noDuplicatedFiles: { enabled: true } },
 packages: [
     {
-        name: 'pkg-a',
-        roots: { main: { js: 'a.js' } },
+        name: 'package-a',
+        roots: { main: { javaScript: 'a.js' } },
         checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     },
     {
-        name: 'pkg-b',
-        roots: { main: { js: 'b.js' } },
+        name: 'package-b',
+        roots: { main: { javaScript: 'b.js' } },
         checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     }
 ]
@@ -412,7 +457,7 @@ Each bundle must contain every file in the effective list, matched on the bundle
 checks: { requiredFiles: { enabled: true, files: ['LICENSE', 'readme.md'] } }
 ```
 
-### `maxBundleSize`
+### `maximumBundleSize`
 
 Reports any bundle whose resources sum to more than the configured byte limit, measured as UTF-8 byte length.
 
@@ -421,12 +466,12 @@ Reports any bundle whose resources sum to more than the configured byte limit, m
 - A bundle without any applicable threshold (no global default and no per-package value) is skipped.
 
 ```javascript
-checks: { maxBundleSize: { enabled: true, bytes: 500_000 } },
+checks: { maximumBundleSize: { enabled: true, bytes: 500_000 } },
 packages: [
     {
-        name: 'image-resizer-cli',
-        roots: { main: { js: 'cli.js' } },
-        checks: { maxBundleSize: { bytes: 2_000_000 } }
+        name: 'image-resizer-command-line-interface',
+        roots: { main: { javaScript: 'command-line-interface.js' } },
+        checks: { maximumBundleSize: { bytes: 2_000_000 } }
     }
 ]
 ```
@@ -438,13 +483,13 @@ Reports declared `bundleDependencies` and `bundlePeerDependencies` whose imports
 - **Top-level:** `enabled: boolean`.
 - **Per-package:** `{}` only.
 
-### `noDevDependencyImports`
+### `noDevelopmentDependencyImports`
 
-Reports any external dependency reachable from a package's source that is declared only in `mainPackageJson.devDependencies` and not in `dependencies` or `peerDependencies`. Catches dev-only dependencies that have leaked into runtime imports - a likely break for downstream consumers.
+Reports any external dependency reachable from a package's source that is declared only in `mainPackageManifest.devDependencies` and not in `dependencies` or `peerDependencies`. Catches dev-only dependencies that have leaked into runtime imports - a likely break for downstream consumers.
 
 - **Top-level:** `enabled: boolean`.
 - **Per-package:** `{}` only.
-- The effective `mainPackageJson` is resolved per package (per-package overrides `commonPackageSettings`) before the rule runs.
+- The effective `mainPackageManifest` is resolved per package (per-package overrides `commonPackageSettings`) before the rule runs.
 
 ### `uniqueTargetPaths`
 
@@ -457,16 +502,16 @@ Reports any bundle where two resources resolve to the same `targetFilePath`. Typ
 
 Reports any source file in a bundle that has top-level side effects, preventing downstream consumers from tree-shaking it. Side effects are detected purely by static analysis of top-level statements - no `package.json sideEffects` field is consulted. Examples of impure top-level statements that this rule flags: top-level expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), and bare imports of asset files (`.css`, `.scss`, `.sass`, `.less`).
 
-- **Top-level:** `enabled: boolean`, `allowList?: string[]` - files whose side effects are intentional and should not be flagged. Use this for legitimate setup modules (polyfills, ambient configuration, CLI entry points).
+- **Top-level:** `enabled: boolean`, `allowList?: string[]` - files whose side effects are intentional and should not be flagged. Use this for legitimate setup modules (polyfills, ambient configuration, command line interface entry points).
 - **Per-package:** `allowList?: string[]` - files this package consents to ship with side effects.
 
 A side-effecting file is suppressed iff it appears in the top-level `allowList`, **or** in the per-package `allowList` for its bundle.
 
 ```javascript
-checks: { noSideEffects: { enabled: true, allowList: ['/src/polyfill.ts'] } }
+checks: { noSideEffects: { enabled: true, allowList: ['/source/polyfill.ts'] } }
 ```
 
-The error message names the file and the offending statement(s) by line and kind, so the location is actionable without further investigation. The rule is opt-in by default - many legitimate packages (CLI bins, polyfill libraries) have side effects on purpose.
+The error message names the file and the offending statement(s) by line and kind, so the location is actionable without further investigation. The rule is opt-in by default - many legitimate packages (command line interface executables, polyfill libraries) have side effects on purpose.
 
 ### `noUnexposedExecutables`
 
@@ -488,26 +533,26 @@ Within each bundle, the analyzer:
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
 5. Repairs import declarations in transformed files. Dead default, namespace, named, and aliased import bindings are removed. Runtime imports with no surviving specifiers become bare imports so module evaluation is preserved. Type-only imports with no surviving specifiers are removed, with `export {};` inserted when needed to preserve module status.
-6. Prunes pure runtime code files that have no surviving behavior after DCE and are no longer reached by surviving imports. Public roots, explicit resources, generated manifests, declarations, assets, side-effecting files, and files still needed for module evaluation are preserved.
+6. Prunes pure runtime code files that have no surviving behavior after dead code elimination and are no longer reached by surviving imports. Public roots, explicit resources, generated manifests, declarations, assets, side-effecting files, and files still needed for module evaluation are preserved.
 7. Recomputes dependency metadata from the transformed and pruned code. External packages and sibling bundle dependencies that only appeared in removed code are no longer emitted into `dependencies`, `peerDependencies`, check inputs, or vendored package roots.
 
 Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
 
-DCE is conservative by design. Unknown top-level code is treated as effectful, unknown imports preserve the affected code or fail an integrity check, and resolver uncertainty is never used as a reason to remove code. More removal requires either a static proof in packtory's analysis or an explicit trust setting such as `pureImports`, `pureConstructors`, or a pure annotation.
+dead code elimination is conservative by design. Unknown top-level code is treated as effectful, unknown imports preserve the affected code or fail an integrity check, and resolver uncertainty is never used as a reason to remove code. More removal requires either a static proof in packtory's analysis or an explicit trust setting such as `pureImports`, `pureConstructors`, or a pure annotation.
 
 ### Free side-effect features
 
 The same static analysis also drives, regardless of any `checks` configuration:
 
-1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins over the auto-emitted value.
+1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageManifestAttributes` always wins over the auto-emitted value.
 2. **The `noSideEffects` check rule** - opt-in CI enforcement that a package is tree-shakable.
 
 ### Dead Code Elimination Configuration
 
 ```javascript
 {
-    name: 'pkg',
-    roots: { main: { js: 'index.js' } },
+    name: 'package',
+    roots: { main: { javaScript: 'index.js' } },
     deadCodeElimination: { enabled: true } // default; set to false to disable transformations
 }
 ```
@@ -518,33 +563,33 @@ Use `packtory inspect side-effects <package>` to see the generated `sideEffects`
 
 ### Source maps
 
-When a `.map` file is paired with a code or declaration file rewritten by the linker or transformed by DCE, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. Linker import rewrites are applied before DCE transforms. If DCE prunes the paired code file, the paired map is pruned with it. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Empty and malformed source maps are passed through unchanged.
+When a `.map` file is paired with a code or declaration file rewritten by the linker or transformed by dead code elimination, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. Linker import rewrites are applied before dead code elimination transforms. If dead code elimination prunes the paired code file, the paired map is pruned with it. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Empty and malformed source maps are passed through unchanged.
 
 ## Example Use-Cases
 
-### 1. Creating CLI Tools
+### 1. Creating command line interface Tools
 
-Suppose you have a project with a utility library (`image-resizer-lib`) and a corresponding CLI tool (`image-resizer-cli`) with bin roots. `packtory` simplifies the bundling and publishing of these packages while ensuring clean and minimal npm packages.
+Suppose you have a project with a utility library (`image-resizer-lib`) and a corresponding command line interface tool (`image-resizer-command-line-interface`) with bin roots. `packtory` simplifies the bundling and publishing of these packages while ensuring clean and minimal npm packages.
 
 ```javascript
 // packtory.config.js
-export const config = {
+export const configuration = {
     registrySettings: {
-        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+        authentication: { type: 'bearer-token', token: process.env.NPM_TOKEN }
     },
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'dist/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        mainPackageManifest: fs.readFileSynchronous('./package.json', { encoding: 'utf8' }),
         publishSettings: { access: 'public' }
     },
     packages: [
         {
             name: 'image-resizer-lib',
-            roots: { main: { js: 'lib.js' } }
+            roots: { main: { javaScript: 'lib.js' } }
         },
         {
-            name: 'image-resizer-cli',
-            roots: { main: { js: 'cli.js' } },
+            name: 'image-resizer-command-line-interface',
+            roots: { main: { javaScript: 'command-line-interface.js' } },
             bundleDependencies: [ 'image-resizer-lib' ]
         }
     ]
@@ -557,28 +602,28 @@ Consider a scenario where you have an ecosystem of packages like `awesome-logger
 
 ```javascript
 // packtory.config.js
-export const config = {
+export const configuration = {
     registrySettings: {
-        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+        authentication: { type: 'bearer-token', token: process.env.NPM_TOKEN }
     },
     commonPackageSettings: {
-        sourcesFolder: path.join(process.cwd(), 'src/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        sourcesFolder: path.join(process.cwd(), 'source/'),
+        mainPackageManifest: fs.readFileSynchronous('./package.json', { encoding: 'utf8' }),
         publishSettings: { access: 'public' }
     },
     packages: [
         {
             name: 'awesome-logger',
-            roots: { main: { js: 'index.js' } }
+            roots: { main: { javaScript: 'index.js' } }
         },
         {
             name: 'awesome-logger-adapter',
-            roots: { main: { js: 'adapter.js' } },
+            roots: { main: { javaScript: 'adapter.js' } },
             bundleDependencies: [ 'awesome-logger' ]
         },
         {
             name: 'awesome-logger-adapter-awesome-target',
-            roots: { main: { js: 'target.js' } },
+            roots: { main: { javaScript: 'target.js' } },
             bundleDependencies: [ 'awesome-logger', 'awesome-logger-adapter' ]
         }
     ]
@@ -591,7 +636,7 @@ Use a bearer token:
 
 ```javascript
 registrySettings: {
-    auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+    authentication: { type: 'bearer-token', token: process.env.NPM_TOKEN }
 }
 ```
 
@@ -599,8 +644,8 @@ Use explicit basic auth for registries such as Azure Artifacts or Artifactory:
 
 ```javascript
 registrySettings: {
-    registryUrl: 'https://registry.example.test/',
-    auth: { type: 'basic', username: process.env.NPM_USERNAME, password: process.env.NPM_PASSWORD }
+    registryAddress: 'https://registry.example.test/',
+    authentication: { type: 'basic', username: process.env.NPM_USERNAME, password: process.env.NPM_PASSWORD }
 }
 ```
 
@@ -608,27 +653,27 @@ Use npm trusted publishing / OIDC on npmjs.org:
 
 ```javascript
 registrySettings: {
-    auth: {
-        publish: { type: 'npm-oidc', provider: 'auto' },
-        metadata: 'auto'
+    authentication: {
+        publish: { type: 'npm-open-identity-connect', provider: 'automatic' },
+        metadata: 'automatic'
     }
 }
 ```
 
-If the registry challenges a publish with a one-time password, the CLI prompts interactively when running in a TTY. Non-interactive runs should use a token or OIDC flow that does not require a live one-time-password entry.
+If the registry challenges a publish with a one-time password, the command line interface prompts interactively when running in a terminal. Non-interactive runs should use a token or OIDC flow that does not require a live one-time-password entry.
 
 Use metadata auto mode:
 
 ```javascript
 registrySettings: {
-    auth: {
+    authentication: {
         publish: { type: 'bearer-token', token: process.env.NPM_TOKEN },
-        metadata: 'auto'
+        metadata: 'automatic'
     }
 }
 ```
 
-`metadata: 'auto'` means:
+`metadata: 'automatic'` means:
 
 - Try metadata requests without authentication first.
 - If the registry responds with an authentication challenge such as `401` or `403`, retry using the publish auth.
@@ -641,27 +686,27 @@ Set a uniform default for every package in `commonPackageSettings`:
 ```javascript
 commonPackageSettings: {
     sourcesFolder: path.join(process.cwd(), 'dist/'),
-    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    mainPackageManifest: fs.readFileSynchronous('./package.json', { encoding: 'utf8' }),
     publishSettings: { access: 'public' }
 }
 ```
 
-Override per package - e.g. a monorepo where the public CLI lives next to a restricted internal helper:
+Override per package - e.g. a monorepo where the public command line interface lives next to a restricted internal helper:
 
 ```javascript
 commonPackageSettings: {
     sourcesFolder: path.join(process.cwd(), 'dist/'),
-    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    mainPackageManifest: fs.readFileSynchronous('./package.json', { encoding: 'utf8' }),
     publishSettings: { access: 'public' }
 },
 packages: [
     {
-        name: 'image-resizer-cli',
-        roots: { main: { js: 'cli.js' } }
+        name: 'image-resizer-command-line-interface',
+        roots: { main: { javaScript: 'command-line-interface.js' } }
     },
     {
         name: '@my-org/image-resizer-internal',
-        roots: { main: { js: 'internal.js' } },
+        roots: { main: { javaScript: 'internal.js' } },
         publishSettings: { access: 'restricted' }
     }
 ]

@@ -7,7 +7,7 @@ import type { BundleResource } from '../resource-resolver/resolved-bundle.ts';
 
 function transformedResource(content: string): BundleResource & { readonly isSubstituted: false; } {
     return {
-        ...bundleResource('/src/index.js', { content, targetFilePath: 'index.js' }),
+        ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
     };
 }
@@ -18,7 +18,7 @@ suite('eliminator dependency references', function () {
         const input = linkedBundle({
             name: 'a',
             contents: [ transformedResource('import { api } from "dep";\nexport const value = api;\n') ],
-            externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/index.js' ]) ] ])
+            externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/index.js' ]) ] ])
         });
 
         const [ analyzed ] = await eliminator.eliminate(inputs(input));

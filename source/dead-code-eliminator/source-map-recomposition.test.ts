@@ -16,7 +16,7 @@ function resourceOutput(targetFilePath: string, transforms: readonly TransformRe
 
 function mapResource(targetFilePath: string, content: string): AnalyzedBundleResource {
     return {
-        fileDescription: { inputFilePath: '/src/x.map', targetFilePath, content, isExecutable: false }
+        fileDescription: { inputFilePath: '/source/x.map', targetFilePath, content, isExecutable: false }
     } as unknown as AnalyzedBundleResource;
 }
 
@@ -46,7 +46,13 @@ suite('source-map-recomposition', function () {
     test('recomposePairedSourceMaps replaces the content for a resource whose map path has a transform', function () {
         const resource = mapResource(
             'a.js.map',
-            JSON.stringify({ version: 3, file: 'a.js', sources: [ '/src/x.ts' ], sourcesContent: [], mappings: 'AAAA' })
+            JSON.stringify({
+                version: 3,
+                file: 'a.js',
+                sources: [ '/source/x.ts' ],
+                sourcesContent: [],
+                mappings: 'AAAA'
+            })
         );
         const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ transformRecord ]) ]);
 
@@ -62,14 +68,14 @@ suite('source-map-recomposition', function () {
             JSON.stringify({
                 version: 3,
                 file: 'index.d.ts',
-                sources: [ '/src/index.ts' ],
+                sources: [ '/source/index.ts' ],
                 sourcesContent: [],
                 mappings: 'AAAA'
             })
         );
         const linkerTransform = toSourceMapTransform(buildTextTransformMap(
             'import("./dep.js").Dep',
-            'import("pkg").Dep'
+            'import("package").Dep'
         ));
         const index = buildMapPathTransformIndex([], new Map([ [ 'index.d.ts', [ linkerTransform ] ] ]));
 
@@ -81,17 +87,17 @@ suite('source-map-recomposition', function () {
     test('buildMapPathTransformIndex applies linker transforms before dead code elimination transforms without full code text', function () {
         const linkerTransform = toSourceMapTransform(buildTextTransformMap(
             'import "./dep.js";\nexport const live = 1;\n',
-            'import "pkg";\nexport const live = 1;\n'
+            'import "package";\nexport const live = 1;\n'
         ));
-        const dceTransform: TransformRecord = {
+        const deadCodeEliminationTransform: TransformRecord = {
             textTransform: buildTextTransformMap(
-                'import "pkg";\nconst dead = 1;\nexport const live = 1;\n',
-                'import "pkg";\nexport const live = 1;\n'
+                'import "package";\nconst dead = 1;\nexport const live = 1;\n',
+                'import "package";\nexport const live = 1;\n'
             )
         };
 
         const index = buildMapPathTransformIndex(
-            [ resourceOutput('a.js', [ dceTransform ]) ],
+            [ resourceOutput('a.js', [ deadCodeEliminationTransform ]) ],
             new Map([ [ 'a.js', [ linkerTransform ] ] ])
         );
         const transforms = index.get('a.js.map') ?? [];

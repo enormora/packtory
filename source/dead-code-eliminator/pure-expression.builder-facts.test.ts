@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Expression } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import { isPureExpression } from './pure-expression.ts';
 import {
@@ -16,7 +16,7 @@ function pureBuilderPackage(): ProjectFile {
     return schemaPackageFile([
         'export const z = {',
         '  string() { return { check(rule) { return {}; } }; },',
-        '  minLength(value) { return {}; },',
+        '  minimumLength(value) { return {}; },',
         '  number() { return {}; },',
         '  object(shape) { return { extend(extra) { return {}; } }; }',
         '};'
@@ -26,7 +26,7 @@ function pureBuilderPackage(): ProjectFile {
 
 function schemaExpression(content: readonly string[], packageFile: ProjectFile): Expression {
     return initializerFromProjectFiles([
-        { filePath: '/project/src/index.ts', content: content.join('\n') },
+        { filePath: '/project/source/index.ts', content: content.join('\n') },
         schemaPackageManifest(),
         packageFile
     ]);
@@ -37,7 +37,7 @@ suite('pure-expression builder facts', function () {
         test('proves local constants initialized from external builder chains', function () {
             const expression = schemaExpression([
                 'import { z } from "schema-lib";',
-                'const nameSchema = z.string().check(z.minLength(1));',
+                'const nameSchema = z.string().check(z.minimumLength(1));',
                 'const userSchema = z.object({ name: nameSchema });',
                 'const schema = userSchema.extend({ id: z.number() });'
             ], pureBuilderPackage());
@@ -78,7 +78,7 @@ suite('pure-expression builder facts', function () {
         test('proves reexported builder imports from external summaries', function () {
             const expression = initializerFromProjectFiles([
                 {
-                    filePath: '/project/src/index.ts',
+                    filePath: '/project/source/index.ts',
                     content: [
                         'import { z } from "schema-lib";',
                         'const userSchema = z.object({ name: z.string() });',
@@ -240,7 +240,7 @@ suite('pure-expression builder facts', function () {
         test('rejects object spreads of relative imports without trusted object facts', function () {
             const expression = initializerFromProjectFiles([
                 {
-                    filePath: '/project/src/index.ts',
+                    filePath: '/project/source/index.ts',
                     content: [
                         'import { z } from "./schema.js";',
                         'const schema = { ...z };'
@@ -248,7 +248,7 @@ suite('pure-expression builder facts', function () {
                         .join('\n')
                 },
                 {
-                    filePath: '/project/src/schema.js',
+                    filePath: '/project/source/schema.js',
                     content: 'export const z = { string() { return {}; } };'
                 }
             ]);

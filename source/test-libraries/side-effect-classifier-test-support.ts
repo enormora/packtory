@@ -1,4 +1,4 @@
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { classifySideEffects } from '../dead-code-eliminator/side-effect-classifier.ts';
 import { createProject } from './typescript-project.ts';
 

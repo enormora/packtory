@@ -1,17 +1,17 @@
-import type { RegistrySettings } from '../../config/registry-settings.ts';
-import { npmRegistryUrl } from './registry-auth-config.ts';
+import type { RegistrySettings } from '../../configuration/registry-settings.ts';
+import { npmRegistryAddress } from './registry-authentication-configuration.ts';
 
 function resolveConfiguredOrigin(registrySettings: Readonly<RegistrySettings>): string {
-    const configuredUrl = new URL(registrySettings.registryUrl ?? npmRegistryUrl);
-    return configuredUrl.origin;
+    const configuredAddress = new URL(registrySettings.registryAddress ?? npmRegistryAddress);
+    return configuredAddress.origin;
 }
 
-function parseTarballOrigin(tarballUrl: string): string {
+function parseTarballOrigin(tarballAddress: string): string {
     try {
-        const parsedUrl = new URL(tarballUrl);
-        return parsedUrl.origin;
+        const parsedAddress = new URL(tarballAddress);
+        return parsedAddress.origin;
     } catch {
-        throw new TypeError(`Registry returned an invalid tarball URL: "${tarballUrl}"`);
+        throw new TypeError(`Registry returned an invalid tarball URL: "${tarballAddress}"`);
     }
 }
 
@@ -24,10 +24,10 @@ function buildMismatchMessage(tarballOrigin: string, configuredOrigin: string): 
 }
 
 export function assertTarballOriginMatchesRegistry(
-    tarballUrl: string,
+    tarballAddress: string,
     registrySettings: Readonly<RegistrySettings>
 ): void {
-    const tarballOrigin = parseTarballOrigin(tarballUrl);
+    const tarballOrigin = parseTarballOrigin(tarballAddress);
     const configuredOrigin = resolveConfiguredOrigin(registrySettings);
 
     if (tarballOrigin !== configuredOrigin) {

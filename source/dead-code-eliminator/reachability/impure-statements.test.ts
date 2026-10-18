@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { Node as TsMorphNode } from 'ts-morph';
+import { Node as TypeScriptMorphNode } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -30,6 +30,6 @@ suite('impure-statements', function () {
         const impure = collectImpureStatements(sourceFile, undefined);
 
         assert.strictEqual(impure.length, 1);
-        assert.strictEqual(TsMorphNode.isImportDeclaration(impure[0]), false);
+        assert.strictEqual(TypeScriptMorphNode.isImportDeclaration(impure[0]), false);
     });
 });

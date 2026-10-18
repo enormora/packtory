@@ -1,9 +1,12 @@
 import type { Maybe } from 'true-myth';
 import type { Clock } from '../../common/clock.ts';
-import type { PublishSettings } from '../../config/publish-settings.ts';
-import type { NpmOidcPublishAuth, RegistrySettings } from '../../config/registry-settings.ts';
+import type { PublishSettings } from '../../configuration/publish-settings.ts';
+import type {
+    NpmOpenIdentityConnectPublishAuthentication,
+    RegistrySettings
+} from '../../configuration/registry-settings.ts';
 import { publishedToRegistry, stagedForApproval, type PublicationOutcome } from '../publication-outcome.ts';
-import { createOidcTokenExchanger } from './oidc-token-exchange.ts';
+import { createOpenIdentityConnectTokenExchanger } from './open-identity-connect-token-exchange.ts';
 import {
     fetchLatestPackageReleaseMetadata,
     fetchLatestPackageVersion,
@@ -32,7 +35,7 @@ type PublishPromise = Promise<unknown>;
 type PublishPackageArguments = readonly [
     manifest: PublishManifest,
     tarData: Buffer,
-    config: RegistrySettings,
+    configuration: RegistrySettings,
     publishSettings: PublishSettings,
     stage: boolean
 ];
@@ -42,27 +45,27 @@ export type RegistryClientDependencies = {
     readonly publish: (manifest: PublishManifest, tarData: Buffer, options?: PublishLibraryOptions) => Promise<unknown>;
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
-    readonly resolveIdToken: (auth: NpmOidcPublishAuth) => Promise<string>;
+    readonly resolveIdentifierToken: (authentication: NpmOpenIdentityConnectPublishAuthentication) => Promise<string>;
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
 };
 
 export type RegistryClient = {
     fetchLatestReleaseMetadata: (
         packageName: string,
-        config: RegistrySettings
+        configuration: RegistrySettings
     ) => Promise<Maybe<PackageReleaseMetadata>>;
     fetchVersionReleaseMetadata: (
         packageName: string,
         version: string,
-        config: RegistrySettings
+        configuration: RegistrySettings
     ) => Promise<Maybe<PackageVersionReleaseMetadata>>;
-    fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
-    fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
+    fetchLatestVersion: (packageName: string, configuration: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
+    fetchStagedVersions: (packageName: string, configuration: RegistrySettings) => Promise<readonly string[]>;
     publishPackage: (...publishArguments: PublishPackageArguments) => Promise<PublicationOutcome>;
     readonly fetchTarball: TarballFetcher;
 };
 
-function isStageIdRecord(response: unknown): response is Readonly<Record<'stageId', unknown>> {
+function isStageIdentifierRecord(response: unknown): response is Readonly<Record<'stageId', unknown>> {
     return (
         typeof response === 'object' &&
         response !== null &&
@@ -70,12 +73,12 @@ function isStageIdRecord(response: unknown): response is Readonly<Record<'stageI
     );
 }
 
-function hasStageId(response: unknown): response is { readonly stageId: string; } {
-    return isStageIdRecord(response) && typeof response.stageId === 'string' && response.stageId.length > 0;
+function hasStageIdentifier(response: unknown): response is { readonly stageId: string; } {
+    return isStageIdentifierRecord(response) && typeof response.stageId === 'string' && response.stageId.length > 0;
 }
 
-function readStageId(response: unknown): string {
-    if (!hasStageId(response)) {
+function readStageIdentifier(response: unknown): string {
+    if (!hasStageIdentifier(response)) {
         throw new Error('npm staged publish succeeded without returning a stage ID');
     }
 
@@ -88,7 +91,7 @@ async function readPublishedPublicationOutcome(publishPromise: PublishPromise): 
 }
 
 async function readStagedPublicationOutcome(publishPromise: PublishPromise): Promise<PublicationOutcome> {
-    return stagedForApproval(readStageId(await publishPromise));
+    return stagedForApproval(readStageIdentifier(await publishPromise));
 }
 
 async function readPublicationOutcome(
@@ -110,26 +113,33 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         fetch: fetchImplementation,
         clock,
         promptForOneTimePassword,
-        resolveIdToken
+        resolveIdentifierToken
     } = dependencies;
-    const oidcExchanger = createOidcTokenExchanger({ fetch: fetchImplementation, clock, resolveIdToken });
+    const openIdentityConnectExchanger = createOpenIdentityConnectTokenExchanger({
+        fetch: fetchImplementation,
+        clock,
+        resolveIdentifierToken
+    });
 
     return {
-        async fetchTarball(tarballUrl, tarballIntegrity, registrySettings) {
+        async fetchTarball(tarballAddress, tarballIntegrity, registrySettings) {
             return fetchPackageTarball(
                 { fetch: fetchImplementation, clock },
-                tarballUrl,
+                tarballAddress,
                 tarballIntegrity,
                 registrySettings
             );
         },
 
         async publishPackage(...[ manifest, tarData, registrySettings, publishSettings, stage ]) {
-            const authOptions = await oidcExchanger.resolveWriteAuthOptions(manifest.name, registrySettings);
+            const authenticationOptions = await openIdentityConnectExchanger.resolveWriteAuthenticationOptions(
+                manifest.name,
+                registrySettings
+            );
             const publishOptionsFromSettings = buildPublishOptionsForPublishSettings(publishSettings);
             const publishOptions: PublishOptionsForLibrary = {
                 defaultTag: 'latest',
-                ...authOptions,
+                ...authenticationOptions,
                 ...publishOptionsFromSettings,
                 ...stage ? { stage: true } : {}
             };

@@ -1,21 +1,26 @@
 import semver from 'semver';
-import type { PrLogConfig, PrLogEngine, PrLogEngineOptions, PullRequestWithLabel } from '@pr-log/core';
-import type { VersionProvider } from '../../config/manual-versioning-settings.ts';
-import type { PacktoryConfig } from '../../config/config.ts';
-import type { VersionSourceResolver } from '../../packtory/map-config.ts';
+import type {
+    PullRequestLogConfiguration,
+    PullRequestWithLabel,
+    PullRequestLogEngine,
+    PullRequestLogEngineOptions
+} from '../../changelog/pull-request-log.ts';
+import type { VersionProvider } from '../../configuration/manual-versioning-settings.ts';
+import type { PacktoryConfiguration } from '../../configuration/configuration.ts';
+import type { VersionSourceResolver } from '../../packtory/map-configuration.ts';
 import { formatGitHubRepositoryName } from '../../command-line-interface/runner/github-repository.ts';
-import { createPrLogConfig } from '../../command-line-interface/runner/changelog-pr-log-config.ts';
+import * as changelog from '../../command-line-interface/runner/changelog-pull-request-log-configuration.ts';
 
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 
 export type PullRequestLabelVersionSourceDependencies = {
-    readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
+    readonly createPullRequestLogEngine: (options: Readonly<PullRequestLogEngineOptions>) => PullRequestLogEngine;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
+    readonly readPackageInformation: () => Promise<Readonly<Record<string, unknown>>>;
     readonly workingDirectory: string;
 };
 
-type VersionBumpLevel = keyof PrLogConfig['versionBumps'];
+type VersionBumpLevel = keyof PullRequestLogConfiguration['versionBumps'];
 
 function orderedVersionBumpLevels(): readonly VersionBumpLevel[] {
     return [ 'major', 'minor', 'patch' ];
@@ -27,17 +32,20 @@ function readGitHubToken(
     return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(dependencies: PullRequestLabelVersionSourceDependencies, config: PrLogConfig): PrLogEngine {
-    return dependencies.createPrLogEngine({
+function createEngine(
+    dependencies: PullRequestLabelVersionSourceDependencies,
+    configuration: PullRequestLogConfiguration
+): PullRequestLogEngine {
+    return dependencies.createPullRequestLogEngine({
         githubToken: readGitHubToken(dependencies),
         workingDirectory: dependencies.workingDirectory,
-        config
+        configuration
     });
 }
 
 function selectVersionBumpLevel(
     pullRequests: readonly PullRequestWithLabel[],
-    versionBumps: PrLogConfig['versionBumps']
+    versionBumps: PullRequestLogConfiguration['versionBumps']
 ): VersionBumpLevel | undefined {
     const labels = new Set(
         pullRequests.map(function (pullRequest) {
@@ -62,7 +70,7 @@ function incrementVersion(version: string, level: VersionBumpLevel): string {
 function selectNextVersion(
     currentVersion: string,
     pullRequests: readonly PullRequestWithLabel[],
-    versionBumps: PrLogConfig['versionBumps']
+    versionBumps: PullRequestLogConfiguration['versionBumps']
 ): string {
     const versionBumpLevel = selectVersionBumpLevel(pullRequests, versionBumps);
     return versionBumpLevel === undefined ? currentVersion : incrementVersion(currentVersion, versionBumpLevel);
@@ -73,37 +81,42 @@ export function createPullRequestLabelVersionSourceResolver(
 ): VersionSourceResolver {
     async function collectLabeledPullRequests(
         input: Parameters<VersionProvider>[0],
-        packtoryConfig: PacktoryConfig
+        packtoryConfiguration: PacktoryConfiguration
     ): Promise<readonly PullRequestWithLabel[]> {
-        const packageInfo = await dependencies.readPackageInfo();
-        const githubRepo = formatGitHubRepositoryName(packageInfo);
-        const prLogConfig = createPrLogConfig(packtoryConfig.changelog);
-        const prLogEngine = createEngine(dependencies, prLogConfig);
-        const baseRef = await prLogEngine.resolveChangelogBaseRef({
+        const packageInformation = await dependencies.readPackageInformation();
+        const githubRepository = formatGitHubRepositoryName(packageInformation);
+        const pullRequestLogConfiguration = changelog.createPullRequestLogConfiguration(
+            packtoryConfiguration.changelog
+        );
+        const pullRequestLogEngine = createEngine(dependencies, pullRequestLogConfiguration);
+        const baseReference = await pullRequestLogEngine.resolveChangelogBaseReference({
             packageName: input.packageName,
             previousVersion: input.currentVersion,
             previousGitHead: undefined,
-            packageTagFormat: packtoryConfig.changelog?.packageTagFormat,
-            explicitBaseRef: packtoryConfig.changelog?.explicitBaseRef
+            packageTagFormat: packtoryConfiguration.changelog?.packageTagFormat,
+            explicitBaseReference: packtoryConfiguration.changelog?.explicitBaseReference
         });
-        const pullRequests = await prLogEngine.collectMergedPullRequests({ githubRepo, baseRef: baseRef.ref });
-        const changedFilesByPullRequest = await prLogEngine.readPullRequestChangedFiles({
-            githubRepo,
+        const pullRequests = await pullRequestLogEngine.collectMergedPullRequests({
+            githubRepository,
+            baseReference: baseReference.reference
+        });
+        const changedFilesByPullRequest = await pullRequestLogEngine.readPullRequestChangedFiles({
+            githubRepository,
             pullRequests
         });
-        const targetPullRequests = prLogEngine.filterPullRequestsByTargetFiles({
+        const targetPullRequests = pullRequestLogEngine.filterPullRequestsByTargetFiles({
             targetName: input.packageName,
             targetSourceFiles: input.targetSourceFiles,
             pullRequests,
             changedFilesByPullRequest,
             ignoredAttributionPaths: input.ignoredAttributionPaths
         });
-        return prLogEngine.resolvePullRequestLabels({
-            githubRepo,
-            config: prLogConfig,
+        return pullRequestLogEngine.resolvePullRequestLabels({
+            githubRepository,
+            configuration: pullRequestLogConfiguration,
             pullRequests: targetPullRequests,
             targetName: input.packageName,
-            targetScopedLabelPattern: packtoryConfig.changelog?.targetScopedLabelPattern
+            targetScopedLabelPattern: packtoryConfiguration.changelog?.targetScopedLabelPattern
         });
     }
 
@@ -112,11 +125,13 @@ export function createPullRequestLabelVersionSourceResolver(
             if (input.currentVersion === undefined) {
                 return '0.0.1';
             }
-            const prLogConfig = createPrLogConfig(sourceInput.packtoryConfig.changelog);
+            const pullRequestLogConfiguration = changelog.createPullRequestLogConfiguration(
+                sourceInput.packtoryConfiguration.changelog
+            );
             return selectNextVersion(
                 input.currentVersion,
-                await collectLabeledPullRequests(input, sourceInput.packtoryConfig),
-                prLogConfig.versionBumps
+                await collectLabeledPullRequests(input, sourceInput.packtoryConfiguration),
+                pullRequestLogConfiguration.versionBumps
             );
         };
     };

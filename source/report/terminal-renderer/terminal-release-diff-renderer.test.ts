@@ -119,24 +119,24 @@ suite('terminal-release-diff-renderer', function () {
         const output = renderTerminalReleaseDiff(
             document({
                 packages: [
-                    createPackageReleaseDiff({ name: 'pkg-a', state: 'unchanged' }),
-                    createPackageReleaseDiff({ name: 'pkg-b', state: 'unchanged' })
+                    createPackageReleaseDiff({ name: 'package-a', state: 'unchanged' }),
+                    createPackageReleaseDiff({ name: 'package-b', state: 'unchanged' })
                 ]
             }),
             { color: false }
         );
 
-        const pkgAIndex = output.indexOf('pkg-a  1.0.0  ·  no changes');
-        const pkgBIndex = output.indexOf('pkg-b  1.0.0  ·  no changes');
-        assert.ok(pkgAIndex > 0, 'pkg-a section missing');
-        assert.ok(pkgBIndex > 0, 'pkg-b section missing');
-        assert.ok(pkgAIndex < pkgBIndex, 'pkg-a should appear before pkg-b');
-        assert.match(output, /pkg-a {2}1\.0\.0 {2}· {2}no changes\n\npkg-b {2}1\.0\.0 {2}· {2}no changes/u);
+        const packageAIndex = output.indexOf('package-a  1.0.0  ·  no changes');
+        const packageBIndex = output.indexOf('package-b  1.0.0  ·  no changes');
+        assert.ok(packageAIndex > 0, 'package-a section missing');
+        assert.ok(packageBIndex > 0, 'package-b section missing');
+        assert.ok(packageAIndex < packageBIndex, 'package-a should appear before package-b');
+        assert.match(output, /package-a {2}1\.0\.0 {2}· {2}no changes\n\npackage-b {2}1\.0\.0 {2}· {2}no changes/u);
     });
 
     test('renderFailureOnlyTerminalReleaseDiff joins each header line with a single newline and ends with a newline', function () {
         const output = renderFailureOnlyTerminalReleaseDiff(
-            document({ resultType: 'config', issues: [ 'invalid config' ] }),
+            document({ resultType: 'configuration', issues: [ 'invalid config' ] }),
             { color: false }
         );
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test, type Func } from 'mocha';
+import { test, type Func as TestFunction } from 'mocha';
 import { isPlainObject, omit } from 'remeda';
 import type { $ZodType } from 'zod/v4/core';
 import { safeParse } from '../common/schema-validation.ts';
@@ -13,7 +13,7 @@ type ValidationSuccessTestCase = {
     readonly expectedData?: unknown;
 };
 
-export function checkValidationSuccess(testCase: Readonly<ValidationSuccessTestCase>): Func {
+export function checkValidationSuccess(testCase: Readonly<ValidationSuccessTestCase>): TestFunction {
     return function () {
         const result = safeParse(testCase.schema, testCase.data);
 
@@ -35,7 +35,7 @@ type ValidationFailureTestCase = {
     readonly expectedMessages: readonly string[];
 };
 
-export function checkValidationFailure(testCase: Readonly<ValidationFailureTestCase>): Func {
+export function checkValidationFailure(testCase: Readonly<ValidationFailureTestCase>): TestFunction {
     return function () {
         const result = safeParse(testCase.schema, testCase.data);
 
@@ -200,7 +200,7 @@ function getExpectedIssuesForFieldType(options: ExpectedFieldTypeIssueOptions): 
     return [ `at ${path}: expected ${options.expectedFieldType}, but got ${options.assertedType}` ];
 }
 
-function createRequiredMissingFieldValidation(options: FieldTestOptions, expectedPath: string): Func {
+function createRequiredMissingFieldValidation(options: FieldTestOptions, expectedPath: string): TestFunction {
     return checkValidationFailure({
         schema: options.schema,
         data: cloneWithModification(options.data, options.path, 'delete'),
@@ -208,7 +208,7 @@ function createRequiredMissingFieldValidation(options: FieldTestOptions, expecte
     });
 }
 
-function createOptionalMissingFieldValidation(options: FieldTestOptions): Func {
+function createOptionalMissingFieldValidation(options: FieldTestOptions): TestFunction {
     return checkValidationSuccess({
         schema: options.schema,
         data: cloneWithModification(options.data, options.path, 'delete'),
@@ -216,7 +216,7 @@ function createOptionalMissingFieldValidation(options: FieldTestOptions): Func {
     });
 }
 
-function createRequiredUndefinedFieldValidation(options: FieldTestOptions): Func {
+function createRequiredUndefinedFieldValidation(options: FieldTestOptions): TestFunction {
     return checkValidationFailure({
         schema: options.schema,
         data: cloneWithModification(options.data, options.path, 'set'),
@@ -230,7 +230,7 @@ function createRequiredUndefinedFieldValidation(options: FieldTestOptions): Func
     });
 }
 
-function createOptionalUndefinedFieldValidation(options: FieldTestOptions): Func {
+function createOptionalUndefinedFieldValidation(options: FieldTestOptions): TestFunction {
     return checkValidationSuccess({
         schema: options.schema,
         data: cloneWithModification(options.data, options.path, 'set'),

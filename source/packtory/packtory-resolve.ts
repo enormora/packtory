@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import type { CheckRunner } from '../checks/check-runner.ts';
-import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
 import { resolvePackages, type PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
@@ -18,18 +18,18 @@ export type CheckDependencies = ResolveDependencies & {
 export function createResolveAndLinkAllValidated(
     dependencies: CheckDependencies
 ): (
-    config: ValidConfigWithoutRegistryResult
+    configuration: ValidConfigurationWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
     return async function resolveAndLinkAllValidated(
-        config: ValidConfigWithoutRegistryResult
+        configuration: ValidConfigurationWithoutRegistryResult
     ): Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
-        const runResult = await resolvePackages(dependencies, config);
+        const runResult = await resolvePackages(dependencies, configuration);
         if (runResult.isErr) {
-            const succeeded = await analyzeResolvedPackages(dependencies, config, runResult.error.succeeded);
+            const succeeded = await analyzeResolvedPackages(dependencies, configuration, runResult.error.succeeded);
             return Result.err(resolvePartialFailure({ succeeded, failures: runResult.error.failures }));
         }
 
-        const resolvedPackages = await analyzeResolvedPackages(dependencies, config, runResult.value);
-        return await buildChecksResult(dependencies, config, resolvedPackages);
+        const resolvedPackages = await analyzeResolvedPackages(dependencies, configuration, runResult.value);
+        return await buildChecksResult(dependencies, configuration, resolvedPackages);
     };
 }

@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
@@ -10,7 +10,7 @@ type Overrides = {
     readonly mkdir?: SinonSpy;
     readonly writeFile?: SinonSpy;
     readonly readFile?: SinonSpy;
-    readonly stat?: SinonSpy;
+    readonly fileStatus?: SinonSpy;
     readonly chmod?: SinonSpy;
     readonly copyFile?: SinonSpy;
     readonly readdir?: SinonSpy;
@@ -19,7 +19,7 @@ type Overrides = {
 
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
     const fallbackHostFileSystem = {
-        ...fs.promises,
+        ...fileSystem.promises,
         access: fake(),
         mkdir: fake(),
         writeFile: fake(),
@@ -32,7 +32,8 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
     };
     const hostFileSystem: FileManagerDependencies['hostFileSystem'] = {
         ...fallbackHostFileSystem,
-        ...overrides
+        ...overrides,
+        stat: overrides.fileStatus ?? fallbackHostFileSystem.stat
     };
     const dependencies: FileManagerDependencies = { hostFileSystem };
 
@@ -47,7 +48,7 @@ async function expectCheckReadability(access: SinonSpy, expectedReadable: boolea
     assertDeepSubset(access, {
         callCount: 1,
         firstCall: {
-            args: [ '/foo/bar.txt', fs.constants.R_OK ]
+            arguments: [ '/foo/bar.txt', fileSystem.constants.R_OK ]
         }
     });
     assert.deepStrictEqual(result, { isReadable: expectedReadable });
@@ -75,13 +76,13 @@ suite('file-manager', function () {
             assertDeepSubset(access, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo', fs.constants.R_OK ]
+                    arguments: [ '/foo', fileSystem.constants.R_OK ]
                 }
             });
             assertDeepSubset(writeFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ]
+                    arguments: [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ]
                 }
             });
         });
@@ -101,7 +102,7 @@ suite('file-manager', function () {
             const access = fake.rejects(undefined);
             const { writeFile, mkdir } = await runWriteFile(access);
 
-            assert.deepStrictEqual(access.args, [ [ '/foo', fs.constants.R_OK ] ]);
+            assert.deepStrictEqual(access.args, [ [ '/foo', fileSystem.constants.R_OK ] ]);
             assert.deepStrictEqual(mkdir.args, [ [ '/foo', { recursive: true } ] ]);
             assert.deepStrictEqual(writeFile.args, [ [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ] ]);
         });
@@ -116,14 +117,14 @@ suite('file-manager', function () {
 
     suite('checkDirectory', function () {
         test('checkDirectory() returns exists false when stat fails', async function () {
-            const fileManager = fileManagerFactory({ stat: fake.rejects(new Error('missing')) });
+            const fileManager = fileManagerFactory({ fileStatus: fake.rejects(new Error('missing')) });
 
             assert.deepStrictEqual(await fileManager.checkDirectory('/target'), { exists: false });
         });
 
         test('checkDirectory() returns whether the existing path is a directory', async function () {
-            const stat = fake.resolves({ isDirectory: fake.returns(true) });
-            const fileManager = fileManagerFactory({ stat });
+            const fileStatus = fake.resolves({ isDirectory: fake.returns(true) });
+            const fileManager = fileManagerFactory({ fileStatus });
 
             assert.deepStrictEqual(await fileManager.checkDirectory('/target'), {
                 exists: true,
@@ -149,7 +150,7 @@ suite('file-manager', function () {
             const { writeFile, mkdir, payload } = await runWriteBinaryFile(access);
 
             assert.strictEqual(mkdir.callCount, 0);
-            assert.deepStrictEqual(access.args, [ [ '/dist', fs.constants.R_OK ] ]);
+            assert.deepStrictEqual(access.args, [ [ '/dist', fileSystem.constants.R_OK ] ]);
             assert.deepStrictEqual(writeFile.args, [ [ '/dist/archive.zip', payload ] ]);
         });
 
@@ -172,7 +173,7 @@ suite('file-manager', function () {
             assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/native.node' ]
+                    arguments: [ '/foo/native.node' ]
                 }
             });
             assert.strictEqual(result, expected);
@@ -183,15 +184,15 @@ suite('file-manager', function () {
             const copyFile = fake.resolves(undefined);
             const fileManager = fileManagerFactory({ access, copyFile });
 
-            await fileManager.copyFileBytes('/src/lib.node', '/dest/lib.node');
+            await fileManager.copyFileBytes('/source/lib.node', '/dest/lib.node');
 
             assertDeepSubset(access, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/dest', fs.constants.R_OK ]
+                    arguments: [ '/dest', fileSystem.constants.R_OK ]
                 }
             });
-            assert.deepStrictEqual(copyFile.args, [ [ '/src/lib.node', '/dest/lib.node' ] ]);
+            assert.deepStrictEqual(copyFile.args, [ [ '/source/lib.node', '/dest/lib.node' ] ]);
         });
 
         test('copyFileBytes() creates the destination folder when it does not exist before copying', async function () {
@@ -200,10 +201,10 @@ suite('file-manager', function () {
             const mkdir = fake.resolves(undefined);
             const fileManager = fileManagerFactory({ access, copyFile, mkdir });
 
-            await fileManager.copyFileBytes('/src/data.bin', '/out/extracted/data.bin');
+            await fileManager.copyFileBytes('/source/data.bin', '/out/extracted/data.bin');
 
             assert.deepStrictEqual(mkdir.args, [ [ '/out/extracted', { recursive: true } ] ]);
-            assert.deepStrictEqual(copyFile.args, [ [ '/src/data.bin', '/out/extracted/data.bin' ] ]);
+            assert.deepStrictEqual(copyFile.args, [ [ '/source/data.bin', '/out/extracted/data.bin' ] ]);
         });
     });
 
@@ -271,7 +272,7 @@ suite('file-manager', function () {
             assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/bar.txt', { encoding: 'utf8' } ]
+                    arguments: [ '/foo/bar.txt', { encoding: 'utf8' } ]
                 }
             });
             assert.strictEqual(result, 'the-content');
@@ -287,13 +288,13 @@ suite('file-manager', function () {
             assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/1.txt', { encoding: 'utf8' } ]
+                    arguments: [ '/foo/1.txt', { encoding: 'utf8' } ]
                 }
             });
             assertDeepSubset(writeFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/2.txt', 'the-content', { encoding: 'utf8' } ]
+                    arguments: [ '/foo/2.txt', 'the-content', { encoding: 'utf8' } ]
                 }
             });
         });
@@ -317,22 +318,22 @@ suite('file-manager', function () {
         });
 
         test('getTransferableFileDescriptionFromPath() returns the file description of the given file paths', async function () {
-            const stat = fake.resolves({ mode: 42 });
+            const fileStatus = fake.resolves({ mode: 42 });
             const readFile = fake.resolves('the-content');
-            const fileManager = fileManagerFactory({ stat, readFile });
+            const fileManager = fileManagerFactory({ fileStatus, readFile });
 
             const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
 
-            assertDeepSubset(stat, {
+            assertDeepSubset(fileStatus, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/bar.txt' ]
+                    arguments: [ '/foo/bar.txt' ]
                 }
             });
             assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
-                    args: [ '/foo/bar.txt', { encoding: 'utf8' } ]
+                    arguments: [ '/foo/bar.txt', { encoding: 'utf8' } ]
                 }
             });
             assert.deepStrictEqual(result, {
@@ -344,9 +345,9 @@ suite('file-manager', function () {
         });
 
         test('getTransferableFileDescriptionFromPath() returns the file description with isExecutable set to true when the file mode indicates this', async function () {
-            const stat = fake.resolves({ mode: 493 });
+            const fileStatus = fake.resolves({ mode: 493 });
             const readFile = fake.resolves('the-content');
-            const fileManager = fileManagerFactory({ stat, readFile });
+            const fileManager = fileManagerFactory({ fileStatus, readFile });
 
             const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
 

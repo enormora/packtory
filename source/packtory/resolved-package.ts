@@ -1,13 +1,13 @@
 import { Result } from 'true-myth';
-import { mapToObj } from 'remeda';
+import { mapToObj as mapToObject } from 'remeda';
 import type { CheckRunner } from '../checks/check-runner.ts';
-import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
-import type { ConfigWithGraph } from '../config/validation.ts';
+import type { PacktoryConfigurationWithoutRegistry } from '../configuration/configuration.ts';
+import type { ConfigurationWithGraph } from '../configuration/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
-import type { ResolveAndLinkOptions } from './map-config.ts';
+import type { ResolveAndLinkOptions } from './map-configuration.ts';
 
 export type ResolvedPackage = {
     readonly name: string;
@@ -25,7 +25,10 @@ export type CheckEvaluationDependencies = {
     readonly runChecks: CheckRunner;
 };
 
-type StaticCheckInputs = Pick<Parameters<CheckRunner>[0], 'bundles' | 'packageConfigs' | 'perPackageSettings'>;
+type StaticCheckInputs = Pick<
+    Parameters<CheckRunner>[0],
+    'bundles' | 'packageConfigurations' | 'perPackageSettings' | 'sourceFolders'
+>;
 
 const checkManifestVersion = '0.0.0';
 
@@ -51,14 +54,14 @@ function buildPublishedPackagesForChecks(
                 dependencies.versionManager.addVersion({
                     bundle: analyzedBundle,
                     version: checkManifestVersion,
-                    mainPackageJson: resolveOptions.mainPackageJson,
+                    mainPackageManifest: resolveOptions.mainPackageManifest,
                     bundleDependencies: resolveOptions.bundleDependencies.map(function (bundleDependency) {
                         return { name: bundleDependency.name, version: checkManifestVersion };
                     }),
                     bundlePeerDependencies: resolveOptions.bundlePeerDependencies.map(function (bundleDependency) {
                         return { name: bundleDependency.name, version: checkManifestVersion };
                     }),
-                    additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes,
+                    additionalPackageManifestAttributes: resolveOptions.additionalPackageManifestAttributes,
                     allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers,
                     ...substitutionPublicModuleSourcePaths === undefined
                         ? {}
@@ -69,24 +72,26 @@ function buildPublishedPackagesForChecks(
     );
 }
 
-function typeScriptIntegrityNeedsPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
-    return config.checks?.typeScriptIntegrity?.enabled === true;
+function typeScriptIntegrityNeedsPublishedPackages(configuration: PacktoryConfigurationWithoutRegistry): boolean {
+    return configuration.checks?.typeScriptIntegrity?.enabled === true;
 }
 
-function executableChecksNeedPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
-    return config.checks?.noUnexposedExecutables?.enabled === true;
+function executableChecksNeedPublishedPackages(configuration: PacktoryConfigurationWithoutRegistry): boolean {
+    return configuration.checks?.noUnexposedExecutables?.enabled === true;
 }
 
-function checksNeedPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
-    return typeScriptIntegrityNeedsPublishedPackages(config) || executableChecksNeedPublishedPackages(config);
+function checksNeedPublishedPackages(configuration: PacktoryConfigurationWithoutRegistry): boolean {
+    return typeScriptIntegrityNeedsPublishedPackages(configuration) ||
+        executableChecksNeedPublishedPackages(configuration) ||
+        configuration.checks?.nodeEngineCompatibility?.enabled === true;
 }
 
 function maybeBuildPublishedPackagesForChecks(
     dependencies: CheckEvaluationDependencies,
-    config: PacktoryConfigWithoutRegistry,
+    configuration: PacktoryConfigurationWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, PublishedPackageWithManifest> | undefined {
-    if (!checksNeedPublishedPackages(config)) {
+    if (!checksNeedPublishedPackages(configuration)) {
         return undefined;
     }
 
@@ -105,30 +110,30 @@ function checkPackageIssue(error: unknown): string {
 
 function tryBuildPublishedPackagesForChecks(
     dependencies: CheckEvaluationDependencies,
-    config: PacktoryConfigWithoutRegistry,
+    configuration: PacktoryConfigurationWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
 ): Result<ReadonlyMap<string, PublishedPackageWithManifest> | undefined, CheckError> {
     try {
-        return Result.ok(maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages));
+        return Result.ok(maybeBuildPublishedPackagesForChecks(dependencies, configuration, resolvedPackages));
     } catch (error) {
         return Result.err({ type: 'checks', issues: [ checkPackageIssue(error) ] });
     }
 }
 
 function createStaticCheckInputs(
-    config: PacktoryConfigWithoutRegistry,
+    configuration: PacktoryConfigurationWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
 ): StaticCheckInputs {
-    const perPackageSettings = new Map<string, (typeof config.packages)[number]['checks']>();
-    const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
-    const packageConfigs = mapToObj(config.packages, function (packageConfig) {
-        perPackageSettings.set(packageConfig.name, packageConfig.checks);
+    const perPackageSettings = new Map<string, (typeof configuration.packages)[number]['checks']>();
+    const commonMainPackageManifest = configuration.commonPackageSettings?.mainPackageManifest;
+    const packageConfigurations = mapToObject(configuration.packages, function (packageConfiguration) {
+        perPackageSettings.set(packageConfiguration.name, packageConfiguration.checks);
 
         return [
-            packageConfig.name,
+            packageConfiguration.name,
             {
-                ...packageConfig,
-                mainPackageJson: packageConfig.mainPackageJson ?? commonMainPackageJson
+                ...packageConfiguration,
+                mainPackageManifest: packageConfiguration.mainPackageManifest ?? commonMainPackageManifest
             }
         ];
     });
@@ -136,25 +141,29 @@ function createStaticCheckInputs(
         return resolvedPackage.analyzedBundle;
     });
 
-    return { bundles, packageConfigs, perPackageSettings };
+    const sourceFolders = new Map(resolvedPackages.map(function (resolvedPackage) {
+        return [ resolvedPackage.name, resolvedPackage.resolveOptions.sourcesFolder ];
+    }));
+    return { bundles, sourceFolders, packageConfigurations, perPackageSettings };
 }
 
 export async function buildChecksResult(
     dependencies: CheckEvaluationDependencies,
-    validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
+    validated: ConfigurationWithGraph<PacktoryConfigurationWithoutRegistry>,
     resolvedPackages: readonly ResolvedPackage[]
 ): Promise<Result<readonly ResolvedPackage[], CheckError>> {
-    const { packtoryConfig: config } = validated;
-    const checkInputs = createStaticCheckInputs(config, resolvedPackages);
-    const publishedPackagesResult = tryBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);
+    const { packtoryConfiguration: configuration } = validated;
+    const checkInputs = createStaticCheckInputs(configuration, resolvedPackages);
+    const publishedPackagesResult = tryBuildPublishedPackagesForChecks(dependencies, configuration, resolvedPackages);
     if (publishedPackagesResult.isErr) {
         return Result.err(publishedPackagesResult.error);
     }
     const checkIssues = await dependencies.runChecks({
-        settings: config.checks ?? {},
+        settings: configuration.checks ?? {},
         perPackageSettings: checkInputs.perPackageSettings,
-        packageConfigs: checkInputs.packageConfigs,
+        packageConfigurations: checkInputs.packageConfigurations,
         bundles: checkInputs.bundles,
+        sourceFolders: checkInputs.sourceFolders,
         publishedPackages: publishedPackagesResult.value
     });
 

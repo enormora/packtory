@@ -6,7 +6,15 @@ import { bundleResource, versionedBundleWithManifest } from '../test-libraries/b
 import { createProject } from '../test-libraries/typescript-project.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createGraphFromResolvedBundle, type ResourceGraph } from './resource-graph.ts';
+import type { LinkedBundle } from './linked-bundle.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
+
+type EntrySubstitutionExpectation = {
+    readonly contents: readonly unknown[];
+    readonly externalDependencies: LinkedBundle['externalDependencies'];
+    readonly linkedBundleDependencies: LinkedBundle['linkedBundleDependencies'];
+    readonly substitutedInputFilePathsByPackageName: LinkedBundle['substitutedInputFilePathsByPackageName'];
+};
 
 type ResolvedContentDescription = {
     readonly source: string;
@@ -23,7 +31,7 @@ function buildInputGraph(
     entryPath = '/entry.js'
 ): ResourceGraph {
     const root = {
-        js: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
+        javaScript: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createGraphFromResolvedBundle({
@@ -61,7 +69,7 @@ function bundleSource(packageName: string, inputFilePath: string, isSubstituted 
     return versionedBundleWithManifest({
         name: packageName,
         version: '21',
-        roots: { main: { js: { content: '', isExecutable: false, inputFilePath, targetFilePath } } },
+        roots: { main: { javaScript: { content: '', isExecutable: false, inputFilePath, targetFilePath } } },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         contents: [
             {
@@ -70,7 +78,7 @@ function bundleSource(packageName: string, inputFilePath: string, isSubstituted 
                 analysis: emptySubstitutionAnalysis()
             }
         ],
-        packageJson: { name: packageName, version: '21' },
+        packageManifest: { name: packageName, version: '21' },
         exportsField: { '.': { import: `./${targetFilePath}` } },
         mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -83,7 +91,7 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
         version: '21',
         roots: {
             main: {
-                js: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' }
+                javaScript: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' }
             }
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
@@ -99,7 +107,7 @@ function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithMani
                 analysis: emptySubstitutionAnalysis()
             }
         ],
-        packageJson: { name: packageName, version: '21' },
+        packageManifest: { name: packageName, version: '21' },
         exportsField: { '.': { import: './foo.js' } },
         mainFile: { content: '', isExecutable: false, inputFilePath: '/foo.js', targetFilePath: 'foo.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -162,7 +170,7 @@ function substitutedEntryContent(packageName: string): unknown {
     };
 }
 
-function substitutedEntryResult(packageName: string): unknown {
+function substitutedEntryResult(packageName: string): EntrySubstitutionExpectation {
     return {
         contents: [ substitutedEntryContent(packageName) ],
         externalDependencies: new Map(),
@@ -211,9 +219,11 @@ function buildEntryFooLicenseGraph(): ResourceGraph {
 }
 
 function entryWithLicenseResult(packageName: string): unknown {
+    const entryResult = substitutedEntryResult(packageName);
     return {
+        ...entryResult,
         contents: [
-            substitutedEntryContent(packageName),
+            ...entryResult.contents,
             {
                 directDependencies: new Set(),
                 fileDescription: {
@@ -226,21 +236,7 @@ function entryWithLicenseResult(packageName: string): unknown {
                 isExplicitlyIncluded: true,
                 moduleReferences: []
             }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [
-            packageName,
-            {
-                name: packageName,
-                referencedFrom: [ 'entry.js' ],
-                references: [ {
-                    targetFilePath: 'entry.js',
-                    sourceSpecifier: './foo.js',
-                    emittedSpecifier: packageName
-                } ]
-            }
-        ] ]),
-        substitutedInputFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
+        ]
     };
 }
 
@@ -304,7 +300,7 @@ suite('substitute-bundles', function () {
                 version: '1.0.0',
                 roots: {
                     main: {
-                        js: {
+                        javaScript: {
                             inputFilePath: '/bar.js',
                             targetFilePath: 'bar.js',
                             content: '',
@@ -330,7 +326,7 @@ suite('substitute-bundles', function () {
                         analysis: emptySubstitutionAnalysis()
                     }
                 ],
-                packageJson: { name: 'hidden-package', version: '1.0.0' },
+                packageManifest: { name: 'hidden-package', version: '1.0.0' },
                 exportsField: { '.': { import: './bar.js' } },
                 mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
                 manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
@@ -514,10 +510,10 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        const packageJson = result.contents.find(function (content) {
+        const packageManifest = result.contents.find(function (content) {
             return content.fileDescription.inputFilePath === '/package.json';
         });
-        assert.partialDeepStrictEqual(packageJson, {
+        assert.partialDeepStrictEqual(packageManifest, {
             isGeneratedManifest: true,
             moduleReferences: [],
             directDependencies: new Set()

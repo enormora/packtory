@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     type Project,
     type ExportDeclaration,
     type ImportDeclaration,
@@ -326,7 +326,7 @@ function checkModuleReferenceLiteral(context: ModuleCheck, literal: StringLitera
 
 function isStaticModuleSpecifier(literal: StringLiteral): boolean {
     return literal.getFirstAncestor(function (node) {
-        return TsMorphNode.isImportDeclaration(node) || TsMorphNode.isExportDeclaration(node);
+        return TypeScriptMorphNode.isImportDeclaration(node) || TypeScriptMorphNode.isExportDeclaration(node);
     }) !== undefined;
 }
 

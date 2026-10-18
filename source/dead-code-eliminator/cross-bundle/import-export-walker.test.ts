@@ -8,7 +8,7 @@ import { walkCrossBundleStatements, type WalkContext } from './import-export-wal
 import { createSeedStore, type SeedMap } from './seed-store.ts';
 
 function emptyIndex(): ReadonlyMap<string, IndexedBundle> {
-    return indexBundles([ { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] } ]);
+    return indexBundles([ { bundle: linkedBundle({ name: 'package-a' }), fileBindings: [] } ]);
 }
 
 function walkContent(
@@ -22,7 +22,7 @@ function walkContent(
     return walkCrossBundleStatements(sourceFile, {
         indexed: emptyIndex(),
         seeds,
-        sourceBundleName: 'pkg-a',
+        sourceBundleName: 'package-a',
         inputFilePath: sourceFile.getFilePath(),
         sourceTargetFilePath: 'index.ts',
         moduleReferences: [],
@@ -95,12 +95,12 @@ suite('import-export-walker', function () {
             'function helper() { return 1; }\nexport { helper };',
             new Set(),
             {
-                indexed: indexedBundleWithFiles('pkg-b', [ 'remote.js' ]),
+                indexed: indexedBundleWithFiles('package-b', [ 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
-                        sourceSpecifier: 'pkg-b',
+                        packageName: 'package-b',
+                        sourceSpecifier: 'package-b',
                         emittedSpecifier: undefined as unknown as string,
                         targetFilePath: 'remote.js'
                     }
@@ -113,15 +113,15 @@ suite('import-export-walker', function () {
 
     test('walkCrossBundleStatements ignores linked references whose package is not indexed', function () {
         const seeds = walkContent(
-            'import { remote } from "pkg-b/remote.js";\nconsole.log(remote);',
+            'import { remote } from "package-b/remote.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
                 moduleReferences: [
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
+                        packageName: 'package-b',
                         sourceSpecifier: './remote.js',
-                        emittedSpecifier: 'pkg-b/remote.js',
+                        emittedSpecifier: 'package-b/remote.js',
                         targetFilePath: 'remote.js'
                     }
                 ]
@@ -133,16 +133,16 @@ suite('import-export-walker', function () {
 
     test('walkCrossBundleStatements ignores linked references whose target file is not indexed', function () {
         const seeds = walkContent(
-            'import { remote } from "pkg-b/missing.js";\nconsole.log(remote);',
+            'import { remote } from "package-b/missing.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
-                indexed: indexedBundleWithFiles('pkg-b', [ 'remote.js' ]),
+                indexed: indexedBundleWithFiles('package-b', [ 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
+                        packageName: 'package-b',
                         sourceSpecifier: './missing.js',
-                        emittedSpecifier: 'pkg-b/missing.js',
+                        emittedSpecifier: 'package-b/missing.js',
                         targetFilePath: 'missing.js'
                     }
                 ]
@@ -154,16 +154,16 @@ suite('import-export-walker', function () {
 
     test('walkCrossBundleStatements skips namespace imports when indexed bindings are missing', function () {
         const seeds = walkContent(
-            'import * as remote from "pkg-b/remote.js";\nconsole.log(remote);',
+            'import * as remote from "package-b/remote.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
-                indexed: indexedBundleWithMissingBindings('pkg-b', 'remote.js'),
+                indexed: indexedBundleWithMissingBindings('package-b', 'remote.js'),
                 moduleReferences: [
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
+                        packageName: 'package-b',
                         sourceSpecifier: './remote.js',
-                        emittedSpecifier: 'pkg-b/remote.js',
+                        emittedSpecifier: 'package-b/remote.js',
                         targetFilePath: 'remote.js'
                     }
                 ]
@@ -175,35 +175,35 @@ suite('import-export-walker', function () {
 
     test('walkCrossBundleStatements seeds only the linked reference matching the emitted specifier', function () {
         const seeds = walkContent(
-            'import { remote } from "pkg-b/remote.js";\nconsole.log(remote);',
+            'import { remote } from "package-b/remote.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
-                indexed: indexedBundleWithFiles('pkg-b', [ 'wrong.js', 'remote.js' ]),
+                indexed: indexedBundleWithFiles('package-b', [ 'wrong.js', 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'external-package',
-                        packageName: 'pkg-b',
-                        sourceSpecifier: 'pkg-b/remote.js',
-                        emittedSpecifier: 'pkg-b/remote.js'
+                        packageName: 'package-b',
+                        sourceSpecifier: 'package-b/remote.js',
+                        emittedSpecifier: 'package-b/remote.js'
                     },
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
+                        packageName: 'package-b',
                         sourceSpecifier: './wrong.js',
-                        emittedSpecifier: 'pkg-b/wrong.js',
+                        emittedSpecifier: 'package-b/wrong.js',
                         targetFilePath: 'wrong.js'
                     },
                     {
                         type: 'linked-code',
-                        packageName: 'pkg-b',
+                        packageName: 'package-b',
                         sourceSpecifier: './remote.js',
-                        emittedSpecifier: 'pkg-b/remote.js',
+                        emittedSpecifier: 'package-b/remote.js',
                         targetFilePath: 'remote.js'
                     }
                 ]
             }
         );
 
-        assert.deepStrictEqual(seeds.get('pkg-b'), new Set([ 'remote.js::remote' ]));
+        assert.deepStrictEqual(seeds.get('package-b'), new Set([ 'remote.js::remote' ]));
     });
 });

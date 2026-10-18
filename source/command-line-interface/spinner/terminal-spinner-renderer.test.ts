@@ -50,7 +50,7 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(add, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 0, 'the-label', 'the message' ]
+                    arguments: [ 0, 'the-label', 'the message' ]
                 }
             });
         });
@@ -65,10 +65,10 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(add, {
                 callCount: 2,
                 firstCall: {
-                    args: [ 0, 'a', '1' ]
+                    arguments: [ 0, 'a', '1' ]
                 },
                 secondCall: {
-                    args: [ 1, 'b', '2' ]
+                    arguments: [ 1, 'b', '2' ]
                 }
             });
         });
@@ -98,7 +98,7 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(update, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 0, 'lbl', 'foo' ]
+                    arguments: [ 0, 'lbl', 'foo' ]
                 }
             });
         });
@@ -115,10 +115,10 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(update, {
                 callCount: 2,
                 firstCall: {
-                    args: [ 0, 'one', 'foo' ]
+                    arguments: [ 0, 'one', 'foo' ]
                 },
                 secondCall: {
-                    args: [ 1, 'two', 'bar' ]
+                    arguments: [ 1, 'two', 'bar' ]
                 }
             });
         });
@@ -146,7 +146,7 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(finish, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 0, 'succeeded', 'lbl', 'foo' ]
+                    arguments: [ 0, 'succeeded', 'lbl', 'foo' ]
                 }
             });
         });
@@ -161,7 +161,7 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(finish, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 0, 'failed', 'lbl', 'foo' ]
+                    arguments: [ 0, 'failed', 'lbl', 'foo' ]
                 }
             });
         });
@@ -177,7 +177,7 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(update, {
                 callCount: 1,
                 firstCall: {
-                    args: [ 0, 'lbl', 'updated' ]
+                    arguments: [ 0, 'lbl', 'updated' ]
                 }
             });
         });
@@ -205,10 +205,10 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(finish, {
                 callCount: 2,
                 firstCall: {
-                    args: [ 0, 'failed', 'a', 'foo' ]
+                    arguments: [ 0, 'failed', 'a', 'foo' ]
                 },
                 secondCall: {
-                    args: [ 1, 'failed', 'b', 'bar' ]
+                    arguments: [ 1, 'failed', 'b', 'bar' ]
                 }
             });
         });
@@ -246,10 +246,10 @@ suite('terminal-spinner-renderer', function () {
             assertDeepSubset(finish, {
                 callCount: 2,
                 firstCall: {
-                    args: [ 0, 'succeeded', 'one', 'foo' ]
+                    arguments: [ 0, 'succeeded', 'one', 'foo' ]
                 },
                 secondCall: {
-                    args: [ 1, 'canceled', 'two', 'Canceled …' ]
+                    arguments: [ 1, 'canceled', 'two', 'Canceled …' ]
                 }
             });
         });

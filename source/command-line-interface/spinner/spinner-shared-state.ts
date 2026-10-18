@@ -73,12 +73,12 @@ export type SpinnerSharedAccessors = {
     readonly buffer: SharedArrayBuffer;
     readonly setColumns: (columns: number) => void;
     readonly getColumns: () => number;
-    readonly setIntervalMs: (intervalMs: number) => void;
-    readonly getIntervalMs: () => number;
+    readonly setIntervalMilliseconds: (intervalMilliseconds: number) => void;
+    readonly getIntervalMilliseconds: () => number;
     readonly markMutation: () => number;
     readonly getLatestMutation: () => number;
     readonly acknowledgeRender: (mutation: number) => void;
-    readonly waitForRenderedMutation: (mutation: number, timeoutMs: number) => boolean;
+    readonly waitForRenderedMutation: (mutation: number, timeoutMilliseconds: number) => boolean;
     readonly requestShutdown: () => void;
     readonly isShutdownRequested: () => boolean;
     readonly bumpSlotGeneration: (slotIndex: number) => void;
@@ -153,21 +153,21 @@ type StableSlotRead = FinishedStableSlotRead | PendingStableSlotRead;
 
 type RenderedMutationWaitStep = {
     readonly current: number;
-    readonly remainingMs: number;
+    readonly remainingMilliseconds: number;
     readonly timedOutWithoutProgress: boolean;
 };
-type RenderedMutationWaitStepArgs = {
+type RenderedMutationWaitStepArguments = {
     readonly atomics: SpinnerSharedAtomics;
     readonly headerInt32: Int32Array;
     readonly now: () => number;
     readonly deadline: number;
     readonly expectedMutation: number;
-    readonly timeoutMs: number;
+    readonly timeoutMilliseconds: number;
 };
 
 type PendingRenderedMutationWaitIteration = {
     readonly nextCurrent: number;
-    readonly nextRemainingMs: number;
+    readonly nextRemainingMilliseconds: number;
 };
 
 type FinishedRenderedMutationWaitIteration = {
@@ -188,32 +188,36 @@ function renderedMutationWaitIterationResult(
     return Object.hasOwn(iteration, 'result') && Reflect.get(iteration, 'result') === true;
 }
 
-function getRenderedMutationWaitAttemptBudget(timeoutMs: number): number {
-    return Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMs), 1));
+function getRenderedMutationWaitAttemptBudget(timeoutMilliseconds: number): number {
+    return Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMilliseconds), 1));
 }
 
-function waitForRenderedMutationStep(input: RenderedMutationWaitStepArgs): RenderedMutationWaitStep {
+function waitForRenderedMutationStep(input: RenderedMutationWaitStepArguments): RenderedMutationWaitStep {
     const waitStatus = input.atomics.wait(
         input.headerInt32,
         headerRenderedMutationIndex,
         input.expectedMutation,
-        input.timeoutMs
+        input.timeoutMilliseconds
     );
     const current = input.atomics.load(input.headerInt32, headerRenderedMutationIndex);
 
     return {
         current,
-        remainingMs: input.deadline - input.now(),
+        remainingMilliseconds: input.deadline - input.now(),
         timedOutWithoutProgress: waitStatus === 'timed-out' && current === input.expectedMutation
     };
 }
 
-function getRenderedMutationWaitResult(current: number, remainingMs: number, mutation: number): boolean | undefined {
+function getRenderedMutationWaitResult(
+    current: number,
+    remainingMilliseconds: number,
+    mutation: number
+): boolean | undefined {
     if (current >= mutation) {
         return true;
     }
 
-    if (remainingMs <= 0) {
+    if (remainingMilliseconds <= 0) {
         return false;
     }
 
@@ -222,11 +226,11 @@ function getRenderedMutationWaitResult(current: number, remainingMs: number, mut
 
 function getRenderedMutationWaitStepResult(
     current: number,
-    remainingMs: number,
+    remainingMilliseconds: number,
     step: RenderedMutationWaitStep,
     mutation: number
 ): boolean | undefined {
-    const waitResult = getRenderedMutationWaitResult(step.current, step.remainingMs, mutation);
+    const waitResult = getRenderedMutationWaitResult(step.current, step.remainingMilliseconds, mutation);
     if (waitResult !== undefined) {
         return waitResult;
     }
@@ -235,30 +239,30 @@ function getRenderedMutationWaitStepResult(
         return false;
     }
 
-    if (step.current === current && step.remainingMs > remainingMs) {
+    if (step.current === current && step.remainingMilliseconds > remainingMilliseconds) {
         return false;
     }
 
     return undefined;
 }
 
-type AdvanceRenderedMutationWaitArgs = {
+type AdvanceRenderedMutationWaitArguments = {
     readonly atomics: SpinnerSharedAtomics;
     readonly headerInt32: Int32Array;
     readonly now: () => number;
     readonly deadline: number;
     readonly mutation: number;
     readonly current: number;
-    readonly remainingMs: number;
-    readonly timeoutMs: number;
+    readonly remainingMilliseconds: number;
+    readonly timeoutMilliseconds: number;
 };
 
-type WaitForRenderedMutationWithinBudgetArgs = {
+type WaitForRenderedMutationWithinBudgetArguments = {
     readonly atomics: SpinnerSharedAtomics;
     readonly headerInt32: Int32Array;
     readonly mutation: number;
     readonly now: () => number;
-    readonly timeoutMs: number;
+    readonly timeoutMilliseconds: number;
 };
 type RenderedMutationWaitState = Float64Array;
 type PendingRenderedMutationBudget = {
@@ -272,7 +276,7 @@ type FinishedRenderedMutationBudget = {
 type RenderedMutationBudget = FinishedRenderedMutationBudget | PendingRenderedMutationBudget;
 
 function initialRenderedMutationWaitState(
-    input: WaitForRenderedMutationWithinBudgetArgs,
+    input: WaitForRenderedMutationWithinBudgetArguments,
     deadline: number
 ): RenderedMutationWaitState {
     return Float64Array.of(
@@ -281,8 +285,8 @@ function initialRenderedMutationWaitState(
     );
 }
 
-function advanceRenderedMutationWait(input: AdvanceRenderedMutationWaitArgs): RenderedMutationWaitIteration {
-    const currentResult = getRenderedMutationWaitResult(input.current, input.remainingMs, input.mutation);
+function advanceRenderedMutationWait(input: AdvanceRenderedMutationWaitArguments): RenderedMutationWaitIteration {
+    const currentResult = getRenderedMutationWaitResult(input.current, input.remainingMilliseconds, input.mutation);
     if (currentResult !== undefined) {
         return { result: currentResult };
     }
@@ -293,22 +297,27 @@ function advanceRenderedMutationWait(input: AdvanceRenderedMutationWaitArgs): Re
         now: input.now,
         deadline: input.deadline,
         expectedMutation: input.current,
-        timeoutMs: Math.min(input.remainingMs, input.timeoutMs)
+        timeoutMilliseconds: Math.min(input.remainingMilliseconds, input.timeoutMilliseconds)
     });
-    const stepResult = getRenderedMutationWaitStepResult(input.current, input.remainingMs, step, input.mutation);
+    const stepResult = getRenderedMutationWaitStepResult(
+        input.current,
+        input.remainingMilliseconds,
+        step,
+        input.mutation
+    );
     if (stepResult !== undefined) {
         return { result: stepResult };
     }
 
     return {
         nextCurrent: input.atomics.load(input.headerInt32, headerRenderedMutationIndex),
-        nextRemainingMs: step.remainingMs
+        nextRemainingMilliseconds: step.remainingMilliseconds
     };
 }
 
-function waitForRenderedMutationWithinBudget(input: WaitForRenderedMutationWithinBudgetArgs): boolean {
-    const deadline = input.now() + input.timeoutMs;
-    const maximumAttempts = getRenderedMutationWaitAttemptBudget(input.timeoutMs);
+function waitForRenderedMutationWithinBudget(input: WaitForRenderedMutationWithinBudgetArguments): boolean {
+    const deadline = input.now() + input.timeoutMilliseconds;
+    const maximumAttempts = getRenderedMutationWaitAttemptBudget(input.timeoutMilliseconds);
 
     const budget = Array.from({ length: maximumAttempts }).reduce<RenderedMutationBudget>(function (currentBudget) {
         if (currentBudget.type !== 'pending') {
@@ -321,13 +330,13 @@ function waitForRenderedMutationWithinBudget(input: WaitForRenderedMutationWithi
             deadline,
             mutation: input.mutation,
             current: Number(currentBudget.state[0]),
-            remainingMs: Number(currentBudget.state[1]),
-            timeoutMs: input.timeoutMs
+            remainingMilliseconds: Number(currentBudget.state[1]),
+            timeoutMilliseconds: input.timeoutMilliseconds
         });
         if (!isPendingRenderedMutationWaitIteration(iteration)) {
             return { type: 'finished', result: renderedMutationWaitIterationResult(iteration) };
         }
-        return { type: 'pending', state: Float64Array.of(iteration.nextCurrent, iteration.nextRemainingMs) };
+        return { type: 'pending', state: Float64Array.of(iteration.nextCurrent, iteration.nextRemainingMilliseconds) };
     }, { type: 'pending', state: initialRenderedMutationWaitState(input, deadline) });
 
     if (budget.type === 'finished') {
@@ -418,10 +427,10 @@ export function createSpinnerSharedAccessors(
         getColumns() {
             return atomics.load(views.headerUint32, headerColumnsIndex);
         },
-        setIntervalMs(intervalMs) {
-            atomics.store(views.headerUint32, headerIntervalIndex, intervalMs);
+        setIntervalMilliseconds(intervalMilliseconds) {
+            atomics.store(views.headerUint32, headerIntervalIndex, intervalMilliseconds);
         },
-        getIntervalMs() {
+        getIntervalMilliseconds() {
             return atomics.load(views.headerUint32, headerIntervalIndex);
         },
         markMutation() {
@@ -434,13 +443,13 @@ export function createSpinnerSharedAccessors(
             atomics.store(views.headerInt32, headerRenderedMutationIndex, mutation);
             atomics.notify(views.headerInt32, headerRenderedMutationIndex);
         },
-        waitForRenderedMutation(mutation, timeoutMs) {
+        waitForRenderedMutation(mutation, timeoutMilliseconds) {
             return waitForRenderedMutationWithinBudget({
                 atomics,
                 headerInt32: views.headerInt32,
                 mutation,
                 now,
-                timeoutMs
+                timeoutMilliseconds
             });
         },
         requestShutdown() {

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
 import { analyzedBundle } from '../../test-libraries/bundle-fixtures.ts';
@@ -29,8 +30,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: undefined,
-                perPackageSettings: new Map(),
-                packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
             assert.deepStrictEqual(result, []);
@@ -40,29 +41,29 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: { noUnusedBundleDependencies: { enabled: false } },
-                perPackageSettings: new Map(),
-                packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
             assert.deepStrictEqual(result, []);
         });
 
-        test('returns no issues when packageConfigs is omitted entirely', async function () {
+        test('returns no issues when packageConfigurations is omitted entirely', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map()
+                ...emptyCheckContext()
             });
 
             assert.deepStrictEqual(result, []);
         });
 
-        test('returns no issues when no entry exists in packageConfigs for the bundle', async function () {
+        test('returns no issues when no entry exists in packageConfigurations for the bundle', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: {}
+                ...emptyCheckContext(),
+                packageConfigurations: {}
             });
 
             assert.deepStrictEqual(result, []);
@@ -72,8 +73,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: { a: {} }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: {} }
             });
 
             assert.deepStrictEqual(result, []);
@@ -85,8 +86,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: { bundleDependencies: [ 'unused' ] } }
             });
 
             assert.deepStrictEqual(result, [ 'Unused bundle dependency "unused" declared by package "a"' ]);
@@ -96,8 +97,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: { a: { bundlePeerDependencies: [ 'unused-peer' ] } }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: { bundlePeerDependencies: [ 'unused-peer' ] } }
             });
 
             assert.deepStrictEqual(result, [ 'Unused bundle peer dependency "unused-peer" declared by package "a"' ]);
@@ -107,8 +108,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: { a: { bundleDependencies: [ 'used' ] } }
+                ...emptyCheckContext(),
+                packageConfigurations: { a: { bundleDependencies: [ 'used' ] } }
             });
 
             assert.deepStrictEqual(result, []);
@@ -118,8 +119,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: {
+                ...emptyCheckContext(),
+                packageConfigurations: {
                     a: { bundleDependencies: [ 'used', 'orphan' ], bundlePeerDependencies: [ 'orphan-peer' ] }
                 }
             });
@@ -134,8 +135,8 @@ suite('no-unused-bundle-dependencies', function () {
             const result = await noUnusedBundleDependenciesRule.run({
                 bundles: [ bundleWithLinkedDependencies('a', []), bundleWithLinkedDependencies('b', [ 'used' ]) ],
                 settings: enabled,
-                perPackageSettings: new Map(),
-                packageConfigs: {
+                ...emptyCheckContext(),
+                packageConfigurations: {
                     a: { bundleDependencies: [ 'unused-a' ] },
                     b: { bundleDependencies: [ 'used' ] }
                 }

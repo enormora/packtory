@@ -8,7 +8,7 @@ import {
     ts as typescript,
     type Diagnostic,
     type FileSystemHost,
-    type Project as TSMorphProject,
+    type Project as TypeScriptMorphProject,
     type SourceFile
 } from 'ts-morph';
 import { isPackageManifestRecord, parsePackageManifest } from './type-script-declaration-roots.ts';
@@ -44,7 +44,7 @@ export type DeclarationProjectsFactory = (
 ) => readonly DeclarationProject[];
 
 export type DeclarationProjectDependencies = {
-    readonly Project: typeof TSMorphProject;
+    readonly Project: typeof TypeScriptMorphProject;
     readonly fileSystemHost: FileSystemHost;
     readonly packageResolutionBaseFolder: string;
 };
@@ -210,7 +210,7 @@ function isDeclarationDiagnostic(diagnostic: DeclarationDiagnostic | undefined):
 }
 
 function createModeProject(
-    project: Readonly<TSMorphProject>,
+    project: Readonly<TypeScriptMorphProject>,
     packageFolder: string,
     modeLabel: string,
     publicEntrypointPaths: readonly string[]
@@ -242,7 +242,7 @@ export function createDeclarationProjectFactory(
     const { Project, fileSystemHost, packageResolutionBaseFolder } = dependencies;
 
     function addPackageFiles(
-        project: TSMorphProject,
+        project: TypeScriptMorphProject,
         packageName: string,
         packageFiles: readonly PackageFile[],
         createdFilePaths: CreatedFilePathSet
@@ -273,7 +273,7 @@ export function createDeclarationProjectFactory(
         }
     }
 
-    function createCompilerProject(compilerMode: DeclarationCompilerMode): TSMorphProject {
+    function createCompilerProject(compilerMode: DeclarationCompilerMode): TypeScriptMorphProject {
         return new Project({
             fileSystem: fileSystemHost,
             skipAddingFilesFromTsConfig: true,
@@ -290,7 +290,7 @@ export function createDeclarationProjectFactory(
     }
 
     function addGeneratedFile(
-        project: TSMorphProject,
+        project: TypeScriptMorphProject,
         packageFolder: string,
         filePath: string,
         source: string

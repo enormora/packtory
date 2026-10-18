@@ -28,13 +28,13 @@ type OutstandingConnectionSink = {
 
 function recordUnreplacedConnections(
     outstandingConnections: OutstandingConnectionSink,
-    fromNodeId: string,
+    fromNodeIdentifier: string,
     directDependencies: readonly string[],
     replacedPaths: Pick<Replacements['importPathReplacements'], 'has'>
 ): void {
     for (const file of directDependencies) {
         if (!replacedPaths.has(file)) {
-            outstandingConnections.push({ from: fromNodeId, to: file });
+            outstandingConnections.push({ from: fromNodeIdentifier, to: file });
         }
     }
 }
@@ -125,7 +125,7 @@ function recordStaticRequirements(
 
 function collectImportRequirements(node: ResourceGraphNode): readonly ImportPathReplacementRequest[] {
     const requestsByInputFilePath = new Map<string, ImportPathReplacementRequest>();
-    for (const inputFilePath of node.adjacentNodeIds) {
+    for (const inputFilePath of node.adjacentNodeIdentifiers) {
         requestsByInputFilePath.set(inputFilePath, createReplacementRequest(inputFilePath));
     }
     const sourceFile = node.data.project?.getSourceFile(node.data.fileDescription.inputFilePath);
@@ -208,7 +208,7 @@ function addNodeWithReplacements(
     const sourceMapTransformsByTargetPath = replacementResult.sourceMapTransform === undefined
         ? new Map()
         : new Map([ [ node.data.fileDescription.targetFilePath, [ replacementResult.sourceMapTransform ] ] ]);
-    substitutedGraph.add(node.id, {
+    substitutedGraph.add(node.identifier, {
         fileDescription: { ...node.data.fileDescription, content: replacementResult.content },
         moduleReferences: moduleReferencesWithReplacements(node, replacements, inputFilePathByTargetFilePath),
         externalDependencies: node.data.externalDependencies,
@@ -232,23 +232,23 @@ export function substituteDependencies(
     const visited = new Set<string>();
 
     function substituteNode(node: ResourceGraphNode): void {
-        if (visited.has(node.id)) {
+        if (visited.has(node.identifier)) {
             return;
         }
-        visited.add(node.id);
+        visited.add(node.identifier);
         if (
             !node.data.isExplicitlyIncluded && bundlePeerDependencies.some(function (peer) {
-                return ownsSourcePath(node.id, peer);
+                return ownsSourcePath(node.identifier, peer);
             })
         ) {
             return;
         }
 
-        const directDependencies = Array.from(node.adjacentNodeIds);
+        const directDependencies = Array.from(node.adjacentNodeIdentifiers);
         const replacements = findPathReplacements(collectImportRequirements(node));
         recordUnreplacedConnections(
             outstandingConnections,
-            node.id,
+            node.identifier,
             directDependencies,
             replacements.importPathReplacements
         );

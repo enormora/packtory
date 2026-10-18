@@ -1,5 +1,5 @@
-import { Node as TsMorphNode, SyntaxKind, type Expression, type Identifier } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier } from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
 export type ImportedExpressionOrigin = {
@@ -14,15 +14,15 @@ type TrustedImport = {
     readonly imports?: readonly string[] | undefined;
 };
 
-function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpressionOrigin | undefined {
-    if (TsMorphNode.isImportSpecifier(declaration)) {
+function importedOriginForDeclaration(declaration: TypeScriptMorphNode): ImportedExpressionOrigin | undefined {
+    if (TypeScriptMorphNode.isImportSpecifier(declaration)) {
         return {
             from: declaration.getImportDeclaration().getModuleSpecifierValue(),
             path: [ declaration.getName() ]
         };
     }
 
-    if (TsMorphNode.isNamespaceImport(declaration)) {
+    if (TypeScriptMorphNode.isNamespaceImport(declaration)) {
         const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
         return {
             from: importDeclaration.getModuleSpecifierValue(),
@@ -30,7 +30,7 @@ function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpress
         };
     }
 
-    if (TsMorphNode.isImportClause(declaration)) {
+    if (TypeScriptMorphNode.isImportClause(declaration)) {
         const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
         return {
             from: importDeclaration.getModuleSpecifierValue(),
@@ -84,12 +84,15 @@ export function originIsTrustedPureImport(
     });
 }
 
-function arePureCallArguments(callArguments: readonly TsMorphNode[], recurse: ExpressionPurityChecker): boolean {
+function arePureCallArguments(
+    callArguments: readonly TypeScriptMorphNode[],
+    recurse: ExpressionPurityChecker
+): boolean {
     return callArguments.every(function (argument) {
-        if (TsMorphNode.isSpreadElement(argument)) {
+        if (TypeScriptMorphNode.isSpreadElement(argument)) {
             return recurse(argument.getExpression());
         }
-        return TsMorphNode.isExpression(argument) && recurse(argument);
+        return TypeScriptMorphNode.isExpression(argument) && recurse(argument);
     });
 }
 
@@ -100,10 +103,10 @@ export function resolveImportedExpressionPath(expression: Expression): ImportedE
 
 export function resolveImportedExpressionPropertyPath(expression: Expression): ImportedExpressionOrigin | undefined {
     const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
+    if (TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return resolveImportedExpressionPath(unwrapped);
     }
-    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+    if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)) {
         const base = resolveImportedExpressionPropertyPath(unwrapped.getExpression());
         return base === undefined ? undefined : { from: base.from, path: [ ...base.path, unwrapped.getName() ] };
     }

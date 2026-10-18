@@ -18,15 +18,19 @@ const globalSchema = z.strictObject({
 
 const perPackageSchema = z.strictObject({});
 
-type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof perPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 type CheckBundle = RunInput['bundles'][number];
 type ExplicitBundle = CheckBundle & {
     readonly surface: Extract<CheckBundle['surface'], { readonly mode: 'explicit'; }>;
 };
 
-export type TypeScriptIntegrityRule = CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig>;
+export type TypeScriptIntegrityRule = CheckRuleDefinition<
+    typeof ruleName,
+    GlobalConfiguration,
+    PerPackageConfiguration
+>;
 
 export const typeScriptIntegritySchemas: Pick<TypeScriptIntegrityRule, 'globalSchema' | 'perPackageSchema'> = {
     globalSchema,
@@ -38,13 +42,13 @@ export type TypeScriptIntegrityDependencies = {
     readonly summarizeDeclarationIntegrity: DeclarationIntegritySummarizer;
 };
 
-function isBinOnlyPackage(bundle: CheckBundle): bundle is ExplicitBundle {
+function isExecutableOnlyPackage(bundle: CheckBundle): bundle is ExplicitBundle {
     return bundle.surface.mode === 'explicit' &&
         bundle.surface.packageInterface.modules === undefined;
 }
 
-function hasBinDeclarations(bundle: ExplicitBundle): boolean {
-    return bundle.surface.packageInterface.bins?.some(function (entry) {
+function hasExecutableDeclarations(bundle: ExplicitBundle): boolean {
+    return bundle.surface.packageInterface.executables?.some(function (entry) {
         return bundle.roots[entry.root]?.declarationFile !== undefined;
     }) === true;
 }
@@ -73,8 +77,8 @@ export function createTypeScriptIntegrityRule(
         declarationMode: DeclarationMode
     ): Promise<readonly string[]> {
         const { name } = bundle;
-        if (isBinOnlyPackage(bundle)) {
-            return hasBinDeclarations(bundle)
+        if (isExecutableOnlyPackage(bundle)) {
+            return hasExecutableDeclarations(bundle)
                 ? summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)
                 : [];
         }
@@ -86,12 +90,12 @@ export function createTypeScriptIntegrityRule(
     }
 
     async function run(input: RunInput): Promise<readonly string[]> {
-        const globalConfig = input.settings?.typeScriptIntegrity;
-        if (globalConfig?.enabled !== true) {
+        const globalConfiguration = input.settings?.typeScriptIntegrity;
+        if (globalConfiguration?.enabled !== true) {
             return [];
         }
 
-        const declarationMode = globalConfig.declarations ?? defaultDeclarationMode;
+        const declarationMode = globalConfiguration.declarations ?? defaultDeclarationMode;
         const { publishedPackages } = input;
         if (publishedPackages === undefined) {
             throw new Error('Published packages missing for TypeScript integrity');

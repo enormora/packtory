@@ -7,7 +7,7 @@ suite('substitution-exports', function () {
     suite('basic substitutions', function () {
         test('returns an empty record when no substitution paths are provided', function () {
             const result = collectSubstitutionExports(
-                { name: 'package-a', roots: { main: rootWithSource('/src/index.js', 'index.js') }, contents: [] },
+                { name: 'package-a', roots: { main: rootWithSource('/source/index.js', 'index.js') }, contents: [] },
                 new Set()
             );
 
@@ -18,10 +18,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/index.js', 'index.js') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/index.js', 'index.js') ]
                 },
-                new Set([ '/src/index.js' ])
+                new Set([ '/source/index.js' ])
             );
 
             assert.deepStrictEqual(result, {});
@@ -31,10 +31,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/public.js', 'public.js') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/public.js', 'public.js') ]
                 },
-                new Set([ '/src/public.js' ])
+                new Set([ '/source/public.js' ])
             );
 
             assert.deepStrictEqual(result['./public.js'], { import: './public.js' });
@@ -46,10 +46,13 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/feature.js', 'feature.js'), content('/src/feature.d.ts', 'feature.d.ts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [
+                        content('/source/feature.js', 'feature.js'),
+                        content('/source/feature.d.ts', 'feature.d.ts')
+                    ]
                 },
-                new Set([ '/src/feature.js' ])
+                new Set([ '/source/feature.js' ])
             );
 
             assert.deepStrictEqual(result['./feature.js'], { import: './feature.js', types: './feature.d.ts' });
@@ -59,10 +62,13 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/module.mjs', 'module.mjs'), content('/src/module.d.mts', 'module.d.mts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [
+                        content('/source/module.mjs', 'module.mjs'),
+                        content('/source/module.d.mts', 'module.d.mts')
+                    ]
                 },
-                new Set([ '/src/module.mjs' ])
+                new Set([ '/source/module.mjs' ])
             );
 
             assert.deepStrictEqual(result['./module.mjs'], { import: './module.mjs', types: './module.d.mts' });
@@ -72,10 +78,13 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/module.mjs', 'module.mjs'), content('/src/module.d.ts', 'module.d.ts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [
+                        content('/source/module.mjs', 'module.mjs'),
+                        content('/source/module.d.ts', 'module.d.ts')
+                    ]
                 },
-                new Set([ '/src/module.mjs' ])
+                new Set([ '/source/module.mjs' ])
             );
 
             assert.deepStrictEqual(result['./module.mjs'], { import: './module.mjs', types: './module.d.ts' });
@@ -85,10 +94,13 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/common.cjs', 'common.cjs'), content('/src/common.d.cts', 'common.d.cts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [
+                        content('/source/common.cjs', 'common.cjs'),
+                        content('/source/common.d.cts', 'common.d.cts')
+                    ]
                 },
-                new Set([ '/src/common.cjs' ])
+                new Set([ '/source/common.cjs' ])
             );
 
             assert.deepStrictEqual(result['./common.cjs'], { import: './common.cjs', types: './common.d.cts' });
@@ -98,10 +110,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/feature.js', 'feature.js') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/feature.js', 'feature.js') ]
                 },
-                new Set([ '/src/feature.js' ])
+                new Set([ '/source/feature.js' ])
             );
 
             assert.deepStrictEqual(result['./feature.js'], { import: './feature.js' });
@@ -115,15 +127,15 @@ suite('substitution-exports', function () {
                             name: 'package-a',
                             roots: {
                                 main: rootWithDeclaration(
-                                    '/src/index.js',
+                                    '/source/index.js',
                                     'index.js',
-                                    '/src/index.d.ts',
+                                    '/source/index.d.ts',
                                     'index.d.ts'
                                 )
                             },
-                            contents: [ content('/src/feature.js', 'feature.js') ]
+                            contents: [ content('/source/feature.js', 'feature.js') ]
                         },
-                        new Set([ '/src/feature.js' ])
+                        new Set([ '/source/feature.js' ])
                     );
                 },
                 /^Error: Package "package-a" exposes substituted module "\.\/feature\.js" without declaration companion \.\/feature\.d\.ts$/u
@@ -138,16 +150,16 @@ suite('substitution-exports', function () {
                             name: 'package-a',
                             roots: {
                                 main: rootWithDeclaration(
-                                    '/src/index.js',
+                                    '/source/index.js',
                                     'index.js',
-                                    '/src/index.d.ts',
+                                    '/source/index.d.ts',
                                     'index.d.ts'
                                 ),
-                                worker: rootWithSource('/src/worker.js', 'worker.js')
+                                worker: rootWithSource('/source/worker.js', 'worker.js')
                             },
-                            contents: [ content('/src/feature.js', 'feature.js') ]
+                            contents: [ content('/source/feature.js', 'feature.js') ]
                         },
-                        new Set([ '/src/feature.js' ])
+                        new Set([ '/source/feature.js' ])
                     );
                 },
                 /^Error: Package "package-a" exposes substituted module "\.\/feature\.js" without declaration companion \.\/feature\.d\.ts$/u
@@ -162,15 +174,15 @@ suite('substitution-exports', function () {
                             name: 'package-a',
                             roots: {
                                 main: rootWithDeclaration(
-                                    '/src/index.js',
+                                    '/source/index.js',
                                     'index.js',
-                                    '/src/index.d.ts',
+                                    '/source/index.d.ts',
                                     'index.d.ts'
                                 )
                             },
-                            contents: [ content('/src/feature.mjs', 'feature.mjs') ]
+                            contents: [ content('/source/feature.mjs', 'feature.mjs') ]
                         },
-                        new Set([ '/src/feature.mjs' ])
+                        new Set([ '/source/feature.mjs' ])
                     );
                 },
                 /^Error: Package "package-a" exposes substituted module "\.\/feature\.mjs" without declaration companion \.\/feature\.d\.mts or \.\/feature\.d\.ts$/u
@@ -181,10 +193,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/data.json', 'data.json') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/data.json', 'data.json') ]
                 },
-                new Set([ '/src/data.json' ])
+                new Set([ '/source/data.json' ])
             );
 
             assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
@@ -196,15 +208,15 @@ suite('substitution-exports', function () {
                     name: 'package-a',
                     roots: {
                         main: rootWithDeclaration(
-                            '/src/index.js',
+                            '/source/index.js',
                             'index.js',
-                            '/src/index.d.ts',
+                            '/source/index.d.ts',
                             'index.d.ts'
                         )
                     },
-                    contents: [ content('/src/data.json', 'data.json') ]
+                    contents: [ content('/source/data.json', 'data.json') ]
                 },
-                new Set([ '/src/data.json' ])
+                new Set([ '/source/data.json' ])
             );
 
             assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
@@ -216,15 +228,15 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
                     contents: [
-                        content('/src/data.json', 'data.json'),
-                        content('/src/data..d.mts', 'data..d.mts'),
-                        content('/src/data..d.cts', 'data..d.cts'),
-                        content('/src/data.j.d.ts', 'data.j.d.ts')
+                        content('/source/data.json', 'data.json'),
+                        content('/source/data..d.mts', 'data..d.mts'),
+                        content('/source/data..d.cts', 'data..d.cts'),
+                        content('/source/data.j.d.ts', 'data.j.d.ts')
                     ]
                 },
-                new Set([ '/src/data.json' ])
+                new Set([ '/source/data.json' ])
             );
 
             assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
@@ -234,10 +246,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/types.d.ts', 'types.d.ts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/types.d.ts', 'types.d.ts') ]
                 },
-                new Set([ '/src/types.d.ts' ])
+                new Set([ '/source/types.d.ts' ])
             );
 
             assert.deepStrictEqual(result['./types.d.ts'], { types: './types.d.ts' });
@@ -247,10 +259,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/types.d.mts', 'types.d.mts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/types.d.mts', 'types.d.mts') ]
                 },
-                new Set([ '/src/types.d.mts' ])
+                new Set([ '/source/types.d.mts' ])
             );
 
             assert.deepStrictEqual(result['./types.d.mts'], { types: './types.d.mts' });
@@ -260,10 +272,10 @@ suite('substitution-exports', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/types.d.cts', 'types.d.cts') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/types.d.cts', 'types.d.cts') ]
                 },
-                new Set([ '/src/types.d.cts' ])
+                new Set([ '/source/types.d.cts' ])
             );
 
             assert.deepStrictEqual(result['./types.d.cts'], { types: './types.d.cts' });
@@ -274,12 +286,12 @@ suite('substitution-exports', function () {
                 {
                     name: 'package-a',
                     roots: {
-                        main: rootWithSource('/src/index.js', 'index.js'),
-                        feature: rootWithSource('/src/feature.js', 'feature.js')
+                        main: rootWithSource('/source/index.js', 'index.js'),
+                        feature: rootWithSource('/source/feature.js', 'feature.js')
                     },
-                    contents: [ content('/src/index.js', 'index.js'), content('/src/feature.js', 'feature.js') ]
+                    contents: [ content('/source/index.js', 'index.js'), content('/source/feature.js', 'feature.js') ]
                 },
-                new Set([ '/src/index.js' ])
+                new Set([ '/source/index.js' ])
             );
 
             assert.deepStrictEqual(result, {});
@@ -292,22 +304,22 @@ suite('substitution-exports', function () {
                 collectSubstitutionExports(
                     {
                         name: 'package-a',
-                        roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                        contents: [ content('/src/index.js', 'index.js') ]
+                        roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                        contents: [ content('/source/index.js', 'index.js') ]
                     },
-                    new Set([ '/src/missing.js' ])
+                    new Set([ '/source/missing.js' ])
                 );
-            }, /^Error: Package "package-a" is missing content for "\/src\/missing\.js"$/u);
+            }, /^Error: Package "package-a" is missing content for "\/source\/missing\.js"$/u);
         });
 
         test('keeps the first matching content when duplicate source paths exist', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
-                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                    contents: [ content('/src/shared.js', 'first.js'), content('/src/shared.js', 'second.js') ]
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [ content('/source/shared.js', 'first.js'), content('/source/shared.js', 'second.js') ]
                 },
-                new Set([ '/src/shared.js' ])
+                new Set([ '/source/shared.js' ])
             );
 
             assert.deepStrictEqual(result['./first.js'], { import: './first.js' });

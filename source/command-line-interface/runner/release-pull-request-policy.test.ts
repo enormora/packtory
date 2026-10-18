@@ -4,12 +4,12 @@ import {
     validateReleaseMergeGroupPolicy,
     validateReleasePullRequestPolicy,
     validateReleasePullRequestPublishPolicy,
-    type ReleasePullRequestPolicyConfig,
+    type ReleasePullRequestPolicyConfiguration,
     type ReleasePullRequestPolicyInput,
     type ReleasePullRequestPublishInput
 } from './release-pull-request-policy.ts';
 
-const policyConfig: ReleasePullRequestPolicyConfig = {
+const policyConfiguration: ReleasePullRequestPolicyConfiguration = {
     allowedFiles: new Set([ 'CHANGELOG.md' ]),
     automationAuthor: 'github-actions[bot]',
     branch: 'release/packtory',
@@ -22,22 +22,22 @@ const policyConfig: ReleasePullRequestPolicyConfig = {
 const validPullRequest: ReleasePullRequestPolicyInput = {
     author: 'github-actions[bot]',
     changedFiles: [ 'CHANGELOG.md' ],
-    expectedBaseSha: 'main-head',
-    headRef: 'release/packtory',
+    expectedBaseHash: 'main-head',
+    headReference: 'release/packtory',
     labels: [ 'release' ],
-    parentShas: [ 'main-head' ],
+    parentHashes: [ 'main-head' ],
     subject: 'Release packages',
     title: 'Prepare release'
 };
 
 const validPublishInput: ReleasePullRequestPublishInput = {
     author: 'github-actions[bot]',
-    baseRef: 'main',
+    baseReference: 'main',
     changedFiles: [ 'CHANGELOG.md' ],
-    headRef: 'release/packtory',
+    headReference: 'release/packtory',
     headRepository: 'owner/repo',
     labels: [ 'release' ],
-    mergeCommitSha: 'merge-sha',
+    mergeCommitHash: 'merge-sha',
     merged: true,
     repository: 'owner/repo',
     subject: 'Release packages',
@@ -50,9 +50,9 @@ function assertPolicyError(validate: () => void, expectedMessage: string): void 
 
 suite('release-pull-request-policy', function () {
     test('accepts a valid release pull request', function () {
-        validateReleasePullRequestPolicy(validPullRequest, policyConfig);
+        validateReleasePullRequestPolicy(validPullRequest, policyConfiguration);
 
-        assert.strictEqual(validPullRequest.headRef, 'release/packtory');
+        assert.strictEqual(validPullRequest.headReference, 'release/packtory');
     });
 
     test('rejects release pull requests that violate the policy', function () {
@@ -67,18 +67,18 @@ suite('release-pull-request-policy', function () {
                     { ...validPullRequest, author: 'maintainer' },
                     'Release PRs must be authored by github-actions[bot]'
                 ],
-                [ { ...validPullRequest, headRef: 'feature' }, 'Release PRs must use release/packtory' ],
+                [ { ...validPullRequest, headReference: 'feature' }, 'Release PRs must use release/packtory' ],
                 [ { ...validPullRequest, title: 'Release' }, 'Release PR title must be Prepare release' ],
                 [
                     { ...validPullRequest, subject: 'Update changelogs' },
                     'Release PR commit subject must be Release packages'
                 ],
                 [
-                    { ...validPullRequest, parentShas: [ 'old-head' ] },
+                    { ...validPullRequest, parentHashes: [ 'old-head' ] },
                     'Release PR head must be based on expected main'
                 ],
                 [
-                    { ...validPullRequest, parentShas: [ 'main-head', 'other-head' ] },
+                    { ...validPullRequest, parentHashes: [ 'main-head', 'other-head' ] },
                     'Release PR head must have exactly one parent'
                 ],
                 [
@@ -88,7 +88,7 @@ suite('release-pull-request-policy', function () {
             ] as const
         ) {
             assertPolicyError(function () {
-                validateReleasePullRequestPolicy(pullRequest, policyConfig);
+                validateReleasePullRequestPolicy(pullRequest, policyConfiguration);
             }, expectedMessage);
         }
     });
@@ -105,13 +105,13 @@ suite('release-pull-request-policy', function () {
                         }
                     ]
                 },
-                policyConfig
+                policyConfiguration
             );
         }, 'Release PRs must not be grouped with other pull requests');
     });
 
     test('accepts merge groups that contain only the release pull request', function () {
-        validateReleaseMergeGroupPolicy({ pullRequests: [ validPullRequest ] }, policyConfig);
+        validateReleaseMergeGroupPolicy({ pullRequests: [ validPullRequest ] }, policyConfiguration);
 
         assert.deepStrictEqual(validPullRequest.labels, [ 'release' ]);
     });
@@ -123,36 +123,36 @@ suite('release-pull-request-policy', function () {
                     pullRequests: [
                         {
                             ...validPullRequest,
-                            changedFiles: [ 'src/index.ts' ]
+                            changedFiles: [ 'source/index.ts' ]
                         }
                     ]
                 },
-                policyConfig
+                policyConfiguration
             );
-        }, 'Unexpected release PR file change: src/index.ts');
+        }, 'Unexpected release PR file change: source/index.ts');
     });
 
     test('accepts a merged release PR publish target', function () {
-        validateReleasePullRequestPublishPolicy(validPublishInput, policyConfig, 'merge-sha');
+        validateReleasePullRequestPublishPolicy(validPublishInput, policyConfiguration, 'merge-sha');
 
-        assert.strictEqual(validPublishInput.mergeCommitSha, 'merge-sha');
+        assert.strictEqual(validPublishInput.mergeCommitHash, 'merge-sha');
     });
 
     test('rejects publish targets that violate the policy', function () {
         for (
-            const [ publishInput, mergeCommitSha, expectedMessage ] of [
+            const [ publishInput, mergeCommitHash, expectedMessage ] of [
                 [
                     { ...validPublishInput, headRepository: 'other/repo' },
                     'merge-sha',
                     'Release PRs must come from the release repository'
                 ],
-                [ { ...validPublishInput, baseRef: 'next' }, 'merge-sha', 'Release PR base must be main' ],
+                [ { ...validPublishInput, baseReference: 'next' }, 'merge-sha', 'Release PR base must be main' ],
                 [ { ...validPublishInput, merged: false }, 'merge-sha', 'Release PR must be merged' ],
                 [ validPublishInput, 'other-sha', 'Release PR merge commit must be other-sha' ]
             ] as const
         ) {
             assertPolicyError(function () {
-                validateReleasePullRequestPublishPolicy(publishInput, policyConfig, mergeCommitSha);
+                validateReleasePullRequestPublishPolicy(publishInput, policyConfiguration, mergeCommitHash);
             }, expectedMessage);
         }
     });
@@ -165,9 +165,9 @@ suite('release-pull-request-policy', function () {
                     { ...validPullRequest, labels: [ 'feature' ] }
                 ]
             },
-            policyConfig
+            policyConfiguration
         );
 
-        assert.strictEqual(policyConfig.label, 'release');
+        assert.strictEqual(policyConfiguration.label, 'release');
     });
 });

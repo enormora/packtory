@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { buildOptionalVersionedBundleFields } from './optional-bundle-fields.ts';
 
 const fileDescription = {
-    inputFilePath: '/src/index.d.ts',
+    inputFilePath: '/source/index.d.ts',
     targetFilePath: 'index.d.ts',
     content: '',
     isExecutable: false
@@ -14,7 +14,7 @@ suite('optional-bundle-fields', function () {
         assert.deepStrictEqual(
             buildOptionalVersionedBundleFields({
                 importsField: undefined,
-                binField: undefined,
+                executableField: undefined,
                 typesMainFile: undefined
             }),
             {}
@@ -25,21 +25,21 @@ suite('optional-bundle-fields', function () {
         assert.deepStrictEqual(
             buildOptionalVersionedBundleFields({
                 importsField: { '#foo': './foo.js' },
-                binField: undefined,
+                executableField: undefined,
                 typesMainFile: undefined
             }),
             { importsField: { '#foo': './foo.js' } }
         );
     });
 
-    test('buildOptionalVersionedBundleFields includes binField when it is defined', function () {
+    test('buildOptionalVersionedBundleFields includes executableField when it is defined', function () {
         assert.deepStrictEqual(
             buildOptionalVersionedBundleFields({
                 importsField: undefined,
-                binField: { 'pkg-a': './cli.js' },
+                executableField: { 'package-a': './cli.js' },
                 typesMainFile: undefined
             }),
-            { binField: { 'pkg-a': './cli.js' } }
+            { executableField: { 'package-a': './cli.js' } }
         );
     });
 
@@ -47,7 +47,7 @@ suite('optional-bundle-fields', function () {
         assert.deepStrictEqual(
             buildOptionalVersionedBundleFields({
                 importsField: undefined,
-                binField: undefined,
+                executableField: undefined,
                 typesMainFile: fileDescription
             }),
             { typesMainFile: fileDescription }
@@ -58,12 +58,12 @@ suite('optional-bundle-fields', function () {
         assert.deepStrictEqual(
             buildOptionalVersionedBundleFields({
                 importsField: { '#foo': './foo.js' },
-                binField: { 'pkg-a': './cli.js' },
+                executableField: { 'package-a': './cli.js' },
                 typesMainFile: fileDescription
             }),
             {
                 importsField: { '#foo': './foo.js' },
-                binField: { 'pkg-a': './cli.js' },
+                executableField: { 'package-a': './cli.js' },
                 typesMainFile: fileDescription
             }
         );

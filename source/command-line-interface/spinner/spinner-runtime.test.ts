@@ -22,8 +22,8 @@ suite('spinner-runtime', function () {
         const { spawn } = captureSpawn();
         const runtime = createSpinnerRuntime({
             slotCount: 5,
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 80,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
             spawnWorker: spawn
         });
 
@@ -39,7 +39,11 @@ suite('spinner-runtime', function () {
 
     test('createSpinnerRuntime defaults the slot count when none is provided', function () {
         const { spawn } = captureSpawn();
-        const runtime = createSpinnerRuntime({ stdoutFileDescriptor: 1, stdoutColumns: 80, spawnWorker: spawn });
+        const runtime = createSpinnerRuntime({
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
+            spawnWorker: spawn
+        });
 
         assert.strictEqual(runtime.slotCount, 64);
     });
@@ -48,8 +52,8 @@ suite('spinner-runtime', function () {
         const { spawn, calls } = captureSpawn();
         const runtime = createSpinnerRuntime({
             slotCount: 4,
-            stdoutFileDescriptor: 7,
-            stdoutColumns: 80,
+            standardOutputFileDescriptor: 7,
+            standardOutputColumns: 80,
             spawnWorker: spawn
         });
 
@@ -61,27 +65,31 @@ suite('spinner-runtime', function () {
         assert.partialDeepStrictEqual(request, {
             buffer: runtime.accessors.buffer,
             slotCount: 4,
-            stdoutFileDescriptor: 7
+            standardOutputFileDescriptor: 7
         });
     });
 
     test('createSpinnerRuntime initializes the shared accessors with the requested interval and columns', function () {
         const { spawn } = captureSpawn();
         const runtime = createSpinnerRuntime({
-            intervalMs: 120,
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 100,
+            intervalMilliseconds: 120,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 100,
             spawnWorker: spawn
         });
 
-        assert.strictEqual(runtime.accessors.getIntervalMs(), 120);
+        assert.strictEqual(runtime.accessors.getIntervalMilliseconds(), 120);
         assert.strictEqual(runtime.accessors.getColumns(), 100);
     });
 
     test('createSpinnerRuntime defaults the interval to 80ms when none is provided', function () {
         const { spawn } = captureSpawn();
-        const runtime = createSpinnerRuntime({ stdoutFileDescriptor: 1, stdoutColumns: 80, spawnWorker: spawn });
+        const runtime = createSpinnerRuntime({
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
+            spawnWorker: spawn
+        });
 
-        assert.strictEqual(runtime.accessors.getIntervalMs(), 80);
+        assert.strictEqual(runtime.accessors.getIntervalMilliseconds(), 80);
     });
 });

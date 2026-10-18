@@ -6,7 +6,7 @@ export type ProjectFile = { readonly content: string; readonly filePath: string;
 export function initializerFromProjectFiles(files: readonly ProjectFile[]): Expression {
     const project = createProject({ withFiles: files });
     return project
-        .getSourceFileOrThrow('/project/src/index.ts')
+        .getSourceFileOrThrow('/project/source/index.ts')
         .getVariableDeclarationOrThrow('schema')
         .getInitializerOrThrow();
 }
@@ -32,7 +32,7 @@ export function schemaPackageManifest(): ProjectFile {
 
 export function expressionWithSchemaPackage(content: string, packageContent: string): Expression {
     return initializerFromProjectFiles([
-        { filePath: '/project/src/index.ts', content },
+        { filePath: '/project/source/index.ts', content },
         schemaPackageManifest(),
         schemaPackageFile(packageContent)
     ]);

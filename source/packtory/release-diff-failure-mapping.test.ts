@@ -4,7 +4,7 @@ import { mapResolveFailureToReleaseDiffFailure } from './release-diff-failure-ma
 
 suite('release-diff-failure-mapping', function () {
     test('mapResolveFailureToReleaseDiffFailure passes config failures through unchanged', function () {
-        const failure = { type: 'config' as const, issues: [ 'bad' ] };
+        const failure = { type: 'configuration' as const, issues: [ 'bad' ] };
         assert.strictEqual(mapResolveFailureToReleaseDiffFailure(failure), failure);
     });
 

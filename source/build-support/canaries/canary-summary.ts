@@ -4,9 +4,9 @@ import type { CanaryRunResult } from './canary-runner.ts';
 const issueTitleLimit = 200;
 const escapeCode = 0x1B;
 const leftBracketCode = 0x5B;
-const ansiFinalByteStart = 0x40;
-const ansiFinalByteEnd = 0x7E;
-const ansiSequencePrefixLength = 2;
+const terminalControlFinalByteStart = 0x40;
+const terminalControlFinalByteEnd = 0x7E;
+const terminalControlSequencePrefixLength = 2;
 
 function issueCount(issues: readonly CanaryIssue[], kind: CanaryIssue['kind']): number {
     return issues
@@ -16,27 +16,29 @@ function issueCount(issues: readonly CanaryIssue[], kind: CanaryIssue['kind']): 
         .length;
 }
 
-function isAnsiFinalByte(code: number): boolean {
-    return code >= ansiFinalByteStart && code <= ansiFinalByteEnd;
+function isTerminalControlFinalByte(code: number): boolean {
+    return code >= terminalControlFinalByteStart && code <= terminalControlFinalByteEnd;
 }
 
-function ansiSequenceEndExclusive(value: string, startIndex: number): number {
-    const finalOffset = Array.from(value.slice(startIndex + ansiSequencePrefixLength)).findIndex(function (character) {
-        return isAnsiFinalByte(character.codePointAt(0) ?? 0);
-    });
+function terminalControlSequenceEndExclusive(value: string, startIndex: number): number {
+    const finalOffset = Array.from(value.slice(startIndex + terminalControlSequencePrefixLength)).findIndex(
+        function (character) {
+            return isTerminalControlFinalByte(character.codePointAt(0) ?? 0);
+        }
+    );
     return finalOffset === -1
         ? value.length
-        : startIndex + ansiSequencePrefixLength + finalOffset + 1;
+        : startIndex + terminalControlSequencePrefixLength + finalOffset + 1;
 }
 
-function stripAnsi(value: string): string {
+function stripTerminalControl(value: string): string {
     let result = '';
     let index = 0;
     while (index < value.length) {
         const code = value.codePointAt(index);
         const nextCode = value.codePointAt(index + 1);
         if (code === escapeCode && nextCode === leftBracketCode) {
-            index = ansiSequenceEndExclusive(value, index);
+            index = terminalControlSequenceEndExclusive(value, index);
         } else {
             result += value[index];
             index += 1;
@@ -50,7 +52,7 @@ function normalizeCanaryPaths(value: string): string {
 }
 
 function cleanMessage(value: string): string {
-    return normalizeCanaryPaths(stripAnsi(value));
+    return normalizeCanaryPaths(stripTerminalControl(value));
 }
 
 function nonEmptyLines(value: string): readonly string[] {
@@ -93,8 +95,8 @@ export function formatCanarySummary(result: CanaryRunResult): string {
     const lines = [
         `## Packtory canary: ${result.name}`,
         '',
-        `- Baseline ref: ${result.baselineResolvedRef}`,
-        `- Source ref: ${result.candidateResolvedRef}`,
+        `- Baseline ref: ${result.baselineResolvedReference}`,
+        `- Source ref: ${result.candidateResolvedReference}`,
         `- Regressions: ${regressions}`,
         `- Baseline rot: ${baselineRot}`,
         `- Warnings: ${warnings}`,

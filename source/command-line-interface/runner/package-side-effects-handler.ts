@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
 import {
-    configErrorType,
+    configurationErrorType,
     packPackageFailureType,
     partialFailureType,
     type PackageSideEffectsInspectionFailure
@@ -9,7 +9,7 @@ import type { Packtory } from '../../packtory/packtory.ts';
 import {
     renderTerminalPackageSideEffects
 } from '../../report/terminal-renderer/terminal-package-side-effects-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runPackageInspectionHandler } from './package-inspection-handler.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
@@ -25,12 +25,12 @@ export type PackageSideEffectsHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly flags: PackageSideEffectsFlags;
 };
 
-function formatConfigFailure(
-    error: Extract<PackageSideEffectsInspectionFailure, { readonly type: typeof configErrorType; }>
+function formatConfigurationFailure(
+    error: Extract<PackageSideEffectsInspectionFailure, { readonly type: typeof configurationErrorType; }>
 ): string {
     return [
         'Packtory side effects [Dry run]',
@@ -57,7 +57,7 @@ function formatPartialFailure(
 
 function formatPackageSideEffectsFailure(error: PackageSideEffectsInspectionFailure, trace: boolean): string {
     return match(error)
-        .with({ type: configErrorType }, formatConfigFailure)
+        .with({ type: configurationErrorType }, formatConfigurationFailure)
         .with({ type: partialFailureType }, function (partialFailure) {
             return formatPartialFailure(partialFailure, trace);
         })
@@ -72,12 +72,12 @@ function formatPackageSideEffectsFailure(error: PackageSideEffectsInspectionFail
 export async function runPackageSideEffectsHandler(
     dependencies: PackageSideEffectsHandlerDependencies
 ): Promise<number> {
-    const { configLoader, flags, log, packtory, spinnerRenderer } = dependencies;
+    const { configurationLoader, flags, log, packtory, spinnerRenderer } = dependencies;
     return await runPackageInspectionHandler({
         log,
         spinnerRenderer,
         async inspect() {
-            return await packtory.inspectPackageSideEffects(await configLoader.load(), flags.packageName);
+            return await packtory.inspectPackageSideEffects(await configurationLoader.load(), flags.packageName);
         },
         renderFailure(error) {
             return formatPackageSideEffectsFailure(error, flags.trace);

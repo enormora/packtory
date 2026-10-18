@@ -3,13 +3,13 @@ import { suite, test } from 'mocha';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { createReportAggregator, type ReportAggregator } from './report-aggregator.ts';
 
-function aggregatorWithEffectiveConfig(): ReportAggregator {
+function aggregatorWithEffectiveConfiguration(): ReportAggregator {
     const broadcaster = createProgressBroadcaster();
     const aggregator = createReportAggregator(broadcaster.consumer);
-    const opaqueConfig: Readonly<Record<string, unknown>> = { name: 'pkg-a' };
-    broadcaster.provider.emit('effectiveConfigResolved', {
-        packageName: 'pkg-a',
-        config: opaqueConfig
+    const opaqueConfiguration: Readonly<Record<string, unknown>> = { name: 'package-a' };
+    broadcaster.provider.emit('effectiveConfigurationResolved', {
+        packageName: 'package-a',
+        configuration: opaqueConfiguration
     });
     return aggregator;
 }
@@ -20,7 +20,7 @@ function registerArtifactReportTests(): void {
         const aggregator = createReportAggregator(broadcaster.consumer);
 
         broadcaster.provider.emit('artifactsCollected', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             entries: [
                 {
                     path: 'package.json',
@@ -33,7 +33,7 @@ function registerArtifactReportTests(): void {
                     path: 'index.js',
                     sizeBytes: 20,
                     kind: 'source',
-                    sourcePath: '/src/index.js',
+                    sourcePath: '/source/index.js',
                     status: 'unchanged',
                     badges: []
                 },
@@ -41,7 +41,7 @@ function registerArtifactReportTests(): void {
                     path: 'kept.js',
                     sizeBytes: 10,
                     kind: 'source',
-                    sourcePath: '/src/kept.js',
+                    sourcePath: '/source/kept.js',
                     status: 'unchanged',
                     badges: []
                 }
@@ -50,16 +50,16 @@ function registerArtifactReportTests(): void {
         broadcaster.provider.emit('eliminationCompleted', {
             perBundle: [
                 {
-                    packageName: 'pkg-a',
+                    packageName: 'package-a',
                     files: [
                         {
-                            path: '/src/index.js',
+                            path: '/source/index.js',
                             decision: 'transformed',
                             reason: 'rewritten-after-analysis',
                             sourceBytes: 30,
                             outputBytes: 20
                         },
-                        { path: '/src/kept.js', decision: 'kept', reason: 'reachable', sourceBytes: 10 }
+                        { path: '/source/kept.js', decision: 'kept', reason: 'reachable', sourceBytes: 10 }
                     ],
                     droppedSymbols: [],
                     seeds: []
@@ -67,7 +67,7 @@ function registerArtifactReportTests(): void {
             ]
         });
 
-        assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        assert.deepStrictEqual(aggregator.build().packages['package-a']?.outputs?.tarball.entries, [
             {
                 path: 'package.json',
                 sizeBytes: 2,
@@ -79,7 +79,7 @@ function registerArtifactReportTests(): void {
                 path: 'index.js',
                 sizeBytes: 20,
                 kind: 'source',
-                sourcePath: '/src/index.js',
+                sourcePath: '/source/index.js',
                 status: 'changed',
                 badges: [ 'dead-code-elimination' ]
             },
@@ -87,7 +87,7 @@ function registerArtifactReportTests(): void {
                 path: 'kept.js',
                 sizeBytes: 10,
                 kind: 'source',
-                sourcePath: '/src/kept.js',
+                sourcePath: '/source/kept.js',
                 status: 'unchanged',
                 badges: []
             }
@@ -101,7 +101,7 @@ function registerLifecycleTests(): void {
         const aggregator = createReportAggregator(broadcaster.consumer);
 
         broadcaster.provider.emit('inputsResolved', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             roots: { main: 'x' },
             sourceFileCount: 0,
             siblingVersions: {}
@@ -118,7 +118,7 @@ function registerLifecycleTests(): void {
 
         aggregator.unsubscribe();
         broadcaster.provider.emit('versionDetermined', {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             previousVersion: undefined,
             chosenVersion: '1.0.0',
             trigger: 'initial'
@@ -131,11 +131,11 @@ function registerLifecycleTests(): void {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
-        broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'build', durationMs: 5 });
+        broadcaster.provider.emit('stageTimed', { packageName: 'package-a', stage: 'build', durationMilliseconds: 5 });
 
-        const packageReport = aggregator.build().packages['pkg-a'];
+        const packageReport = aggregator.build().packages['package-a'];
         if (packageReport === undefined) {
-            assert.fail('expected pkg-a in report');
+            assert.fail('expected package-a in report');
         }
         assert.strictEqual(Object.hasOwn(packageReport, 'inputs'), false);
         assert.strictEqual(Object.hasOwn(packageReport, 'outputs'), false);
@@ -168,61 +168,73 @@ function registerLifecycleTests(): void {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
-        broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'publish', durationMs: 1 });
+        broadcaster.provider.emit('stageTimed', {
+            packageName: 'package-a',
+            stage: 'publish',
+            durationMilliseconds: 1
+        });
 
         assert.deepStrictEqual(aggregator.build().aggregate.crossBundleLinks, []);
     });
 }
 
 function registerInputReportTests(): void {
-    test('buildInputs() backfills missing roots, siblingVersions, and sourceFileCount when only effectiveConfig is set', function () {
-        const aggregator = aggregatorWithEffectiveConfig();
+    test('buildInputs() backfills missing roots, siblingVersions, and sourceFileCount when only effectiveConfiguration is set', function () {
+        const aggregator = aggregatorWithEffectiveConfiguration();
 
-        assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.inputs, {
+        assert.deepStrictEqual(aggregator.build().packages['package-a']?.inputs, {
             roots: {},
             siblingVersions: {},
             sourceFileCount: 0,
-            effectiveConfig: { name: 'pkg-a' }
+            effectiveConfiguration: { name: 'package-a' }
         });
     });
 
-    test('buildInputs() omits effectiveConfig when only inputsResolved fired', function () {
+    test('buildInputs() omits effectiveConfiguration when only inputsResolved fired', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
         broadcaster.provider.emit('inputsResolved', {
-            packageName: 'pkg-a',
-            roots: { main: '/src/index.ts' },
+            packageName: 'package-a',
+            roots: { main: '/source/index.ts' },
             sourceFileCount: 1,
             siblingVersions: {}
         });
 
-        const inputs = aggregator.build().packages['pkg-a']?.inputs;
+        const inputs = aggregator.build().packages['package-a']?.inputs;
         if (inputs === undefined) {
             assert.fail('expected inputs');
         }
-        assert.strictEqual(Object.hasOwn(inputs, 'effectiveConfig'), false);
+        assert.strictEqual(Object.hasOwn(inputs, 'effectiveConfiguration'), false);
     });
 
     test('artifactsCollected reports totalBytes 0 for an empty entries list', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
-        broadcaster.provider.emit('artifactsCollected', { packageName: 'pkg-a', entries: [] });
+        broadcaster.provider.emit('artifactsCollected', { packageName: 'package-a', entries: [] });
 
-        assert.strictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.totalBytes, 0);
+        assert.strictEqual(aggregator.build().packages['package-a']?.outputs?.tarball.totalBytes, 0);
     });
 
     test('aggregator collects multiple packages independently', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
-        broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'publish', durationMs: 1 });
-        broadcaster.provider.emit('stageTimed', { packageName: 'pkg-b', stage: 'publish', durationMs: 2 });
+        broadcaster.provider.emit('stageTimed', {
+            packageName: 'package-a',
+            stage: 'publish',
+            durationMilliseconds: 1
+        });
+        broadcaster.provider.emit('stageTimed', {
+            packageName: 'package-b',
+            stage: 'publish',
+            durationMilliseconds: 2
+        });
 
         const report = aggregator.build();
-        assert.deepStrictEqual(report.packages['pkg-a']?.timings, { publish: 1 });
-        assert.deepStrictEqual(report.packages['pkg-b']?.timings, { publish: 2 });
+        assert.deepStrictEqual(report.packages['package-a']?.timings, { publish: 1 });
+        assert.deepStrictEqual(report.packages['package-b']?.timings, { publish: 2 });
     });
 }
 
@@ -236,9 +248,9 @@ function registerUnsubscribeTests(): void {
         for (
             const eventName of [
                 'inputsResolved',
-                'effectiveConfigResolved',
+                'effectiveConfigurationResolved',
                 'versionDetermined',
-                'packageJsonAssembled',
+                'packageManifestAssembled',
                 'scanCompleted',
                 'linkingCompleted',
                 'eliminationCompleted',

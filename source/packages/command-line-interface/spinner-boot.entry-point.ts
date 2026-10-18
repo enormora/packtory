@@ -1,16 +1,16 @@
 import path from 'node:path';
 import { setTimeout as scheduleTimeout } from 'node:timers';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath as fileAddressToPath } from 'node:url';
 import { Worker as WorkerThread } from 'node:worker_threads';
 import { bootSpinnerRuntime } from '../../command-line-interface/spinner/spinner-boot.ts';
 import type { SpinnerRuntime, WorkerSpawnRequest } from '../../command-line-interface/spinner/spinner-runtime.ts';
 
-const bootModulePath = fileURLToPath(import.meta.url);
+const bootModulePath = fileAddressToPath(import.meta.url);
 const bootModuleExtension = path.extname(bootModulePath);
 const workerModulePath = path.join(path.dirname(bootModulePath), `spinner-worker.entry-point${bootModuleExtension}`);
-const defaultStdoutColumns = 80;
-const workerTerminationGraceMs = 1000;
-const workerExecArgv = bootModuleExtension === '.ts'
+const defaultStandardOutputColumns = 80;
+const workerTerminationGraceMilliseconds = 1000;
+const workerExecuteArgumentValues = bootModuleExtension === '.ts'
     ? [ '--experimental-strip-types', '--enable-source-maps' ]
     : [ '--enable-source-maps' ];
 
@@ -21,9 +21,9 @@ function spawnWorker(request: WorkerSpawnRequest): void {
         workerData: {
             buffer: request.buffer,
             slotCount: request.slotCount,
-            stdoutFileDescriptor: request.stdoutFileDescriptor
+            standardOutputFileDescriptor: request.standardOutputFileDescriptor
         },
-        execArgv: workerExecArgv
+        execArgv: workerExecuteArgumentValues
     });
     worker.on('error', function (error: Error) {
         process.stderr.write(`spinner worker error: ${error.message}\n`);
@@ -39,9 +39,9 @@ function spawnWorker(request: WorkerSpawnRequest): void {
 export function createBootedSpinnerRuntime(): SpinnerRuntime {
     return bootSpinnerRuntime({
         spawnWorker,
-        stdoutFileDescriptor: process.stdout.fd,
+        standardOutputFileDescriptor: process.stdout.fd,
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.stdout.columns is undefined at runtime when stdout is not a TTY, despite the type declaring it as number
-        stdoutColumns: process.stdout.columns ?? defaultStdoutColumns,
+        standardOutputColumns: process.stdout.columns ?? defaultStandardOutputColumns,
         initialLabel: 'packtory',
         initialMessage: 'Starting …'
     });
@@ -49,7 +49,7 @@ export function createBootedSpinnerRuntime(): SpinnerRuntime {
 
 export async function awaitSpinnerWorkerTermination(): Promise<void> {
     const graceTimeout = new Promise<void>(function (resolve) {
-        scheduleTimeout(resolve, workerTerminationGraceMs).unref();
+        scheduleTimeout(resolve, workerTerminationGraceMilliseconds).unref();
     });
     await Promise.race([ pendingWorkerTermination, graceTimeout ]);
 }

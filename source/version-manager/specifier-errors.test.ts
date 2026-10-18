@@ -88,7 +88,7 @@ suite('specifier-errors', function () {
             [
                 'Refusing to publish: 1 entry in dependencyPolicy.allowMutableSpecifiers is not in use:',
                 '  - "old-vendored-pkg"',
-                'Remove unused entries — they reflect stale exceptions to the integrity policy.'
+                'Remove unused entries ; they reflect stale exceptions to the integrity policy.'
             ]
                 .join('\n')
         );
@@ -103,7 +103,7 @@ suite('specifier-errors', function () {
                 'Refusing to publish: 2 entries in dependencyPolicy.allowMutableSpecifiers are not in use:',
                 '  - "old-vendored-pkg"',
                 '  - "still-clean-now"',
-                'Remove unused entries — they reflect stale exceptions to the integrity policy.'
+                'Remove unused entries ; they reflect stale exceptions to the integrity policy.'
             ]
                 .join('\n')
         );

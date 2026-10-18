@@ -12,9 +12,9 @@ const ruleName = 'noSideEffects';
 const globalSchema = pathAllowListGlobalSchema;
 const perPackageSchema = pathAllowListPerPackageSchema;
 
-type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type NoSideEffectsRunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof perPackageSchema>>;
+type NoSideEffectsRunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 
 type SideEffectStatement = {
     readonly line: number;
@@ -65,17 +65,17 @@ function findSideEffectsInBundle(
 }
 
 async function run(input: NoSideEffectsRunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.noSideEffects;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.noSideEffects;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
-    const globalAllowList = new Set(globalConfig.allowList);
+    const globalAllowList = new Set(globalConfiguration.allowList);
     return input.bundles.flatMap(function (bundle) {
         return findSideEffectsInBundle(bundle, globalAllowList, input.perPackageSettings);
     });
 }
 
-export const noSideEffectsRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+export const noSideEffectsRule: CheckRuleDefinition<typeof ruleName, GlobalConfiguration, PerPackageConfiguration> = {
     name: ruleName,
     globalSchema,
     perPackageSchema,

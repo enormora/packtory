@@ -1,5 +1,5 @@
 type WebLoginInput = {
-    readonly registryUrl: string;
+    readonly registryAddress: string;
     readonly hostname: string;
 };
 
@@ -8,7 +8,7 @@ type WebLoginResult = {
     readonly username: string | undefined;
 };
 
-type LoginWebOpener = (loginUrl: string) => Promise<void>;
+type LoginWebOpener = (loginAddress: string) => Promise<void>;
 type LoginWebOptions = {
     readonly registry: string;
     readonly hostname: string;
@@ -16,7 +16,7 @@ type LoginWebOptions = {
 };
 
 type LoginWebFunction = (opener: LoginWebOpener, options: LoginWebOptions) => Promise<WebLoginResult>;
-type OpenInBrowser = (loginUrl: string) => Promise<void>;
+type OpenInBrowser = (loginAddress: string) => Promise<void>;
 
 export type WebLoginDependencies = {
     readonly loginWeb: LoginWebFunction;
@@ -33,7 +33,7 @@ export function createWebLogin(dependencies: Readonly<WebLoginDependencies>): We
     return {
         async login(input) {
             return loginWeb(openInBrowser, {
-                registry: input.registryUrl,
+                registry: input.registryAddress,
                 hostname: input.hostname,
                 authType: 'web'
             });

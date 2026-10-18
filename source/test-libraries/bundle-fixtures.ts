@@ -30,16 +30,16 @@ const fileDescriptionFactory = createFactory<FileDescription>(function () {
 });
 
 function fixtureTargetFilePath(filePath: string): string {
-    return filePath.startsWith('/src/') ? filePath.slice('/src/'.length) : filePath.replace(/^\//u, '');
+    return filePath.startsWith('/source/') ? filePath.slice('/source/'.length) : filePath.replace(/^\//u, '');
 }
 
-type BundlePackageJsonFixture = {
+type BundlePackageManifestFixture = {
     readonly name: string;
     readonly version: string;
     readonly repository?: string | { readonly type: string; readonly url: string; readonly directory?: string; };
 };
 
-const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(function () {
+const bundlePackageManifestFactory = createFactory<BundlePackageManifestFixture>(function () {
     return {
         name: '',
         version: ''
@@ -48,12 +48,12 @@ const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(functio
 
 function createDefaultRoot(): RootFileDescription {
     return {
-        js: transferableFileDescriptionFactory.build({
-            inputFilePath: '/src/index.js',
+        javaScript: transferableFileDescriptionFactory.build({
+            inputFilePath: '/source/index.js',
             targetFilePath: 'index.js'
         }),
         declarationFile: transferableFileDescriptionFactory.build({
-            inputFilePath: '/src/index.d.ts',
+            inputFilePath: '/source/index.d.ts',
             targetFilePath: 'index.d.ts'
         })
     };
@@ -69,11 +69,11 @@ function createDefaultSurface(): PackageSurface {
 
 export function externalDependency(
     name: string,
-    referencedFrom: readonly [string, ...(readonly string[])] = [ '/src/index.js' ]
+    referencedFrom: readonly [string, ...(readonly string[])] = [ '/source/index.js' ]
 ): ExternalDependency {
     const firstPath = fixtureTargetFilePath(referencedFrom[0]);
-    const restPaths = referencedFrom.slice(1).map(fixtureTargetFilePath);
-    return { name, referencedFrom: [ firstPath, ...restPaths ] };
+    const remainingPaths = referencedFrom.slice(1).map(fixtureTargetFilePath);
+    return { name, referencedFrom: [ firstPath, ...remainingPaths ] };
 }
 
 type BundleResourceOverrides = {
@@ -127,7 +127,7 @@ export function bundleResource(
 export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle {
     return {
         name: 'package-a',
-        exportPackageJson: undefined,
+        exportPackageManifest: undefined,
         contents: [],
         roots: createDefaultRoots(),
         surface: createDefaultSurface(),
@@ -223,11 +223,11 @@ export function standardVersionedBundle(overrides: VersionedBundleOverrides = {}
         name: 'package-a',
         version: '1.2.3',
         mainFile: {
-            inputFilePath: '/src/index.js',
+            inputFilePath: '/source/index.js',
             targetFilePath: 'index.js'
         },
         typesMainFile: {
-            inputFilePath: '/src/index.d.ts',
+            inputFilePath: '/source/index.d.ts',
             targetFilePath: 'index.d.ts'
         },
         ...overrides
@@ -236,16 +236,16 @@ export function standardVersionedBundle(overrides: VersionedBundleOverrides = {}
 
 type VersionedBundleWithManifestOverrides = VersionedBundleOverrides & {
     readonly manifestFile?: Partial<FileDescription>;
-    readonly packageJson?: Partial<BundlePackageJsonFixture>;
+    readonly packageManifest?: Partial<BundlePackageManifestFixture>;
 };
 
 export function versionedBundleWithManifest(
     overrides: VersionedBundleWithManifestOverrides = {}
 ): VersionedBundleWithManifest {
-    const { manifestFile, packageJson, ...rest } = overrides;
+    const { manifestFile, packageManifest, ...rest } = overrides;
     return {
         ...versionedBundle(rest),
         manifestFile: fileDescriptionFactory.build(manifestFile),
-        packageJson: bundlePackageJsonFactory.build(packageJson)
+        packageManifest: { ...bundlePackageManifestFactory.build(), ...packageManifest }
     };
 }

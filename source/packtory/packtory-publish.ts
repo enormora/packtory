@@ -1,5 +1,5 @@
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.ts';
+import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 import { mapResolveFailureToPublishFailure } from './publish-failure-mapping.ts';
 import {
@@ -11,18 +11,18 @@ import {
 import type { ResolvedPackage } from './resolved-package.ts';
 
 type ResolveAndLinkAllValidated = (
-    config: ValidConfigResult
+    configuration: ValidConfigurationResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 export function createRunBuildAndPublishValidated(
     dependencies: PublishStageDependencies
 ): (
-    validated: ValidConfigResult,
+    validated: ValidConfigurationResult,
     options: BuildAndPublishAllOptions,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<PublishAllResult> {
     return async function runBuildAndPublishValidated(
-        validated: ValidConfigResult,
+        validated: ValidConfigurationResult,
         options: BuildAndPublishAllOptions,
         resolveAndLinkAllValidated: ResolveAndLinkAllValidated
     ): Promise<PublishAllResult> {

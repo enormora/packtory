@@ -18,14 +18,14 @@ suite('terminal-package-renderer', function () {
         assert.strictEqual(
             output,
             [
-                'pkg-a 1.0.0 -> 1.0.1',
+                'package-a 1.0.0 -> 1.0.1',
                 '  • package.json (manifest, 2 B) [generated]',
-                '  ▸ src/',
-                '    • src/index.js (source, 20 B) [changed, dead code elimination]',
+                '  ▸ source/',
+                '    • source/index.js (source, 20 B) [changed, dead code elimination]',
                 '  Eliminated source files',
-                '    - /workspace/src/unused.js (14 B)',
+                '    - /workspace/source/unused.js (14 B)',
                 '  Diffs',
-                '    src/index.js',
+                '    source/index.js',
                 '      @@ -1,1 +1,1 @@',
                 '      -export const removed = 1;',
                 '      +export const kept = 1;'
@@ -37,7 +37,7 @@ suite('terminal-package-renderer', function () {
     test('renderPackage omits the version transition when it is undefined', function () {
         const output = renderPackage(createPreviewPackageFixture({ versionTransition: undefined }), colors());
 
-        assert.ok(output.startsWith('pkg-a\n'));
+        assert.ok(output.startsWith('package-a\n'));
         assert.ok(!output.includes('undefined'));
     });
 

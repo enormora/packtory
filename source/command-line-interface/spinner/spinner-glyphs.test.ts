@@ -18,34 +18,34 @@ suite('spinner-glyphs', function () {
     });
 
     test('formatLine renders a green check for a succeeded slot', function () {
-        const line = formatLine({ state: 'succeeded', label: 'pkg', message: 'done' }, 0, 80);
+        const line = formatLine({ state: 'succeeded', label: 'package', message: 'done' }, 0, 80);
         assert.ok(line.includes('✔'));
-        assert.ok(line.endsWith('pkg: done'));
+        assert.ok(line.endsWith('package: done'));
     });
 
     test('formatLine renders a red cross for a failed slot', function () {
-        const line = formatLine({ state: 'failed', label: 'pkg', message: 'boom' }, 0, 80);
+        const line = formatLine({ state: 'failed', label: 'package', message: 'boom' }, 0, 80);
         assert.ok(line.includes('✖'));
     });
 
     test('formatLine renders a red cross for a canceled slot', function () {
-        const line = formatLine({ state: 'canceled', label: 'pkg', message: 'aborted' }, 0, 80);
+        const line = formatLine({ state: 'canceled', label: 'package', message: 'aborted' }, 0, 80);
         assert.ok(line.includes('✖'));
     });
 
     test('formatLine cycles through spinner frames based on the frame index for a running slot', function () {
         const frames = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
-        const composed = formatLine({ state: 'running', label: 'pkg', message: 'go' }, 13, 80);
+        const composed = formatLine({ state: 'running', label: 'package', message: 'go' }, 13, 80);
         assert.ok(composed.startsWith(frames.charAt(13 % frames.length)));
     });
 
     test('formatLine truncates the rendered line to the given column count', function () {
-        const composed = formatLine({ state: 'running', label: 'pkg', message: 'long-message-here' }, 0, 10);
+        const composed = formatLine({ state: 'running', label: 'package', message: 'long-message-here' }, 0, 10);
         assert.strictEqual(composed.length, 10);
     });
 
     test('formatLine returns the full composed line when columns is zero or negative', function () {
-        const composed = formatLine({ state: 'running', label: 'pkg', message: 'x' }, 0, 0);
-        assert.ok(composed.endsWith('pkg: x'));
+        const composed = formatLine({ state: 'running', label: 'package', message: 'x' }, 0, 0);
+        assert.ok(composed.endsWith('package: x'));
     });
 });

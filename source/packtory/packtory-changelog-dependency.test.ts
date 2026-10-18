@@ -1,28 +1,26 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import {
-    defaultPrLogConfig,
-    type ChangelogEntryInput,
-    type FilterPullRequestsByTargetFilesInput,
-    type PullRequest,
-    type PullRequestChangedFile,
-    type PullRequestWithLabel,
-    type RenderGroupedTargetChangelogMarkdownInput,
-    type RenderTargetChangelogMarkdownInput,
-    type ResolvePullRequestLabelsOptions
-} from '@pr-log/core';
-import { pullRequestChangedFileFactory } from '../test-libraries/pr-log-fixtures.ts';
+import { defaultPrLogConfig as defaultPullRequestLogConfiguration, type PullRequestChangedFile } from '@pr-log/core';
+import type { PullRequest, PullRequestWithLabel } from '../changelog/pull-request-log.ts';
+import type {
+    ChangelogEntryInput,
+    FilterPullRequestsByTargetFilesInput,
+    RenderGroupedTargetChangelogMarkdownInput,
+    RenderTargetChangelogMarkdownInput,
+    ResolvePullRequestLabelsOptions
+} from '../test-libraries/changelog-handler-fixtures.ts';
+import { pullRequestChangedFileFactory } from '../test-libraries/pull-request-log-fixtures.ts';
 import { generateChangelogOutputs, type GenerateChangelogInput } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
-type ChangelogEngine = GenerateChangelogInput['prLogEngine'];
+type ChangelogEngine = GenerateChangelogInput['pullRequestLogEngine'];
 
 const reactDependencyMarkdown = '* Update react to 19.0.0 ([#1](https://github.com/owner/repo/pull/1))';
 
 function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPackage {
     return {
-        name: 'pkg-a',
+        name: 'package-a',
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
@@ -33,10 +31,10 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
         latestRegistryMetadata: undefined,
         artifactFiles: [ 'dist/index.js' ],
         changedArtifactFiles: [ 'package.json' ],
-        sourceFiles: [ 'source/pkg-a.ts' ],
-        changelogSourceFiles: [ 'source/pkg-a.ts' ],
-        changelogDependencyNames: [ '@scope/pkg' ],
-        changelogDependencyUpdates: [ { name: '@scope/pkg', version: '1.2.3' } ],
+        sourceFiles: [ 'source/package-a.ts' ],
+        changelogSourceFiles: [ 'source/package-a.ts' ],
+        changelogDependencyNames: [ '@scope/package' ],
+        changelogDependencyUpdates: [ { name: '@scope/package', version: '1.2.3' } ],
         ...overrides
     };
 }
@@ -44,48 +42,50 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
 function renderPullRequests(pullRequests: readonly ChangelogEntryInput[]): string {
     return pullRequests
         .map(function (pullRequest) {
-            if (pullRequest.id === undefined) {
+            if (pullRequest.identifier === undefined) {
                 return `* ${pullRequest.title}`;
             }
-            return `* ${pullRequest.title} ([#${pullRequest.id}](https://github.com/owner/repo/pull/${pullRequest.id}))`;
+            return `* ${pullRequest.title} ([#${pullRequest.identifier}](https://github.com/owner/repo/pull/${pullRequest.identifier}))`;
         })
         .join('\n');
 }
 
-function testPullRequest(id: number, title: string): PullRequest {
-    return { id, title };
+function testPullRequest(identifier: number, title: string): PullRequest {
+    return { identifier, title };
 }
 
 function changedFilesByPullRequest(
     entries: readonly (readonly [number, string])[]
 ): Map<number, PullRequestChangedFile[]> {
     return new Map(
-        entries.map(function ([ id, filePath ]) {
-            return [ id, [ pullRequestChangedFileFactory.build({ path: filePath }) ] ];
+        entries.map(function ([ identifier, filePath ]) {
+            return [ identifier, [ pullRequestChangedFileFactory.build({ path: filePath }) ] ];
         })
     );
 }
 
-function labelUpgradesById(upgradeIds: ReadonlySet<number>): ChangelogEngine['resolvePullRequestLabels'] {
+function labelUpgradesByIdentifier(
+    upgradeIdentifiers: ReadonlySet<number>
+): ChangelogEngine['resolvePullRequestLabels'] {
     return fake(async function (options: ResolvePullRequestLabelsOptions) {
         return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
             return {
                 ...pullRequest,
-                label: upgradeIds.has(pullRequest.id) ? 'upgrade' : 'bug'
+                label: upgradeIdentifiers.has(pullRequest.identifier) ? 'upgrade' : 'bug'
             };
         });
     });
 }
 
 function createEngine(overrides: Partial<ChangelogEngine>): ChangelogEngine {
-    const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Fix package' } ];
+    const pullRequests: readonly PullRequest[] = [ { identifier: 1, title: 'Fix package' } ];
     return {
         collectMergedPullRequests: fake.resolves(pullRequests),
         filterPullRequestsByTargetFiles: fake(function (input: FilterPullRequestsByTargetFilesInput) {
             return input.pullRequests;
         }),
         readPullRequestChangedFiles: fake.resolves(
-            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ] ])
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ] ])
         ),
         renderGroupedTargetChangelog: fake(function (input: RenderGroupedTargetChangelogMarkdownInput) {
             return renderPullRequests(input.targets.flatMap(function (target) {
@@ -95,8 +95,8 @@ function createEngine(overrides: Partial<ChangelogEngine>): ChangelogEngine {
         renderTargetChangelog: fake(function (input: RenderTargetChangelogMarkdownInput) {
             return renderPullRequests(input.mergedPullRequests);
         }),
-        resolveChangelogBaseRef: fake.resolves({ ref: 'pkg-a-base' }),
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
+        resolveChangelogBaseReference: fake.resolves({ reference: 'package-a-base' }),
+        resolveLatestSemverChangelogBaseReference: fake.resolves({ reference: 'latest-semver' }),
         resolvePullRequestLabels: fake(async function (options: ResolvePullRequestLabelsOptions) {
             return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
                 return { ...pullRequest, label: 'bug' };
@@ -112,14 +112,14 @@ async function generate(
 ): ReturnType<typeof generateChangelogOutputs> {
     return generateChangelogOutputs({
         packages,
-        prLogEngine: engine,
+        pullRequestLogEngine: engine,
         changelogSourceFileRootsByPackageName: new Map(),
-        githubRepo: 'owner/repo',
+        githubRepository: 'owner/repo',
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
-        explicitBaseRef: undefined,
+        explicitBaseReference: undefined,
         ignoredAttributionPaths: [],
         packageTagFormat: undefined,
-        prLogConfig: defaultPrLogConfig,
+        pullRequestLogConfiguration: defaultPullRequestLogConfiguration,
         targetScopedLabelPattern: undefined
     });
 }
@@ -162,7 +162,7 @@ function engineForEslintUpdate(
         collectMergedPullRequests: fake.resolves([ eslintUpdatePullRequest() ]),
         filterPullRequestsByTargetFiles: fake.returns([ eslintUpdatePullRequest() ]),
         readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequestMap),
-        resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+        resolvePullRequestLabels: labelUpgradesByIdentifier(new Set([ 2 ]))
     });
 }
 
@@ -188,13 +188,13 @@ function registerDependencyEntryTests(): void {
 
         const changelog = await generate([ releasePackage({}) ], engine);
 
-        assert.strictEqual(changelog.groupedMarkdown, '* Update @scope/pkg to 1.2.3');
-        assert.strictEqual(changelog.packageMarkdownByName.get('pkg-a'), '* Update @scope/pkg to 1.2.3');
+        assert.strictEqual(changelog.groupedMarkdown, '* Update @scope/package to 1.2.3');
+        assert.strictEqual(changelog.packageMarkdownByName.get('package-a'), '* Update @scope/package to 1.2.3');
     });
 
     test('preserves pull request links for manifest dependency entries', async function () {
         const engine = createEngine({
-            collectMergedPullRequests: fake.resolves([ { id: 1, title: 'Update React to v19' } ]),
+            collectMergedPullRequests: fake.resolves([ { identifier: 1, title: 'Update React to v19' } ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
             readPullRequestChangedFiles: fake.resolves(
                 new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ] ])
@@ -211,7 +211,7 @@ function registerDependencyEntryTests(): void {
             collectMergedPullRequests: fake.resolves([ testPullRequest(1, 'Update React to v19') ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
             readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 1, 'package.json' ] ])),
-            resolvePullRequestLabels: labelUpgradesById(new Set([ 1 ]))
+            resolvePullRequestLabels: labelUpgradesByIdentifier(new Set([ 1 ]))
         });
 
         const changelog = await generateReactDependencyChangelog(engine);
@@ -222,14 +222,14 @@ function registerDependencyEntryTests(): void {
     test('uses manifest dependency pull requests over other package pull requests', async function () {
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([
-                { id: 1, title: 'Update React to v19' },
-                { id: 2, title: 'Fix package' }
+                { identifier: 1, title: 'Update React to v19' },
+                { identifier: 2, title: 'Fix package' }
             ]),
-            filterPullRequestsByTargetFiles: fake.returns([ { id: 2, title: 'Fix package' } ]),
+            filterPullRequestsByTargetFiles: fake.returns([ { identifier: 2, title: 'Fix package' } ]),
             readPullRequestChangedFiles: fake.resolves(
                 new Map([
                     [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ],
-                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ]
+                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ]
                 ])
             )
         });
@@ -242,13 +242,13 @@ function registerDependencyEntryTests(): void {
     test('renders dependency updates for substantive package changes', async function () {
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([
-                { id: 1, title: 'Add feature' },
-                { id: 2, title: 'Update React to v19' }
+                { identifier: 1, title: 'Add feature' },
+                { identifier: 2, title: 'Update React to v19' }
             ]),
-            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Add feature' } ]),
+            filterPullRequestsByTargetFiles: fake.returns([ { identifier: 1, title: 'Add feature' } ]),
             readPullRequestChangedFiles: fake.resolves(
                 new Map([
-                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ],
                     [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
                 ])
             ),
@@ -256,7 +256,7 @@ function registerDependencyEntryTests(): void {
                 return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
                     return {
                         ...pullRequest,
-                        label: pullRequest.id === 2 ? 'upgrade' : 'bug'
+                        label: pullRequest.identifier === 2 ? 'upgrade' : 'bug'
                     };
                 });
             })
@@ -266,9 +266,9 @@ function registerDependencyEntryTests(): void {
             [
                 releasePackage({
                     releaseClassification: 'substantive',
-                    changelogDependencyNames: [ '@scope/pkg', 'react' ],
+                    changelogDependencyNames: [ '@scope/package', 'react' ],
                     changelogDependencyUpdates: [
-                        { name: '@scope/pkg', version: '1.2.3' },
+                        { name: '@scope/package', version: '1.2.3' },
                         { name: 'react', version: '19.0.0' }
                     ]
                 })
@@ -280,7 +280,7 @@ function registerDependencyEntryTests(): void {
             changelog.groupedMarkdown,
             [
                 '* Add feature ([#1](https://github.com/owner/repo/pull/1))',
-                '* Update @scope/pkg to 1.2.3',
+                '* Update @scope/package to 1.2.3',
                 '* Update React to v19 ([#2](https://github.com/owner/repo/pull/2))'
             ]
                 .join('\n')
@@ -300,17 +300,17 @@ function registerManifestDependencyFilterTests(): void {
                 testPullRequest(2, 'Update dependency eslint to v10.9.0')
             ]),
             readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([
-                [ 1, 'source/pkg-a.ts' ],
+                [ 1, 'source/package-a.ts' ],
                 [ 2, 'package.json' ]
             ])),
-            resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+            resolvePullRequestLabels: labelUpgradesByIdentifier(new Set([ 2 ]))
         });
 
         const changelog = await generate(
             [
                 releasePackage({
                     releaseClassification: 'substantive',
-                    changelogSourceFiles: [ 'package.json', 'source/pkg-a.ts' ],
+                    changelogSourceFiles: [ 'package.json', 'source/package-a.ts' ],
                     changelogDependencyNames: [],
                     changelogDependencyUpdates: []
                 })
@@ -323,8 +323,8 @@ function registerManifestDependencyFilterTests(): void {
 
     test('keeps unrelated dependency updates that also touch package source files', async function () {
         const changelog = await generateSubstantiveManifestChangelog(
-            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'source/pkg-a.ts' ])),
-            [ 'package.json', 'source/pkg-a.ts' ]
+            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'source/package-a.ts' ])),
+            [ 'package.json', 'source/package-a.ts' ]
         );
 
         assert.strictEqual(
@@ -335,13 +335,13 @@ function registerManifestDependencyFilterTests(): void {
 
     test('omits manifest dependency updates when remaining changed files are unrelated', async function () {
         const changelog = await generateSubstantiveManifestChangelog(
-            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'docs/readme.md' ])),
-            [ 'package.json', 'source/pkg-a.ts' ]
+            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'documentation/readme.md' ])),
+            [ 'package.json', 'source/package-a.ts' ]
         );
 
         assert.partialDeepStrictEqual(changelog, {
             groupedMarkdown: '',
-            packageNamesWithoutChangelogEntries: [ 'pkg-a' ]
+            packageNamesWithoutChangelogEntries: [ 'package-a' ]
         });
     });
 
@@ -362,7 +362,7 @@ function registerManifestDependencyFilterTests(): void {
             collectMergedPullRequests: fake.resolves([ testPullRequest(2, 'Remove React') ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
             readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 2, 'package-lock.json' ] ])),
-            resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+            resolvePullRequestLabels: labelUpgradesByIdentifier(new Set([ 2 ]))
         });
 
         const changelog = await generate(
@@ -393,7 +393,7 @@ function registerManifestDependencyFilterTests(): void {
                 [ 1, 'package-lock.json' ],
                 [ 2, 'package-lock.json' ]
             ])),
-            resolvePullRequestLabels: labelUpgradesById(new Set([ 1, 2 ]))
+            resolvePullRequestLabels: labelUpgradesByIdentifier(new Set([ 1, 2 ]))
         });
 
         const changelog = await generate(
@@ -435,13 +435,13 @@ function registerManifestDependencyFilterTests(): void {
         );
 
         assert.partialDeepStrictEqual(changelog, {
-            groupedMarkdown: '* Update @scope/pkg to 1.2.3',
+            groupedMarkdown: '* Update @scope/package to 1.2.3',
             packageNamesWithoutChangelogEntries: []
         });
     });
 
     test('includes generated package manifest metadata pull requests for every attributed package', async function () {
-        const pullRequests: readonly PullRequest[] = [ { id: 697, title: 'Align Node engines with CI' } ];
+        const pullRequests: readonly PullRequest[] = [ { identifier: 697, title: 'Align Node engines with CI' } ];
         const renderGroupedTargetChangelog = fake(function (input: RenderGroupedTargetChangelogMarkdownInput) {
             return renderPullRequests(input.targets.flatMap(function (target) {
                 return target.mergedPullRequests;
@@ -482,16 +482,19 @@ function registerManifestDependencyFilterTests(): void {
                     changelogDependencyUpdates: []
                 })
             ],
-            prLogEngine: engine,
+            pullRequestLogEngine: engine,
             changelogSourceFileRootsByPackageName: new Map(),
-            githubRepo: 'enormora/pr-log',
+            githubRepository: 'enormora/pr-log',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
-            explicitBaseRef: undefined,
+            explicitBaseReference: undefined,
             ignoredAttributionPaths: [],
             packageTagFormat: undefined,
-            prLogConfig: {
-                ...defaultPrLogConfig,
-                validLabels: new Map([ ...defaultPrLogConfig.validLabels, [ 'build', 'Build-Related' ] ])
+            pullRequestLogConfiguration: {
+                ...defaultPullRequestLogConfiguration,
+                validLabels: new Map([ ...defaultPullRequestLogConfiguration.validLabels, [
+                    'build',
+                    'Build-Related'
+                ] ])
             },
             targetScopedLabelPattern: undefined
         });
@@ -501,13 +504,13 @@ function registerManifestDependencyFilterTests(): void {
                 targetName: 'pr-log',
                 unreleased: false,
                 versionNumber: '6.4.2',
-                mergedPullRequests: [ { id: 697, title: 'Align Node engines with CI', label: 'build' } ]
+                mergedPullRequests: [ { identifier: 697, title: 'Align Node engines with CI', label: 'build' } ]
             },
             {
                 targetName: '@pr-log/core',
                 unreleased: false,
                 versionNumber: '0.0.5',
-                mergedPullRequests: [ { id: 697, title: 'Align Node engines with CI', label: 'build' } ]
+                mergedPullRequests: [ { identifier: 697, title: 'Align Node engines with CI', label: 'build' } ]
             }
         ]);
     });

@@ -2,13 +2,13 @@ import assert from 'node:assert';
 import path from 'node:path';
 import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import { extractTopLevelBindings } from '../dead-code-eliminator/reachability/binding-extractor.ts';
-import { bindingId } from '../dead-code-eliminator/reachability/binding-id.ts';
+import { bindingIdentifier } from '../dead-code-eliminator/reachability/binding-identifier.ts';
 import type { FileBindings } from '../dead-code-eliminator/reachability/local-seed-gathering.ts';
 import { buildReachabilityIndex, type ReachabilityIndex } from '../dead-code-eliminator/reachability/reachability.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import { createProject } from './typescript-project.ts';
 
-export const probeTestTimeoutMs = 10_000;
+export const probeTestTimeoutMilliseconds = 10_000;
 
 function localModuleReferences(filePath: string, content: string): readonly ArtifactModuleReference[] {
     const project = createProject({ withFiles: [ { filePath, content } ] });
@@ -78,7 +78,7 @@ export function reachabilityForReExportTarget(entryPointExportDeclaration: strin
         }
     ]);
     return buildReachabilityIndex({
-        bundleName: 'pkg',
+        bundleName: 'package',
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
         deadCodeElimination: undefined,
@@ -100,7 +100,7 @@ export function reachabilityForLocalValueExport(entryPointExportDeclaration: str
         )
     ];
     return buildReachabilityIndex({
-        bundleName: 'pkg',
+        bundleName: 'package',
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
         deadCodeElimination: undefined,
@@ -109,13 +109,13 @@ export function reachabilityForLocalValueExport(entryPointExportDeclaration: str
 }
 
 export function assertReExportTargetIsReachable(index: ReachabilityIndex): void {
-    assert.ok(index.localReachable.has(bindingId('target.ts', 'used')));
-    assert.ok(index.localReachable.has(bindingId('target.ts', 'helper')));
-    assert.strictEqual(index.localReachable.has(bindingId('target.ts', 'unused')), false);
+    assert.ok(index.localReachable.has(bindingIdentifier('target.ts', 'used')));
+    assert.ok(index.localReachable.has(bindingIdentifier('target.ts', 'helper')));
+    assert.strictEqual(index.localReachable.has(bindingIdentifier('target.ts', 'unused')), false);
 }
 
 export function assertLocalValueExportIsReachable(index: ReachabilityIndex): void {
-    assert.ok(index.localReachable.has(bindingId('entry.ts', 'localValue')));
-    assert.ok(index.localReachable.has(bindingId('entry.ts', 'buildValue')));
-    assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'unusedValue')), false);
+    assert.ok(index.localReachable.has(bindingIdentifier('entry.ts', 'localValue')));
+    assert.ok(index.localReachable.has(bindingIdentifier('entry.ts', 'buildValue')));
+    assert.strictEqual(index.localReachable.has(bindingIdentifier('entry.ts', 'unusedValue')), false);
 }

@@ -2,15 +2,15 @@ import { Result } from 'true-myth';
 import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
 
 type IterateInput = {
-    readonly config: IteratingSchedulerConfig;
+    readonly configuration: IteratingSchedulerConfiguration;
     readonly createOptions: (context: unknown) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
     readonly selectNext: (input: SelectNextInput) => unknown;
     readonly createProgressEvent?: (input: ProgressEventInput) => unknown;
 };
 
-type IteratingSchedulerConfig = {
-    readonly packtoryConfig: { readonly packages: readonly { readonly name: string; }[]; };
+type IteratingSchedulerConfiguration = {
+    readonly packtoryConfiguration: { readonly packages: readonly { readonly name: string; }[]; };
 };
 
 type SelectNextInput = {
@@ -80,7 +80,11 @@ export function createIteratingScheduler(
                 recordCapturedEvent(capture, event);
             }
             const runPackage = async function (packageName: string): Promise<void> {
-                const options = input.createOptions({ packageName, existing: state.existing, config: input.config });
+                const options = input.createOptions({
+                    packageName,
+                    existing: state.existing,
+                    configuration: input.configuration
+                });
                 try {
                     const result = await input.execute(options);
                     recordPackageSuccess(packageName, options, result);

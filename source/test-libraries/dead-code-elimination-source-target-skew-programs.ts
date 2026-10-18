@@ -1,5 +1,5 @@
 import path from 'node:path';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import {
@@ -57,7 +57,7 @@ type SourceTargetSkewPaths = {
     readonly modelDeclarationTargetPath: string;
 };
 
-const packageName = 'pkg';
+const packageName = 'package';
 const sourceMapModes = [ 'embedded-source', 'missing-source' ] as const;
 const inputExtensions = [ '.ts', '.mts' ] as const;
 const runtimeTargetExtensions = [ '.js', '.mjs' ] as const;
@@ -110,7 +110,7 @@ function sourceMapTargetPath(targetFilePath: string): string {
     return `${targetFilePath}.map`;
 }
 
-function sourceMappingUrlLine(targetFilePath: string): string {
+function sourceMappingAddressLine(targetFilePath: string): string {
     return `//# sourceMappingURL=${path.posix.basename(sourceMapTargetPath(targetFilePath))}`;
 }
 
@@ -147,7 +147,7 @@ function runtimeFile(
     return runtimeFileFromSource(
         inputFilePath,
         targetFilePath,
-        [ ...lines, sourceMappingUrlLine(targetFilePath) ],
+        [ ...lines, sourceMappingAddressLine(targetFilePath) ],
         [ ...dependencies, sourceMapTargetPath(targetFilePath) ]
     );
 }
@@ -160,7 +160,7 @@ function declarationFile(
     return declarationFileFromSource(
         inputFilePath,
         targetFilePath,
-        [ ...lines, sourceMappingUrlLine(targetFilePath) ],
+        [ ...lines, sourceMappingAddressLine(targetFilePath) ],
         [ sourceMapTargetPath(targetFilePath) ]
     );
 }
@@ -430,14 +430,16 @@ export function deadCodeEliminationSourceTargetSkewRegression(): GeneratedDeadCo
     });
 }
 
-export const deadCodeEliminationSourceTargetSkewProgramArbitrary: fc.Arbitrary<GeneratedDeadCodeEliminationProgram> = fc
+export const deadCodeEliminationSourceTargetSkewProgramArbitrary: fastCheck.Arbitrary<
+    GeneratedDeadCodeEliminationProgram
+> = fastCheck
     .record({
         expression: expressionArbitrary,
         eventName: eventNameArbitrary,
-        inputExtension: fc.constantFrom(...inputExtensions),
-        runtimeExtension: fc.constantFrom(...runtimeTargetExtensions),
-        declarationExtension: fc.constantFrom(...declarationTargetExtensions),
-        sourceMapMode: fc.constantFrom(...sourceMapModes),
-        targetLayout: fc.constantFrom(...targetLayouts)
+        inputExtension: fastCheck.constantFrom(...inputExtensions),
+        runtimeExtension: fastCheck.constantFrom(...runtimeTargetExtensions),
+        declarationExtension: fastCheck.constantFrom(...declarationTargetExtensions),
+        sourceMapMode: fastCheck.constantFrom(...sourceMapModes),
+        targetLayout: fastCheck.constantFrom(...targetLayouts)
     })
     .map(sourceTargetSkewProgram);

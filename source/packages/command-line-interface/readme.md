@@ -2,7 +2,7 @@
 
 **Command-Line Interface for packtory**
 
-This package provides a command-line interface (CLI) for the packtory tool, simplifying the process of bundling and publishing npm packages. It allows you to execute common tasks easily through the command line.
+This package provides a command-line interface (command line interface) for the packtory tool, simplifying the process of bundling and publishing npm packages. It allows you to execute common tasks easily through the command line.
 
 **Installation:**
 
@@ -24,15 +24,15 @@ packtory <command> [options]
 - **inspect side-effects:** Builds locally and prints why one configured package emits, lists, or omits `package.json` `sideEffects`.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
-- **config inspect:** Validates `packtory.config.js` and prints a compact package-shape summary without building packages.
+- **configuration inspect:** Validates `packtory.config.js` and prints a compact package-shape summary without building packages.
 - **release:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API.
-- **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
+- **release-pull-request:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 - **pack:** Builds one configured package as a zip archive, tarball, or expanded folder, or builds all configured packages into a folder tree. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection. `pack` never talks to a registry.
 
 **Options:**
 
-- **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing. The CLI fails fast with a single config error when `registrySettings.auth` is missing in this mode; dry-run, `preview`, `release-diff` and `pack` work without `auth` against any registry that allows anonymous metadata reads.
+- **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing. The command line interface fails fast with a single config error when `registrySettings.authentication` is missing in this mode; dry-run, `preview`, `release-diff` and `pack` work without `authentication` against any registry that allows anonymous metadata reads.
 - **--trace:** Prints stack traces for unexpected errors and package-level partial failures. This is a root-level diagnostic flag, so place it before the command, for example `packtory --trace publish`.
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **tree &lt;package&gt;:** Selects which package from the configuration to inspect. The output includes package-relative paths, file kind, byte size, status, and artifact badges.
@@ -40,16 +40,16 @@ packtory <command> [options]
 - **inspect side-effects &lt;package&gt;:** Selects which package from the configuration to inspect. The output shows the generated `sideEffects` decision and every impure runtime file with line-level side effect reasons.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
-- **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
-- **publish:** Before publishing changed packages, verifies the exact target version and smoke-imports generated public runtime exports from a temporary package install layout. Bin targets are checked for presence but are not executed.
-- **config inspect:** Loads `packtory.config.js`, validates Packtory and CLI-only settings, then prints package count, package names, resolved `sourcesFolder`, roots, and bundled package dependencies.
+- **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageIdentifier` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
+- **publish:** Before publishing changed packages, verifies the exact target version and smoke-imports generated public runtime exports from a temporary package install layout. Executable targets are checked for presence but are not executed.
+- **configuration inspect:** Loads `packtory.config.js`, validates Packtory and command line interface-only settings, then prints package count, package names, resolved `sourcesFolder`, roots, and bundled package dependencies.
 - **release --publish --tag --push --github-release --no-dry-run:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API. `--push` is accepted for compatibility with existing workflows because tags are created remotely.
-- **release-pr maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
-- **release-pr validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
-- **release-pr authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
-- **release-pr authorize-publish --release-pull-request &lt;number&gt;:** Authorizes a manual retry from a merged release PR.
+- **release-pull-request maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
+- **release-pull-request validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
+- **release-pull-request authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
+- **release-pull-request authorize-publish --release-pull-request &lt;number&gt;:** Authorizes a manual retry from a merged release PR.
 - **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
-- **pack --all --format folder --out &lt;path&gt;:** Builds every configured package into package-named child folders below `--out`. Scoped packages use npm-style nested folders such as `@scope/pkg`.
+- **pack --all --format folder --out &lt;path&gt;:** Builds every configured package into package-named child folders below `--out`. Scoped packages use npm-style nested folders such as `@scope/package`.
 - **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
 - **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
 
@@ -85,7 +85,7 @@ packtory <command> [options]
 **Side effects inspect behavior:**
 
 - `packtory inspect side-effects <package>` validates the local config, resolves and links all configured packages, and prints why the selected package's generated manifest would emit `"sideEffects": false`, emit a file list, or omit the field.
-- It reports the analyzer's generated decision even when `additionalPackageJsonAttributes.sideEffects` overrides the generated value.
+- It reports the analyzer's generated decision even when `additionalPackageManifestAttributes.sideEffects` overrides the generated value.
 - Runtime side effects are shown by package path, repository-relative source path, line number, and analyzer reason.
 - It does not read registry metadata, publish, write artifacts, run package checks, open HTML, or use a pager.
 - An unknown `<package>` argument is reported as `package-not-found`.
@@ -111,8 +111,8 @@ packtory <command> [options]
 - `packtory changelog` computes the same release plan used by Packtory's release planning API and skips unchanged packages.
 - Without `changelog.outputs`, it prints one grouped Markdown changelog for packages that would publish a changed artifact.
 - `changelog.outputs` can write a grouped repository file with `{ kind: 'repository-file', path }`, write package-specific files below each changed package's effective `sourcesFolder` with `{ kind: 'package-file', path }`, write package-specific files to explicit repository-relative paths with `{ kind: 'package-file', paths }`, and print grouped release-body Markdown with `{ kind: 'github-release' }`.
-- `changelog.prLog` passes changelog behavior into `@pr-log/core`, including `validLabels`, `ignoredLabels`, `versionBumps`, `dateFormat`, `collapseRules` with chain, highest-version, and same-title modes, label lookup interval, and rate-limit retry count. `changelog.targetScopedLabelPattern` customizes package-specific labels and must contain `{targetName}` and `{label}`.
-- `changelog.packageTagFormat` customizes package tag lookup for changelog base refs. `changelog.explicitBaseRef` uses one fixed base ref instead.
+- `changelog.pullRequestLog` passes changelog behavior into `@pr-log/core`, including `validLabels`, `ignoredLabels`, `versionBumps`, `dateFormat`, `collapseRules` with chain, highest-version, and same-title modes, label lookup interval, and rate-limit retry count. `changelog.targetScopedLabelPattern` customizes package-specific labels and must contain `{targetName}` and `{label}`.
+- `changelog.packageTagFormat` customizes package tag lookup for changelog base refs. `changelog.explicitBaseReference` uses one fixed base ref instead.
 - Pull requests are attributed by comparing GitHub changed files against each package's attributed source files. Changelog files named `CHANGELOG.md` and configured generated changelog output paths are ignored as attribution inputs.
 - JavaScript files are attributed through referenced source maps when they have a `sourceMappingURL`. Without that reference, the JavaScript file itself is attributed.
 - The GitHub repository is read from the root `package.json` `repository` field.
@@ -124,10 +124,10 @@ packtory <command> [options]
 
 **Config inspect behavior:**
 
-- `packtory config inspect` validates the same configuration file used by other CLI commands, including `releasePullRequest` settings.
+- `packtory configuration inspect` validates the same configuration file used by other command line interface commands, including `releasePullRequest` settings.
 - A valid run prints a compact summary of package names, resolved `sourcesFolder`, roots, `bundleDependencies`, and `bundlePeerDependencies`.
 - It never builds packages, reads registry metadata, writes files, or publishes packages.
-- `packtory config inspect` exits with code `0` on valid config and `1` on validation issues.
+- `packtory configuration inspect` exits with code `0` on valid config and `1` on validation issues.
 
 **Release behavior:**
 
@@ -139,22 +139,22 @@ packtory <command> [options]
 
 **Release PR behavior:**
 
-- `release-pr maintain --no-dry-run` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
+- `release-pull-request maintain --no-dry-run` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
 - Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 - If release planning produces no changelog content, `maintain` closes the open release PR for that branch and deletes the remote release branch. A missing remote release branch is already clean and does not fail maintenance.
 - Release PR settings live in top-level `releasePullRequest`. Defaults are `branch: 'release/packtory'`, `label: 'release'`, `title: 'Prepare release'`, `commitSubject: 'Release packages'`, `defaultBranch: 'main'`, and `automationAuthor: 'github-actions[bot]'`.
 - The release PR policy derives allowed files from `changelog.outputs`. Repository and package changelog files are allowed. GitHub Release outputs are ignored because they do not write repository files.
-- `release-pr validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.
-- `release-pr authorize-publish` writes GitHub step outputs when `$GITHUB_OUTPUT` exists, otherwise it prints them. Normal commits get `should_publish=false`. A merged valid release PR gets `should_publish=true`, `publish_commit_sha`, `release_commit_sha`, and `release_pull_request_number`.
-- Set `releasePullRequest.githubActionsCi` only for the GitHub Actions `GITHUB_TOKEN` workaround. With `trigger: 'workflow-dispatch'`, `workflowFile`, and `requiredStatusContexts`, `maintain` cancels stale dispatched runs, dispatches fresh CI for the release branch, waits for that release commit run, and mirrors the configured job names as commit statuses.
+- `release-pull-request validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.
+- `release-pull-request authorize-publish` writes GitHub step outputs when `$GITHUB_OUTPUT` exists, otherwise it prints them. Normal commits get `should_publish=false`. A merged valid release PR gets `should_publish=true`, `publish_commit_sha`, `release_commit_sha`, and `release_pull_request_number`.
+- Set `releasePullRequest.githubActionsContinuousIntegration` only for the GitHub Actions `GITHUB_TOKEN` workaround. With `trigger: 'workflow-dispatch'`, `workflowFile`, and `requiredStatusContexts`, `maintain` cancels stale dispatched runs, dispatches fresh CI for the release branch, waits for that release commit run, and mirrors the configured job names as commit statuses.
 - Dispatched validation runs on `releasePullRequest.branch` skip release PR maintenance to avoid recursive release PR updates.
-- Leave `githubActionsCi` unset when the release branch update already triggers normal CI, such as with a GitHub App token, PAT, human update, external automation, or non-GitHub CI.
+- Leave `githubActionsContinuousIntegration` unset when the release branch update already triggers normal CI, such as with a GitHub App token, PAT, human update, external automation, or non-GitHub CI.
 
 **Pack behavior:**
 
 - `packtory pack` runs the same validate → resolve → link → checks pipeline as the other commands, then emits package bundles to the path given by `--out`. It never reads from or writes to the configured registry.
 - `packtory pack <package>` emits one package. `packtory pack --all --format folder` emits every configured package into child folders under `--out`.
-- Batch folder layout follows npm package names: `pkg-a` writes to `<out>/pkg-a`, and `@scope/pkg-a` writes to `<out>/@scope/pkg-a`.
+- Batch folder layout follows npm package names: `package-a` writes to `<out>/package-a`, and `@scope/package-a` writes to `<out>/@scope/package-a`.
 - The batch output root may already exist when it is a directory. Each package child folder must not already exist.
 - Format choices:
     - `zip`: single-file zip archive. The format AWS Lambda accepts directly. Uses static metadata (1980-01-01 entries, deterministic ordering) so byte-identical inputs yield byte-identical archives.
@@ -184,7 +184,7 @@ Your root `package.json` must declare `"type": "module"`.
 
 **One-time-password support:**
 
-- If the registry challenges a publish with a one-time password, the CLI prompts for it when running in an interactive TTY.
+- If the registry challenges a publish with a one-time password, the command line interface prompts for it when running in an interactive terminal.
 - The prompt times out after 90 seconds.
 - Non-interactive runs cannot answer a one-time-password challenge. For CI, prefer an auth method that does not require live one-time-password entry, such as npm trusted publishing / OIDC or a suitable registry token setup.
 - npm staged publishing (`publish --stage`) can use the same write auth as a normal publish, including npm OIDC/trusted publishing. Approving or rejecting a staged package still happens outside packtory.
@@ -192,6 +192,6 @@ Your root `package.json` must declare `"type": "module"`.
 
 **Publish settings:**
 
-Every package needs a `publishSettings` value, either set in `commonPackageSettings` as a default or on each package entry directly. If neither is set, the CLI exits with `publishSettings must be set in commonPackageSettings or in every package`. See the [main configuration docs](../../../readme.md) for the full shape and the access ↔ provenance constraint.
+Every package needs a `publishSettings` value, either set in `commonPackageSettings` as a default or on each package entry directly. If neither is set, the command line interface exits with `publishSettings must be set in commonPackageSettings or in every package`. See the [main configuration docs](../../../readme.md) for the full shape and the access ↔ provenance constraint.
 
-For the full list of publish-time errors and remediation, see [Supply Chain → CLI error reference](../../../documentation/supply-chain.md#cli-error-reference).
+For the full list of publish-time errors and remediation, see [Supply Chain → command line interface error reference](../../../documentation/supply-chain.md#command-line-interface-error-reference).

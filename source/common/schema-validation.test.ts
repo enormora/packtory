@@ -2,10 +2,10 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { $ZodType } from 'zod/v4/core';
 import { z } from 'zod/mini';
-import { additionalFileDescriptionSchema } from '../config/additional-files.ts';
-import { mainPackageJsonSchema } from '../config/main-package-json-schema.ts';
-import { packtoryConfigSchema } from '../config/packtory-config-schema.ts';
-import { versioningSettingsSchema } from '../config/versioning-settings.ts';
+import { additionalFileDescriptionSchema } from '../configuration/additional-files.ts';
+import { mainPackageManifestSchema } from '../configuration/main-package-manifest-schema.ts';
+import { packtoryConfigurationSchema } from '../configuration/packtory-configuration-schema.ts';
+import { versioningSettingsSchema } from '../configuration/versioning-settings.ts';
 import { safeParse } from './schema-validation.ts';
 
 function validationIssues(schema: Readonly<$ZodType>, data: unknown): readonly string[] {
@@ -25,7 +25,7 @@ suite('schema-validation', function () {
     });
 
     test('keeps invalid literal array messages stable', function () {
-        assert.deepStrictEqual(validationIssues(mainPackageJsonSchema, { type: [] }), [
+        assert.deepStrictEqual(validationIssues(mainPackageManifestSchema, { type: [] }), [
             'at type: invalid literal: expected "module", but got array'
         ]);
     });
@@ -56,15 +56,15 @@ suite('schema-validation', function () {
 
     test('keeps nested union messages stable when upstream reports only invalid input', function () {
         assert.deepStrictEqual(
-            validationIssues(packtoryConfigSchema, {
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                commonPackageSettings: { additionalPackageJsonAttributes: { dependencies: '1.0.0' } },
+            validationIssues(packtoryConfigurationSchema, {
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
+                commonPackageSettings: { additionalPackageManifestAttributes: { dependencies: '1.0.0' } },
                 packages: [
                     {
                         sourcesFolder: 'source',
-                        mainPackageJson: { type: 'module' },
+                        mainPackageManifest: { type: 'module' },
                         name: 'package',
-                        roots: { main: { js: 'index.js' } }
+                        roots: { main: { javaScript: 'index.js' } }
                     }
                 ]
             }),

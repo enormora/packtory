@@ -10,30 +10,30 @@ export type SourceMapFileLocator = {
     locate: (sourceFile: string, sourcesFolder: string) => Promise<Maybe<string>>;
 };
 
-function sourceMappingUrlPrefix(): string {
+function sourceMappingAddressPrefix(): string {
     return '//# sourceMappingURL=';
 }
 
-function getSourceMappingUrl(fileContent: string): string | undefined {
-    const prefix = sourceMappingUrlPrefix();
+function getSourceMappingAddress(fileContent: string): string | undefined {
+    const prefix = sourceMappingAddressPrefix();
     for (const line of fileContent.split('\n')) {
         if (line.startsWith(prefix)) {
-            const sourceMappingUrl = line.slice(prefix.length);
-            return sourceMappingUrl;
+            const sourceMappingAddress = line.slice(prefix.length);
+            return sourceMappingAddress;
         }
     }
 
     return undefined;
 }
 
-function isUrlLike(filePath: string): boolean {
+function isAddressLike(filePath: string): boolean {
     return /^[a-z][\d+.a-z-]*:/iu.test(filePath);
 }
 
 function isRelativeMapFilePath(filePath: string): boolean {
     const isAbsolute = path.posix.isAbsolute(filePath) || path.win32.isAbsolute(filePath);
-    const hasUrlSuffix = filePath.includes('?') || filePath.includes('#');
-    if (isAbsolute || hasUrlSuffix || isUrlLike(filePath)) {
+    const hasQueryOrFragment = filePath.includes('?') || filePath.includes('#');
+    if (isAbsolute || hasQueryOrFragment || isAddressLike(filePath)) {
         return false;
     }
     return path.extname(filePath) === '.map';
@@ -44,12 +44,12 @@ function isInFolder(folder: string, candidate: string): boolean {
     return relativePath.length > 0 && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
 
-function resolveSourceMapFile(sourceFile: string, sourcesFolder: string, sourceMappingUrl: string): Maybe<string> {
-    if (!isRelativeMapFilePath(sourceMappingUrl)) {
+function resolveSourceMapFile(sourceFile: string, sourcesFolder: string, sourceMappingAddress: string): Maybe<string> {
+    if (!isRelativeMapFilePath(sourceMappingAddress)) {
         return Maybe.nothing();
     }
 
-    const sourceMapFile = path.resolve(path.dirname(sourceFile), sourceMappingUrl);
+    const sourceMapFile = path.resolve(path.dirname(sourceFile), sourceMappingAddress);
     return isInFolder(path.resolve(sourcesFolder), sourceMapFile) ? Maybe.just(sourceMapFile) : Maybe.nothing();
 }
 
@@ -72,13 +72,13 @@ export function createSourceMapFileLocator(
     return {
         async locate(sourceFile, sourcesFolder) {
             const fileContent = await fileManager.readFile(sourceFile);
-            const sourceMappingUrl = getSourceMappingUrl(fileContent);
+            const sourceMappingAddress = getSourceMappingAddress(fileContent);
 
-            if (sourceMappingUrl === undefined) {
+            if (sourceMappingAddress === undefined) {
                 return Maybe.nothing();
             }
 
-            const sourceMapFile = resolveSourceMapFile(sourceFile, sourcesFolder, sourceMappingUrl);
+            const sourceMapFile = resolveSourceMapFile(sourceFile, sourcesFolder, sourceMappingAddress);
             if (sourceMapFile.isNothing) {
                 return Maybe.nothing();
             }

@@ -29,7 +29,7 @@ export type SmokeGateContext = {
     readonly writeFile: SinonSpy;
 };
 
-type PackageJsonOverrides = {
+type PackageManifestOverrides = {
     readonly dependencies?: Readonly<Record<string, string>>;
     readonly peerDependencies?: Readonly<Record<string, string>>;
 };
@@ -81,7 +81,7 @@ export function createContext(
 }
 
 export function resource(targetFilePath: string, content = 'export const value = 1;'): AnalyzedBundleResource {
-    return analyzedBundleResource(`/src/${targetFilePath}`, { targetFilePath, content });
+    return analyzedBundleResource(`/source/${targetFilePath}`, { targetFilePath, content });
 }
 
 export function sourceResource(
@@ -114,7 +114,7 @@ export function bundle(
                 }),
                 isExecutable: false
             },
-            packageJson: {
+            packageManifest: {
                 name: packageName,
                 version: '1.2.3'
             }
@@ -123,17 +123,19 @@ export function bundle(
     };
 }
 
-export function withPackageJson(
+export function withPackageManifest(
     targetBundle: VersionedBundleWithManifest,
-    packageJson: PackageJsonOverrides
+    packageManifest: PackageManifestOverrides
 ): VersionedBundleWithManifest {
     return {
         ...targetBundle,
-        packageJson: {
-            name: targetBundle.packageJson.name,
-            version: targetBundle.packageJson.version,
-            ...packageJson.dependencies === undefined ? {} : { dependencies: packageJson.dependencies },
-            ...packageJson.peerDependencies === undefined ? {} : { peerDependencies: packageJson.peerDependencies }
+        packageManifest: {
+            name: targetBundle.packageManifest.name,
+            version: targetBundle.packageManifest.version,
+            ...packageManifest.dependencies === undefined ? {} : { dependencies: packageManifest.dependencies },
+            ...packageManifest.peerDependencies === undefined
+                ? {}
+                : { peerDependencies: packageManifest.peerDependencies }
         }
     };
 }

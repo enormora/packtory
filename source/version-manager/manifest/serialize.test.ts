@@ -1,31 +1,31 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { JsonValue, PackageJson } from 'type-fest';
-import { serializePackageJson } from './serialize.ts';
+import type { JsonValue as JavaScriptObjectNotationValue, PackageJson as PackageManifest } from 'type-fest';
+import { serializePackageManifest } from './serialize.ts';
 
 function registerObjectSortingTests(): void {
     test('serializes the given data with 4 spaces indentation', function () {
-        const result = serializePackageJson({ a: 'foo', b: 'bar' });
+        const result = serializePackageManifest({ a: 'foo', b: 'bar' });
         assert.strictEqual(result, '{\n    "a": "foo",\n    "b": "bar"\n}');
     });
 
     test('serializes arrays correctly', function () {
-        const result = serializePackageJson({ foo: [ 'a', 'b' ] });
+        const result = serializePackageManifest({ foo: [ 'a', 'b' ] });
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "b"\n    ]\n}');
     });
 
     test('sorts the top-level keys alphabetically', function () {
-        const result = serializePackageJson({ b: 'foo', a: 'bar' });
+        const result = serializePackageManifest({ b: 'foo', a: 'bar' });
         assert.strictEqual(result, '{\n    "a": "bar",\n    "b": "foo"\n}');
     });
 
     test('sorts simple array correctly', function () {
-        const result = serializePackageJson({ foo: [ 'b', 'a', 0, true ] });
+        const result = serializePackageManifest({ foo: [ 'b', 'a', 0, true ] });
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "b",\n        0,\n        true\n    ]\n}');
     });
 
     test('sorts the keys of a top-level property alphabetically', function () {
-        const result = serializePackageJson({ b: 'foo', a: { d: 'bar', c: 'baz' } });
+        const result = serializePackageManifest({ b: 'foo', a: { d: 'bar', c: 'baz' } });
         assert.strictEqual(
             result,
             [ '{', '    "a": {', '        "c": "baz",', '        "d": "bar"', '    },', '    "b": "foo"', '}' ].join(
@@ -35,7 +35,7 @@ function registerObjectSortingTests(): void {
     });
 
     test('sorts the keys of a nested property alphabetically', function () {
-        const result = serializePackageJson({ b: 'foo', a: { c: { e: 'bar', d: 'baz' } } });
+        const result = serializePackageManifest({ b: 'foo', a: { c: { e: 'bar', d: 'baz' } } });
         assert.strictEqual(
             result,
             [
@@ -54,20 +54,20 @@ function registerObjectSortingTests(): void {
     });
 
     test('throws when a circular structure is given', function () {
-        const secondEntry: JsonValue = {};
-        const firstEntry: JsonValue = { c: secondEntry };
+        const secondEntry: JavaScriptObjectNotationValue = {};
+        const firstEntry: JavaScriptObjectNotationValue = { c: secondEntry };
         secondEntry.d = firstEntry;
 
         try {
-            serializePackageJson({ b: 'foo', a: firstEntry });
-            assert.fail('Expected serializePackageJson() should fail but it did not');
+            serializePackageManifest({ b: 'foo', a: firstEntry });
+            assert.fail('Expected serializePackageManifest() should fail but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Circular structures are not supported');
         }
     });
 
     test('sorts objects nested within array correctly', function () {
-        const result = serializePackageJson({ foo: [ 'f', { b: '1', a: '2', d: [ 3, 2 ] }, 'c' ] });
+        const result = serializePackageManifest({ foo: [ 'f', { b: '1', a: '2', d: [ 3, 2 ] }, 'c' ] });
         assert.strictEqual(
             result,
             '{\n    "foo": [\n        "f",\n        {\n            "a": "2",\n            "b": "1",\n            "d": [\n                2,\n                3\n            ]\n        },\n        "c"\n    ]\n}'
@@ -77,13 +77,13 @@ function registerObjectSortingTests(): void {
 
 function registerArrayAndSpecialCaseTests(): void {
     test('sorts primitive array values so false stays before true and numbers stay ordered', function () {
-        const result = serializePackageJson({ foo: [ true, false, 2, 1 ] });
+        const result = serializePackageManifest({ foo: [ true, false, 2, 1 ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        false,\n        true,\n        1,\n        2\n    ]\n}');
     });
 
     test('preserves array order inside top-level imports entries', function () {
-        const result = serializePackageJson({
+        const result = serializePackageManifest({
             imports: {
                 '#foo': {
                     default: [ './z.js', './a.js' ]
@@ -110,8 +110,8 @@ function registerArrayAndSpecialCaseTests(): void {
     });
 
     test('preserves nested array order inside top-level imports entries', function () {
-        const result = serializePackageJson(
-            JSON.parse('{ "imports": { "#foo": { "default": [["./z.js", "./a.js"]] } } }') as Readonly<PackageJson>
+        const result = serializePackageManifest(
+            JSON.parse('{ "imports": { "#foo": { "default": [["./z.js", "./a.js"]] } } }') as Readonly<PackageManifest>
         );
 
         assert.strictEqual(
@@ -135,7 +135,7 @@ function registerArrayAndSpecialCaseTests(): void {
     });
 
     test('preserves array order inside top-level exports entries', function () {
-        const result = serializePackageJson({
+        const result = serializePackageManifest({
             exports: {
                 '.': {
                     import: [ './z.js', './a.js' ]
@@ -164,25 +164,25 @@ function registerArrayAndSpecialCaseTests(): void {
 
 function registerArraySortingEdgeCaseTests(): void {
     test('keeps equal primitive values stable without collapsing them', function () {
-        const result = serializePackageJson({ foo: [ 'b', 'a', 'a' ] });
+        const result = serializePackageManifest({ foo: [ 'b', 'a', 'a' ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "a",\n        "b"\n    ]\n}');
     });
 
     test('sorts descending string arrays into ascending order', function () {
-        const result = serializePackageJson({ foo: [ 'z', 'm', 'a' ] });
+        const result = serializePackageManifest({ foo: [ 'z', 'm', 'a' ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "m",\n        "z"\n    ]\n}');
     });
 
     test('sorts descending numeric arrays into ascending order', function () {
-        const result = serializePackageJson({ foo: [ 3, 2, 1 ] });
+        const result = serializePackageManifest({ foo: [ 3, 2, 1 ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        1,\n        2,\n        3\n    ]\n}');
     });
 
     test('keeps object arrays in original order while sorting each object deeply', function () {
-        const result = serializePackageJson({
+        const result = serializePackageManifest({
             foo: [
                 { b: 2, a: 1 },
                 { d: 4, c: 3 }
@@ -196,7 +196,7 @@ function registerArraySortingEdgeCaseTests(): void {
     });
 
     test('serializes null values inside arrays and nested records without reordering record keys incorrectly', function () {
-        const result = serializePackageJson({
+        const result = serializePackageManifest({
             foo: [ { z: null, a: [ null, 'b', 'a' ] } ]
         });
 
@@ -206,18 +206,20 @@ function registerArraySortingEdgeCaseTests(): void {
         );
     });
 
-    test('preserves own __proto__ keys while sorting nested objects', function () {
-        const result = serializePackageJson(JSON.parse('{ "": [{ "__proto__": {} }] }') as Readonly<PackageJson>);
+    test('preserves own [object Object] keys while sorting nested objects', function () {
+        const result = serializePackageManifest(
+            JSON.parse('{ "": [{ "[object Object]": {} }] }') as Readonly<PackageManifest>
+        );
 
-        assert.strictEqual(result, '{\n    "": [\n        {\n            "__proto__": {}\n        }\n    ]\n}');
+        assert.strictEqual(result, '{\n    "": [\n        {\n            "[object Object]": {}\n        }\n    ]\n}');
     });
 
     test('throws for circular arrays as well as circular records', function () {
-        const circularArray: JsonValue[] = [];
+        const circularArray: JavaScriptObjectNotationValue[] = [];
         circularArray.push(circularArray);
 
         assert.throws(function () {
-            serializePackageJson({ foo: circularArray });
+            serializePackageManifest({ foo: circularArray });
         }, /^Error: Circular structures are not supported$/);
     });
 }

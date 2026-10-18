@@ -6,7 +6,7 @@ import type {
     ProblemKind,
     ResolutionKind
 } from '@arethetypeswrong/core';
-import type { problemKindInfo as ProblemKindInfo } from '@arethetypeswrong/core/problems';
+import type { problemKindInfo as ProblemKindInformation } from '@arethetypeswrong/core/problems';
 import { installedPackageFilePath } from '../../common/package-layout.ts';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
 
@@ -37,7 +37,7 @@ export type PackageResolutionAnalyzer = (
 export type PackageResolutionDependencies = {
     readonly Package: typeof TypesPackage;
     readonly checkPackage: (typesPackage: TypesPackage) => Promise<CheckResult>;
-    readonly problemKindInfo: typeof ProblemKindInfo;
+    readonly problemKindInformation: typeof ProblemKindInformation;
     readonly problemAffectsResolutionKind: (
         problem: Problem,
         resolutionKind: ResolutionKind,
@@ -74,7 +74,7 @@ export function createPackageResolutionAnalyzer(
     const {
         Package,
         checkPackage,
-        problemKindInfo,
+        problemKindInformation,
         problemAffectsResolutionKind,
         problemAffectsEntrypointResolution
     } = dependencies;
@@ -86,7 +86,7 @@ export function createPackageResolutionAnalyzer(
     ): ResolutionProblemReport {
         return {
             kind: problem.kind,
-            shortDescription: problemKindInfo[problem.kind].shortDescription,
+            shortDescription: problemKindInformation[problem.kind].shortDescription,
             affectedResolutionKinds: resolutionKinds.filter(function (resolutionKind) {
                 return problemAffectsResolutionKind(problem, resolutionKind, analysis);
             }),

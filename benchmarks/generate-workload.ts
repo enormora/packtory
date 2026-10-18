@@ -1,61 +1,60 @@
-import assert from 'node:assert/strict';
+import fileSystem from 'node:fs/promises';
 import path from 'node:path';
-import fs from 'node:fs/promises';
-import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../source/config/config.ts';
-import type { RegistrySettings } from '../source/config/registry-settings.ts';
 import type {
-    CliWorkloadDefinition,
-    CliWorkloadSize,
+    PacktoryConfiguration,
+    PacktoryConfigurationWithoutRegistry
+} from '../source/configuration/configuration.ts';
+import type { RegistrySettings } from '../source/configuration/registry-settings.ts';
+import type {
+    CommandLineInterfaceWorkloadDefinition,
+    CommandLineInterfaceWorkloadSize,
     WorkloadDefinition,
     WorkloadsFile,
     WorkloadSize
 } from './benchmark-types.ts';
+import {
+    validateGeneratedCommandLineInterfaceWorkload,
+    validateGeneratedWorkload,
+    type GeneratedCounts
+} from './workload-validation.ts';
 
-type BenchmarkPackage = NonNullable<PacktoryConfigWithoutRegistry['packages']>[number];
+type BenchmarkPackage = NonNullable<PacktoryConfigurationWithoutRegistry['packages']>[number];
 
-const jsonIndentationSpaces = 4;
+const javaScriptObjectNotationIndentationSpaces = 4;
 const packagesPerCluster = 3;
 const clusterJavaScriptFileCount = 6;
 const clusterDeclarationFileCount = 7;
 const clusterSourceMapFileCount = 6;
 const clusterSourceMapVersion = 3;
 
-const sharedMainPackageJson = {
+const sharedMainPackageManifest = {
     name: 'test-fixture',
     version: '0.0.0-dev',
     dependencies: {
-        'dep-a': '42.0.0',
-        'dep-b': '21.0.0'
+        'dependency-a': '42.0.0',
+        'dependency-b': '21.0.0'
     },
     type: 'module'
 } as const;
-
-type GeneratedCounts = {
-    readonly packageCount: number;
-    readonly jsFileCount: number;
-    readonly declarationFileCount: number;
-    readonly sourceMapFileCount: number;
-    readonly maxImportFanOut: number;
-};
 
 export type GeneratedWorkload = {
     readonly rootDirectory: string;
     readonly size: WorkloadSize;
     readonly definition: WorkloadDefinition;
-    createConfigWithoutRegistry: () => PacktoryConfigWithoutRegistry;
-    createConfig: (registrySettings: RegistrySettings) => PacktoryConfig;
-    createConfigModuleText: (registrySettings: RegistrySettings) => string;
+    createConfigurationWithoutRegistry: () => PacktoryConfigurationWithoutRegistry;
+    createConfiguration: (registrySettings: RegistrySettings) => PacktoryConfiguration;
+    createConfigurationModuleText: (registrySettings: RegistrySettings) => string;
 };
 
-type GenerateWorkloadParams = {
+type GenerateWorkloadParameters = {
     readonly rootDirectory: string;
     readonly size: WorkloadSize;
     readonly workloads: WorkloadsFile;
 };
 
-type GenerateCliWorkloadParams = {
+type GenerateCommandLineInterfaceWorkloadParameters = {
     readonly rootDirectory: string;
-    readonly size: CliWorkloadSize;
+    readonly size: CommandLineInterfaceWorkloadSize;
     readonly workloads: WorkloadsFile;
 };
 
@@ -64,7 +63,7 @@ function createSourceMap(fileName: string, sourceName: string): string {
         version: clusterSourceMapVersion,
         file: fileName,
         sourceRoot: '',
-        sources: [ `./src/${sourceName}` ],
+        sources: [ `./source/${sourceName}` ],
         names: [],
         mappings: ''
     };
@@ -96,7 +95,7 @@ function createClusterSourceFiles(): Record<string, string> {
     };
 }
 
-function createCliPackageSourceFiles(): Record<string, string> {
+function createCommandLineInterfacePackageSourceFiles(): Record<string, string> {
     const sourceFiles: Record<string, string> = {};
     const featureNames = [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l' ];
     const sharedNames = [ 'a', 'b', 'c', 'd', 'e', 'f' ];
@@ -163,33 +162,39 @@ function createCliPackageSourceFiles(): Record<string, string> {
 }
 
 async function writeClusterFiles(clusterRootDirectory: string): Promise<void> {
-    const sourceDirectory = path.join(clusterRootDirectory, 'src');
-    const docsDirectory = path.join(clusterRootDirectory, 'docs');
+    const sourceDirectory = path.join(clusterRootDirectory, 'source');
+    const documentationDirectory = path.join(clusterRootDirectory, 'documentation');
 
-    await fs.mkdir(sourceDirectory, { recursive: true });
-    await fs.mkdir(docsDirectory, { recursive: true });
+    await fileSystem.mkdir(sourceDirectory, { recursive: true });
+    await fileSystem.mkdir(documentationDirectory, { recursive: true });
 
     const clusterSourceFiles = createClusterSourceFiles();
     for (const [ fileName, contents ] of Object.entries(clusterSourceFiles)) {
-        await fs.writeFile(path.join(sourceDirectory, fileName), contents);
+        await fileSystem.writeFile(path.join(sourceDirectory, fileName), contents);
     }
 
-    await fs.writeFile(path.join(docsDirectory, 'common.txt'), 'Common benchmark documentation\n');
-    await fs.writeFile(path.join(docsDirectory, 'first.txt'), 'First package benchmark documentation\n');
+    await fileSystem.writeFile(path.join(documentationDirectory, 'common.txt'), 'Common benchmark documentation\n');
+    await fileSystem.writeFile(
+        path.join(documentationDirectory, 'first.txt'),
+        'First package benchmark documentation\n'
+    );
 }
 
-async function writeCliPackageFiles(packageRootDirectory: string): Promise<void> {
-    const sourceDirectory = path.join(packageRootDirectory, 'src');
-    const docsDirectory = path.join(packageRootDirectory, 'docs');
+async function writeCommandLineInterfacePackageFiles(packageRootDirectory: string): Promise<void> {
+    const sourceDirectory = path.join(packageRootDirectory, 'source');
+    const documentationDirectory = path.join(packageRootDirectory, 'documentation');
 
-    await fs.mkdir(sourceDirectory, { recursive: true });
-    await fs.mkdir(docsDirectory, { recursive: true });
+    await fileSystem.mkdir(sourceDirectory, { recursive: true });
+    await fileSystem.mkdir(documentationDirectory, { recursive: true });
 
-    for (const [ fileName, contents ] of Object.entries(createCliPackageSourceFiles())) {
-        await fs.writeFile(path.join(sourceDirectory, fileName), contents);
+    for (const [ fileName, contents ] of Object.entries(createCommandLineInterfacePackageSourceFiles())) {
+        await fileSystem.writeFile(path.join(sourceDirectory, fileName), contents);
     }
 
-    await fs.writeFile(path.join(docsDirectory, 'readme.txt'), 'CLI benchmark package documentation\n');
+    await fileSystem.writeFile(
+        path.join(documentationDirectory, 'readme.txt'),
+        'CLI benchmark package documentation\n'
+    );
 }
 
 function countFanOut(sourceFileContents: string): number {
@@ -203,30 +208,33 @@ function countFanOut(sourceFileContents: string): number {
     return importCount + sourceMapCount;
 }
 
-function createPackageConfigs(rootDirectory: string, clusterCount: number): readonly BenchmarkPackage[] {
+function createPackageConfigurations(rootDirectory: string, clusterCount: number): readonly BenchmarkPackage[] {
     const packages: BenchmarkPackage[] = [];
 
     for (let clusterIndex = 1; clusterIndex <= clusterCount; clusterIndex += 1) {
         const packageDirectory = path.join(rootDirectory, `cluster-${clusterIndex}`);
-        const sourcesFolder = path.join(packageDirectory, 'src');
+        const sourcesFolder = path.join(packageDirectory, 'source');
 
         packages.push(
             {
                 name: `first-${clusterIndex}`,
                 sourcesFolder,
-                roots: { main: { js: 'entry1.js', declarationFile: 'entry1.d.ts' } },
-                additionalFiles: [ { inputFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' } ]
+                roots: { main: { javaScript: 'entry1.js', declarationFile: 'entry1.d.ts' } },
+                additionalFiles: [ {
+                    inputFilePath: '../documentation/first.txt',
+                    targetFilePath: 'documentation/first.txt'
+                } ]
             },
             {
                 name: `second-${clusterIndex}`,
                 sourcesFolder,
-                roots: { main: { js: 'entry2.js', declarationFile: 'entry2.d.ts' } },
+                roots: { main: { javaScript: 'entry2.js', declarationFile: 'entry2.d.ts' } },
                 bundleDependencies: [ `first-${clusterIndex}` ]
             },
             {
                 name: `third-${clusterIndex}`,
                 sourcesFolder,
-                roots: { main: { js: 'entry3.js', declarationFile: 'entry3.d.ts' } },
+                roots: { main: { javaScript: 'entry3.js', declarationFile: 'entry3.d.ts' } },
                 bundleDependencies: [ `first-${clusterIndex}` ],
                 bundlePeerDependencies: [ `second-${clusterIndex}` ]
             }
@@ -236,26 +244,39 @@ function createPackageConfigs(rootDirectory: string, clusterCount: number): read
     return packages;
 }
 
-function createConfigWithoutRegistry(rootDirectory: string, clusterCount: number): PacktoryConfigWithoutRegistry {
+function createConfigurationWithoutRegistry(
+    rootDirectory: string,
+    clusterCount: number
+): PacktoryConfigurationWithoutRegistry {
     return {
         commonPackageSettings: {
-            mainPackageJson: sharedMainPackageJson,
+            mainPackageManifest: sharedMainPackageManifest,
             includeSourceMapFiles: true,
-            additionalFiles: [ { inputFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' } ],
+            additionalFiles: [ {
+                inputFilePath: '../documentation/common.txt',
+                targetFilePath: 'documentation/common.txt'
+            } ],
             publishSettings: { access: 'public' }
         },
-        packages: createPackageConfigs(rootDirectory, clusterCount)
+        packages: createPackageConfigurations(rootDirectory, clusterCount)
     };
 }
 
-function createConfig(rootDirectory: string, clusterCount: number, registrySettings: RegistrySettings): PacktoryConfig {
+function createConfiguration(
+    rootDirectory: string,
+    clusterCount: number,
+    registrySettings: RegistrySettings
+): PacktoryConfiguration {
     return {
         registrySettings,
-        ...createConfigWithoutRegistry(rootDirectory, clusterCount)
+        ...createConfigurationWithoutRegistry(rootDirectory, clusterCount)
     };
 }
 
-function createCliPackageConfigs(rootDirectory: string, packageCount: number): readonly BenchmarkPackage[] {
+function createCommandLineInterfacePackageConfigurations(
+    rootDirectory: string,
+    packageCount: number
+): readonly BenchmarkPackage[] {
     const packages: BenchmarkPackage[] = [];
 
     for (let packageIndex = 1; packageIndex <= packageCount; packageIndex += 1) {
@@ -263,34 +284,40 @@ function createCliPackageConfigs(rootDirectory: string, packageCount: number): r
 
         packages.push({
             name: `parallel-package-${packageIndex}`,
-            sourcesFolder: path.join(packageDirectory, 'src'),
-            roots: { main: { js: 'index.js', declarationFile: 'index.d.ts' } },
-            additionalFiles: [ { inputFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' } ]
+            sourcesFolder: path.join(packageDirectory, 'source'),
+            roots: { main: { javaScript: 'index.js', declarationFile: 'index.d.ts' } },
+            additionalFiles: [ {
+                inputFilePath: '../documentation/readme.txt',
+                targetFilePath: 'documentation/readme.txt'
+            } ]
         });
     }
 
     return packages;
 }
 
-function createCliConfigWithoutRegistry(rootDirectory: string, packageCount: number): PacktoryConfigWithoutRegistry {
+function createCommandLineInterfaceConfigurationWithoutRegistry(
+    rootDirectory: string,
+    packageCount: number
+): PacktoryConfigurationWithoutRegistry {
     return {
         commonPackageSettings: {
-            mainPackageJson: sharedMainPackageJson,
+            mainPackageManifest: sharedMainPackageManifest,
             includeSourceMapFiles: true,
             publishSettings: { access: 'public' }
         },
-        packages: createCliPackageConfigs(rootDirectory, packageCount)
+        packages: createCommandLineInterfacePackageConfigurations(rootDirectory, packageCount)
     };
 }
 
-function createCliConfig(
+function createCommandLineInterfaceConfiguration(
     rootDirectory: string,
     packageCount: number,
     registrySettings: RegistrySettings
-): PacktoryConfig {
+): PacktoryConfiguration {
     return {
         registrySettings,
-        ...createCliConfigWithoutRegistry(rootDirectory, packageCount)
+        ...createCommandLineInterfaceConfigurationWithoutRegistry(rootDirectory, packageCount)
     };
 }
 
@@ -299,83 +326,22 @@ function gatherCounts(clusterCount: number): GeneratedCounts {
 
     return {
         packageCount: clusterCount * packagesPerCluster,
-        jsFileCount: clusterCount * clusterJavaScriptFileCount,
+        javaScriptFileCount: clusterCount * clusterJavaScriptFileCount,
         declarationFileCount: clusterCount * clusterDeclarationFileCount,
         sourceMapFileCount: clusterCount * clusterSourceMapFileCount,
-        maxImportFanOut: clusterSources.reduce(function (currentMaximum, sourceFileContents) {
+        maximumImportFanOut: clusterSources.reduce(function (currentMaximum, sourceFileContents) {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
 }
 
-function createGeneratedWorkloadCountMismatchMessage(
-    size: WorkloadSize,
-    actualCount: number,
-    expectedCount: number,
-    fileKind: string
-): string {
-    return [ `Generated workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}` ].join(
-        ' '
-    );
-}
-
-function createGeneratedWorkloadFanOutMismatchMessage(
-    size: WorkloadSize,
-    actualFanOut: number,
-    expectedFanOut: number
-): string {
-    return [
-        `Generated workload "${size}" produced max import fan-out ${actualFanOut},`,
-        `expected at most ${expectedFanOut}`
-    ]
-        .join(' ');
-}
-
-function validateGeneratedWorkload(definition: WorkloadDefinition, counts: GeneratedCounts, size: WorkloadSize): void {
-    assert.ok(
-        counts.packageCount === definition.packageCount,
-        `Generated workload "${size}" produced ${counts.packageCount} packages, expected ${definition.packageCount}`
-    );
-    assert.ok(
-        counts.jsFileCount === definition.jsFileCount,
-        createGeneratedWorkloadCountMismatchMessage(
-            size,
-            counts.jsFileCount,
-            definition.jsFileCount,
-            'JavaScript files'
-        )
-    );
-    assert.ok(
-        counts.declarationFileCount === definition.declarationFileCount,
-        createGeneratedWorkloadCountMismatchMessage(
-            size,
-            counts.declarationFileCount,
-            definition.declarationFileCount,
-            'declaration files'
-        )
-    );
-    assert.ok(
-        counts.sourceMapFileCount === definition.sourceMapFileCount,
-        createGeneratedWorkloadCountMismatchMessage(
-            size,
-            counts.sourceMapFileCount,
-            definition.sourceMapFileCount,
-            'source maps'
-        )
-    );
-    assert.ok(
-        counts.maxImportFanOut <= definition.maxImportFanOut,
-        createGeneratedWorkloadFanOutMismatchMessage(size, counts.maxImportFanOut, definition.maxImportFanOut)
-    );
-}
-
-function gatherCliCounts(packageCount: number): GeneratedCounts {
-    const packageSources = createCliPackageSourceFiles();
+function gatherCommandLineInterfaceCounts(packageCount: number): GeneratedCounts {
+    const packageSources = createCommandLineInterfacePackageSourceFiles();
     const filePaths = Object.keys(packageSources);
 
     return {
         packageCount,
-        jsFileCount: packageCount *
+        javaScriptFileCount: packageCount *
             filePaths
                 .filter(function (filePath) {
                     return filePath.endsWith('.js');
@@ -393,135 +359,88 @@ function gatherCliCounts(packageCount: number): GeneratedCounts {
                     return filePath.endsWith('.js.map');
                 })
                 .length,
-        maxImportFanOut: Object.values(packageSources).reduce(function (currentMaximum, sourceFileContents) {
+        maximumImportFanOut: Object.values(packageSources).reduce(function (currentMaximum, sourceFileContents) {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
 }
 
-function createGeneratedCliWorkloadCountMismatchMessage(
-    size: CliWorkloadSize,
-    actualCount: number,
-    expectedCount: number,
-    fileKind: string
-): string {
-    return [ `Generated CLI workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}` ]
-        .join(
-            ' '
-        );
-}
-
-function createGeneratedCliWorkloadFanOutMismatchMessage(
-    size: CliWorkloadSize,
-    actualFanOut: number,
-    expectedFanOut: number
-): string {
-    return [
-        `Generated CLI workload "${size}" produced max import fan-out ${actualFanOut},`,
-        `expected at most ${expectedFanOut}`
-    ]
-        .join(' ');
-}
-
-function validateGeneratedCliWorkload(
-    definition: CliWorkloadDefinition,
-    counts: GeneratedCounts,
-    size: CliWorkloadSize
-): void {
-    assert.ok(
-        counts.packageCount === definition.packageCount,
-        `Generated CLI workload "${size}" produced ${counts.packageCount} packages, expected ${definition.packageCount}`
-    );
-    assert.ok(
-        counts.jsFileCount === definition.jsFileCount,
-        createGeneratedCliWorkloadCountMismatchMessage(
-            size,
-            counts.jsFileCount,
-            definition.jsFileCount,
-            'JavaScript files'
-        )
-    );
-    assert.ok(
-        counts.declarationFileCount === definition.declarationFileCount,
-        createGeneratedCliWorkloadCountMismatchMessage(
-            size,
-            counts.declarationFileCount,
-            definition.declarationFileCount,
-            'declaration files'
-        )
-    );
-    assert.ok(
-        counts.sourceMapFileCount === definition.sourceMapFileCount,
-        createGeneratedCliWorkloadCountMismatchMessage(
-            size,
-            counts.sourceMapFileCount,
-            definition.sourceMapFileCount,
-            'source maps'
-        )
-    );
-    assert.ok(
-        counts.maxImportFanOut <= definition.maxImportFanOut,
-        createGeneratedCliWorkloadFanOutMismatchMessage(size, counts.maxImportFanOut, definition.maxImportFanOut)
-    );
-}
-
-export async function generateWorkload(params: GenerateWorkloadParams): Promise<GeneratedWorkload> {
-    const definition = params.workloads.workloads[params.size];
+export async function generateWorkload(parameters: GenerateWorkloadParameters): Promise<GeneratedWorkload> {
+    const definition = parameters.workloads.workloads[parameters.size];
 
     for (let clusterIndex = 1; clusterIndex <= definition.clusterCount; clusterIndex += 1) {
-        await writeClusterFiles(path.join(params.rootDirectory, `cluster-${clusterIndex}`));
+        await writeClusterFiles(path.join(parameters.rootDirectory, `cluster-${clusterIndex}`));
     }
 
     const counts = gatherCounts(definition.clusterCount);
-    validateGeneratedWorkload(definition, counts, params.size);
+    validateGeneratedWorkload(definition, counts, parameters.size);
 
     return {
-        rootDirectory: params.rootDirectory,
-        size: params.size,
+        rootDirectory: parameters.rootDirectory,
+        size: parameters.size,
         definition,
-        createConfigWithoutRegistry() {
-            return createConfigWithoutRegistry(params.rootDirectory, definition.clusterCount);
+        createConfigurationWithoutRegistry() {
+            return createConfigurationWithoutRegistry(parameters.rootDirectory, definition.clusterCount);
         },
-        createConfig(registrySettings) {
-            return createConfig(params.rootDirectory, definition.clusterCount, registrySettings);
+        createConfiguration(registrySettings) {
+            return createConfiguration(parameters.rootDirectory, definition.clusterCount, registrySettings);
         },
-        createConfigModuleText(registrySettings) {
-            const config = createConfig(params.rootDirectory, definition.clusterCount, registrySettings);
-            return `export const config = ${JSON.stringify(config, null, jsonIndentationSpaces)};\n`;
+        createConfigurationModuleText(registrySettings) {
+            const configuration = createConfiguration(
+                parameters.rootDirectory,
+                definition.clusterCount,
+                registrySettings
+            );
+            return `export const config = ${
+                JSON.stringify(configuration, null, javaScriptObjectNotationIndentationSpaces)
+            };\n`;
         }
     };
 }
 
-export async function generateCliWorkload(params: GenerateCliWorkloadParams): Promise<{
+export async function generateCommandLineInterfaceWorkload(
+    parameters: GenerateCommandLineInterfaceWorkloadParameters
+): Promise<{
     readonly rootDirectory: string;
-    readonly size: CliWorkloadSize;
-    readonly definition: CliWorkloadDefinition;
+    readonly size: CommandLineInterfaceWorkloadSize;
+    readonly definition: CommandLineInterfaceWorkloadDefinition;
     readonly packageNames: readonly string[];
-    readonly createConfig: (registrySettings: RegistrySettings) => PacktoryConfig;
-    readonly createConfigModuleText: (registrySettings: RegistrySettings) => string;
+    readonly createConfiguration: (registrySettings: RegistrySettings) => PacktoryConfiguration;
+    readonly createConfigurationModuleText: (registrySettings: RegistrySettings) => string;
 }> {
-    const definition = params.workloads.cliWorkloads[params.size];
+    const definition = parameters.workloads.commandLineInterfaceWorkloads[parameters.size];
 
     for (let packageIndex = 1; packageIndex <= definition.packageCount; packageIndex += 1) {
-        await writeCliPackageFiles(path.join(params.rootDirectory, `package-${packageIndex}`));
+        await writeCommandLineInterfacePackageFiles(path.join(parameters.rootDirectory, `package-${packageIndex}`));
     }
 
-    const counts = gatherCliCounts(definition.packageCount);
-    validateGeneratedCliWorkload(definition, counts, params.size);
+    const counts = gatherCommandLineInterfaceCounts(definition.packageCount);
+    validateGeneratedCommandLineInterfaceWorkload(definition, counts, parameters.size);
 
     return {
-        rootDirectory: params.rootDirectory,
-        size: params.size,
+        rootDirectory: parameters.rootDirectory,
+        size: parameters.size,
         definition,
-        packageNames: createCliPackageConfigs(params.rootDirectory, definition.packageCount).map(function (entry) {
-            return entry.name;
-        }),
-        createConfig(registrySettings) {
-            return createCliConfig(params.rootDirectory, definition.packageCount, registrySettings);
+        packageNames: createCommandLineInterfacePackageConfigurations(parameters.rootDirectory, definition.packageCount)
+            .map(function (entry) {
+                return entry.name;
+            }),
+        createConfiguration(registrySettings) {
+            return createCommandLineInterfaceConfiguration(
+                parameters.rootDirectory,
+                definition.packageCount,
+                registrySettings
+            );
         },
-        createConfigModuleText(registrySettings) {
-            const config = createCliConfig(params.rootDirectory, definition.packageCount, registrySettings);
-            return `export const config = ${JSON.stringify(config, null, jsonIndentationSpaces)};\n`;
+        createConfigurationModuleText(registrySettings) {
+            const configuration = createCommandLineInterfaceConfiguration(
+                parameters.rootDirectory,
+                definition.packageCount,
+                registrySettings
+            );
+            return `export const config = ${
+                JSON.stringify(configuration, null, javaScriptObjectNotationIndentationSpaces)
+            };\n`;
         }
     };
 }

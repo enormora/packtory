@@ -14,22 +14,22 @@ suite('package-report-materialization', function () {
     });
 
     test('toPackageReport materializes inputs from roots and provides defaults for sibling versions and source count', function () {
-        const result = toPackageReport(mutable({ roots: { main: 'src/index.js' } }));
+        const result = toPackageReport(mutable({ roots: { main: 'source/index.js' } }));
 
         assert.deepStrictEqual(result.inputs, {
-            roots: { main: 'src/index.js' },
+            roots: { main: 'source/index.js' },
             siblingVersions: {},
             sourceFileCount: 0
         });
     });
 
-    test('toPackageReport includes effectiveConfig in inputs when it is provided', function () {
-        const result = toPackageReport(mutable({ roots: {}, effectiveConfig: { feature: 'on' } }));
+    test('toPackageReport includes effectiveConfiguration in inputs when it is provided', function () {
+        const result = toPackageReport(mutable({ roots: {}, effectiveConfiguration: { feature: 'on' } }));
 
-        assert.deepStrictEqual(result.inputs?.effectiveConfig, { feature: 'on' });
+        assert.deepStrictEqual(result.inputs?.effectiveConfiguration, { feature: 'on' });
     });
 
-    test('toPackageReport omits inputs when neither roots nor effectiveConfig is provided', function () {
+    test('toPackageReport omits inputs when neither roots nor effectiveConfiguration is provided', function () {
         const result = toPackageReport(mutable({ timings: { build: 1 } }));
 
         assert.strictEqual(Object.hasOwn(result, 'inputs'), false);
@@ -46,7 +46,7 @@ suite('package-report-materialization', function () {
             path: 'a.js',
             sizeBytes: 10,
             kind: 'source' as const,
-            sourcePath: '/src/a.js',
+            sourcePath: '/source/a.js',
             status: 'generated' as const,
             badges: [] as const
         };
@@ -66,12 +66,12 @@ suite('package-report-materialization', function () {
     test('toPackageReport surfaces eliminatedSourceFiles when present on the mutable report', function () {
         const result = toPackageReport(
             mutable({
-                eliminatedSourceFiles: [ { path: '/src/dead.js', sourceBytes: 5, reason: 'no-uses' } ]
+                eliminatedSourceFiles: [ { path: '/source/dead.js', sourceBytes: 5, reason: 'no-uses' } ]
             })
         );
 
         assert.deepStrictEqual(result.eliminatedSourceFiles, [
-            { path: '/src/dead.js', sourceBytes: 5, reason: 'no-uses' }
+            { path: '/source/dead.js', sourceBytes: 5, reason: 'no-uses' }
         ]);
     });
 
@@ -92,7 +92,7 @@ suite('package-report-materialization', function () {
             path: 'index.js',
             sizeBytes: 10,
             kind: 'source' as const,
-            sourcePath: '/src/index.js',
+            sourcePath: '/source/index.js',
             status: 'unchanged' as const,
             badges: [] as const
         };
@@ -103,10 +103,10 @@ suite('package-report-materialization', function () {
                     linker: {
                         rewrites: [
                             {
-                                file: '/src/index.js',
+                                file: '/source/index.js',
                                 fromSpecifier: './dep.js',
-                                toSpecifier: 'pkg-b',
-                                targetBundle: 'pkg-b'
+                                toSpecifier: 'package-b',
+                                targetBundle: 'package-b'
                             }
                         ]
                     }

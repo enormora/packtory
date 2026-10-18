@@ -16,7 +16,7 @@ function createDate(value: string): Date {
 function pullRequestActivity(overrides: Partial<PullRequestActivity> = {}): PullRequestActivity {
     return {
         activityAt: createDate('2026-05-19T10:20:00.000Z'),
-        htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+        hypertextMarkupLanguageAddress: 'https://github.com/enormora/packtory/pull/1',
         number: 1,
         ...overrides
     };
@@ -34,17 +34,17 @@ function evaluateGitHubReleaseGateWithBaseInput(
     overrides: Partial<GitHubReleaseGateInput> = {}
 ): GitHubReleaseGateDecision {
     return evaluateGitHubReleaseGate({
-        ciWorkflowFile: 'ci.yml',
+        continuousIntegrationWorkflowFile: 'continuous-integration.yml',
         mainBranch: 'main',
-        mainCiRunStatus: {
+        mainContinuousIntegrationRunStatus: {
             kind: 'success',
             run: {
-                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                hypertextMarkupLanguageAddress: 'https://github.com/enormora/packtory/actions/runs/1',
                 updatedAt: createDate('2026-05-19T11:00:00.000Z')
             }
         },
-        mainHeadSha: 'abc123',
-        maxLatencyHours: 24,
+        mainHeadHash: 'abc123',
+        maximumLatencyHours: 24,
         now: createDate('2026-05-19T12:00:00.000Z'),
         pullRequestActivities: [],
         quietPeriodMinutes: 45,
@@ -127,11 +127,11 @@ suite('github-release-gate', function () {
     suite('gate decisions', function () {
         test('evaluateGitHubReleaseGate blocks publishing when main HEAD CI is not green', function () {
             const decision = evaluateGitHubReleaseGate({
-                ciWorkflowFile: 'ci.yml',
+                continuousIntegrationWorkflowFile: 'continuous-integration.yml',
                 mainBranch: 'main',
-                mainCiRunStatus: { kind: 'missing' },
-                mainHeadSha: 'abc123',
-                maxLatencyHours: 24,
+                mainContinuousIntegrationRunStatus: { kind: 'missing' },
+                mainHeadHash: 'abc123',
+                maximumLatencyHours: 24,
                 now: createDate('2026-05-19T12:00:00.000Z'),
                 pullRequestActivities: [],
                 quietPeriodMinutes: 45
@@ -140,17 +140,19 @@ suite('github-release-gate', function () {
             assert.deepStrictEqual(decision, {
                 shouldPublish: false,
                 reason: 'ci_not_green',
-                logs: [ 'Skipping publish: no successful ci.yml push run found for main HEAD abc123.' ]
+                logs: [
+                    'Skipping publish: no successful continuous-integration.yml push run found for main HEAD abc123.'
+                ]
             });
         });
 
         test('evaluateGitHubReleaseGate blocks publishing while main HEAD CI is still in progress', function () {
             const decision = evaluateGitHubReleaseGate({
-                ciWorkflowFile: 'ci.yml',
+                continuousIntegrationWorkflowFile: 'continuous-integration.yml',
                 mainBranch: 'main',
-                mainCiRunStatus: { kind: 'in_progress' },
-                mainHeadSha: 'abc123',
-                maxLatencyHours: 24,
+                mainContinuousIntegrationRunStatus: { kind: 'in_progress' },
+                mainHeadHash: 'abc123',
+                maximumLatencyHours: 24,
                 now: createDate('2026-05-19T12:00:00.000Z'),
                 pullRequestActivities: [],
                 quietPeriodMinutes: 45
@@ -159,7 +161,9 @@ suite('github-release-gate', function () {
             assert.deepStrictEqual(decision, {
                 shouldPublish: false,
                 reason: 'ci_in_progress',
-                logs: [ 'Skipping publish: a ci.yml push run is still in progress for main HEAD abc123.' ]
+                logs: [
+                    'Skipping publish: a continuous-integration.yml push run is still in progress for main HEAD abc123.'
+                ]
             });
         });
 
@@ -228,10 +232,10 @@ suite('github-release-gate', function () {
 
         test('evaluateGitHubReleaseGate allows publishing when the max-latency boundary is reached exactly', function () {
             const decision = evaluateGitHubReleaseGateWithBaseInput({
-                mainCiRunStatus: {
+                mainContinuousIntegrationRunStatus: {
                     kind: 'success',
                     run: {
-                        htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                        hypertextMarkupLanguageAddress: 'https://github.com/enormora/packtory/actions/runs/1',
                         updatedAt: createDate('2026-05-19T12:00:00.000Z')
                     }
                 },

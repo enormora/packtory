@@ -116,13 +116,13 @@ function readableFiles(files: readonly string[]): ReadabilityFileManager {
     };
 }
 
-const stubMainPackageJson = { type: 'module' } as const;
+const stubMainPackageManifest = { type: 'module' } as const;
 
 function optionsForRoots(roots: ResourceResolveOptions['roots']): ResourceResolveOptions {
     return {
-        name: 'pkg-a',
-        sourcesFolder: '/src',
-        mainPackageJson: stubMainPackageJson,
+        name: 'package-a',
+        sourcesFolder: '/source',
+        mainPackageManifest: stubMainPackageManifest,
         includeSourceMapFiles: false,
         additionalFiles: [],
         roots
@@ -135,8 +135,8 @@ suite('dependency-resolution-walker', function () {
         await resolveDependenciesForAllRoots(
             { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
             optionsForRoots({
-                main: { js: '/src/index.js' },
-                other: { js: '/src/other.js' }
+                main: { javaScript: '/source/index.js' },
+                other: { javaScript: '/source/other.js' }
             }),
             []
         );
@@ -149,7 +149,7 @@ suite('dependency-resolution-walker', function () {
                 .toSorted(function (left, right) {
                     return left.localeCompare(right);
                 }),
-            [ '/src/index.js', '/src/other.js' ]
+            [ '/source/index.js', '/source/other.js' ]
         );
     });
 
@@ -157,38 +157,38 @@ suite('dependency-resolution-walker', function () {
         const { scanner, calls } = trackingScanner();
         await resolveDependenciesForAllRoots(
             { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
-            optionsForRoots({ main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } }),
+            optionsForRoots({ main: { javaScript: '/source/index.js', declarationFile: '/source/index.d.ts' } }),
             []
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/index.d.ts' ], resolveDeclarationFiles: true }
+            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/index.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 
     test('resolveDependenciesForAllRoots skips declaration companions for js dependencies in typed packages', async function () {
         const { scanner, calls } = scannerWithGraphs([
-            [ '/src/index.js', graphWithFiles('/src/index.js', [ '/src/internal.js' ]) ],
-            [ '/src/internal.d.ts', graphWithFiles('/src/internal.d.ts', []) ]
+            [ '/source/index.js', graphWithFiles('/source/index.js', [ '/source/internal.js' ]) ],
+            [ '/source/internal.d.ts', graphWithFiles('/source/internal.d.ts', []) ]
         ]);
 
         const result = await resolveDependenciesForAllRoots(
-            { dependencyScanner: scanner, fileManager: readableFiles([ '/src/internal.d.ts' ]) },
-            optionsForRoots({ main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } }),
+            { dependencyScanner: scanner, fileManager: readableFiles([ '/source/internal.d.ts' ]) },
+            optionsForRoots({ main: { javaScript: '/source/index.js', declarationFile: '/source/index.d.ts' } }),
             []
         );
         const indexFile = result.localFiles.find(function (localFile) {
-            return localFile.filePath === '/src/index.js';
+            return localFile.filePath === '/source/index.js';
         });
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/index.d.ts' ], resolveDeclarationFiles: true }
+            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/index.d.ts' ], resolveDeclarationFiles: true }
         ]);
-        assert.deepStrictEqual(indexFile?.directDependencies, new Set([ '/src/internal.js' ]));
+        assert.deepStrictEqual(indexFile?.directDependencies, new Set([ '/source/internal.js' ]));
         const internalDeclarationFile = result.localFiles.find(function (localFile) {
-            return localFile.filePath === '/src/internal.d.ts';
+            return localFile.filePath === '/source/internal.d.ts';
         });
         assert.strictEqual(internalDeclarationFile, undefined);
     });
@@ -198,70 +198,70 @@ suite('dependency-resolution-walker', function () {
         await resolveDependenciesForAllRoots(
             { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
             optionsForRoots({
-                main: { js: '/src/index.js', declarationFile: '/src/shared.d.ts' },
-                other: { js: '/src/other.js', declarationFile: '/src/shared.d.ts' }
+                main: { javaScript: '/source/index.js', declarationFile: '/source/shared.d.ts' },
+                other: { javaScript: '/source/other.js', declarationFile: '/source/shared.d.ts' }
             }),
             []
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/shared.d.ts' ], resolveDeclarationFiles: true },
-            { entries: [ '/src/other.js' ], resolveDeclarationFiles: false }
+            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/shared.d.ts' ], resolveDeclarationFiles: true },
+            { entries: [ '/source/other.js' ], resolveDeclarationFiles: false }
         ]);
     });
 
     test('resolveDependenciesForAllRoots does not scan root js declaration companions', async function () {
         const { scanner, calls } = scannerWithGraphs([
-            [ '/src/index.js', graphWithFiles('/src/index.js', []) ]
+            [ '/source/index.js', graphWithFiles('/source/index.js', []) ]
         ]);
 
         await resolveDependenciesForAllRoots(
-            { dependencyScanner: scanner, fileManager: readableFiles([ '/src/index.d.ts' ]) },
-            optionsForRoots({ main: { js: '/src/index.js', declarationFile: '/src/types.d.ts' } }),
+            { dependencyScanner: scanner, fileManager: readableFiles([ '/source/index.d.ts' ]) },
+            optionsForRoots({ main: { javaScript: '/source/index.js', declarationFile: '/source/types.d.ts' } }),
             []
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/types.d.ts' ], resolveDeclarationFiles: true }
+            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/types.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 
     test('resolveDependenciesForAllRoots skips declaration companions for js-only packages', async function () {
         const { scanner, calls } = scannerWithGraphs([
-            [ '/src/index.js', graphWithFiles('/src/index.js', [ '/src/internal.js' ]) ]
+            [ '/source/index.js', graphWithFiles('/source/index.js', [ '/source/internal.js' ]) ]
         ]);
 
         await resolveDependenciesForAllRoots(
-            { dependencyScanner: scanner, fileManager: readableFiles([ '/src/internal.d.ts' ]) },
-            optionsForRoots({ main: { js: '/src/index.js' } }),
+            { dependencyScanner: scanner, fileManager: readableFiles([ '/source/internal.d.ts' ]) },
+            optionsForRoots({ main: { javaScript: '/source/index.js' } }),
             []
         );
 
-        assert.deepStrictEqual(calls, [ { entries: [ '/src/index.js' ], resolveDeclarationFiles: false } ]);
+        assert.deepStrictEqual(calls, [ { entries: [ '/source/index.js' ], resolveDeclarationFiles: false } ]);
     });
 
     test('resolveDependenciesForAllRoots scans promoted declaration companions', async function () {
         const { scanner, calls } = scannerWithGraphs([
-            [ '/src/other.js', graphWithFiles('/src/other.js', [ '/src/internal.js' ]) ],
-            [ '/src/internal.d.ts', graphWithFiles('/src/internal.d.ts', []) ]
+            [ '/source/other.js', graphWithFiles('/source/other.js', [ '/source/internal.js' ]) ],
+            [ '/source/internal.d.ts', graphWithFiles('/source/internal.d.ts', []) ]
         ]);
 
         await resolveDependenciesForAllRoots(
-            { dependencyScanner: scanner, fileManager: readableFiles([ '/src/internal.d.ts' ]) },
+            { dependencyScanner: scanner, fileManager: readableFiles([ '/source/internal.d.ts' ]) },
             optionsForRoots({
-                main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' },
-                other: { js: '/src/other.js' }
+                main: { javaScript: '/source/index.js', declarationFile: '/source/index.d.ts' },
+                other: { javaScript: '/source/other.js' }
             }),
-            [ '/src/internal.d.ts' ]
+            [ '/source/internal.d.ts' ]
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/index.d.ts' ], resolveDeclarationFiles: true },
-            { entries: [ '/src/other.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/src/internal.d.ts' ], resolveDeclarationFiles: true }
+            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/index.d.ts' ], resolveDeclarationFiles: true },
+            { entries: [ '/source/other.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/internal.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 });

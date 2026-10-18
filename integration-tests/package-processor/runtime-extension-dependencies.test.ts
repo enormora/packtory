@@ -1,27 +1,27 @@
 import path from 'node:path';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { MainPackageJson } from '../../source/config/package-json.ts';
+import type { MainPackageManifest } from '../../source/configuration/package-manifest.ts';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import type { VersionedBundleWithManifest } from '../../source/version-manager/versioned-bundle.ts';
 
 async function buildRuntimePackage(
     rootFileName: string,
-    mainPackageJson: MainPackageJson,
+    mainPackageManifest: MainPackageManifest,
     deadCodeEliminationEnabled: boolean
 ): Promise<VersionedBundleWithManifest> {
-    const sourcesFolder = path.join(process.cwd(), 'integration-tests/fixtures/runtime-extension-dependencies/src');
+    const sourcesFolder = path.join(process.cwd(), 'integration-tests/fixtures/runtime-extension-dependencies/source');
     return packageProcessor.build({
         name: 'runtime-package',
         version: '1.0.0',
         sourcesFolder,
-        roots: { main: { js: path.join(sourcesFolder, rootFileName) } },
-        mainPackageJson,
+        roots: { main: { javaScript: path.join(sourcesFolder, rootFileName) } },
+        mainPackageManifest,
         includeSourceMapFiles: false,
         additionalFiles: [],
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {},
+        additionalPackageManifestAttributes: {},
         allowMutableSpecifiers: [],
         deadCodeElimination: { enabled: deadCodeEliminationEnabled }
     });

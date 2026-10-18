@@ -1,7 +1,7 @@
 import { unique } from 'remeda';
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import { nonEmptyStringSchema } from '../../config/base-validations.ts';
+import { nonEmptyStringSchema } from '../../configuration/base-validations.ts';
 import type { CheckRuleDefinition, RuleRunInput } from '../rule.ts';
 
 const ruleName = 'requiredFiles';
@@ -17,15 +17,15 @@ const perPackageSchema = z.strictObject({
     files: z.optional(fileListSchema)
 });
 
-type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof perPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 
 function effectiveRequiredFiles(
-    globalConfig: GlobalConfig,
-    perPackageConfig: PerPackageConfig | undefined
+    globalConfiguration: GlobalConfiguration,
+    perPackageConfiguration: PerPackageConfiguration | undefined
 ): readonly string[] {
-    return unique([ ...globalConfig.files ?? [], ...perPackageConfig?.files ?? [] ]);
+    return unique([ ...globalConfiguration.files ?? [], ...perPackageConfiguration?.files ?? [] ]);
 }
 
 function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string[]): readonly string[] {
@@ -40,14 +40,14 @@ function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string
 }
 
 async function run(input: RunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.requiredFiles;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.requiredFiles;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
 
     return input.bundles.flatMap(function (bundle) {
         const requiredFiles = effectiveRequiredFiles(
-            globalConfig,
+            globalConfiguration,
             input.perPackageSettings.get(bundle.name)?.requiredFiles
         );
         return findMissingFiles(bundle, requiredFiles).map(function (file) {
@@ -56,7 +56,7 @@ async function run(input: RunInput): Promise<readonly string[]> {
     });
 }
 
-export const requiredFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+export const requiredFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfiguration, PerPackageConfiguration> = {
     name: ruleName,
     globalSchema,
     perPackageSchema,

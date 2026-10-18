@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 suite('type-roots', function () {
@@ -12,19 +12,19 @@ suite('type-roots', function () {
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
+            sourcesFolder: path.join(fixture, 'source'),
             roots: {
                 main: {
-                    js: path.join(fixture, 'src/entry.js'),
-                    declarationFile: path.join(fixture, 'src/entry.d.ts')
+                    javaScript: path.join(fixture, 'source/entry.js'),
+                    declarationFile: path.join(fixture, 'source/entry.d.ts')
                 }
             },
-            mainPackageJson: await loadPackageJson(fixture),
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -33,7 +33,7 @@ suite('type-roots', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     dependencies: {
                         foo: '21.0.0',
                         '@types/foo': '42.0.0'
@@ -45,11 +45,11 @@ suite('type-roots', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -61,7 +61,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "import { bar } from 'foo';\nexport const foo = bar('foo');\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'source/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -73,11 +73,11 @@ suite('type-roots', function () {
                         }
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.d.ts') ]),
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.d.ts'),
+                            inputFilePath: path.join(fixture, 'source/entry.d.ts'),
                             targetFilePath: 'entry.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -89,7 +89,7 @@ suite('type-roots', function () {
                         fileDescription: {
                             content: "export type Bar = string;\nexport type { Foo } from 'foo';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.d.ts'),
+                            inputFilePath: path.join(fixture, 'source/foo.d.ts'),
                             targetFilePath: 'foo.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -109,7 +109,7 @@ suite('type-roots', function () {
                 mainFile: {
                     content: "import { foo } from './foo.js';\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -119,7 +119,7 @@ suite('type-roots', function () {
                 typesMainFile: {
                     content: "export declare const foo: import('./foo.js').Foo;\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.d.ts'),
+                    inputFilePath: path.join(fixture, 'source/entry.d.ts'),
                     targetFilePath: 'entry.d.ts'
                 },
                 version: '42.0.0'

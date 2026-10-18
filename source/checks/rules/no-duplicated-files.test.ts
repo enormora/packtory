@@ -2,9 +2,9 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { PackageChecksSettings } from '../../config/config.ts';
+import type { PackageChecksSettings } from '../../configuration/configuration.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
-import { checkBundle } from '../../test-libraries/check-fixtures.ts';
+import { emptyCheckContext, checkBundle } from '../../test-libraries/check-fixtures.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 
 const sharedFilePath = 'shared.ts';
@@ -15,7 +15,8 @@ type SymbolAwareProject = {
 type DuplicateRuleSettings = {
     readonly noDuplicatedFiles: { readonly enabled: boolean; readonly allowList?: readonly string[]; };
 };
-type DuplicateRuleRunArgs = {
+type DuplicateRuleRunArguments = {
+    readonly sourceFolders: ReadonlyMap<string, string>;
     readonly bundles: readonly AnalyzedBundle[];
     readonly settings: DuplicateRuleSettings | undefined;
     readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings>;
@@ -75,7 +76,7 @@ function consentMap(
     );
 }
 
-async function runRule(input: DuplicateRuleRunArgs): Promise<readonly string[]> {
+async function runRule(input: DuplicateRuleRunArguments): Promise<readonly string[]> {
     return await noDuplicatedFilesRule.run(input);
 }
 
@@ -86,6 +87,7 @@ async function runWithConsent(
     return await runRule({
         bundles,
         settings: { noDuplicatedFiles: { enabled: true } },
+        sourceFolders: new Map(),
         perPackageSettings: consentMap(consenters)
     });
 }
@@ -94,6 +96,7 @@ async function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): 
     return await runRule({
         bundles: [ bundle('a'), bundle('b') ],
         settings: { noDuplicatedFiles: { enabled: true } },
+        sourceFolders: new Map(),
         perPackageSettings: new Map([
             [ 'a', { noDuplicatedFiles: { allowList: [ sharedFilePath ] } } ],
             [ 'b', secondOwnerSettings ]
@@ -125,14 +128,14 @@ suite('no-duplicated-files', function () {
             {
                 name: 'returns no issues when settings are missing entirely',
                 settings: undefined,
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 bundles: [ bundle('a'), bundle('b') ],
                 expected: []
             },
             {
                 name: 'returns no issues when the rule is disabled at the top level',
                 settings: { noDuplicatedFiles: { enabled: false } },
-                perPackageSettings: new Map(),
+                ...emptyCheckContext(),
                 bundles: [ bundle('a'), bundle('b') ],
                 expected: []
             }
@@ -250,7 +253,7 @@ suite('no-duplicated-files', function () {
                     const result = await runRule({
                         bundles: [ bundle('a'), bundle('b') ],
                         settings: scenario.settings,
-                        perPackageSettings: new Map()
+                        ...emptyCheckContext()
                     });
                     assert.deepStrictEqual(result, scenario.expected);
                 }
@@ -317,7 +320,7 @@ suite('no-duplicated-files', function () {
                     const result = await runRule({
                         bundles: scenario.bundles,
                         settings: scenario.settings,
-                        perPackageSettings: new Map()
+                        ...emptyCheckContext()
                     });
                     assert.deepStrictEqual(result, scenario.expected);
                 }
@@ -329,7 +332,7 @@ suite('no-duplicated-files', function () {
         const result = await runRule({
             bundles: [ bundle('a') ],
             settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -339,7 +342,7 @@ suite('no-duplicated-files', function () {
         const result = await runRule({
             bundles: [ bundle('a'), bundle('b') ],
             settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, duplicateIssue(sharedFilePath, [ 'a', 'b' ]));

@@ -1,11 +1,11 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type CallExpression,
     type Expression,
     type NewExpression
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
@@ -49,24 +49,24 @@ type ExpressionFactContext = {
 };
 
 function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver): boolean {
-    if (TsMorphNode.isOmittedExpression(element)) {
+    if (TypeScriptMorphNode.isOmittedExpression(element)) {
         return true;
     }
-    if (TsMorphNode.isSpreadElement(element)) {
+    if (TypeScriptMorphNode.isSpreadElement(element)) {
         return expressionFactIsPure(factFor(element.getExpression()));
     }
     return expressionFactIsPure(factFor(element));
 }
 
-function computedPropertyNameExpression(property: TsMorphNode): Expression | undefined {
+function computedPropertyNameExpression(property: TypeScriptMorphNode): Expression | undefined {
     if (
-        TsMorphNode.isPropertyAssignment(property) ||
-        TsMorphNode.isMethodDeclaration(property) ||
-        TsMorphNode.isGetAccessorDeclaration(property) ||
-        TsMorphNode.isSetAccessorDeclaration(property)
+        TypeScriptMorphNode.isPropertyAssignment(property) ||
+        TypeScriptMorphNode.isMethodDeclaration(property) ||
+        TypeScriptMorphNode.isGetAccessorDeclaration(property) ||
+        TypeScriptMorphNode.isSetAccessorDeclaration(property)
     ) {
         const name = property.getNameNode();
-        if (TsMorphNode.isComputedPropertyName(name)) {
+        if (TypeScriptMorphNode.isComputedPropertyName(name)) {
             return name.getExpression();
         }
     }
@@ -74,7 +74,7 @@ function computedPropertyNameExpression(property: TsMorphNode): Expression | und
 }
 
 function propertyAssignmentCreationIsPure(
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     factFor: ExpressionFactResolver
 ): boolean {
     const computedNameExpression = computedPropertyNameExpression(property);
@@ -84,31 +84,31 @@ function propertyAssignmentCreationIsPure(
     ) {
         return false;
     }
-    if (TsMorphNode.isPropertyAssignment(property)) {
+    if (TypeScriptMorphNode.isPropertyAssignment(property)) {
         return expressionFactIsPure(factFor(property.getInitializerOrThrow()));
     }
-    if (TsMorphNode.isSpreadAssignment(property)) {
+    if (TypeScriptMorphNode.isSpreadAssignment(property)) {
         return expressionFactIsPure(factFor(property.getExpression()));
     }
     return inherentlyPurePropertyKinds.has(property.getKind());
 }
 
 function spreadAssignmentSourceIsSafe(
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     factFor: ExpressionFactResolver
 ): boolean {
-    if (TsMorphNode.isSpreadAssignment(property)) {
+    if (TypeScriptMorphNode.isSpreadAssignment(property)) {
         return factFor(property.getExpression()).type === 'pure-object';
     }
     return true;
 }
 
 function createdObjectPropertyIsSafeToSpread(
-    property: TsMorphNode,
+    property: TypeScriptMorphNode,
     factFor: ExpressionFactResolver
 ): boolean {
-    return !TsMorphNode.isGetAccessorDeclaration(property) &&
-        !TsMorphNode.isSetAccessorDeclaration(property) &&
+    return !TypeScriptMorphNode.isGetAccessorDeclaration(property) &&
+        !TypeScriptMorphNode.isSetAccessorDeclaration(property) &&
         spreadAssignmentSourceIsSafe(property, factFor);
 }
 
@@ -117,7 +117,7 @@ function isPureBuiltinCallExpression(
     expression: CallExpression,
     factFor: ExpressionFactResolver
 ): boolean {
-    return TsMorphNode.isIdentifier(callTarget) && callTarget.getText() === 'Symbol'
+    return TypeScriptMorphNode.isIdentifier(callTarget) && callTarget.getText() === 'Symbol'
         ? arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor))
         : false;
 }
@@ -154,9 +154,9 @@ function originForCallTarget(
     settings: DeadCodeEliminationSettings | undefined
 ): ImportedExpressionOrigin | undefined {
     const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
+    if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)) {
         const base = unwrapped.getExpression();
-        const baseOrigin = TsMorphNode.isPropertyAccessExpression(unwrapExpression(base))
+        const baseOrigin = TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(base))
             ? originForCallTarget(base, factFor, settings)
             : resolveImportedExpressionPropertyPath(base) ?? originForExpressionFact(base, factFor);
         return appendOriginPath(baseOrigin, unwrapped.getName());
@@ -235,7 +235,7 @@ function constructorNameIsTrusted(
     constructorExpression: Expression,
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
-    return TsMorphNode.isIdentifier(constructorExpression) &&
+    return TypeScriptMorphNode.isIdentifier(constructorExpression) &&
         settings?.pureConstructors?.includes(constructorExpression.getText()) === true;
 }
 
@@ -285,7 +285,7 @@ function objectLiteralExpressionFact(
         return unknownFact;
     }
     const hasSpread = properties.some(function (property) {
-        return TsMorphNode.isSpreadAssignment(property);
+        return TypeScriptMorphNode.isSpreadAssignment(property);
     });
     const spreadSourcesAreSafe = properties.every(function (property) {
         return spreadAssignmentSourceIsSafe(property, factFor);
@@ -382,7 +382,7 @@ function calculateExpressionFact(
     factFor: ExpressionFactResolver
 ): ExpressionFact {
     const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
+    if (TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return identifierReadFact(unwrapped, factFor, context.settings);
     }
     if (pureLeafKinds.has(unwrapped.getKind())) {

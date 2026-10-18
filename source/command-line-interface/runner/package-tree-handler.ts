@@ -1,13 +1,13 @@
 import {
     checksErrorType,
-    configErrorType,
+    configurationErrorType,
     packPackageFailureType,
     partialFailureType,
     type PackageTreeFailure
 } from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { renderTerminalPackageTree } from '../../report/terminal-renderer/terminal-package-tree-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
@@ -18,20 +18,20 @@ type PackageTreeFlags = {
     readonly trace: boolean;
 };
 type CheckPackageTreeFailure = Extract<PackageTreeFailure, { readonly type: typeof checksErrorType; }>;
-type ConfigPackageTreeFailure = Extract<PackageTreeFailure, { readonly type: typeof configErrorType; }>;
-type IssuePackageTreeFailure = CheckPackageTreeFailure | ConfigPackageTreeFailure;
+type ConfigurationPackageTreeFailure = Extract<PackageTreeFailure, { readonly type: typeof configurationErrorType; }>;
+type IssuePackageTreeFailure = CheckPackageTreeFailure | ConfigurationPackageTreeFailure;
 type NamedPackageTreeFailure = Extract<PackageTreeFailure, { readonly packageName: string; }>;
 
 export type PackageTreeHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
-    readonly configLoader: ConfigLoader;
+    readonly configurationLoader: ConfigurationLoader;
     readonly flags: PackageTreeFlags;
 };
 
 const issueTitleByType = {
-    [configErrorType]: 'Configuration issues',
+    [configurationErrorType]: 'Configuration issues',
     [checksErrorType]: 'Check failures'
 } as const;
 
@@ -70,7 +70,7 @@ function hasPackageName(error: PackageTreeFailure): error is NamedPackageTreeFai
 }
 
 function formatPackageTreeFailure(error: PackageTreeFailure, trace: boolean): string {
-    if (error.type === configErrorType || error.type === checksErrorType) {
+    if (error.type === configurationErrorType || error.type === checksErrorType) {
         return formatIssueFailure(error);
     }
 
@@ -90,8 +90,8 @@ function formatPackageTreeFailure(error: PackageTreeFailure, trace: boolean): st
 }
 
 async function inspectPackageTree(dependencies: PackageTreeHandlerDependencies): Promise<number> {
-    const { configLoader, flags, log, packtory, spinnerRenderer } = dependencies;
-    const outcome = await packtory.inspectPackageTree(await configLoader.load(), flags.packageName);
+    const { configurationLoader, flags, log, packtory, spinnerRenderer } = dependencies;
+    const outcome = await packtory.inspectPackageTree(await configurationLoader.load(), flags.packageName);
     spinnerRenderer.stopAll();
 
     if (outcome.result.isErr) {

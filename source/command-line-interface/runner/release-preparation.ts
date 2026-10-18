@@ -1,11 +1,15 @@
-import type { PrLogConfig, PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
+import type {
+    PullRequestLogConfiguration,
+    PullRequestLogEngine,
+    PullRequestLogEngineOptions
+} from '../../changelog/pull-request-log.ts';
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs, type GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import {
     collectChangelogSourceFileRoots,
     collectGeneratedAttributionPaths,
     createChangelogGenerationOptions,
-    parseValidConfig,
+    parseValidConfiguration,
     buildConfiguredChangelogFiles,
     type WrittenChangelogFile
 } from './changelog-destinations.ts';
@@ -14,19 +18,19 @@ import { printReleasePlanFailure } from './release-plan-result-printing.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
-type ValidChangelogConfig = NonNullable<ReturnType<typeof parseValidConfig>>;
+type ValidChangelogConfiguration = NonNullable<ReturnType<typeof parseValidConfiguration>>;
 
 export type ReleaseChangelog = {
     readonly changelog: GeneratedChangelog;
-    readonly config: ValidChangelogConfig;
-    readonly engine: PrLogEngine;
+    readonly configuration: ValidChangelogConfiguration;
+    readonly engine: PullRequestLogEngine;
 };
 export type PlannedRelease = {
-    readonly config: unknown;
+    readonly configuration: unknown;
     readonly packages: readonly ReleasePlanPackage[];
 };
 export type ReleasePreparationDependencies = {
-    readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
+    readonly createPullRequestLogEngine: (options: Readonly<PullRequestLogEngineOptions>) => PullRequestLogEngine;
     readonly currentDate: () => Date;
     readonly fileManager: {
         readonly readFile: (filePath: string) => Promise<string>;
@@ -34,9 +38,9 @@ export type ReleasePreparationDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
+    readonly readPackageInformation: () => Promise<Readonly<Record<string, unknown>>>;
     readonly spinnerRenderer: { readonly stopAll: () => void; };
-    readonly configLoader: { readonly load: () => Promise<unknown>; };
+    readonly configurationLoader: { readonly load: () => Promise<unknown>; };
     readonly trace: boolean;
     readonly workingDirectory: string;
 };
@@ -47,19 +51,22 @@ function readGitHubToken(
     return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(dependencies: ReleasePreparationDependencies, config: PrLogConfig): PrLogEngine {
-    return dependencies.createPrLogEngine({
+function createEngine(
+    dependencies: ReleasePreparationDependencies,
+    configuration: PullRequestLogConfiguration
+): PullRequestLogEngine {
+    return dependencies.createPullRequestLogEngine({
         githubToken: readGitHubToken(dependencies),
         workingDirectory: dependencies.workingDirectory,
-        config
+        configuration
     });
 }
 
 async function planRelease(
     dependencies: ReleasePreparationDependencies,
-    config: unknown
+    configuration: unknown
 ): Promise<readonly ReleasePlanPackage[] | undefined> {
-    const outcome = await dependencies.packtory.planReleaseAgainstLatestPublished(config);
+    const outcome = await dependencies.packtory.planReleaseAgainstLatestPublished(configuration);
     dependencies.spinnerRenderer.stopAll();
     if (outcome.result.isErr) {
         printReleasePlanFailure(dependencies.log, outcome.result.error, dependencies.trace);
@@ -71,51 +78,51 @@ async function planRelease(
 export async function loadPlannedRelease(
     dependencies: ReleasePreparationDependencies
 ): Promise<PlannedRelease | undefined> {
-    const config = await dependencies.configLoader.load();
-    const packages = await planRelease(dependencies, config);
+    const configuration = await dependencies.configurationLoader.load();
+    const packages = await planRelease(dependencies, configuration);
     if (packages === undefined) {
         return undefined;
     }
-    return { config, packages };
+    return { configuration, packages };
 }
 
-function parseRequiredChangelogConfig(config: unknown): ValidChangelogConfig {
-    const validConfig = parseValidConfig(config);
-    if (validConfig === undefined) {
+function parseRequiredChangelogConfiguration(configuration: unknown): ValidChangelogConfiguration {
+    const validConfiguration = parseValidConfiguration(configuration);
+    if (validConfiguration === undefined) {
         throw new Error('The loaded config is invalid for changelog generation');
     }
-    return validConfig;
+    return validConfiguration;
 }
 
 async function generateReleaseChangelog(
     dependencies: ReleasePreparationDependencies,
-    config: ValidChangelogConfig,
+    configuration: ValidChangelogConfiguration,
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
-    const packageInfo = await dependencies.readPackageInfo();
-    const generationOptions = createChangelogGenerationOptions(config);
-    const engine = createEngine(dependencies, generationOptions.prLogConfig);
+    const packageInformation = await dependencies.readPackageInformation();
+    const generationOptions = createChangelogGenerationOptions(configuration);
+    const engine = createEngine(dependencies, generationOptions.pullRequestLogConfiguration);
     const changelog = await generateChangelogOutputs({
         packages,
-        prLogEngine: engine,
-        changelogSourceFileRootsByPackageName: collectChangelogSourceFileRoots(dependencies, config),
-        explicitBaseRef: generationOptions.explicitBaseRef,
-        githubRepo: formatGitHubRepositoryName(packageInfo),
-        ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, config),
+        pullRequestLogEngine: engine,
+        changelogSourceFileRootsByPackageName: collectChangelogSourceFileRoots(dependencies, configuration),
+        explicitBaseReference: generationOptions.explicitBaseReference,
+        githubRepository: formatGitHubRepositoryName(packageInformation),
+        ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, configuration),
         currentDate: dependencies.currentDate(),
         packageTagFormat: generationOptions.packageTagFormat,
-        prLogConfig: generationOptions.prLogConfig,
+        pullRequestLogConfiguration: generationOptions.pullRequestLogConfiguration,
         targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
     });
-    return { changelog, config, engine };
+    return { changelog, configuration, engine };
 }
 
 export async function generateRequiredChangelog(
     dependencies: ReleasePreparationDependencies,
-    config: unknown,
+    configuration: unknown,
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
-    return generateReleaseChangelog(dependencies, parseRequiredChangelogConfig(config), packages);
+    return generateReleaseChangelog(dependencies, parseRequiredChangelogConfiguration(configuration), packages);
 }
 
 function formatEmptyChangelogMessage(changelog: GeneratedChangelog): string {
@@ -156,11 +163,11 @@ export async function prepareReleaseChangelogs(
     readonly writtenFiles: readonly WrittenChangelogFile[];
     readonly writtenPaths: readonly string[];
 }> {
-    const validConfig = parseRequiredChangelogConfig(planned.config);
-    const changelog = await generateReleaseChangelog(dependencies, validConfig, planned.packages);
+    const validConfiguration = parseRequiredChangelogConfiguration(planned.configuration);
+    const changelog = await generateReleaseChangelog(dependencies, validConfiguration, planned.packages);
     const writtenFiles = await buildConfiguredChangelogFiles(
         dependencies,
-        changelog.config,
+        changelog.configuration,
         changelog.engine,
         changelog.changelog
     );

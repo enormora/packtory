@@ -1,7 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
-import { packageConfigFixture, validConfigWithoutRegistryFixture } from '../../test-libraries/config-fixtures.ts';
+import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
+import {
+    packageConfigurationFixture,
+    validConfigurationWithoutRegistryFixture
+} from '../../test-libraries/configuration-fixtures.ts';
 import { resolveDeadCodeEliminationByName } from './dead-code-elimination-resolution.ts';
 
 type PackageInput = {
@@ -16,11 +19,11 @@ type CommonInput = {
 function validated(
     packages: readonly PackageInput[],
     common?: CommonInput
-): ValidConfigWithoutRegistryResult {
-    return validConfigWithoutRegistryFixture({
+): ValidConfigurationWithoutRegistryResult {
+    return validConfigurationWithoutRegistryFixture({
         commonPackageSettings: common === undefined ? undefined : { deadCodeElimination: common },
         packages: packages.map(function (packageEntry) {
-            return packageConfigFixture({
+            return packageConfigurationFixture({
                 name: packageEntry.name,
                 deadCodeElimination: packageEntry.enabled === undefined ? undefined : { enabled: packageEntry.enabled }
             });
@@ -30,22 +33,22 @@ function validated(
 
 suite('dead-code-elimination-resolution', function () {
     test('resolveDeadCodeEliminationByName produces one entry per declared package', function () {
-        const map = resolveDeadCodeEliminationByName(validated([ { name: 'pkg-a' }, { name: 'pkg-b' } ]));
-        assert.deepStrictEqual(Array.from(map.keys()), [ 'pkg-a', 'pkg-b' ]);
+        const map = resolveDeadCodeEliminationByName(validated([ { name: 'package-a' }, { name: 'package-b' } ]));
+        assert.deepStrictEqual(Array.from(map.keys()), [ 'package-a', 'package-b' ]);
     });
 
     test('resolveDeadCodeEliminationByName uses the package-level enabled flag when one is provided', function () {
-        const map = resolveDeadCodeEliminationByName(validated([ { name: 'pkg-a', enabled: false } ]));
-        assert.strictEqual(map.get('pkg-a')?.enabled, false);
+        const map = resolveDeadCodeEliminationByName(validated([ { name: 'package-a', enabled: false } ]));
+        assert.strictEqual(map.get('package-a')?.enabled, false);
     });
 
     test('resolveDeadCodeEliminationByName falls back to the common enabled flag when the package has no override', function () {
-        const map = resolveDeadCodeEliminationByName(validated([ { name: 'pkg-a' } ], { enabled: false }));
-        assert.strictEqual(map.get('pkg-a')?.enabled, false);
+        const map = resolveDeadCodeEliminationByName(validated([ { name: 'package-a' } ], { enabled: false }));
+        assert.strictEqual(map.get('package-a')?.enabled, false);
     });
 
     test('resolveDeadCodeEliminationByName returns undefined when neither the package nor the common settings define the setting', function () {
-        const map = resolveDeadCodeEliminationByName(validated([ { name: 'pkg-a' } ]));
-        assert.strictEqual(map.get('pkg-a'), undefined);
+        const map = resolveDeadCodeEliminationByName(validated([ { name: 'package-a' } ]));
+        assert.strictEqual(map.get('package-a'), undefined);
     });
 });

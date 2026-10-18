@@ -7,7 +7,7 @@ const canarySchema = z.readonly(z.strictObject({
     installCommand: z.string().check(z.minLength(1)),
     name: z.string().check(z.minLength(1)),
     publishCommand: z.string().check(z.minLength(1)),
-    ref: z.string().check(z.minLength(1)),
+    reference: z.string().check(z.minLength(1)),
     repository: z.string().check(z.minLength(1))
 }));
 

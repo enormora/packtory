@@ -102,11 +102,11 @@ export function createDependencyGraph(): DependencyGraph {
         walk(startFilePath, visitor) {
             graph.visitBreadthFirstSearch(startFilePath, function (node) {
                 visitor({
-                    filePath: node.id,
+                    filePath: node.identifier,
                     sourceMapFilePath: node.data.sourceMapFilePath,
                     externalDependencies: node.data.externalDependencies,
                     moduleReferences: node.data.moduleReferences,
-                    localFiles: Array.from(node.adjacentNodeIds),
+                    localFiles: Array.from(node.adjacentNodeIdentifiers),
                     project: node.data.project,
                     ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                 });
@@ -118,14 +118,14 @@ export function createDependencyGraph(): DependencyGraph {
             const externalDependencies = new Map<string, ExternalDependency>();
 
             graph.visitBreadthFirstSearch(startFilePath, function (node) {
-                const directDependencies = new Set(graph.getAdjacentIds(node.id));
+                const directDependencies = new Set(graph.getAdjacentIdentifiers(node.identifier));
                 const sourceMapFile = sourceMapLocalFile(node.data.sourceMapFilePath, node.data.project);
                 if (sourceMapFile !== undefined) {
                     directDependencies.add(sourceMapFile.filePath);
                     localFiles.set(sourceMapFile.filePath, sourceMapFile);
                 }
-                localFiles.set(node.id, {
-                    filePath: node.id,
+                localFiles.set(node.identifier, {
+                    filePath: node.identifier,
                     directDependencies,
                     moduleReferences: node.data.moduleReferences,
                     project: node.data.project?.getProject(),
@@ -135,7 +135,7 @@ export function createDependencyGraph(): DependencyGraph {
                     const externalDependency = externalDependencies.get(dependencyReference.name);
                     externalDependencies.set(
                         dependencyReference.name,
-                        mergeExternalDependencyReference(dependencyReference, node.id, externalDependency)
+                        mergeExternalDependencyReference(dependencyReference, node.identifier, externalDependency)
                     );
                 }
             });

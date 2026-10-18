@@ -14,7 +14,7 @@ import {
 import type { BuildAndPublishResult } from './package-processor.ts';
 
 type AutomaticBumpOverrides = {
-    readonly generateSbom?: SinonSpy;
+    readonly generateSoftwareBillOfMaterials?: SinonSpy;
     readonly publish?: SinonSpy;
     readonly smokePublishedArtifact?: SinonSpy;
     readonly verifyBundlePublishTarget: SinonSpy;
@@ -39,7 +39,9 @@ function createAutomaticBumpProcessor(overrides: AutomaticBumpOverrides): Automa
         determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
         addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
         increaseVersion: fake.returns(rebuiltBundle),
-        ...overrides.generateSbom === undefined ? {} : { generateSbom: overrides.generateSbom },
+        ...overrides.generateSoftwareBillOfMaterials === undefined
+            ? {}
+            : { generateSoftwareBillOfMaterials: overrides.generateSoftwareBillOfMaterials },
         verifyBundlePublishTarget: overrides.verifyBundlePublishTarget,
         ...overrides.smokePublishedArtifact === undefined
             ? {}
@@ -74,7 +76,7 @@ suite('package-processor publish target preflight', function () {
         assert.deepStrictEqual(verifyBundlePublishTarget.firstCall.args, [
             {
                 bundle: rebuiltBundle,
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
             }
         ]);
         assert.strictEqual(publish.callCount, 0);
@@ -200,13 +202,16 @@ suite('package-processor publish target preflight', function () {
     });
 
     test('tryBuildAndPublish() passes generated extra files to exact target checks', async function () {
-        const sbomFile = createTransferableFile('/sbom.cdx.json', 'sbom.cdx.json');
+        const softwareBillOfMaterialsFile = createTransferableFile(
+            '/software-bill-of-materials.cyclonedx.json',
+            'software-bill-of-materials.cyclonedx.json'
+        );
         const verifyBundlePublishTarget = fake.resolves({
             alreadyPublished: false,
             publishedArtifacts: Maybe.nothing()
         });
         const { processor, rebuiltBundle } = createAutomaticBumpProcessor({
-            generateSbom: fake.resolves([ sbomFile ]),
+            generateSoftwareBillOfMaterials: fake.resolves([ softwareBillOfMaterialsFile ]),
             verifyBundlePublishTarget
         });
 
@@ -214,7 +219,7 @@ suite('package-processor publish target preflight', function () {
             analyzedBundle: createAnalyzedBundle(),
             buildOptions: {
                 ...createBuildAndPublishOptions(),
-                publishSettings: { access: 'public', sbom: { enabled: true } }
+                publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: true } }
             },
             stage: false
         });
@@ -222,8 +227,8 @@ suite('package-processor publish target preflight', function () {
         assert.deepStrictEqual(verifyBundlePublishTarget.firstCall.args, [
             {
                 bundle: rebuiltBundle,
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                extraFiles: [ sbomFile ]
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
+                extraFiles: [ softwareBillOfMaterialsFile ]
             }
         ]);
     });

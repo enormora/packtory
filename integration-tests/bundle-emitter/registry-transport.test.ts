@@ -6,7 +6,7 @@ import npmFetch from 'npm-registry-fetch';
 import { suite, test } from 'mocha';
 import { createClock } from '../../source/common/clock.ts';
 import {
-    createRegistryJsonFetch,
+    createRegistryJavaScriptObjectNotationFetch,
     withRegistryTransport
 } from '../../source/bundle-emitter/registry/registry-transport.ts';
 import { withRegistryServer } from './registry-server-test-support.ts';
@@ -60,9 +60,12 @@ suite('registry transport', function () {
                 response.writeHead(302, { location: destination });
                 response.end();
             }, async function (registry) {
-                const transport = createRegistryJsonFetch({ ...dependencies, npmFetch });
+                const transport = createRegistryJavaScriptObjectNotationFetch({ ...dependencies, npmFetch });
                 await assert.rejects(
-                    transport.json('/package', { registry, forceAuth: { token: 'audit-sentinel' } }),
+                    transport.javaScriptObjectNotation('/package', {
+                        registry,
+                        forceAuth: { token: 'audit-sentinel' }
+                    }),
                     /differs from the configured registry origin/u
                 );
             });
@@ -81,9 +84,12 @@ suite('registry transport', function () {
             }
             response.end('{"name":"test-package"}');
         }, async function (registry) {
-            const transport = createRegistryJsonFetch({ ...dependencies, npmFetch });
+            const transport = createRegistryJavaScriptObjectNotationFetch({ ...dependencies, npmFetch });
             assert.deepStrictEqual(
-                await transport.json('/package', { registry, forceAuth: { token: 'audit-sentinel' } }),
+                await transport.javaScriptObjectNotation('/package', {
+                    registry,
+                    forceAuth: { token: 'audit-sentinel' }
+                }),
                 { name: 'test-package' }
             );
         });
@@ -96,8 +102,11 @@ suite('registry transport', function () {
             response.writeHead(200, { 'content-encoding': 'gzip' });
             response.end(body);
         }, async function (registry) {
-            const transport = createRegistryJsonFetch({ ...dependencies, npmFetch });
-            await assert.rejects(transport.json('/package', { registry }), /Registry metadata exceeds/u);
+            const transport = createRegistryJavaScriptObjectNotationFetch({ ...dependencies, npmFetch });
+            await assert.rejects(
+                transport.javaScriptObjectNotation('/package', { registry }),
+                /Registry metadata exceeds/u
+            );
         });
     });
 });

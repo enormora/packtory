@@ -1,9 +1,9 @@
 import semver from 'semver';
 import { packageManifestFilePath } from '../common/package-layout.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import { inspectPackageJsonProvenance } from '../report/inspectors/inspect-package-json-provenance.ts';
+import { inspectPackageManifestProvenance } from '../report/inspectors/inspect-package-manifest-provenance.ts';
 import { buildPackageManifest } from './manifest/builder.ts';
-import { serializePackageJson } from './manifest/serialize.ts';
+import { serializePackageManifest } from './manifest/serialize.ts';
 import {
     buildVersionedBundle,
     type BuildVersionedBundleOptions,
@@ -22,13 +22,13 @@ export type VersionManager = {
 
 function toVersionedBundleWithManifest(versionedBundle: VersionedBundle): VersionedBundleWithManifest {
     const manifest = buildPackageManifest(versionedBundle);
-    const packageJsonContent = serializePackageJson(manifest);
+    const packageManifestContent = serializePackageManifest(manifest);
 
     return {
         ...versionedBundle,
-        packageJson: manifest,
+        packageManifest: manifest,
         manifestFile: {
-            content: packageJsonContent,
+            content: packageManifestContent,
             isExecutable: false,
             filePath: packageManifestFilePath
         }
@@ -43,13 +43,13 @@ export function createVersionManager(dependencies: VersionManagerDependencies): 
             const versionedBundle = buildVersionedBundle(options);
             const materializedBundle = toVersionedBundleWithManifest(versionedBundle);
 
-            if (progressBroadcaster.hasSubscribers('packageJsonAssembled')) {
-                progressBroadcaster.emit('packageJsonAssembled', {
+            if (progressBroadcaster.hasSubscribers('packageManifestAssembled')) {
+                progressBroadcaster.emit('packageManifestAssembled', {
                     packageName: materializedBundle.name,
-                    fields: inspectPackageJsonProvenance(
-                        materializedBundle.packageJson as Readonly<Record<string, unknown>>,
-                        options.mainPackageJson as Readonly<Record<string, unknown>>,
-                        options.additionalPackageJsonAttributes as Readonly<Record<string, unknown>> | undefined
+                    fields: inspectPackageManifestProvenance(
+                        materializedBundle.packageManifest as Readonly<Record<string, unknown>>,
+                        options.mainPackageManifest as Readonly<Record<string, unknown>>,
+                        options.additionalPackageManifestAttributes as Readonly<Record<string, unknown>> | undefined
                     )
                 });
             }

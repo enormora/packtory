@@ -17,8 +17,8 @@ suite('registry destination policy', function () {
     ) {
         test(`rejects ${destination} before resolving its proxy`, async function () {
             const proxyRequests: string[] = [];
-            const agent = createRegistryAgent('https://registry.test/', function (url) {
-                proxyRequests.push(url);
+            const agent = createRegistryAgent('https://registry.test/', function (address) {
+                proxyRequests.push(address);
                 return 'https://proxy.test';
             });
             try {
@@ -34,8 +34,8 @@ suite('registry destination policy', function () {
 
     test('normalizes the default port and resolves the proxy for the full request URL', function () {
         const proxyRequests: string[] = [];
-        const agent = createRegistryAgent('https://registry.test:443/base/', function (url) {
-            proxyRequests.push(url);
+        const agent = createRegistryAgent('https://registry.test:443/base/', function (address) {
+            proxyRequests.push(address);
             return 'https://proxy.test';
         });
         try {

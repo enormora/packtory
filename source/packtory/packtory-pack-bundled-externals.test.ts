@@ -7,7 +7,7 @@ import {
     baseOptions,
     createDependencies,
     makeResolvedPackage,
-    validatedConfig
+    validatedConfiguration
 } from '../test-libraries/packtory-pack-test-support.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { createRunPackValidated } from './packtory-pack.ts';
@@ -22,15 +22,15 @@ const scenarios: readonly VendorClosureScenario[] = [
     {
         description: 'vendors deduplicated externals from the complete bundled dependency tree',
         packages: [
-            makeResolvedPackage({ bundleDependencyNames: [ 'pkg-b' ], externalDependencyNames: [ 'direct' ] }),
+            makeResolvedPackage({ bundleDependencyNames: [ 'package-b' ], externalDependencyNames: [ 'direct' ] }),
             makeResolvedPackage({
-                name: 'pkg-b',
-                bundleDependencyNames: [ 'pkg-d' ],
+                name: 'package-b',
+                bundleDependencyNames: [ 'package-d' ],
                 externalDependencyNames: [ 'direct', 'middle' ]
             }),
             makeResolvedPackage({
-                name: 'pkg-d',
-                bundleDependencyNames: [ 'pkg-b' ],
+                name: 'package-d',
+                bundleDependencyNames: [ 'package-b' ],
                 externalDependencyNames: [ 'leaf' ]
             }),
             makeResolvedPackage({ name: 'unbundled', externalDependencyNames: [ 'unused' ] })
@@ -41,11 +41,11 @@ const scenarios: readonly VendorClosureScenario[] = [
         description: 'preserves each bundled package source folder for installed dependency resolution',
         packages: [
             makeResolvedPackage({
-                bundleDependencyNames: [ 'pkg-b' ],
+                bundleDependencyNames: [ 'package-b' ],
                 externalDependencyNames: [ 'direct' ],
                 sourcesFolder: '/repo/a'
             }),
-            makeResolvedPackage({ name: 'pkg-b', externalDependencyNames: [ 'leaf' ], sourcesFolder: '/repo/b' })
+            makeResolvedPackage({ name: 'package-b', externalDependencyNames: [ 'leaf' ], sourcesFolder: '/repo/b' })
         ],
         dependencySources: [
             { initialDependencyNames: [ 'direct' ], projectFolder: '/repo/a' },
@@ -65,7 +65,7 @@ suite('packtory-pack bundled externals', function () {
                 resolveResult: Result.ok(scenario.packages)
             });
             const result = await createRunPackValidated(dependencies)(
-                validatedConfig,
+                validatedConfiguration,
                 { ...baseOptions, vendorDependencies: true },
                 fakes.resolveAndLinkAll
             );

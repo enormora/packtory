@@ -5,20 +5,23 @@ import type { AnalyzedBundle } from '../../source/dead-code-eliminator/analyzed-
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import {
-    deadCodeEliminationAssertionSha256,
+    deadCodeEliminationAssertionHash256,
     deadCodeEliminationFixtureFilePaths,
-    deadCodeEliminationFixtureSha256,
+    deadCodeEliminationFixtureHash256,
     type DeadCodeEliminationArtifactBundleContentCase,
     type DeadCodeEliminationContentAssertion,
-    type DeadCodeEliminationConsumerProducerApiCase,
+    type DeadCodeEliminationConsumerProducerApplicationProgrammingInterfaceCase,
     type DeadCodeEliminationRegressionCase,
     type DeadCodeEliminationTextAssertion,
     eliminateDeadCodeEliminationArtifactBundle,
     type SourceMapSourcesAssertion,
     readDeadCodeEliminationRegressionCases
 } from '../../source/test-libraries/dead-code-elimination-regression-locks.ts';
-import { loadPackageJson } from '../load-package-json.ts';
-import { importEmittedPackageEntry, runEmittedPackageApi } from './emitted-package-probe.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
+import {
+    importEmittedPackageEntry,
+    runEmittedPackageApplicationProgrammingInterface
+} from './emitted-package-probe.ts';
 
 const regressionManifestPath = path.join(
     process.cwd(),
@@ -30,22 +33,22 @@ type ResolvedPackage = ResolvedPackages[number];
 
 const fixtureRootPath = path.join(process.cwd(), 'integration-tests/fixtures');
 
-async function consumerProducerConfig(fixturePath: string): Promise<unknown> {
+async function consumerProducerConfiguration(fixturePath: string): Promise<unknown> {
     return {
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
+            sourcesFolder: path.join(fixturePath, 'source'),
+            mainPackageManifest: await loadPackageManifest(fixturePath),
             publishSettings: { access: 'public' }
         },
         packages: [
             {
-                name: 'pkg-consumer',
-                roots: { main: { js: path.join(fixturePath, 'src/pkg-consumer/index.js') } },
-                bundleDependencies: [ 'pkg-producer' ]
+                name: 'package-consumer',
+                roots: { main: { javaScript: path.join(fixturePath, 'source/package-consumer/index.js') } },
+                bundleDependencies: [ 'package-producer' ]
             },
             {
-                name: 'pkg-producer',
-                roots: { main: { js: path.join(fixturePath, 'src/pkg-producer/index.js') } }
+                name: 'package-producer',
+                roots: { main: { javaScript: path.join(fixturePath, 'source/package-producer/index.js') } }
             }
         ]
     };
@@ -70,14 +73,14 @@ function findPackage(packages: readonly ResolvedPackage[], name: string): Resolv
 
 function findAnalyzedResource(
     analyzedBundle: AnalyzedBundle,
-    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'id'>,
+    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'identifier'>,
     targetFilePath: string
 ): AnalyzedBundle['contents'][number] {
     const match = analyzedBundle.contents.find(function (resource) {
         return resource.fileDescription.targetFilePath === targetFilePath;
     });
     if (match === undefined) {
-        assert.fail(`${regressionCase.id}: expected to find target file "${targetFilePath}"`);
+        assert.fail(`${regressionCase.identifier}: expected to find target file "${targetFilePath}"`);
     }
     return match;
 }
@@ -91,34 +94,36 @@ function fixturePathFor(regressionCase: DeadCodeEliminationRegressionCase): stri
 }
 
 function assertFixtureLock(regressionCase: DeadCodeEliminationRegressionCase, actualHash: string): void {
-    const updateMessage = `${regressionCase.id} fixture lock changed.`;
-    const updateInstruction = `Update fixtureSha256 to ${actualHash} if the fixture change is intentional.`;
+    const updateMessage = `${regressionCase.identifier} fixture lock changed.`;
+    const updateInstruction = `Update fixtureHash256 to ${actualHash} if the fixture change is intentional.`;
     assert.strictEqual(
         actualHash,
-        regressionCase.fixtureSha256,
+        regressionCase.fixtureHash256,
         `${updateMessage} ${updateInstruction}`
     );
 }
 
 function assertAssertionLock(regressionCase: DeadCodeEliminationRegressionCase, actualHash: string): void {
-    const updateMessage = `${regressionCase.id} assertion lock changed.`;
-    const updateInstruction = `Update assertionSha256 to ${actualHash} if the assertion change is intentional.`;
+    const updateMessage = `${regressionCase.identifier} assertion lock changed.`;
+    const updateInstruction = `Update assertionHash256 to ${actualHash} if the assertion change is intentional.`;
     assert.strictEqual(
         actualHash,
-        regressionCase.assertionSha256,
+        regressionCase.assertionHash256,
         `${updateMessage} ${updateInstruction}`
     );
 }
 
 function assertContent(
-    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'id'>,
+    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'identifier'>,
     textAssertion: DeadCodeEliminationTextAssertion,
     content: string
 ): void {
     if (textAssertion.type === 'contains-text') {
         assert.ok(
             content.includes(textAssertion.text),
-            `${regressionCase.id}: ${textAssertion.targetFilePath} must contain ${JSON.stringify(textAssertion.text)}`
+            `${regressionCase.identifier}: ${textAssertion.targetFilePath} must contain ${
+                JSON.stringify(textAssertion.text)
+            }`
         );
         return;
     }
@@ -126,7 +131,7 @@ function assertContent(
     assert.strictEqual(
         content.includes(textAssertion.text),
         false,
-        `${regressionCase.id}: ${textAssertion.targetFilePath} must omit ${JSON.stringify(textAssertion.text)}`
+        `${regressionCase.identifier}: ${textAssertion.targetFilePath} must omit ${JSON.stringify(textAssertion.text)}`
     );
 }
 
@@ -134,28 +139,31 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function sourceMapSources(content: string, regressionCase: Pick<DeadCodeEliminationRegressionCase, 'id'>): unknown {
+function sourceMapSources(
+    content: string,
+    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'identifier'>
+): unknown {
     const parsed: unknown = JSON.parse(content);
     if (!isRecord(parsed)) {
-        assert.fail(`${regressionCase.id}: source map content must be an object`);
+        assert.fail(`${regressionCase.identifier}: source map content must be an object`);
     }
     return parsed.sources;
 }
 
 function assertSourceMapSources(
-    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'id'>,
+    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'identifier'>,
     assertionInput: SourceMapSourcesAssertion,
     content: string
 ): void {
     assert.deepStrictEqual(
         sourceMapSources(content, regressionCase),
         assertionInput.sources,
-        `${regressionCase.id}: ${assertionInput.targetFilePath} must keep expected source-map sources`
+        `${regressionCase.identifier}: ${assertionInput.targetFilePath} must keep expected source-map sources`
     );
 }
 
 function assertContentAssertion(
-    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'id'>,
+    regressionCase: Pick<DeadCodeEliminationRegressionCase, 'identifier'>,
     contentAssertion: DeadCodeEliminationContentAssertion,
     content: string
 ): void {
@@ -177,17 +185,17 @@ function assertContentAssertions(
     }
 }
 
-async function assertConsumerProducerApiCase(
-    regressionCase: DeadCodeEliminationConsumerProducerApiCase
+async function assertConsumerProducerApplicationProgrammingInterfaceCase(
+    regressionCase: DeadCodeEliminationConsumerProducerApplicationProgrammingInterfaceCase
 ): Promise<void> {
-    const result = await resolveAndLinkAll(await consumerProducerConfig(fixturePathFor(regressionCase)));
+    const result = await resolveAndLinkAll(await consumerProducerConfiguration(fixturePathFor(regressionCase)));
     const resolvedPackage = findPackage(expectOk(result), regressionCase.entryPackage);
 
-    assertValidDeadCodeEliminationOutput(regressionCase.id, [ resolvedPackage.analyzedBundle ]);
+    assertValidDeadCodeEliminationOutput(regressionCase.identifier, [ resolvedPackage.analyzedBundle ]);
     assertContentAssertions(regressionCase, resolvedPackage.analyzedBundle);
     assert.deepStrictEqual(
-        await runEmittedPackageApi(resolvedPackage, regressionCase.entryTargetFilePath),
-        regressionCase.expectedApiResult
+        await runEmittedPackageApplicationProgrammingInterface(resolvedPackage, regressionCase.entryTargetFilePath),
+        regressionCase.expectedApplicationProgrammingInterfaceResult
     );
 }
 
@@ -195,7 +203,7 @@ async function assertArtifactBundleContentCase(
     regressionCase: DeadCodeEliminationArtifactBundleContentCase
 ): Promise<void> {
     const analyzedBundle = await eliminateDeadCodeEliminationArtifactBundle(regressionCase, fixtureRootPath);
-    assertValidDeadCodeEliminationOutput(regressionCase.id, [ analyzedBundle ]);
+    assertValidDeadCodeEliminationOutput(regressionCase.identifier, [ analyzedBundle ]);
     assertContentAssertions(regressionCase, analyzedBundle);
     await importEmittedPackageEntry(analyzedBundle, regressionCase.entryTargetFilePath);
 }
@@ -206,7 +214,7 @@ async function assertRegressionCase(regressionCase: DeadCodeEliminationRegressio
         return;
     }
 
-    await assertConsumerProducerApiCase(regressionCase);
+    await assertConsumerProducerApplicationProgrammingInterfaceCase(regressionCase);
 }
 
 async function assertArtifactResourcesMatchFixture(
@@ -228,7 +236,7 @@ async function assertArtifactResourcesMatchFixture(
     assert.deepStrictEqual(
         resourceFiles,
         fixtureFiles,
-        `${regressionCase.id}: artifact resources must list every fixture file exactly`
+        `${regressionCase.identifier}: artifact resources must list every fixture file exactly`
     );
 }
 
@@ -239,7 +247,7 @@ suite('dead-code-elimination-regression-locks', function () {
             await assertArtifactResourcesMatchFixture(regressionCase);
             assertFixtureLock(
                 regressionCase,
-                await deadCodeEliminationFixtureSha256(regressionCase, fixtureRootPath)
+                await deadCodeEliminationFixtureHash256(regressionCase, fixtureRootPath)
             );
         }
     });
@@ -247,7 +255,7 @@ suite('dead-code-elimination-regression-locks', function () {
     test('assertion locks match the regression manifest', async function () {
         const regressionCases = await readRegressionCases();
         for (const regressionCase of regressionCases) {
-            assertAssertionLock(regressionCase, deadCodeEliminationAssertionSha256(regressionCase));
+            assertAssertionLock(regressionCase, deadCodeEliminationAssertionHash256(regressionCase));
         }
     });
 

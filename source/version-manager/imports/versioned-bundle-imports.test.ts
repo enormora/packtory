@@ -34,14 +34,14 @@ suite('versioned-bundle-imports', function () {
         );
     });
 
-    test('buildImportsField throws when surviving #imports exist but mainPackageJson.imports is missing', function () {
+    test('buildImportsField throws when surviving #imports exist but mainPackageManifest.imports is missing', function () {
         try {
             buildImportsField({ contents: [ codeResource('a.js', "import '#foo';") ] }, { type: 'module' });
             assert.fail('Expected buildImportsField() to throw but it did not');
         } catch (error: unknown) {
             assert.strictEqual(
                 (error as Error).message,
-                'Found surviving package.json imports specifier "#foo" but mainPackageJson.imports is not configured'
+                'Found surviving package.json imports specifier "#foo" but mainPackageManifest.imports is not configured'
             );
         }
     });
@@ -56,7 +56,7 @@ suite('versioned-bundle-imports', function () {
         } catch (error: unknown) {
             assert.strictEqual(
                 (error as Error).message,
-                'Found surviving package.json imports specifier "#foo/bar" but no matching mainPackageJson.imports entry'
+                'Found surviving package.json imports specifier "#foo/bar" but no matching mainPackageManifest.imports entry'
             );
         }
     });
@@ -71,7 +71,7 @@ suite('versioned-bundle-imports', function () {
         } catch (error: unknown) {
             assert.strictEqual(
                 (error as Error).message,
-                'Found surviving package.json imports specifier "#foo" but matching mainPackageJson.imports entry "#foo" is undefined'
+                'Found surviving package.json imports specifier "#foo" but matching mainPackageManifest.imports entry "#foo" is undefined'
             );
         }
     });

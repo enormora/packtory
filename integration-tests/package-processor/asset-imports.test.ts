@@ -2,7 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 
 type BuiltFixture = {
     readonly fixture: string;
@@ -16,14 +16,14 @@ async function buildFixture(fixtureName: string): Promise<BuiltFixture> {
         bundle: await packageProcessor.build({
             name: fixtureName,
             version: '1.2.3',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/entry.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         })
@@ -32,16 +32,16 @@ async function buildFixture(fixtureName: string): Promise<BuiltFixture> {
 
 suite('asset-imports', function () {
     test('bundles local json files imported with import attributes', async function () {
-        const { bundle } = await buildFixture('local-json-import');
+        const { bundle } = await buildFixture('local-structured-data-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
         });
-        const json = bundle.contents.find(function (resource) {
+        const javaScriptObjectNotation = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'data.json';
         });
 
-        if (entry === undefined || json === undefined) {
+        if (entry === undefined || javaScriptObjectNotation === undefined) {
             assert.fail('expected bundled entry and json resources');
         }
         assert.deepStrictEqual(
@@ -63,11 +63,11 @@ suite('asset-imports', function () {
                 ]
             }
         );
-        assert.strictEqual(json.fileDescription.content, '{\n    "message": "hello"\n}\n');
+        assert.strictEqual(javaScriptObjectNotation.fileDescription.content, '{\n    "message": "hello"\n}\n');
     });
 
     test('bundles local wasm files', async function () {
-        const { bundle } = await buildFixture('local-wasm-import');
+        const { bundle } = await buildFixture('local-webassembly-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
@@ -84,9 +84,9 @@ suite('asset-imports', function () {
     });
 
     test('tracks package-owned json imports as dependencies without bundling the file', async function () {
-        const { bundle } = await buildFixture('package-json-import');
+        const { bundle } = await buildFixture('package-manifest-import');
 
-        assert.deepStrictEqual(bundle.packageJson.dependencies, { foo: '^1.0.0' });
+        assert.deepStrictEqual(bundle.packageManifest.dependencies, { foo: '^1.0.0' });
         assert.strictEqual(
             bundle.contents.some(function (resource) {
                 return resource.fileDescription.targetFilePath === 'package.json';
@@ -96,9 +96,9 @@ suite('asset-imports', function () {
     });
 
     test('tracks package-owned wasm imports as dependencies without bundling the file', async function () {
-        const { bundle } = await buildFixture('package-wasm-import');
+        const { bundle } = await buildFixture('package-webassembly-import');
 
-        assert.deepStrictEqual(bundle.packageJson.dependencies, { foo: '^1.0.0' });
+        assert.deepStrictEqual(bundle.packageManifest.dependencies, { foo: '^1.0.0' });
         assert.strictEqual(
             bundle.contents.some(function (resource) {
                 return resource.fileDescription.targetFilePath.endsWith('.wasm');
@@ -108,7 +108,7 @@ suite('asset-imports', function () {
     });
 
     test('uses the generated runtime manifest for root package.json imports', async function () {
-        const { bundle } = await buildFixture('generated-package-json-import');
+        const { bundle } = await buildFixture('generated-package-manifest-import');
 
         const entry = bundle.contents.find(function (resource) {
             return resource.fileDescription.targetFilePath === 'entry.js';
@@ -142,7 +142,7 @@ suite('asset-imports', function () {
         assert.strictEqual(generatedManifestResource.isGeneratedManifest, true);
         assert.deepStrictEqual(JSON.parse(bundle.manifestFile.content), {
             exports: { '.': { import: './entry.js' } },
-            name: 'generated-package-json-import',
+            name: 'generated-package-manifest-import',
             sideEffects: false,
             type: 'module',
             version: '1.2.3'

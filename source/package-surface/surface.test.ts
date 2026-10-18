@@ -15,14 +15,14 @@ suite('surface', function () {
 
     test('explicitPackageSurface() creates an explicit runtime surface', function () {
         const packageSurface = explicitPackageSurface({
-            bins: [ { name: 'cli', root: 'main' } ],
+            executables: [ { name: 'commandLineInterface', root: 'main' } ],
             modules: [ { export: '.', root: 'main' } ]
         });
 
         assert.deepStrictEqual(packageSurface, {
             mode: 'explicit',
             packageInterface: {
-                bins: [ { name: 'cli', root: 'main' } ],
+                executables: [ { name: 'commandLineInterface', root: 'main' } ],
                 modules: [ { export: '.', root: 'main' } ]
             }
         });

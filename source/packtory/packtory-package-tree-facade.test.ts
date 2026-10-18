@@ -12,7 +12,7 @@ import {
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
     createTestProgressBroadcaster,
-    getErrResult,
+    getErrorResult,
     getOkResult,
     type TestProgressBroadcaster
 } from '../test-libraries/result-helpers.ts';
@@ -33,14 +33,14 @@ type TreePacktoryFixture = {
 type ArtifactReportMode = 'entries' | 'none' | 'package-only';
 type SubscriberVisibility = 'normal' | 'suppress-inputs';
 
-function createConfig(): Record<string, unknown> {
+function createConfiguration(): Record<string, unknown> {
     return {
         commonPackageSettings: {
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
+            sourcesFolder: '/source',
+            mainPackageManifest: { type: 'module' },
             publishSettings: { access: 'public' }
         },
-        packages: [ { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } } ]
+        packages: [ { name: 'package-a', roots: { main: { javaScript: 'package-a/index.js' } } } ]
     };
 }
 
@@ -55,7 +55,7 @@ function createLinkedPackage(name: string): BundleFixtureLinkedBundle {
         ],
         roots: {
             main: {
-                js: {
+                javaScript: {
                     inputFilePath: `/${name}/index.js`,
                     targetFilePath: 'index.js',
                     content: '',
@@ -71,7 +71,7 @@ function createVersionedPackage(name: string): BundleFixtureVersionedBundleWithM
         name,
         version: '0.0.0',
         mainFile: { inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
-        packageJson: { name, version: '0.0.0' },
+        packageManifest: { name, version: '0.0.0' },
         manifestFile: { filePath: 'package.json', content: '{}' }
     });
 }
@@ -107,7 +107,7 @@ function createAddVersion(
 ): SinonSpy {
     return fake(function () {
         if (mode === 'package-only') {
-            progressBroadcaster.provider.emit('packageJsonAssembled', {
+            progressBroadcaster.provider.emit('packageManifestAssembled', {
                 packageName: 'package-a',
                 fields: {}
             });
@@ -186,14 +186,14 @@ suite('packtory package tree facade', function () {
 
         const { result } = await packtory.inspectPackageDependencies({ invalid: true }, 'package-a');
 
-        const error = getErrResult(result, 'Expected inspectPackageDependencies() should fail but it did not');
-        assert.strictEqual(error.type, 'config');
+        const error = getErrorResult(result, 'Expected inspectPackageDependencies() should fail but it did not');
+        assert.strictEqual(error.type, 'configuration');
     });
 
     test('inspectPackageDependencies() returns dependency reasons for a configured package', async function () {
         const { packtory } = createTreePacktory('entries', 'normal');
 
-        const { result } = await packtory.inspectPackageDependencies(createConfig(), 'package-a');
+        const { result } = await packtory.inspectPackageDependencies(createConfiguration(), 'package-a');
 
         assert.deepStrictEqual(
             getOkResult(result, 'Expected inspectPackageDependencies() should succeed'),
@@ -206,14 +206,14 @@ suite('packtory package tree facade', function () {
 
         const { result } = await packtory.inspectPackageTree({ invalid: true }, 'package-a');
 
-        const error = getErrResult(result, 'Expected inspectPackageTree() should fail but it did not');
-        assert.strictEqual(error.type, 'config');
+        const error = getErrorResult(result, 'Expected inspectPackageTree() should fail but it did not');
+        assert.strictEqual(error.type, 'configuration');
     });
 
     test('inspectPackageTree() returns artifact report entries and removes subscribers', async function () {
         const { addVersion, packtory, progressBroadcaster } = createTreePacktory('entries', 'normal');
 
-        const { result } = await packtory.inspectPackageTree(createConfig(), 'package-a');
+        const { result } = await packtory.inspectPackageTree(createConfiguration(), 'package-a');
 
         assert.deepStrictEqual(
             getOkResult(result, 'Expected inspectPackageTree() should succeed'),
@@ -239,7 +239,7 @@ suite('packtory package tree facade', function () {
 
         await assert.rejects(
             async function inspectTree() {
-                await packtory.inspectPackageTree(createConfig(), 'package-a');
+                await packtory.inspectPackageTree(createConfiguration(), 'package-a');
             },
             /Package tree report for "package-a" is missing/u
         );
@@ -250,7 +250,7 @@ suite('packtory package tree facade', function () {
 
         await assert.rejects(
             async function inspectTree() {
-                await packtory.inspectPackageTree(createConfig(), 'package-a');
+                await packtory.inspectPackageTree(createConfiguration(), 'package-a');
             },
             /Package tree outputs for "package-a" are missing/u
         );

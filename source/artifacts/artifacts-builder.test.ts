@@ -23,22 +23,22 @@ function bundleWithContents(
 ): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         contents,
-        packageJson: { name: 'the-name', version: 'the-version' },
+        packageManifest: { name: 'the-name', version: 'the-version' },
         name: manifestFilePath === '' ? '' : 'the-name',
         manifestFile: { content: manifestFilePath === '' ? '' : '{}', isExecutable: false, filePath: manifestFilePath }
     });
 }
 
-function bundleWithExplicitBin(
+function bundleWithExplicitExecutable(
     contents: readonly AnalyzedBundleResource[],
-    binField: NonNullable<VersionedBundleWithManifest['binField']>
+    executableField: NonNullable<VersionedBundleWithManifest['executableField']>
 ): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         contents,
-        packageJson: { name: 'the-name', version: 'the-version' },
+        packageManifest: { name: 'the-name', version: 'the-version' },
         name: 'the-name',
         manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' },
-        binField
+        executableField
     });
 }
 
@@ -141,10 +141,10 @@ suite('artifacts-builder', function () {
             await builder.buildTarball(bundleWithContents(contents, 'package.json'));
 
             assert.deepStrictEqual(
-                { callCount: tarballBuilder.build.callCount, args: tarballBuilder.build.firstCall.args },
+                { callCount: tarballBuilder.build.callCount, arguments: tarballBuilder.build.firstCall.args },
                 {
                     callCount: 1,
-                    args: [
+                    arguments: [
                         [
                             { filePath: 'package/package.json', content: '{}', isExecutable: false },
                             { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
@@ -223,19 +223,27 @@ suite('artifacts-builder', function () {
         test('collectContents() appends extra files after the bundle contents and applies the prefix to them', function () {
             const { builder } = artifactsBuilderFactory();
             const result = builder.collectContents(bundleWithContents([], 'package.json'), 'package', [
-                { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+                {
+                    filePath: 'software-bill-of-materials.cyclonedx.json',
+                    content: '{"billOfMaterialsFormat":"CycloneDX"}',
+                    isExecutable: false
+                }
             ]);
 
             assert.deepStrictEqual(result, [
                 { filePath: 'package/package.json', content: '{}', isExecutable: false },
-                { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+                {
+                    filePath: 'package/software-bill-of-materials.cyclonedx.json',
+                    content: '{"billOfMaterialsFormat":"CycloneDX"}',
+                    isExecutable: false
+                }
             ]);
         });
 
         test('collectContents() forces explicit bin targets to executable', function () {
             const { builder } = artifactsBuilderFactory();
             const result = builder.collectContents(
-                bundleWithExplicitBin([ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ], {
+                bundleWithExplicitExecutable([ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ], {
                     packtory: './cli.js'
                 })
             );
@@ -249,7 +257,10 @@ suite('artifacts-builder', function () {
         test('collectContents() forces string bin targets to executable', function () {
             const { builder } = artifactsBuilderFactory();
             const result = builder.collectContents(
-                bundleWithExplicitBin([ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ], './cli.js')
+                bundleWithExplicitExecutable(
+                    [ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ],
+                    './cli.js'
+                )
             );
 
             assert.deepStrictEqual(result, [
@@ -263,7 +274,7 @@ suite('artifacts-builder', function () {
         test('collectContents() ignores malformed non-string bin entries and still applies valid explicit bin targets', function () {
             const { builder } = artifactsBuilderFactory();
             const result = builder.collectContents(
-                bundleWithExplicitBin([ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ], {
+                bundleWithExplicitExecutable([ makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ], {
                     packtory: './cli.js',
                     broken: 123 as never
                 })
@@ -278,7 +289,7 @@ suite('artifacts-builder', function () {
         test('collectContents() only strips a leading dot-slash from explicit bin targets', function () {
             const { builder } = artifactsBuilderFactory();
             const result = builder.collectContents(
-                bundleWithExplicitBin(
+                bundleWithExplicitExecutable(
                     [ makeContent('nested/./cli.js', '#!/usr/bin/env node\nconsole.log(0);\n') ],
                     'nested/./cli.js'
                 )
@@ -294,14 +305,22 @@ suite('artifacts-builder', function () {
             const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
             const { builder } = artifactsBuilderFactory({ tarballBuilder });
             await builder.buildTarball(bundleWithContents([ makeContent('bar.txt', 'bar') ], 'package.json'), [
-                { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+                {
+                    filePath: 'software-bill-of-materials.cyclonedx.json',
+                    content: '{"billOfMaterialsFormat":"CycloneDX"}',
+                    isExecutable: false
+                }
             ]);
 
             assert.deepStrictEqual(tarballBuilder.build.firstCall.args, [
                 [
                     { filePath: 'package/package.json', content: '{}', isExecutable: false },
                     { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
-                    { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+                    {
+                        filePath: 'package/software-bill-of-materials.cyclonedx.json',
+                        content: '{"billOfMaterialsFormat":"CycloneDX"}',
+                        isExecutable: false
+                    }
                 ],
                 []
             ]);
@@ -315,21 +334,21 @@ suite('artifacts-builder', function () {
                 [],
                 [
                     {
-                        sourceAbsolutePath: '/host/node_modules/pkg/index.js',
-                        sourcePackageRootPath: '/host/node_modules/pkg',
-                        targetRelativePath: 'node_modules/pkg/index.js',
+                        sourceAbsolutePath: '/host/node_modules/package/index.js',
+                        sourcePackageRootPath: '/host/node_modules/package',
+                        targetRelativePath: 'node_modules/package/index.js',
                         isExecutable: false
                     }
                 ]
             );
 
             const buildArguments = tarballBuilder.build.firstCall.args as readonly unknown[];
-            const vendorArgs = buildArguments[1];
-            assert.deepStrictEqual(vendorArgs, [
+            const vendorArguments = buildArguments[1];
+            assert.deepStrictEqual(vendorArguments, [
                 {
-                    sourceAbsolutePath: '/host/node_modules/pkg/index.js',
-                    sourcePackageRootPath: '/host/node_modules/pkg',
-                    targetRelativePath: 'package/node_modules/pkg/index.js',
+                    sourceAbsolutePath: '/host/node_modules/package/index.js',
+                    sourcePackageRootPath: '/host/node_modules/package',
+                    targetRelativePath: 'package/node_modules/package/index.js',
                     isExecutable: false
                 }
             ]);
@@ -353,20 +372,20 @@ suite('artifacts-builder', function () {
             const contents: AnalyzedBundleResource[] = [
                 makeContent('handler.js', 'handler'),
                 makeContent('lib/helper.js', 'helper'),
-                makeContent('lib/cli.js', 'cli', true)
+                makeContent('lib/cli.js', 'commandLineInterface', true)
             ];
             await builder.buildZip(bundleWithContents(contents, 'manifest.json'));
 
             assert.deepStrictEqual(
-                { callCount: zipBuilder.build.callCount, args: zipBuilder.build.firstCall.args },
+                { callCount: zipBuilder.build.callCount, arguments: zipBuilder.build.firstCall.args },
                 {
                     callCount: 1,
-                    args: [
+                    arguments: [
                         [
                             { filePath: 'manifest.json', content: '{}', isExecutable: false },
                             { filePath: 'handler.js', content: 'handler', isExecutable: false },
                             { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
-                            { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
+                            { filePath: 'lib/cli.js', content: 'commandLineInterface', isExecutable: false }
                         ],
                         []
                     ]
@@ -395,13 +414,17 @@ suite('artifacts-builder', function () {
             const { builder, fileManager } = builderWithUnreadableTargetFolder();
 
             await builder.buildFolder(bundleWithContents([], 'package.json'), '/the/target/folder', [
-                { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+                {
+                    filePath: 'software-bill-of-materials.cyclonedx.json',
+                    content: '{"billOfMaterialsFormat":"CycloneDX"}',
+                    isExecutable: false
+                }
             ]);
 
             assert.strictEqual(fileManager.getWriteFileCallCount(), 2);
             assert.deepStrictEqual(fileManager.getWriteFileCall(1), {
-                filePath: '/the/target/folder/sbom.cdx.json',
-                content: '{"bomFormat":"CycloneDX"}'
+                filePath: '/the/target/folder/software-bill-of-materials.cyclonedx.json',
+                content: '{"billOfMaterialsFormat":"CycloneDX"}'
             });
         });
     });
@@ -488,14 +511,18 @@ suite('artifacts-builder', function () {
             });
 
             builder.collectContents(bundleWithContents([], 'package.json'), undefined, [
-                { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
             ]);
 
             assert.deepStrictEqual(received, [
                 {
                     entries: [
                         { path: 'package.json', status: 'generated', kind: 'manifest' },
-                        { path: 'sbom.cdx.json', status: 'generated', kind: 'sbom' }
+                        {
+                            path: 'software-bill-of-materials.cyclonedx.json',
+                            status: 'generated',
+                            kind: 'software-bill-of-materials'
+                        }
                     ]
                 }
             ]);

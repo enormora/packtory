@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PublishSettings } from '../../config/publish-settings.ts';
+import type { PublishSettings } from '../../configuration/publish-settings.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
 
 function expectRemapped(
@@ -15,10 +15,10 @@ function expectRemapped(
     assert.strictEqual(remapped.cause, originalError, 'Expected the original error to be preserved as cause');
 }
 
-function buildUnsupportedProviderExpectedMessage(ciName: string): string {
+function buildUnsupportedProviderExpectedMessage(continuousIntegrationName: string): string {
     return [
         'Provenance auto mode requires GitHub Actions or GitLab CI.',
-        `Detected CI: ${ciName}.`,
+        `Detected CI: ${continuousIntegrationName}.`,
         "Use provenance: { type: 'file' } for other environments."
     ]
         .join(' ');
@@ -26,11 +26,11 @@ function buildUnsupportedProviderExpectedMessage(ciName: string): string {
 
 const unsupportedProviderMessage = buildUnsupportedProviderExpectedMessage('jenkins');
 
-const githubActionsIdTokenExpectedMessage =
+const githubActionsIdentifierTokenExpectedMessage =
     'GitHub Actions provenance needs "permissions: id-token: write" on the workflow job.' +
     ' See the packtory readme for the workflow snippet.';
 
-const gitlabSigstoreIdTokenExpectedMessage =
+const gitlabSigstoreIdentifierTokenExpectedMessage =
     'GitLab CI provenance needs an "id_tokens" entry with audience "sigstore"' +
     ' exposed as SIGSTORE_ID_TOKEN. See the packtory readme for the workflow snippet.';
 
@@ -62,7 +62,7 @@ suite('publish-settings-bridge', function () {
         test('buildPublishOptionsForPublishSettings() maps auto-mode provenance to provenance: true', function () {
             const result = buildPublishOptionsForPublishSettings({
                 access: 'public',
-                provenance: { type: 'auto' }
+                provenance: { type: 'automatic' }
             });
 
             assert.deepStrictEqual(result, { access: 'public', provenance: true });
@@ -84,7 +84,7 @@ suite('publish-settings-bridge', function () {
                 Object.assign(new Error('Automatic provenance generation not supported for provider: jenkins'), {
                     code: 'EUSAGE'
                 }),
-                { access: 'public', provenance: { type: 'auto' } },
+                { access: 'public', provenance: { type: 'automatic' } },
                 unsupportedProviderMessage
             );
         });
@@ -94,7 +94,7 @@ suite('publish-settings-bridge', function () {
                 Object.assign(new Error('Automatic provenance generation not supported for provider:circleci'), {
                     code: 'EUSAGE'
                 }),
-                { access: 'public', provenance: { type: 'auto' } },
+                { access: 'public', provenance: { type: 'automatic' } },
                 buildUnsupportedProviderExpectedMessage('circleci')
             );
         });
@@ -104,7 +104,7 @@ suite('publish-settings-bridge', function () {
                 Object.assign(new Error('Automatic provenance generation not supported for provider:'), {
                     code: 'EUSAGE'
                 }),
-                { access: 'public', provenance: { type: 'auto' } },
+                { access: 'public', provenance: { type: 'automatic' } },
                 buildUnsupportedProviderExpectedMessage('unknown')
             );
         });
@@ -117,7 +117,7 @@ suite('publish-settings-bridge', function () {
                         code: 'EUSAGE'
                     }
                 ),
-                { access: 'public', provenance: { type: 'auto' } },
+                { access: 'public', provenance: { type: 'automatic' } },
                 buildUnsupportedProviderExpectedMessage('jenkins')
             );
         });
@@ -130,8 +130,8 @@ suite('publish-settings-bridge', function () {
                     ),
                     { code: 'EUSAGE' }
                 ),
-                { access: 'public', provenance: { type: 'auto' } },
-                githubActionsIdTokenExpectedMessage
+                { access: 'public', provenance: { type: 'automatic' } },
+                githubActionsIdentifierTokenExpectedMessage
             );
         });
 
@@ -143,8 +143,8 @@ suite('publish-settings-bridge', function () {
                     ),
                     { code: 'EUSAGE' }
                 ),
-                { access: 'public', provenance: { type: 'auto' } },
-                gitlabSigstoreIdTokenExpectedMessage
+                { access: 'public', provenance: { type: 'automatic' } },
+                gitlabSigstoreIdentifierTokenExpectedMessage
             );
         });
     });
@@ -211,7 +211,7 @@ suite('publish-settings-bridge', function () {
         test('remapPublishError() ignores file-mode patterns when publishSettings does not configure file provenance', function () {
             const original = new Error('Bundle is invalid: malformed protobuf');
 
-            const result = remapPublishError(original, { access: 'public', provenance: { type: 'auto' } });
+            const result = remapPublishError(original, { access: 'public', provenance: { type: 'automatic' } });
 
             assert.strictEqual(result, original);
         });

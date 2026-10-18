@@ -13,50 +13,50 @@ const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as con
 suite('registry-client metadata no retry', function () {
     test('metadata using inherited publish auth does not retry on a 401 challenge', async function () {
         const error = errorWithStatus('auth required', 401);
-        const npmFetchJson = fake.rejects(error);
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(error);
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: { type: 'bearer-token', token: 'writer-token' }
+                authentication: { type: 'bearer-token', token: 'writer-token' }
             });
         }, /^Error: auth required$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('anonymous metadata access does not retry on a 401 challenge', async function () {
         const error = errorWithStatus('auth required', 401);
-        const npmFetchJson = fake.rejects(error);
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(error);
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: {
+                authentication: {
                     publish: { type: 'bearer-token', token: 'writer-token' },
                     metadata: 'anonymous'
                 }
             });
         }, /^Error: auth required$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('basic metadata auth does not retry on a 401 challenge', async function () {
         const error = errorWithStatus('auth required', 401);
-        const npmFetchJson = fake.rejects(error);
-        const registryClient = registryClientFactory({ npmFetchJson });
+        const npmFetchJavaScriptObjectNotation = fake.rejects(error);
+        const registryClient = registryClientFactory({ npmFetchJavaScriptObjectNotation });
 
         await expectFailure(async function () {
             await registryClient.fetchLatestVersion('the-name', {
-                auth: {
+                authentication: {
                     publish: { type: 'bearer-token', token: 'writer-token' },
                     metadata: { type: 'basic', username: 'reader', password: 'reader-secret' }
                 }
             });
         }, /^Error: auth required$/u);
 
-        assert.strictEqual(npmFetchJson.callCount, 1);
+        assert.strictEqual(npmFetchJavaScriptObjectNotation.callCount, 1);
     });
 
     test('fetchTarball() also retries metadata auto with publish auth on a 401 challenge', async function () {
@@ -73,10 +73,10 @@ suite('registry-client metadata no retry', function () {
             'https://registry.example.test/pkg.tgz',
             emptyTarballIntegrity,
             {
-                registryUrl: 'https://registry.example.test/',
-                auth: {
+                registryAddress: 'https://registry.example.test/',
+                authentication: {
                     publish: { type: 'basic', username: 'reader', password: 'reader-secret' },
-                    metadata: 'auto'
+                    metadata: 'automatic'
                 }
             }
         );
@@ -85,7 +85,7 @@ suite('registry-client metadata no retry', function () {
         assertDeepSubset(fetchImplementation, {
             callCount: 2,
             secondCall: {
-                args: [
+                arguments: [
                     'https://registry.example.test/pkg.tgz',
                     {
                         headers: {

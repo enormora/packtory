@@ -71,7 +71,7 @@ export function renderUnusedAllowListMessage(unusedEntries: readonly string[]): 
             return `  - "${entry}"`;
         })
     ];
-    const footer = 'Remove unused entries — they reflect stale exceptions to the integrity policy.';
+    const footer = 'Remove unused entries ; they reflect stale exceptions to the integrity policy.';
     lines.push(footer);
     return lines.join('\n');
 }

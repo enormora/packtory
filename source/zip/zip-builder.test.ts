@@ -22,7 +22,7 @@ const nonExecutableUnixMode = 0o10_0644;
 const executableUnixMode = 0o10_0755;
 const unixOperatingSystem = 3;
 const staticFileModificationTimestamp = 315_576_000_000;
-const maxCompressionLevel = 9;
+const maximumCompressionLevel = 9;
 const highBytesScale = 65_536;
 const zipBuildDeadlineMilliseconds = 50;
 
@@ -74,7 +74,7 @@ suite('zip-builder', function () {
                     name: 'foo.txt',
                     content: 'bar',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 }
             ]);
         });
@@ -92,7 +92,7 @@ suite('zip-builder', function () {
                     name: 'foo.txt',
                     content: 'bar',
                     unixMode: executableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 }
             ]);
         });
@@ -102,31 +102,36 @@ suite('zip-builder', function () {
 
             const zipBuffer = await buildZipWithDeadline(builder, [
                 { filePath: 'root.md', content: 'root', isExecutable: false },
-                { filePath: 'docs/intro.md', content: 'intro', isExecutable: false },
-                { filePath: 'docs/api/index.md', content: 'index', isExecutable: false },
-                { filePath: 'docs/api/v1/get.md', content: 'get', isExecutable: false }
+                { filePath: 'documentation/intro.md', content: 'intro', isExecutable: false },
+                { filePath: 'documentation/api/index.md', content: 'index', isExecutable: false },
+                { filePath: 'documentation/api/v1/get.md', content: 'get', isExecutable: false }
             ]);
             const entries = await extractZipEntries(zipBuffer);
 
             assert.deepStrictEqual(entries, [
-                { name: 'root.md', content: 'root', unixMode: nonExecutableUnixMode, osOfOrigin: unixOperatingSystem },
                 {
-                    name: 'docs/intro.md',
+                    name: 'root.md',
+                    content: 'root',
+                    unixMode: nonExecutableUnixMode,
+                    operatingSystemOfOrigin: unixOperatingSystem
+                },
+                {
+                    name: 'documentation/intro.md',
                     content: 'intro',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 },
                 {
-                    name: 'docs/api/index.md',
+                    name: 'documentation/api/index.md',
                     content: 'index',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 },
                 {
-                    name: 'docs/api/v1/get.md',
+                    name: 'documentation/api/v1/get.md',
                     content: 'get',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 }
             ]);
         });
@@ -153,7 +158,7 @@ suite('zip-builder', function () {
                         os: unixOperatingSystem,
                         attrs: nonExecutableUnixMode * highBytesScale,
                         mtime: staticFileModificationTimestamp,
-                        level: maxCompressionLevel
+                        level: maximumCompressionLevel
                     }
                 ]
             });
@@ -179,9 +184,9 @@ suite('zip-builder', function () {
                 [ { filePath: 'index.js', content: 'console.log(0);', isExecutable: false } ],
                 [
                     {
-                        sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
-                        sourcePackageRootPath: '/repo/node_modules/pkg',
-                        targetRelativePath: 'node_modules/pkg/main.js',
+                        sourceAbsolutePath: '/repo/node_modules/package/dist/main.js',
+                        sourcePackageRootPath: '/repo/node_modules/package',
+                        targetRelativePath: 'node_modules/package/main.js',
                         isExecutable: false
                     }
                 ]
@@ -193,13 +198,13 @@ suite('zip-builder', function () {
                     name: 'index.js',
                     content: 'console.log(0);',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 },
                 {
-                    name: 'node_modules/pkg/main.js',
+                    name: 'node_modules/package/main.js',
                     content: 'vendored-bytes',
                     unixMode: nonExecutableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 }
             ]);
         });
@@ -221,9 +226,9 @@ suite('zip-builder', function () {
                 [],
                 [
                     {
-                        sourceAbsolutePath: '/repo/node_modules/pkg/bin/run.sh',
-                        sourcePackageRootPath: '/repo/node_modules/pkg',
-                        targetRelativePath: 'node_modules/pkg/bin/run.sh',
+                        sourceAbsolutePath: '/repo/node_modules/package/bin/run.sh',
+                        sourcePackageRootPath: '/repo/node_modules/package',
+                        targetRelativePath: 'node_modules/package/bin/run.sh',
                         isExecutable: true
                     }
                 ]
@@ -232,10 +237,10 @@ suite('zip-builder', function () {
 
             assert.deepStrictEqual(entries, [
                 {
-                    name: 'node_modules/pkg/bin/run.sh',
+                    name: 'node_modules/package/bin/run.sh',
                     content: '#!/bin/sh\necho hi',
                     unixMode: executableUnixMode,
-                    osOfOrigin: unixOperatingSystem
+                    operatingSystemOfOrigin: unixOperatingSystem
                 }
             ]);
         });
@@ -252,7 +257,7 @@ suite('zip-builder', function () {
                         {
                             sourceAbsolutePath: '/anywhere',
                             sourcePackageRootPath: '/anywhere',
-                            targetRelativePath: 'node_modules/pkg/index.js',
+                            targetRelativePath: 'node_modules/package/index.js',
                             isExecutable: false
                         }
                     ]

@@ -69,10 +69,10 @@ function registerMalformedSpecifierTests(): void {
         if (result.kind !== 'malformed') {
             assert.fail(`Expected malformed, got ${result.kind}`);
         }
-        const dependencyWordInNpmPackageArgMessage = 'dependencies'.replace(/endencie/u, '');
+        const dependencyWordInNpmPackageArgumentMessage = 'dependencies'.replace(/endencie/u, '');
         assert.match(
             result.reason,
-            new RegExp(`aliases only work for registry ${dependencyWordInNpmPackageArgMessage}`, 'u')
+            new RegExp(`aliases only work for registry ${dependencyWordInNpmPackageArgumentMessage}`, 'u')
         );
     });
 

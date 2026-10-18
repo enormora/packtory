@@ -6,15 +6,15 @@ suite('terminal-package-dependencies-renderer', function () {
     test('renders dependency groups, unresolved entries, rewritten specifiers, and empty results', function () {
         assert.strictEqual(
             renderTerminalPackageDependencies({
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 dependencies: []
             }, { color: false }),
-            'Packtory dependency reasons [Dry run]\npkg-a\nNo dependencies.\n'
+            'Packtory dependency reasons [Dry run]\npackage-a\nNo dependencies.\n'
         );
 
         assert.strictEqual(
             renderTerminalPackageDependencies({
-                packageName: 'pkg-a',
+                packageName: 'package-a',
                 dependencies: [
                     {
                         name: 'react',
@@ -27,7 +27,7 @@ suite('terminal-package-dependencies-renderer', function () {
                         },
                         references: [
                             {
-                                sourcePath: 'src/index.js',
+                                sourcePath: 'source/index.js',
                                 sourceSpecifier: 'react/jsx-runtime',
                                 emittedSpecifier: 'react/jsx-runtime'
                             }
@@ -39,7 +39,7 @@ suite('terminal-package-dependencies-renderer', function () {
                         manifest: { type: 'emitted', group: 'peerDependencies', version: '0.0.0' },
                         references: [
                             {
-                                sourcePath: 'src/index.js',
+                                sourcePath: 'source/index.js',
                                 sourceSpecifier: './peer.js',
                                 emittedSpecifier: 'peer'
                             }
@@ -51,7 +51,7 @@ suite('terminal-package-dependencies-renderer', function () {
                         manifest: { type: 'missing-version' },
                         references: [
                             {
-                                sourcePath: 'src/missing.js',
+                                sourcePath: 'source/missing.js',
                                 sourceSpecifier: 'missing',
                                 emittedSpecifier: 'missing'
                             }
@@ -61,16 +61,16 @@ suite('terminal-package-dependencies-renderer', function () {
             }, { color: false }),
             [
                 'Packtory dependency reasons [Dry run]',
-                'pkg-a',
+                'package-a',
                 'dependencies',
                 '  react workspace:* invalid: bad (external)',
-                '    src/index.js: react/jsx-runtime',
+                '    source/index.js: react/jsx-runtime',
                 'peerDependencies',
                 '  peer 0.0.0 (bundle-peer)',
-                '    src/index.js: ./peer.js -> peer',
+                '    source/index.js: ./peer.js -> peer',
                 'unresolved',
                 '  missing missing version (external)',
-                '    src/missing.js: missing',
+                '    source/missing.js: missing',
                 ''
             ]
                 .join('\n')

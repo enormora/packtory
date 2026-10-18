@@ -12,7 +12,7 @@ type StageCollector = {
 };
 
 type StagePayload = {
-    readonly durationMs: number;
+    readonly durationMilliseconds: number;
     readonly packageName: string;
     readonly stage: string;
 };
@@ -63,7 +63,7 @@ function createStagePayloadCollector(): StagePayloadCollector {
     const received: StagePayload[] = [];
     broadcaster.consumer.on('stageTimed', function (payload) {
         received.push({
-            durationMs: payload.durationMs,
+            durationMilliseconds: payload.durationMilliseconds,
             stage: payload.stage,
             packageName: payload.packageName
         });
@@ -92,25 +92,27 @@ function registerStageTimingTests(): void {
             }),
             broadcaster.provider
         );
-        await wrapped.resolveAndLink({ name: 'pkg-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
+        await wrapped.resolveAndLink(
+            { name: 'package-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]
+        );
         const promotedResult = await wrapped.resolveAndLinkWithPromotedDeclarationCompanions(
-            { name: 'pkg-b' } as unknown as Parameters<
+            { name: 'package-b' } as unknown as Parameters<
                 PackageProcessor['resolveAndLinkWithPromotedDeclarationCompanions']
             >[0],
-            new Set([ '/src/feature.js' ])
+            new Set([ '/source/feature.js' ])
         );
 
         assert.strictEqual(received.length, 2);
         assert.partialDeepStrictEqual(received[0], {
-            packageName: 'pkg-a',
+            packageName: 'package-a',
             stage: 'resolveAndLink'
         });
         assert.partialDeepStrictEqual(received[1], {
-            packageName: 'pkg-b',
+            packageName: 'package-b',
             stage: 'resolveAndLink'
         });
         assert.ok(received.every(function (payload) {
-            return typeof payload.durationMs === 'number' && payload.durationMs >= 0;
+            return typeof payload.durationMilliseconds === 'number' && payload.durationMilliseconds >= 0;
         }));
         assert.strictEqual(promotedResult, promotedSentinel);
     });
@@ -120,7 +122,7 @@ function registerStageTimingTests(): void {
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
         await wrapped.buildAndPublish(
-            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+            { buildOptions: { name: 'package-b' } } as unknown as Parameters<
                 PackageProcessor['buildAndPublish']
             >[0]
         );
@@ -128,10 +130,10 @@ function registerStageTimingTests(): void {
         assert.strictEqual(received.length, 1);
         const payload = expectPayload(received);
         assert.partialDeepStrictEqual(payload, {
-            packageName: 'pkg-b',
+            packageName: 'package-b',
             stage: 'publish'
         });
-        assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
+        assert.ok(typeof payload.durationMilliseconds === 'number' && payload.durationMilliseconds >= 0);
     });
 
     test('withStageTimings.buildAndPublish forwards the wrapped method result', async function () {
@@ -145,7 +147,7 @@ function registerStageTimingTests(): void {
         );
 
         const result = await wrapped.buildAndPublish(
-            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+            { buildOptions: { name: 'package-b' } } as unknown as Parameters<
                 PackageProcessor['buildAndPublish']
             >[0]
         );
@@ -164,7 +166,7 @@ function registerStageTimingTests(): void {
         );
 
         const result = await wrapped.tryBuildAndPublish(
-            { buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
+            { buildOptions: { name: 'package-c' } } as unknown as Parameters<
                 PackageProcessor['tryBuildAndPublish']
             >[0]
         );
@@ -177,7 +179,7 @@ function registerStageTimingTests(): void {
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
         await wrapped.tryBuildAndPublish(
-            { buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
+            { buildOptions: { name: 'package-c' } } as unknown as Parameters<
                 PackageProcessor['tryBuildAndPublish']
             >[0]
         );
@@ -197,7 +199,7 @@ function registerStageTimingTests(): void {
 
         try {
             await wrapped.resolveAndLink(
-                { name: 'pkg-d' } as unknown as Parameters<
+                { name: 'package-d' } as unknown as Parameters<
                     PackageProcessor['resolveAndLink']
                 >[0]
             );
@@ -212,7 +214,9 @@ function registerStageTimingTests(): void {
         const wrappedBroadcaster = createSpyingBroadcaster();
 
         const wrapped = withStageTimings(createPlainProcessor(), wrappedBroadcaster.provider);
-        await wrapped.resolveAndLink({ name: 'pkg-e' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
+        await wrapped.resolveAndLink(
+            { name: 'package-e' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]
+        );
 
         assert.strictEqual(wrappedBroadcaster.emitSpy.callCount, 0);
     });
@@ -227,7 +231,9 @@ function registerStageTimingTests(): void {
             broadcaster.provider
         );
 
-        const result = await wrapped.build({ name: 'pkg-f' } as unknown as Parameters<PackageProcessor['build']>[0]);
+        const result = await wrapped.build(
+            { name: 'package-f' } as unknown as Parameters<PackageProcessor['build']>[0]
+        );
         assert.strictEqual(result, sentinel);
     });
 
@@ -235,33 +241,38 @@ function registerStageTimingTests(): void {
         const { broadcaster, received } = createStagePayloadCollector();
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
-        await wrapped.build({ name: 'pkg-build' } as unknown as Parameters<PackageProcessor['build']>[0]);
+        await wrapped.build({ name: 'package-build' } as unknown as Parameters<PackageProcessor['build']>[0]);
 
         assert.strictEqual(received.length, 1);
         const payload = expectPayload(received);
         assert.partialDeepStrictEqual(payload, {
-            packageName: 'pkg-build',
+            packageName: 'package-build',
             stage: 'build'
         });
-        assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
+        assert.ok(typeof payload.durationMilliseconds === 'number' && payload.durationMilliseconds >= 0);
     });
 
-    test('withStageTimings emits a non-negative durationMs that reflects elapsed time, not wall-clock', async function () {
+    test('withStageTimings emits a non-negative durationMilliseconds that reflects elapsed time, not wall-clock', async function () {
         const broadcaster = createProgressBroadcaster();
         const received: number[] = [];
         broadcaster.consumer.on('stageTimed', function (payload) {
-            received.push(payload.durationMs);
+            received.push(payload.durationMilliseconds);
         });
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
-        await wrapped.resolveAndLink({ name: 'pkg-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
+        await wrapped.resolveAndLink(
+            { name: 'package-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]
+        );
 
-        const [ durationMs ] = received;
-        if (durationMs === undefined) {
-            assert.fail('expected durationMs');
+        const [ durationMilliseconds ] = received;
+        if (durationMilliseconds === undefined) {
+            assert.fail('expected durationMilliseconds');
         }
-        assert.ok(durationMs >= 0, 'durationMs must be non-negative');
-        assert.ok(durationMs < 10_000, 'durationMs must reflect elapsed time, not wall clock or a sum');
+        assert.ok(durationMilliseconds >= 0, 'durationMilliseconds must be non-negative');
+        assert.ok(
+            durationMilliseconds < 10_000,
+            'durationMilliseconds must reflect elapsed time, not wall clock or a sum'
+        );
     });
 }
 
@@ -277,7 +288,7 @@ function registerPreparedPublishTimingTests(): void {
         );
 
         const result = await wrapped.publishPreparedPackage(
-            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+            { buildOptions: { name: 'package-b' } } as unknown as Parameters<
                 PackageProcessor['publishPreparedPackage']
             >[0],
             {} as Parameters<PackageProcessor['publishPreparedPackage']>[1]
@@ -285,7 +296,7 @@ function registerPreparedPublishTimingTests(): void {
 
         assert.strictEqual(result, sentinel);
         assert.partialDeepStrictEqual(expectPayload(received), {
-            packageName: 'pkg-b',
+            packageName: 'package-b',
             stage: 'publish'
         });
     });
@@ -300,12 +311,12 @@ function registerFailureCaptureTests(): void {
             broadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 return sentinel;
             }
         );
 
-        const result = await wrapped({ name: 'pkg-a' });
+        const result = await wrapped({ name: 'package-a' });
 
         assert.strictEqual(result, sentinel);
     });
@@ -321,18 +332,18 @@ function registerFailureCaptureTests(): void {
             broadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 throw new Error('kaboom');
             }
         );
 
         try {
-            await wrapped({ name: 'pkg-a' });
+            await wrapped({ name: 'package-a' });
             assert.fail('expected wrapped() to throw');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'kaboom');
         }
-        assert.deepStrictEqual(received, [ { packageName: 'pkg-a', stage: 'publish', message: 'kaboom' } ]);
+        assert.deepStrictEqual(received, [ { packageName: 'package-a', stage: 'publish', message: 'kaboom' } ]);
     });
 
     test('withFailureCapture coerces a non-Error throwable into a string message', async function () {
@@ -346,7 +357,7 @@ function registerFailureCaptureTests(): void {
             broadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 const stringThrowable: unknown = 'plain string';
 
                 throw stringThrowable;
@@ -354,7 +365,7 @@ function registerFailureCaptureTests(): void {
         );
 
         try {
-            await wrapped({ name: 'pkg-a' });
+            await wrapped({ name: 'package-a' });
             assert.fail('expected wrapped() to throw');
         } catch (error: unknown) {
             assert.strictEqual(error, 'plain string');
@@ -373,13 +384,13 @@ function registerFailureCaptureTests(): void {
             broadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 throw original;
             }
         );
 
         try {
-            await wrapped({ name: 'pkg-a' });
+            await wrapped({ name: 'package-a' });
             assert.fail('expected wrapped() to throw');
         } catch (error: unknown) {
             assert.strictEqual(error, original);
@@ -393,13 +404,13 @@ function registerFailureCaptureTests(): void {
             wrappedBroadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 throw new Error('boom');
             }
         );
 
         try {
-            await wrapped({ name: 'pkg-a' });
+            await wrapped({ name: 'package-a' });
             assert.fail('expected wrapped() to throw');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'boom');
@@ -418,12 +429,12 @@ function registerFailureCaptureTests(): void {
             broadcaster.provider,
             'publish',
             async function (input: FailureInput) {
-                assert.strictEqual(input.name, 'pkg-a');
+                assert.strictEqual(input.name, 'package-a');
                 return undefined;
             }
         );
 
-        await wrapped({ name: 'pkg-a' });
+        await wrapped({ name: 'package-a' });
 
         assert.deepStrictEqual(received, []);
     });

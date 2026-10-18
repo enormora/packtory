@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     analyzedBundle,
@@ -13,7 +14,7 @@ type RuleSettings = {
     readonly noUnexposedExecutables: { readonly enabled: boolean; };
 };
 
-type BinField = Readonly<Record<string, string | undefined>> | string | undefined;
+type ExecutableField = Readonly<Record<string, string | undefined>> | string | undefined;
 
 const enabledSettings: RuleSettings = { noUnexposedExecutables: { enabled: true } };
 
@@ -38,9 +39,9 @@ function packageBundle(name: string, contents: readonly AnalyzedBundleResource[]
 
 function publishedPackage(
     name: string,
-    binField: BinField
+    executableField: ExecutableField
 ): PublishedPackageWithManifest {
-    return versionedBundleWithManifest({ name, binField });
+    return versionedBundleWithManifest({ name, executableField });
 }
 
 function publishedPackages(
@@ -62,7 +63,7 @@ async function checkBundlesWithSettings(
         bundles,
         publishedPackages: packages,
         settings,
-        perPackageSettings: new Map()
+        ...emptyCheckContext()
     });
 }
 
@@ -83,8 +84,8 @@ suite('no-unexposed-executables', function () {
 
     test('does not report when the rule is disabled', async function () {
         const issues = await checkBundlesWithSettings(
-            [ packageBundle('pkg', [ packagedFile('/repo/src/hidden.js', 'hidden.js', true) ]) ],
-            publishedPackages([ publishedPackage('pkg', undefined) ]),
+            [ packageBundle('package', [ packagedFile('/repo/source/hidden.js', 'hidden.js', true) ]) ],
+            publishedPackages([ publishedPackage('package', undefined) ]),
             { noUnexposedExecutables: { enabled: false } }
         );
 
@@ -93,10 +94,10 @@ suite('no-unexposed-executables', function () {
 
     test('does not report when check settings are absent', async function () {
         const issues = await noUnexposedExecutablesRule.run({
-            bundles: [ packageBundle('pkg', [ packagedFile('/repo/src/hidden.js', 'hidden.js', true) ]) ],
-            publishedPackages: publishedPackages([ publishedPackage('pkg', undefined) ]),
+            bundles: [ packageBundle('package', [ packagedFile('/repo/source/hidden.js', 'hidden.js', true) ]) ],
+            publishedPackages: publishedPackages([ publishedPackage('package', undefined) ]),
             settings: undefined,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(issues, []);
@@ -109,7 +110,7 @@ suite('no-unexposed-executables', function () {
                     bundles: [],
                     publishedPackages: undefined,
                     settings: enabledSettings,
-                    perPackageSettings: new Map()
+                    ...emptyCheckContext()
                 });
             },
             { message: 'Published packages missing for unexposed executable checks' }
@@ -119,16 +120,16 @@ suite('no-unexposed-executables', function () {
     test('throws when a generated package is missing for a bundle', async function () {
         await assert.rejects(
             async function () {
-                await checkBundles([ packageBundle('pkg', []) ], publishedPackages([]));
+                await checkBundles([ packageBundle('package', []) ], publishedPackages([]));
             },
-            { message: 'Published package missing for "pkg"' }
+            { message: 'Published package missing for "package"' }
         );
     });
 
     test('does not report non-executable files', async function () {
         const issues = await checkBundles(
-            [ packageBundle('pkg', [ packagedFile('/repo/src/index.js', 'index.js', false) ]) ],
-            publishedPackages([ publishedPackage('pkg', undefined) ])
+            [ packageBundle('package', [ packagedFile('/repo/source/index.js', 'index.js', false) ]) ],
+            publishedPackages([ publishedPackage('package', undefined) ])
         );
 
         assert.deepStrictEqual(issues, []);
@@ -136,19 +137,19 @@ suite('no-unexposed-executables', function () {
 
     test('reports an executable file that is not a bin target', async function () {
         const issues = await checkBundles(
-            [ packageBundle('pkg', [ packagedFile('/repo/src/hidden.js', 'hidden.js', true) ]) ],
-            publishedPackages([ publishedPackage('pkg', undefined) ])
+            [ packageBundle('package', [ packagedFile('/repo/source/hidden.js', 'hidden.js', true) ]) ],
+            publishedPackages([ publishedPackage('package', undefined) ])
         );
 
         assert.deepStrictEqual(issues, [
-            'Package "pkg" ships executable file "hidden.js" from "/repo/src/hidden.js" that is not exposed through bin'
+            'Package "package" ships executable file "hidden.js" from "/repo/source/hidden.js" that is not exposed through bin'
         ]);
     });
 
     test('does not report an executable implicit bin target', async function () {
         const issues = await checkBundles(
-            [ packageBundle('pkg', [ packagedFile('/repo/src/cli.js', 'cli.js', true) ]) ],
-            publishedPackages([ publishedPackage('pkg', { pkg: './cli.js' }) ])
+            [ packageBundle('package', [ packagedFile('/repo/source/cli.js', 'cli.js', true) ]) ],
+            publishedPackages([ publishedPackage('package', { package: './cli.js' }) ])
         );
 
         assert.deepStrictEqual(issues, []);
@@ -156,8 +157,8 @@ suite('no-unexposed-executables', function () {
 
     test('does not report an executable explicit bin target', async function () {
         const issues = await checkBundles(
-            [ packageBundle('pkg', [ packagedFile('/repo/src/run.js', 'commands/run.js', true) ]) ],
-            publishedPackages([ publishedPackage('pkg', { 'run-pkg': './commands/run.js' }) ])
+            [ packageBundle('package', [ packagedFile('/repo/source/run.js', 'commands/run.js', true) ]) ],
+            publishedPackages([ publishedPackage('package', { 'run-pkg': './commands/run.js' }) ])
         );
 
         assert.deepStrictEqual(issues, []);
@@ -166,18 +167,18 @@ suite('no-unexposed-executables', function () {
     test('reports independently per package', async function () {
         const issues = await checkBundles(
             [
-                packageBundle('pkg-a', [ packagedFile('/repo/a/hidden.js', 'hidden.js', true) ]),
-                packageBundle('pkg-b', [ packagedFile('/repo/b/cli.js', 'cli.js', true) ])
+                packageBundle('package-a', [ packagedFile('/repo/a/hidden.js', 'hidden.js', true) ]),
+                packageBundle('package-b', [ packagedFile('/repo/b/cli.js', 'cli.js', true) ])
             ],
             publishedPackages([
-                publishedPackage('pkg-a', undefined),
-                publishedPackage('pkg-b', { 'pkg-b': './cli.js' })
+                publishedPackage('package-a', undefined),
+                publishedPackage('package-b', { 'package-b': './cli.js' })
             ])
         );
 
         assert.deepStrictEqual(issues, [
             [
-                'Package "pkg-a" ships executable file "hidden.js" from "/repo/a/hidden.js" ',
+                'Package "package-a" ships executable file "hidden.js" from "/repo/a/hidden.js" ',
                 'that is not exposed through bin'
             ]
                 .join('')

@@ -37,17 +37,17 @@ export type Overrides = {
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
     readonly packAllPackages?: SinonSpy;
     readonly packPackage?: SinonSpy;
-    readonly loadConfig?: SinonSpy;
+    readonly loadConfiguration?: SinonSpy;
     readonly log?: SinonSpy;
     readonly fileManager?: FakeFileManager;
     readonly pageOutput?: SinonSpy;
     readonly openFile?: SinonSpy;
     readonly createTemporaryFilePath?: () => string;
-    readonly createPrLogEngine?: SinonSpy;
+    readonly createPullRequestLogEngine?: SinonSpy;
     readonly createGitHubReleaseClient?: SinonSpy;
     readonly createReleasePullRequestGitHubClient?: SinonSpy;
     readonly readEnvironmentVariable?: (name: string) => string | undefined;
-    readonly readPackageInfo?: () => Promise<Readonly<Record<string, unknown>>>;
+    readonly readPackageInformation?: () => Promise<Readonly<Record<string, unknown>>>;
     readonly progressBroadcaster?: ProgressBroadcaster;
     readonly spinnerRenderer?: {
         readonly add?: SinonSpy;
@@ -81,10 +81,12 @@ function createSpinnerRenderer(
     };
 }
 
-function createPrLogEngineFactory(overrides: Overrides): CommandLineInterfaceRunnerDependencies['createPrLogEngine'] {
-    return overrides.createPrLogEngine ?? fake.returns({
-        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
-        resolveChangelogBaseRef: fake.resolves({ ref: 'previous-ref' }),
+function createPullRequestLogEngineFactory(
+    overrides: Overrides
+): CommandLineInterfaceRunnerDependencies['createPullRequestLogEngine'] {
+    return overrides.createPullRequestLogEngine ?? fake.returns({
+        resolveLatestSemverChangelogBaseReference: fake.resolves({ reference: 'latest-semver' }),
+        resolveChangelogBaseReference: fake.resolves({ reference: 'previous-ref' }),
         collectMergedPullRequests: fake.resolves([]),
         readPullRequestChangedFiles: fake.resolves(new Map()),
         readPullRequestLabels: fake.resolves(new Map()),
@@ -117,17 +119,17 @@ function createReleasePullRequestClientFixture(
         findDispatchedWorkflowRun: fake(async function () {
             workflowRunLookupCount += 1;
             return workflowRunLookupCount === 1
-                ? { event: 'workflow_dispatch' as const, observedRunIds: [], runId: undefined }
-                : { event: 'workflow_dispatch' as const, observedRunIds: [ 1 ], runId: 1 };
+                ? { event: 'workflow_dispatch' as const, observedRunIdentifiers: [], runIdentifier: undefined }
+                : { event: 'workflow_dispatch' as const, observedRunIdentifiers: [ 1 ], runIdentifier: 1 };
         }),
-        getBranchHeadSha: fake.resolves('main-head'),
+        getBranchHeadHash: fake.resolves('main-head'),
         getPullRequest: fake.resolves(undefined as never),
         getPullRequestHead: fake.resolves(undefined as never),
         listCommitPullRequests: fake.resolves([]),
         readWorkflowRunResult: fake.resolves({
             conclusion: 'success',
-            databaseId: 1,
-            url: 'https://github.com/enormora/packtory/actions/runs/1',
+            databaseIdentifier: 1,
+            address: 'https://github.com/enormora/packtory/actions/runs/1',
             jobs: []
         }),
         ...overrides
@@ -142,20 +144,20 @@ function createReleasePullRequestGitHubClientFactory(
 
 function createInspectPackageTreeFixture(overrides: Overrides): SinonSpy {
     return overrides.inspectPackageTree ??
-        fake.resolves({ result: Result.ok({ packageName: 'pkg-a', entries: [] }) });
+        fake.resolves({ result: Result.ok({ packageName: 'package-a', entries: [] }) });
 }
 
 function createInspectPackageDependenciesFixture(overrides: Overrides): SinonSpy {
     return overrides.inspectPackageDependencies ??
-        fake.resolves({ result: Result.ok({ packageName: 'pkg-a', dependencies: [] }) });
+        fake.resolves({ result: Result.ok({ packageName: 'package-a', dependencies: [] }) });
 }
 
 function createInspectPackageSideEffectsFixture(overrides: Overrides): SinonSpy {
     return overrides.inspectPackageSideEffects ??
         fake.resolves({
             result: Result.ok({
-                packageName: 'pkg-a',
-                packageJsonDecision: { type: 'side-effects-false' },
+                packageName: 'package-a',
+                packageManifestDecision: { type: 'side-effects-false' },
                 impureFiles: []
             })
         });
@@ -233,8 +235,8 @@ function readEnvironmentVariable(overrides: Overrides): (name: string) => string
         };
 }
 
-function readPackageInfo(overrides: Overrides): () => Promise<Readonly<Record<string, unknown>>> {
-    return overrides.readPackageInfo ??
+function readPackageInformation(overrides: Overrides): () => Promise<Readonly<Record<string, unknown>>> {
+    return overrides.readPackageInformation ??
         async function () {
             return { repository: { url: 'https://github.com/enormora/packtory' } };
         };
@@ -244,7 +246,7 @@ function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRun
     const log = overrides.log ?? fake();
     const pageOutput = createPageOutputSpy(overrides);
     return {
-        createPrLogEngine: createPrLogEngineFactory(overrides),
+        createPullRequestLogEngine: createPullRequestLogEngineFactory(overrides),
         createGitHubReleaseClient: createGitHubReleaseClientFactory(overrides),
         createReleasePullRequestGitHubClient: createReleasePullRequestGitHubClientFactory(overrides),
         currentDate() {
@@ -254,8 +256,8 @@ function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRun
         log(message) {
             log(stripVTControlCharacters(message));
         },
-        configLoader: {
-            load: overrides.loadConfig ?? fake.resolves(undefined)
+        configurationLoader: {
+            load: overrides.loadConfiguration ?? fake.resolves(undefined)
         },
         progressBroadcaster: createProgressConsumer(overrides),
         spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer),
@@ -266,7 +268,7 @@ function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRun
         openFile: overrides.openFile ?? fake.resolves(true),
         createTemporaryFilePath: createTemporaryFilePath(overrides),
         readEnvironmentVariable: readEnvironmentVariable(overrides),
-        readPackageInfo: readPackageInfo(overrides),
+        readPackageInformation: readPackageInformation(overrides),
         sleep: fake.resolves(undefined),
         workingDirectory: '/workspace'
     };
@@ -276,14 +278,14 @@ export function createRunner(overrides: Overrides = {}): CommandLineInterfaceRun
     return createCommandLineInterfaceRunner(createRunnerDependencies(overrides));
 }
 
-export async function expectCommandLoadsConfig(command: 'preview' | 'publish'): Promise<void> {
-    const loadConfig = fake.resolves('the-config');
+export async function expectCommandLoadsConfiguration(command: 'preview' | 'publish'): Promise<void> {
+    const loadConfiguration = fake.resolves('the-config');
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = createRunner({ loadConfig, buildAndPublishAll });
+    const runner = createRunner({ loadConfiguration, buildAndPublishAll });
 
     await runner.run([ 'foo', 'bar', command ]);
 
-    assert.strictEqual(loadConfig.callCount, 1);
+    assert.strictEqual(loadConfiguration.callCount, 1);
     assert.strictEqual(buildAndPublishAll.callCount, 1);
     assert.strictEqual(buildAndPublishAll.firstCall.args[0], 'the-config');
 }
@@ -303,15 +305,15 @@ export async function expectSubcommandHelp(...commandPath: readonly string[]): P
     return expectHelp([ ...commandPath, '--help' ]);
 }
 
-export function createReleasePullRequestConfig(): Readonly<Record<string, unknown>> {
+export function createReleasePullRequestConfiguration(): Readonly<Record<string, unknown>> {
     return {
         changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] },
         packages: [
             {
-                sourcesFolder: 'src',
-                mainPackageJson: { type: 'module' },
-                name: 'pkg',
-                roots: { main: { js: 'index.js' } },
+                sourcesFolder: 'source',
+                mainPackageManifest: { type: 'module' },
+                name: 'package',
+                roots: { main: { javaScript: 'index.js' } },
                 publishSettings: { access: 'public' }
             }
         ]

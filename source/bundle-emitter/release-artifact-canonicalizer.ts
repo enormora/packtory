@@ -1,9 +1,9 @@
 import { isPlainObject } from 'remeda';
 import { tryOr } from 'true-myth/result';
 import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
-import { serializeStableJson } from '../common/stable-json.ts';
+import { serializeStableJavaScriptObjectNotation } from '../common/stable-structured-data.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
+import * as inventory from '../software-bill-of-materials/software-bill-of-materials-canonicalizer.ts';
 
 function canonicalizeManifestContent(content: string): string {
     const parsedResult = tryOr(undefined, function () {
@@ -19,7 +19,7 @@ function canonicalizeManifestContent(content: string): string {
 
     const withoutGitHead = { ...parsed };
     delete withoutGitHead.gitHead;
-    return serializeStableJson(withoutGitHead);
+    return serializeStableJavaScriptObjectNotation(withoutGitHead);
 }
 
 function canonicalizePackageManifestInFileSet(files: readonly FileDescription[]): readonly FileDescription[] {
@@ -32,5 +32,5 @@ function canonicalizePackageManifestInFileSet(files: readonly FileDescription[])
 }
 
 export function canonicalizeReleaseArtifactFiles(files: readonly FileDescription[]): readonly FileDescription[] {
-    return canonicalizePackageManifestInFileSet(canonicalizeSbomInFileSet(files));
+    return canonicalizePackageManifestInFileSet(inventory.canonicalizeSoftwareBillOfMaterialsInFileSet(files));
 }

@@ -52,11 +52,11 @@ function packageBundleWithMainEntry(
     contents: readonly LinkedBundleResource[]
 ): LinkedBundle {
     return linkedBundle({
-        name: 'pkg',
+        name: 'package',
         contents,
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: entry.fileDescription.content,
                     isExecutable: false,
                     inputFilePath: entry.fileDescription.inputFilePath,
@@ -102,14 +102,14 @@ suite('published artifact dead code elimination regressions', function () {
 
     test('eliminate resolves emitted imports from source-map authored input paths by target path', async function () {
         const entry = resource(
-            '/workspace/src/file-manager.ts',
+            '/workspace/source/file-manager.ts',
             'dist/file-manager.js',
             'import { allowed } from "./permissions.js";\nexport const api = allowed;\n'
         );
         const bundle = packageBundleWithMainEntry(entry, [
             entry,
             resource(
-                '/workspace/src/permissions.ts',
+                '/workspace/source/permissions.ts',
                 'dist/permissions.js',
                 'export const allowed = true;\nexport const unused = false;\n'
             )
@@ -161,8 +161,8 @@ suite('published artifact dead code elimination regressions', function () {
         ]
             .join('\n');
         const bundle = bundleForCodeFile({
-            name: 'pkg',
-            inputFilePath: '/src/imported-expression-origin.ts',
+            name: 'package',
+            inputFilePath: '/source/imported-expression-origin.ts',
             targetFilePath: 'dead-code-eliminator/imported-expression-origin.js',
             content
         });

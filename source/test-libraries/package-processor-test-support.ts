@@ -3,7 +3,7 @@ import { Maybe } from 'true-myth';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import type { BuildAndPublishOptions, ResolveAndLinkOptions } from '../packtory/map-config.ts';
+import type { BuildAndPublishOptions, ResolveAndLinkOptions } from '../packtory/map-configuration.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 
 export type TransferableFile = {
@@ -34,7 +34,7 @@ export function createLinkedBundle(name = 'package-a'): LinkedBundle {
     return {
         name,
         contents: [],
-        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        roots: { main: { javaScript: createTransferableFile('/entry.js') } } as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
         substitutedInputFilePathsByPackageName: new Map(),
@@ -60,7 +60,7 @@ export function createVersionedBundle(
         name,
         version,
         contents: [],
-        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        roots: { main: { javaScript: createTransferableFile('/entry.js') } } as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         dependencies: {},
         peerDependencies: {},
@@ -69,7 +69,7 @@ export function createVersionedBundle(
         mainFile: createTransferableFile('/entry.js'),
         packageType: 'module' as const,
         sideEffectsField: undefined,
-        packageJson: {
+        packageManifest: {
             name,
             version,
             ...overrides.dependencies === undefined ? {} : { dependencies: overrides.dependencies }
@@ -90,7 +90,7 @@ export type ProcessorOverrides = {
     readonly increaseVersion?: SinonSpy;
     readonly checkBundleAlreadyPublished?: SinonSpy;
     readonly publish?: SinonSpy;
-    readonly generateSbom?: SinonSpy;
+    readonly generateSoftwareBillOfMaterials?: SinonSpy;
     readonly smokePublishedArtifact?: SinonSpy;
     readonly eliminate?: SinonSpy;
     readonly repositoryFolder?: string;
@@ -108,7 +108,7 @@ export type ProcessorContext = {
     readonly increaseVersion: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly publish: SinonSpy;
-    readonly generateSbom: SinonSpy;
+    readonly generateSoftwareBillOfMaterials: SinonSpy;
     readonly smokePublishedArtifact: SinonSpy;
 };
 
@@ -124,7 +124,7 @@ type ProcessorSpies = {
     readonly increaseVersion: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly publish: SinonSpy;
-    readonly generateSbom: SinonSpy;
+    readonly generateSoftwareBillOfMaterials: SinonSpy;
     readonly smokePublishedArtifact: SinonSpy;
     readonly eliminate: SinonSpy;
 };
@@ -152,7 +152,7 @@ function createDefaultProcessorSpies(): ProcessorSpies {
             previousReleaseArtifacts: Maybe.nothing()
         }),
         publish: fake.resolves(undefined),
-        generateSbom: fake.resolves(undefined),
+        generateSoftwareBillOfMaterials: fake.resolves(undefined),
         smokePublishedArtifact: fake.resolves(undefined),
         eliminate: fake(async function (eliminationInputs: readonly EliminationInput[]) {
             return eliminationInputs.map(function (input) {
@@ -186,7 +186,10 @@ function createProcessorSpies(overrides: ProcessorOverrides): ProcessorSpies {
             defaults.checkBundleAlreadyPublished
         ),
         publish: providedSpy(overrides.publish, defaults.publish),
-        generateSbom: providedSpy(overrides.generateSbom, defaults.generateSbom),
+        generateSoftwareBillOfMaterials: providedSpy(
+            overrides.generateSoftwareBillOfMaterials,
+            defaults.generateSoftwareBillOfMaterials
+        ),
         smokePublishedArtifact: providedSpy(overrides.smokePublishedArtifact, defaults.smokePublishedArtifact),
         eliminate: providedSpy(overrides.eliminate, defaults.eliminate)
     };
@@ -210,7 +213,7 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
             publish: spies.publish
         },
         versionManager: { addVersion: spies.addVersion, increaseVersion: spies.increaseVersion },
-        sbomFileBuilder: { generate: spies.generateSbom },
+        softwareBillOfMaterialsFileBuilder: { generate: spies.generateSoftwareBillOfMaterials },
         publishedArtifactSmokeGate: { verify: spies.smokePublishedArtifact },
         deadCodeEliminator: { eliminate: spies.eliminate },
         fileManager: {
@@ -236,7 +239,7 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
         increaseVersion: spies.increaseVersion,
         checkBundleAlreadyPublished: spies.checkBundleAlreadyPublished,
         publish: spies.publish,
-        generateSbom: spies.generateSbom,
+        generateSoftwareBillOfMaterials: spies.generateSoftwareBillOfMaterials,
         smokePublishedArtifact: spies.smokePublishedArtifact
     };
 }
@@ -244,13 +247,13 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
 export function createResolveOptions(): ResolveAndLinkOptions {
     return {
         name: 'package-a',
-        sourcesFolder: '/src',
-        roots: { main: { js: '/src/index.js' } } as const,
+        sourcesFolder: '/source',
+        roots: { main: { javaScript: '/source/index.js' } } as const,
         includeSourceMapFiles: true,
-        additionalFiles: [ { inputFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
-        mainPackageJson: { type: 'module' as const, dependencies: { dependency: '^1.0.0' } },
+        additionalFiles: [ { inputFilePath: '/source/readme.md', targetFilePath: 'readme.md' } ],
+        mainPackageManifest: { type: 'module' as const, dependencies: { dependency: '^1.0.0' } },
         additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
-        additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+        additionalPackageManifestAttributes: { publishConfig: { access: 'public' } },
         allowMutableSpecifiers: [],
         bundleDependencies: [ createLinkedBundle('bundle-dependency') ],
         bundlePeerDependencies: [ createLinkedBundle('peer-dependency') ]
@@ -263,8 +266,8 @@ export function createBuildAndPublishOptions(): BuildAndPublishOptions {
     return {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        publishSettings: { access: 'public', sbom: { enabled: false } } as const,
+        registrySettings: { authentication: { type: 'bearer-token', token: 'token' } },
+        publishSettings: { access: 'public', softwareBillOfMaterials: { enabled: false } } as const,
         ignoredAttributionPaths: [],
         bundleDependencies: [ bundleDependency ],
         bundlePeerDependencies: [ peerDependency ],
@@ -272,7 +275,7 @@ export function createBuildAndPublishOptions(): BuildAndPublishOptions {
     };
 }
 
-export function getCallArgs(spy: SinonSpy): unknown[][] {
+export function getCallArguments(spy: SinonSpy): unknown[][] {
     return spy.getCalls().map(function (call): unknown[] {
         return Array.from(call.args);
     });

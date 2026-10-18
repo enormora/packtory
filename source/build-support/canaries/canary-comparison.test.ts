@@ -1,16 +1,21 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { compareCanaryApis } from './canary-comparison.ts';
-import type { PackageApiInspection, TypeExportNames } from './package-api-inspection.ts';
+import { compareCanaryApplicationProgrammingInterfaces } from './canary-comparison.ts';
+import type {
+    PackageApplicationProgrammingInterfaceInspection,
+    TypeExportNames
+} from './package-application-programming-interface-inspection.ts';
 
 const emptyTypeExports: TypeExportNames = { namespace: [], type: [], value: [] };
 
-function inspection(overrides: Partial<PackageApiInspection['packages'][number]>): PackageApiInspection {
+function inspection(
+    overrides: Partial<PackageApplicationProgrammingInterfaceInspection['packages'][number]>
+): PackageApplicationProgrammingInterfaceInspection {
     return {
         packages: [
             {
-                binTargets: [],
-                name: 'pkg',
+                executableTargets: [],
+                name: 'package',
                 publicExports: [],
                 typeDiagnostics: [],
                 ...overrides
@@ -20,8 +25,8 @@ function inspection(overrides: Partial<PackageApiInspection['packages'][number]>
 }
 
 suite('canary-comparison', function () {
-    test('compareCanaryApis reports missing public export specifiers as regressions', function () {
-        const result = compareCanaryApis(
+    test('compareCanaryApplicationProgrammingInterfaces reports missing public export specifiers as regressions', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({
                 publicExports: [
                     {
@@ -38,19 +43,19 @@ suite('canary-comparison', function () {
         assert.deepStrictEqual(result.issues, [
             {
                 kind: 'regression',
-                message: 'Package "pkg" export "pkg/feature" exists in the npm baseline but is missing from source'
+                message: 'Package "package" export "pkg/feature" exists in the npm baseline but is missing from source'
             }
         ]);
     });
 
-    test('compareCanaryApis reports runtime and type export removals', function () {
-        const result = compareCanaryApis(
+    test('compareCanaryApplicationProgrammingInterfaces reports runtime and type export removals', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({
                 publicExports: [
                     {
                         runtimeExportNames: [ 'api' ],
                         runtimeImportError: '',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: { namespace: [], type: [ 'Options' ], value: [ 'api' ] }
                     }
                 ]
@@ -60,7 +65,7 @@ suite('canary-comparison', function () {
                     {
                         runtimeExportNames: [],
                         runtimeImportError: '',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: emptyTypeExports
                     }
                 ]
@@ -70,26 +75,26 @@ suite('canary-comparison', function () {
         assert.deepStrictEqual(result.issues, [
             {
                 kind: 'regression',
-                message: 'Package "pkg" export "pkg" is missing runtime export "api"'
+                message: 'Package "package" export "package" is missing runtime export "api"'
             },
             {
                 kind: 'regression',
-                message: 'Package "pkg" export "pkg" is missing type export "Options"'
+                message: 'Package "package" export "package" is missing type export "Options"'
             },
             {
                 kind: 'regression',
-                message: 'Package "pkg" export "pkg" is missing value export "api"'
+                message: 'Package "package" export "package" is missing value export "api"'
             }
         ]);
     });
 
     test('reports failed imports without inventing runtime export removals', function () {
-        const result = compareCanaryApis(
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({
                 publicExports: [ {
                     runtimeExportNames: [ 'api' ],
                     runtimeImportError: '',
-                    specifier: 'pkg',
+                    specifier: 'package',
                     typeExportNames: { namespace: [], type: [ 'Options' ], value: [] }
                 } ]
             }),
@@ -97,7 +102,7 @@ suite('canary-comparison', function () {
                 publicExports: [ {
                     runtimeExportNames: [],
                     runtimeImportError: 'source stack',
-                    specifier: 'pkg',
+                    specifier: 'package',
                     typeExportNames: emptyTypeExports
                 } ]
             })
@@ -105,34 +110,35 @@ suite('canary-comparison', function () {
         assert.deepStrictEqual(result.issues, [
             {
                 kind: 'regression',
-                message: 'Package "pkg" export "pkg" fails runtime import checks.\n\nsource error:\nsource stack'
+                message:
+                    'Package "package" export "package" fails runtime import checks.\n\nsource error:\nsource stack'
             },
-            { kind: 'regression', message: 'Package "pkg" export "pkg" is missing type export "Options"' }
+            { kind: 'regression', message: 'Package "package" export "package" is missing type export "Options"' }
         ]);
     });
 
-    test('compareCanaryApis reports missing bin targets', function () {
-        const result = compareCanaryApis(
-            inspection({ binTargets: [ 'pkg -> ./cli.js' ] }),
-            inspection({ binTargets: [] })
+    test('compareCanaryApplicationProgrammingInterfaces reports missing bin targets', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
+            inspection({ executableTargets: [ 'pkg -> ./cli.js' ] }),
+            inspection({ executableTargets: [] })
         );
 
         assert.deepStrictEqual(result.issues, [
             {
                 kind: 'regression',
-                message: 'Package "pkg" is missing bin target "pkg -> ./cli.js"'
+                message: 'Package "package" is missing bin target "pkg -> ./cli.js"'
             }
         ]);
     });
 
-    test('compareCanaryApis treats baseline import failures as baseline rot', function () {
-        const result = compareCanaryApis(
+    test('compareCanaryApplicationProgrammingInterfaces treats baseline import failures as baseline rot', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({
                 publicExports: [
                     {
                         runtimeExportNames: [],
                         runtimeImportError: 'boom',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: emptyTypeExports
                     }
                 ]
@@ -142,7 +148,7 @@ suite('canary-comparison', function () {
                     {
                         runtimeExportNames: [],
                         runtimeImportError: 'source boom',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: emptyTypeExports
                     }
                 ]
@@ -153,7 +159,7 @@ suite('canary-comparison', function () {
             {
                 kind: 'baseline-rot',
                 message: [
-                    'Package "pkg" export "pkg" fails runtime import checks.',
+                    'Package "package" export "package" fails runtime import checks.',
                     '',
                     'npm baseline error:',
                     'boom',
@@ -166,14 +172,14 @@ suite('canary-comparison', function () {
         ]);
     });
 
-    test('compareCanaryApis reports source runtime import failure details', function () {
-        const result = compareCanaryApis(
+    test('compareCanaryApplicationProgrammingInterfaces reports source runtime import failure details', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({
                 publicExports: [
                     {
                         runtimeExportNames: [],
                         runtimeImportError: '',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: emptyTypeExports
                     }
                 ]
@@ -183,7 +189,7 @@ suite('canary-comparison', function () {
                     {
                         runtimeExportNames: [],
                         runtimeImportError: 'source stack',
-                        specifier: 'pkg',
+                        specifier: 'package',
                         typeExportNames: emptyTypeExports
                     }
                 ]
@@ -194,7 +200,7 @@ suite('canary-comparison', function () {
             {
                 kind: 'regression',
                 message: [
-                    'Package "pkg" export "pkg" fails runtime import checks.',
+                    'Package "package" export "package" fails runtime import checks.',
                     '',
                     'source error:',
                     'source stack'
@@ -204,8 +210,8 @@ suite('canary-comparison', function () {
         ]);
     });
 
-    test('compareCanaryApis reports new TypeScript diagnostics', function () {
-        const result = compareCanaryApis(
+    test('compareCanaryApplicationProgrammingInterfaces reports new TypeScript diagnostics', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(
             inspection({ typeDiagnostics: [ 'TS1000: existing' ] }),
             inspection({ typeDiagnostics: [ 'TS1000: existing', 'TS1001: new' ] })
         );
@@ -213,11 +219,11 @@ suite('canary-comparison', function () {
         assert.deepStrictEqual(result.issues, [
             {
                 kind: 'baseline-rot',
-                message: 'Package "pkg" has an npm baseline TypeScript diagnostic: TS1000: existing'
+                message: 'Package "package" has an npm baseline TypeScript diagnostic: TS1000: existing'
             },
             {
                 kind: 'regression',
-                message: 'Package "pkg" has a new TypeScript diagnostic: TS1001: new'
+                message: 'Package "package" has a new TypeScript diagnostic: TS1001: new'
             }
         ]);
     });

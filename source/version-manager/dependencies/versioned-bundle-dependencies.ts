@@ -1,5 +1,5 @@
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { MainPackageJson } from '../../config/package-json.ts';
+import type { MainPackageManifest } from '../../configuration/package-manifest.ts';
 import { groupBundleDependencies, type VersionedDependency } from './bundle-dependency-grouping.ts';
 import { mergeDependencyGroups, type GroupedDependencies } from './dependency-groups.ts';
 import { groupExternalDependencies } from './external-dependency-classification.ts';
@@ -8,7 +8,7 @@ type DependencyDistributionBundle = Pick<AnalyzedBundle, 'externalDependencies' 
 
 type DistributeDependenciesOptions = {
     readonly bundle: DependencyDistributionBundle;
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
     readonly bundleDependencies: readonly VersionedDependency[];
     readonly bundlePeerDependencies: readonly VersionedDependency[];
     readonly allowMutableSpecifiers: readonly string[];
@@ -22,7 +22,7 @@ export function distributeDependencies(options: DistributeDependenciesOptions): 
     );
     const externalGrouped = groupExternalDependencies(
         options.bundle,
-        options.mainPackageJson,
+        options.mainPackageManifest,
         options.allowMutableSpecifiers
     );
     return mergeDependencyGroups(bundleGrouped, externalGrouped);

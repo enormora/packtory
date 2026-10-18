@@ -24,22 +24,22 @@ function peerBundleWithEntryExport(entryContent: string): VersionedBundleWithMan
         version: '21',
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: '',
                     isExecutable: false,
-                    inputFilePath: '/pkg-entry.js',
-                    targetFilePath: 'pkg-entry.js'
+                    inputFilePath: '/package-entry.js',
+                    targetFilePath: 'package-entry.js'
                 }
             }
         },
         surface: {
             mode: 'explicit',
-            packageInterface: { modules: [ { root: 'main', export: './pkg-entry.js' } ] }
+            packageInterface: { modules: [ { root: 'main', export: './package-entry.js' } ] }
         },
         contents: [
             {
-                ...bundleResourceFixture('/pkg-entry.js', {
-                    targetFilePath: 'pkg-entry.js',
+                ...bundleResourceFixture('/package-entry.js', {
+                    targetFilePath: 'package-entry.js',
                     content: entryContent
                 }),
                 isSubstituted: false,
@@ -51,9 +51,14 @@ function peerBundleWithEntryExport(entryContent: string): VersionedBundleWithMan
                 analysis: emptySubstitutionAnalysis()
             }
         ],
-        packageJson: { name: 'peer-package', version: '21' },
-        exportsField: { './pkg-entry.js': { import: './pkg-entry.js' } },
-        mainFile: { content: '', isExecutable: false, inputFilePath: '/pkg-entry.js', targetFilePath: 'pkg-entry.js' },
+        packageManifest: { name: 'peer-package', version: '21' },
+        exportsField: { './package-entry.js': { import: './package-entry.js' } },
+        mainFile: {
+            content: '',
+            isExecutable: false,
+            inputFilePath: '/package-entry.js',
+            targetFilePath: 'package-entry.js'
+        },
         manifestFile: { content: '', isExecutable: false, filePath: '/package.json' }
     });
 }
@@ -75,7 +80,7 @@ function buildInputGraph(entryContent: string): ResourceGraph {
         ]
     });
     const root = {
-        js: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' },
+        javaScript: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createResolvedGraph({
@@ -122,8 +127,8 @@ describe('substitute-bundles symbol requirements', function () {
             const peerContent = 'import { Private } from "./internal.js"; export const value = Private;';
             const project = createProject({
                 withFiles: [
-                    { filePath: '/entry.js', content: 'import { value } from "./pkg-entry.js";' },
-                    { filePath: '/pkg-entry.js', content: peerContent },
+                    { filePath: '/entry.js', content: 'import { value } from "./package-entry.js";' },
+                    { filePath: '/package-entry.js', content: peerContent },
                     { filePath: '/internal.js', content: 'export const Private = 1;' }
                 ]
             });
@@ -132,7 +137,7 @@ describe('substitute-bundles symbol requirements', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 roots: {
                     main: {
-                        js: {
+                        javaScript: {
                             inputFilePath: '/entry.js',
                             targetFilePath: 'entry.js',
                             content: '',
@@ -145,14 +150,14 @@ describe('substitute-bundles symbol requirements', function () {
                     {
                         ...bundleResourceFixture('/entry.js', {
                             targetFilePath: 'entry.js',
-                            content: 'import { value } from "./pkg-entry.js";',
-                            directDependencies: new Set([ 'pkg-entry.js' ])
+                            content: 'import { value } from "./package-entry.js";',
+                            directDependencies: new Set([ 'package-entry.js' ])
                         }),
                         project
                     },
                     {
-                        ...bundleResourceFixture('/pkg-entry.js', {
-                            targetFilePath: 'pkg-entry.js',
+                        ...bundleResourceFixture('/package-entry.js', {
+                            targetFilePath: 'package-entry.js',
                             content: peerContent,
                             directDependencies: new Set([ 'internal.js' ])
                         }),
@@ -178,7 +183,7 @@ describe('substitute-bundles symbol requirements', function () {
             );
             assert.strictEqual(
                 result.contents[0]?.fileDescription.content,
-                'import { value } from "peer-package/pkg-entry.js";'
+                'import { value } from "peer-package/package-entry.js";'
             );
             assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'peer-package' ]);
         });
@@ -187,7 +192,7 @@ describe('substitute-bundles symbol requirements', function () {
             assertSubstituted(
                 'import { Public } from "./internal.js";',
                 peerBundleWithPublicOnly(),
-                'import { Public } from "peer-package/pkg-entry.js";'
+                'import { Public } from "peer-package/package-entry.js";'
             );
         });
 
@@ -195,7 +200,7 @@ describe('substitute-bundles symbol requirements', function () {
             assertSubstituted(
                 'import Private from "./internal.js";',
                 peerBundleWithDefaultOnly(),
-                'import Private from "peer-package/pkg-entry.js";'
+                'import Private from "peer-package/package-entry.js";'
             );
         });
 
@@ -203,7 +208,7 @@ describe('substitute-bundles symbol requirements', function () {
             assertSubstituted(
                 'export { Public } from "./internal.js";',
                 peerBundleWithPublicOnly(),
-                'export { Public } from "peer-package/pkg-entry.js";'
+                'export { Public } from "peer-package/package-entry.js";'
             );
         });
     });

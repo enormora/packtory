@@ -1,4 +1,4 @@
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationBehaviorEquivalent,
@@ -16,7 +16,7 @@ import {
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 const runsPerTransform = 25;
-const transformChunks = 5;
+const transformChunks = runsPerTransform;
 const runsPerTransformChunk = runsPerTransform / transformChunks;
 
 function formatCaseFailure(input: GeneratedDeadCodeEliminationMetamorphicCase, error: unknown): Error {
@@ -92,10 +92,13 @@ suite('dead code elimination metamorphic equivalence', function () {
     for (const kind of deadCodeEliminationMetamorphicTransformKinds) {
         for (let chunk = 0; chunk < transformChunks; chunk += 1) {
             test(`preserves behavior for generated ${kind} transforms, chunk ${chunk + 1}`, async function () {
-                await fc.assert(
-                    fc.asyncProperty(deadCodeEliminationMetamorphicProgramArbitraryFor(kind), async function (input) {
-                        await assertMetamorphicEquivalent(input);
-                    }),
+                await fastCheck.assert(
+                    fastCheck.asyncProperty(
+                        deadCodeEliminationMetamorphicProgramArbitraryFor(kind),
+                        async function (input) {
+                            await assertMetamorphicEquivalent(input);
+                        }
+                    ),
                     { numRuns: runsPerTransformChunk }
                 );
             });

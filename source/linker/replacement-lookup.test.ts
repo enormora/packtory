@@ -13,7 +13,7 @@ import {
 function targetFileDescription(
     inputFilePath: string,
     targetFilePath: string
-): BundleSubstitutionSource['roots'][string]['js'] {
+): BundleSubstitutionSource['roots'][string]['javaScript'] {
     return {
         inputFilePath,
         targetFilePath,
@@ -23,13 +23,13 @@ function targetFileDescription(
 }
 
 function declarationRoot(
-    jsInputFilePath: string,
-    jsTargetFilePath: string,
+    javaScriptInputFilePath: string,
+    javaScriptTargetFilePath: string,
     declarationInputFilePath: string,
     declarationTargetFilePath: string
 ): BundleSubstitutionSource['roots'][string] {
     return {
-        js: targetFileDescription(jsInputFilePath, jsTargetFilePath),
+        javaScript: targetFileDescription(javaScriptInputFilePath, javaScriptTargetFilePath),
         declarationFile: targetFileDescription(declarationInputFilePath, declarationTargetFilePath)
     };
 }
@@ -54,7 +54,7 @@ function exposingBundle(name: string, inputFilePath: string, targetFilePath: str
         contents: [ analyzedBundleResource(inputFilePath, { targetFilePath }) ],
         roots: {
             main: {
-                js: targetFileDescription(inputFilePath, targetFilePath)
+                javaScript: targetFileDescription(inputFilePath, targetFilePath)
             }
         },
         surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
@@ -64,7 +64,7 @@ function exposingBundle(name: string, inputFilePath: string, targetFilePath: str
 
 function peerBundleWithEntryDeclaration(entryDeclarationContent: string): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/entry.js', {
                 targetFilePath: 'entry.js',
@@ -86,7 +86,7 @@ function peerBundleWithEntryDeclaration(entryDeclarationContent: string): Bundle
 
 function peerBundleWithEntryJavaScriptExport(entryDeclarationContent: string): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/entry.d.ts', {
                 targetFilePath: 'entry.d.ts',
@@ -103,7 +103,7 @@ function peerBundleWithEntryJavaScriptExport(entryDeclarationContent: string): B
 
 function peerBundleWithCircularDeclarations(): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/entry.d.ts', {
                 targetFilePath: 'entry.d.ts',
@@ -123,7 +123,7 @@ function peerBundleWithCircularDeclarations(): BundleSubstitutionSource {
 
 function peerBundleWithDuplicateDeclarationExports(): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/short.js', { targetFilePath: 'short.js' }),
             analyzedBundleResource('/b/short.d.ts', {
@@ -152,7 +152,7 @@ function peerBundleWithDuplicateDeclarationExports(): BundleSubstitutionSource {
 
 function peerBundleWithEqualDeclarationExports(): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/left.d.ts', {
                 targetFilePath: 'left.d.ts',
@@ -179,7 +179,7 @@ function peerBundleWithEqualDeclarationExports(): BundleSubstitutionSource {
 
 function implicitPeerBundleWithFeatureDeclarationExport(): BundleSubstitutionSource {
     return linkedBundle({
-        name: 'pkg-b',
+        name: 'package-b',
         contents: [
             analyzedBundleResource('/b/index.js', { targetFilePath: 'index.js' }),
             analyzedBundleResource('/b/feature.js', { targetFilePath: 'feature.js' }),
@@ -191,7 +191,7 @@ function implicitPeerBundleWithFeatureDeclarationExport(): BundleSubstitutionSou
         ],
         roots: {
             main: {
-                js: targetFileDescription('/b/index.js', 'index.js')
+                javaScript: targetFileDescription('/b/index.js', 'index.js')
             },
             feature: peerDeclarationRoot('feature.js')
         },
@@ -222,7 +222,7 @@ function assertPeerDeclarationSpecifier(bundle: BundleSubstitutionSource, expect
     const result = createPathReplacementLookup([], [ bundle ])([ pathOnlyReplacementRequest('/b/internal.d.ts') ]);
     assert.deepStrictEqual(result.importPathReplacements.get('/b/internal.d.ts'), {
         emittedSpecifier: expectedSpecifier,
-        packageName: 'pkg-b'
+        packageName: 'package-b'
     });
     return result;
 }
@@ -240,15 +240,15 @@ suite('replacement-lookup', function () {
     });
 
     test('maps public targets and keeps results independent across reused dependency lookups', function () {
-        const bundle = exposingBundle('pkg-b', '/b/helpers.ts', 'helpers.ts');
+        const bundle = exposingBundle('package-b', '/b/helpers.ts', 'helpers.ts');
         const lookup = createPathReplacementLookup([ bundle ], []);
         const result = lookup([ pathOnlyReplacementRequest('/b/helpers.ts') ]);
 
         assert.deepStrictEqual(
             result.importPathReplacements.get('/b/helpers.ts'),
-            { emittedSpecifier: 'pkg-b', packageName: 'pkg-b' }
+            { emittedSpecifier: 'package-b', packageName: 'package-b' }
         );
-        assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
+        assert.deepStrictEqual(result.bundleDependencies, [ 'package-b' ]);
         assert.deepStrictEqual(lookup([ pathOnlyReplacementRequest('/x/a.ts') ]), {
             importPathReplacements: new Map(),
             bundleDependencies: [],
@@ -259,7 +259,7 @@ suite('replacement-lookup', function () {
     suite('substitution promotion records', function () {
         test('dependency lookup maps declaration companions to the JavaScript package subpath', function () {
             const bundle = linkedBundle({
-                name: 'pkg-b',
+                name: 'package-b',
                 contents: [
                     analyzedBundleResource('/b/helpers.js', { targetFilePath: 'helpers.js' }),
                     analyzedBundleResource('/b/helpers.d.ts', { targetFilePath: 'helpers.d.ts' })
@@ -272,17 +272,17 @@ suite('replacement-lookup', function () {
                     bundleDependencies: result.bundleDependencies,
                     substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
                 }, {
-                    replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
-                    bundleDependencies: [ 'pkg-b' ],
+                    replacement: { emittedSpecifier: 'package-b/helpers.js', packageName: 'package-b' },
+                    bundleDependencies: [ 'package-b' ],
                     substitutedInputFilePathsByPackageName: new Map([
-                        [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
+                        [ 'package-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
                     ])
                 });
             }
         });
 
         test('dependency lookup does not record non-code substitutions for promotion', function () {
-            const bundle = exposingBundle('pkg-b', '/b/data.json', 'data.json');
+            const bundle = exposingBundle('package-b', '/b/data.json', 'data.json');
 
             const result = createPathReplacementLookup([ bundle ], [])([ pathOnlyReplacementRequest('/b/data.json') ]);
 
@@ -290,18 +290,18 @@ suite('replacement-lookup', function () {
                 replacement: result.importPathReplacements.get('/b/data.json'),
                 substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
             }, {
-                replacement: { emittedSpecifier: 'pkg-b', packageName: 'pkg-b' },
+                replacement: { emittedSpecifier: 'package-b', packageName: 'package-b' },
                 substitutedInputFilePathsByPackageName: new Map()
             });
         });
 
         test('dependency lookup records JavaScript substitutions from public roots', function () {
             const bundle = linkedBundle({
-                name: 'pkg-b',
+                name: 'package-b',
                 contents: [],
                 roots: {
                     main: {
-                        js: targetFileDescription('/b/public.js', 'public.js')
+                        javaScript: targetFileDescription('/b/public.js', 'public.js')
                     }
                 },
                 surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
@@ -312,14 +312,14 @@ suite('replacement-lookup', function () {
             assert.deepStrictEqual(
                 result.substitutedInputFilePathsByPackageName,
                 new Map([
-                    [ 'pkg-b', new Set([ '/b/public.js' ]) ]
+                    [ 'package-b', new Set([ '/b/public.js' ]) ]
                 ])
             );
         });
 
         test('dependency lookup records declaration-only substitutions for promotion', function () {
             const bundle = linkedBundle({
-                name: 'pkg-b',
+                name: 'package-b',
                 contents: [
                     analyzedBundleResource('/b/types.d.ts', { targetFilePath: 'types.d.ts' })
                 ]
@@ -330,9 +330,9 @@ suite('replacement-lookup', function () {
                     replacement: result.importPathReplacements.get('/b/types.d.ts'),
                     substitutedInputFilePathsByPackageName: result.substitutedInputFilePathsByPackageName
                 }, {
-                    replacement: { emittedSpecifier: 'pkg-b/types.d.ts', packageName: 'pkg-b' },
+                    replacement: { emittedSpecifier: 'package-b/types.d.ts', packageName: 'package-b' },
                     substitutedInputFilePathsByPackageName: new Map([
-                        [ 'pkg-b', new Set([ '/b/types.d.ts' ]) ]
+                        [ 'package-b', new Set([ '/b/types.d.ts' ]) ]
                     ])
                 });
             }
@@ -341,7 +341,7 @@ suite('replacement-lookup', function () {
 
     test('dependency lookup retains private files without requesting extra exports', function () {
         const bundle = linkedBundle({
-            name: 'pkg-b',
+            name: 'package-b',
             contents: [ analyzedBundleResource('/b/internal.ts', { targetFilePath: 'internal.ts' }) ],
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
         });
@@ -357,7 +357,7 @@ suite('replacement-lookup', function () {
 
     test('dependency lookup ignores owned source maps that are not exposed', function () {
         const bundle = linkedBundle({
-            name: 'pkg-b',
+            name: 'package-b',
             contents: [ analyzedBundleResource('/b/index.js.map', { targetFilePath: 'index.js.map' }) ],
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
         });
@@ -368,15 +368,15 @@ suite('replacement-lookup', function () {
     });
 
     test('dependency lookup returns one bundle dependency entry per matched file', function () {
-        const bundleB = exposingBundle('pkg-b', '/b/helpers.ts', 'helpers.ts');
-        const bundleC = exposingBundle('pkg-c', '/c/helpers.ts', 'helpers.ts');
+        const bundleB = exposingBundle('package-b', '/b/helpers.ts', 'helpers.ts');
+        const bundleC = exposingBundle('package-c', '/c/helpers.ts', 'helpers.ts');
 
         const result = createPathReplacementLookup([ bundleB, bundleC ], [])([
             pathOnlyReplacementRequest('/b/helpers.ts'),
             pathOnlyReplacementRequest('/c/helpers.ts')
         ]);
 
-        assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b', 'pkg-c' ]);
+        assert.deepStrictEqual(result.bundleDependencies, [ 'package-b', 'package-c' ]);
     });
 
     suite('peer dependency exports', function () {
@@ -390,8 +390,8 @@ suite('replacement-lookup', function () {
                 );
             const bundle = peerBundleWithEntryDeclaration(content);
 
-            const result = assertPeerDeclarationSpecifier(bundle, 'pkg-b/entry.js');
-            assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
+            const result = assertPeerDeclarationSpecifier(bundle, 'package-b/entry.js');
+            assert.deepStrictEqual(result.bundleDependencies, [ 'package-b' ]);
         });
 
         test('dependency lookup maps peer internals through named declaration exports', function () {
@@ -404,7 +404,7 @@ suite('replacement-lookup', function () {
                 );
             const bundle = peerBundleWithEntryDeclaration(content);
 
-            assertPeerDeclarationSpecifier(bundle, 'pkg-b/entry.js');
+            assertPeerDeclarationSpecifier(bundle, 'package-b/entry.js');
         });
 
         test('dependency lookup maps peer internals through JavaScript declaration exports', function () {
@@ -418,7 +418,7 @@ suite('replacement-lookup', function () {
 
             assert.deepStrictEqual(
                 result.importPathReplacements.get('/b/internal.js'),
-                { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+                { emittedSpecifier: 'package-b/entry.js', packageName: 'package-b' }
             );
         });
     });
@@ -431,7 +431,7 @@ suite('replacement-lookup', function () {
 
             assert.throws(function () {
                 createPathReplacementLookup([], [ bundle ])([ pathOnlyReplacementRequest('/b/internal.d.ts') ]);
-            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
+            }, /^Error: Package "package-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
 
         test('dependency lookup rejects peer internals reached only by an import', function () {
@@ -441,7 +441,7 @@ suite('replacement-lookup', function () {
 
             assert.throws(function () {
                 createPathReplacementLookup([], [ bundle ])([ pathOnlyReplacementRequest('/b/internal.d.ts') ]);
-            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
+            }, /^Error: Package "package-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
 
         test('dependency lookup rejects peer internals reached only by a local export', function () {
@@ -451,7 +451,7 @@ suite('replacement-lookup', function () {
 
             assert.throws(function () {
                 createPathReplacementLookup([], [ bundle ])([ pathOnlyReplacementRequest('/b/internal.d.ts') ]);
-            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
+            }, /^Error: Package "package-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
     });
 
@@ -459,32 +459,32 @@ suite('replacement-lookup', function () {
         test('dependency lookup tolerates circular peer declaration exports', function () {
             const bundle = peerBundleWithCircularDeclarations();
 
-            assertPeerDeclarationSpecifier(bundle, 'pkg-b/entry.js');
+            assertPeerDeclarationSpecifier(bundle, 'package-b/entry.js');
         });
 
         test('dependency lookup keeps the shortest peer module that reaches an internal declaration', function () {
             const bundle = peerBundleWithDuplicateDeclarationExports();
 
-            assertPeerDeclarationSpecifier(bundle, 'pkg-b/short.js');
+            assertPeerDeclarationSpecifier(bundle, 'package-b/short.js');
         });
 
         test('dependency lookup keeps the first peer module when reachable specifiers tie', function () {
             const bundle = peerBundleWithEqualDeclarationExports();
 
-            assertPeerDeclarationSpecifier(bundle, 'pkg-b/one.js');
+            assertPeerDeclarationSpecifier(bundle, 'package-b/one.js');
         });
 
         test('dependency lookup maps implicit peer internals through secondary roots', function () {
             const bundle = implicitPeerBundleWithFeatureDeclarationExport();
 
-            assertPeerDeclarationSpecifier(bundle, 'pkg-b/feature.js');
+            assertPeerDeclarationSpecifier(bundle, 'package-b/feature.js');
         });
     });
 
     suite('peer dependency hidden internals', function () {
         test('dependency lookup ignores unrelated files when peer bundles contain private files', function () {
             const bundle = linkedBundle({
-                name: 'pkg-b',
+                name: 'package-b',
                 contents: [ analyzedBundleResource('/b/internal.js', { targetFilePath: 'internal.js' }) ],
                 surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
             });
@@ -500,19 +500,19 @@ suite('replacement-lookup', function () {
 
         test('dependency lookup rejects explicit peer internals when the surface exposes no modules', function () {
             const bundle = linkedBundle({
-                name: 'pkg-b',
+                name: 'package-b',
                 contents: [ analyzedBundleResource('/b/internal.js', { targetFilePath: 'internal.js' }) ],
                 roots: {
                     main: {
-                        js: targetFileDescription('/b/entry.js', 'entry.js')
+                        javaScript: targetFileDescription('/b/entry.js', 'entry.js')
                     }
                 },
-                surface: explicitPackageSurface({ bins: [ { root: 'main', name: 'pkg-b' } ] })
+                surface: explicitPackageSurface({ executables: [ { root: 'main', name: 'package-b' } ] })
             });
 
             assert.throws(function () {
                 createPathReplacementLookup([], [ bundle ])([ pathOnlyReplacementRequest('/b/internal.js') ]);
-            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.js" for cross-package substitution$/u);
+            }, /^Error: Package "package-b" does not expose "\/b\/internal\.js" for cross-package substitution$/u);
         });
 
         test('dependency lookup rejects peer internals that no exported module reaches', function () {
@@ -527,7 +527,7 @@ suite('replacement-lookup', function () {
                 assert.ok(error instanceof Error);
                 assert.strictEqual(
                     error.message,
-                    'Package "pkg-b" does not expose "/b/internal.d.ts" for cross-package substitution'
+                    'Package "package-b" does not expose "/b/internal.d.ts" for cross-package substitution'
                 );
             }
         });

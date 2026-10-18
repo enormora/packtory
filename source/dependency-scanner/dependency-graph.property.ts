@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import { unique } from 'remeda';
 import { Maybe } from 'true-myth';
@@ -10,7 +10,7 @@ import {
     type LocalFile
 } from './dependency-graph.ts';
 
-const filePathArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}\.js$/);
+const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.js$/);
 
 function filePathAt(filePaths: readonly string[], index: number): string {
     const filePath = filePaths[index];
@@ -20,7 +20,7 @@ function filePathAt(filePaths: readonly string[], index: number): string {
     return filePath;
 }
 
-const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
+const dependencyFilesArbitrary: fastCheck.Arbitrary<DependencyFiles> = fastCheck
     .uniqueArray(filePathArbitrary, {
         minLength: 1,
         maxLength: 3
@@ -37,11 +37,16 @@ const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
             });
         });
 
-        return fc
+        return fastCheck
             .record({
-                sourceMapFlags: fc.array(fc.boolean(), { minLength: filePaths.length, maxLength: filePaths.length }),
-                externalDependencyNames: fc.array(fc.stringMatching(/^[a-z][\da-z-]{0,7}$/), { maxLength: 3 }),
-                connections: fc.shuffledSubarray(possibleConnections)
+                sourceMapFlags: fastCheck.array(fastCheck.boolean(), {
+                    minLength: filePaths.length,
+                    maxLength: filePaths.length
+                }),
+                externalDependencyNames: fastCheck.array(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/), {
+                    maxLength: 3
+                }),
+                connections: fastCheck.shuffledSubarray(possibleConnections)
             })
             .map(function (options) {
                 const graph = createDependencyGraph();
@@ -77,7 +82,7 @@ const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
             });
     });
 
-const localFilesArbitrary: fc.Arbitrary<readonly LocalFile[]> = fc
+const localFilesArbitrary: fastCheck.Arbitrary<readonly LocalFile[]> = fastCheck
     .uniqueArray(filePathArbitrary, {
         minLength: 1,
         maxLength: 3
@@ -95,8 +100,8 @@ const localFilesArbitrary: fc.Arbitrary<readonly LocalFile[]> = fc
 
 suite('dependency-graph', function () {
     test('flatten() only references known file paths or generated source-map files', function () {
-        fc.assert(
-            fc.property(dependencyFilesArbitrary, function (dependencyFiles) {
+        fastCheck.assert(
+            fastCheck.property(dependencyFilesArbitrary, function (dependencyFiles) {
                 const filePaths = new Set(
                     dependencyFiles.localFiles.map(function (file) {
                         return file.filePath;
@@ -120,8 +125,8 @@ suite('dependency-graph', function () {
     });
 
     test('mergeDependencyFiles() preserves uniqueness by file path', function () {
-        fc.assert(
-            fc.property(localFilesArbitrary, localFilesArbitrary, function (firstLocalFiles, secondLocalFiles) {
+        fastCheck.assert(
+            fastCheck.property(localFilesArbitrary, localFilesArbitrary, function (firstLocalFiles, secondLocalFiles) {
                 const first: DependencyFiles = {
                     localFiles: firstLocalFiles,
                     externalDependencies: new Map()

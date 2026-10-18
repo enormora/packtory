@@ -1,5 +1,5 @@
-import type { PublishSettings } from '../../config/publish-settings.ts';
-import { matchAutoModeError } from '../publish-error/auto-mode-error-matching.ts';
+import type { PublishSettings } from '../../configuration/publish-settings.ts';
+import { matchAutomaticModeError } from '../publish-error/auto-mode-error-matching.ts';
 import { ensureError } from '../publish-error/error-shape-helpers.ts';
 import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts';
 
@@ -16,7 +16,7 @@ export function buildPublishOptionsForPublishSettings(
         return { access: 'restricted' };
     }
 
-    if (publishSettings.provenance?.type === 'auto') {
+    if (publishSettings.provenance?.type === 'automatic') {
         return { access: 'public', provenance: true };
     }
 
@@ -34,9 +34,9 @@ function getProvenanceFilePath(publishSettings: Readonly<PublishSettings>): stri
 }
 
 export function remapPublishError(error: unknown, publishSettings: Readonly<PublishSettings>): Error {
-    const autoModeError = matchAutoModeError(error);
-    if (autoModeError !== undefined) {
-        return autoModeError;
+    const automaticModeError = matchAutomaticModeError(error);
+    if (automaticModeError !== undefined) {
+        return automaticModeError;
     }
 
     const filePath = getProvenanceFilePath(publishSettings);

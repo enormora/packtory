@@ -3,28 +3,28 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 suite('declaration-files', function () {
     test('adds declaration files correctly to the bundle', async function () {
-        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-and-d-ts');
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/javascript-and-declarations');
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
+            sourcesFolder: path.join(fixture, 'source'),
             roots: {
                 main: {
-                    js: path.join(fixture, 'src/entry.js'),
-                    declarationFile: path.join(fixture, 'src/entry.d.ts')
+                    javaScript: path.join(fixture, 'source/entry.js'),
+                    declarationFile: path.join(fixture, 'source/entry.d.ts')
                 }
             },
-            mainPackageJson: await loadPackageJson(fixture),
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -33,7 +33,7 @@ suite('declaration-files', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     name: 'the-package-name',
                     sideEffects: false,
                     version: '42.0.0',
@@ -46,11 +46,11 @@ suite('declaration-files', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -58,11 +58,11 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/bar.js') ]),
                         fileDescription: {
                             content: "import { bar } from './bar.js';\nexport const foo = 'foo';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'source/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -74,7 +74,7 @@ suite('declaration-files', function () {
                         fileDescription: {
                             content: "export const bar = 'bar';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/bar.js'),
+                            inputFilePath: path.join(fixture, 'source/bar.js'),
                             targetFilePath: 'bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -82,11 +82,11 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('bar')
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/foo.d.ts') ]),
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.d.ts'),
+                            inputFilePath: path.join(fixture, 'source/entry.d.ts'),
                             targetFilePath: 'entry.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -94,11 +94,11 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([ path.join(fixture, 'src/baz.d.ts') ]),
+                        directDependencies: new Set([ path.join(fixture, 'source/baz.d.ts') ]),
                         fileDescription: {
                             content: "import { Baz } from './baz.js';\nexport type Foo = string;\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.d.ts'),
+                            inputFilePath: path.join(fixture, 'source/foo.d.ts'),
                             targetFilePath: 'foo.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -110,7 +110,7 @@ suite('declaration-files', function () {
                         fileDescription: {
                             content: 'export type Baz = number;\n',
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/baz.d.ts'),
+                            inputFilePath: path.join(fixture, 'source/baz.d.ts'),
                             targetFilePath: 'baz.d.ts'
                         },
                         isExplicitlyIncluded: false,
@@ -122,7 +122,7 @@ suite('declaration-files', function () {
                 mainFile: {
                     content: "import { foo } from './foo.js';\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -132,7 +132,7 @@ suite('declaration-files', function () {
                 typesMainFile: {
                     content: "export declare const foo: import('./foo.js').Foo;\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.d.ts'),
+                    inputFilePath: path.join(fixture, 'source/entry.d.ts'),
                     targetFilePath: 'entry.d.ts'
                 },
                 version: '42.0.0'

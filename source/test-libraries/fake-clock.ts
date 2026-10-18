@@ -4,7 +4,7 @@ type FakeClockOptions = {
     readonly initialTimestamp?: number;
 };
 
-type HandlerInfo = {
+type HandlerInformation = {
     readonly executionTimestamp: number;
     readonly handler: () => void;
 };
@@ -20,13 +20,13 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
 
     let currentTimestamp = initialTimestamp;
     let currentHandlerIndex = -1;
-    const handlers = new Map<number, HandlerInfo>();
+    const handlers = new Map<number, HandlerInformation>();
 
     function runScheduledHandlers(): void {
-        Array.from(handlers).forEach(function ([ id, handlerInfo ]) {
-            if (currentTimestamp >= handlerInfo.executionTimestamp) {
-                handlers.delete(id);
-                handlerInfo.handler();
+        Array.from(handlers).forEach(function ([ identifier, handlerInformation ]) {
+            if (currentTimestamp >= handlerInformation.executionTimestamp) {
+                handlers.delete(identifier);
+                handlerInformation.handler();
             }
         });
     }
@@ -62,8 +62,8 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
             return currentHandlerIndex as unknown as TimerHandle;
         },
 
-        clearTimeout(id) {
-            handlers.delete(Number(id));
+        clearTimeout(identifier) {
+            handlers.delete(Number(identifier));
         },
 
         tick(delayInMilliseconds) {

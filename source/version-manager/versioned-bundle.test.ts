@@ -7,8 +7,8 @@ import {
     standardVersionedBundle,
     versionedBundle
 } from '../test-libraries/bundle-fixtures.ts';
-import type { PackageInterface } from '../config/package-interface.ts';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { PackageInterface } from '../configuration/package-interface.ts';
+import type { MainPackageManifest } from '../configuration/package-manifest.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import {
     buildVersionedBundle,
@@ -17,30 +17,30 @@ import {
 } from './versioned-bundle.ts';
 
 type BuildOverrides = Partial<BuildVersionedBundleOptions> & {
-    readonly mainPackageJson?: MainPackageJson;
+    readonly mainPackageManifest?: MainPackageManifest;
 };
 
 function buildOptions(overrides: BuildOverrides = {}): BuildVersionedBundleOptions {
     return {
         bundle: createAnalyzedBundle(),
         version: '1.2.3',
-        mainPackageJson: { type: 'module' },
+        mainPackageManifest: { type: 'module' },
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {},
+        additionalPackageManifestAttributes: {},
         allowMutableSpecifiers: [],
         ...overrides
     };
 }
 
-function explicitCliBundle(packageInterface: PackageInterface): AnalyzedBundle {
+function explicitCommandLineInterfaceBundle(packageInterface: PackageInterface): AnalyzedBundle {
     return createAnalyzedBundle({
         roots: {
-            cli: {
-                js: {
-                    inputFilePath: '/src/cli.js',
+            commandLineInterface: {
+                javaScript: {
+                    inputFilePath: '/source/cli.js',
                     targetFilePath: 'cli.js',
-                    content: '#!/usr/bin/env node\nconsole.log("cli");\n',
+                    content: '#!/usr/bin/env node\nconsole.log("commandLineInterface");\n',
                     isExecutable: true
                 }
             }
@@ -52,18 +52,18 @@ function explicitCliBundle(packageInterface: PackageInterface): AnalyzedBundle {
     });
 }
 
-function assertCliMainFile(result: VersionedBundle): void {
+function assertCommandLineInterfaceMainFile(result: VersionedBundle): void {
     assert.deepStrictEqual(result.mainFile, {
-        inputFilePath: '/src/cli.js',
+        inputFilePath: '/source/cli.js',
         targetFilePath: 'cli.js',
-        content: '#!/usr/bin/env node\nconsole.log("cli");\n',
+        content: '#!/usr/bin/env node\nconsole.log("commandLineInterface");\n',
         isExecutable: true
     });
 }
 
 suite('versioned-bundle', function () {
     test('buildVersionedBundle() uses the representative root as the main and types files', function () {
-        const result = buildVersionedBundle(buildOptions({ additionalPackageJsonAttributes: { custom: true } }));
+        const result = buildVersionedBundle(buildOptions({ additionalPackageManifestAttributes: { custom: true } }));
 
         assert.deepStrictEqual(result, standardVersionedBundle({ additionalAttributes: { custom: true } }));
     });
@@ -81,14 +81,14 @@ suite('versioned-bundle', function () {
                     versionedBundle({
                         name: 'bundle-dependency',
                         version: '2.0.0',
-                        mainFile: { inputFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
+                        mainFile: { inputFilePath: '/source/dep.js', targetFilePath: 'dep.js' }
                     })
                 ],
                 bundlePeerDependencies: [
                     versionedBundle({
                         name: 'peer-dependency',
                         version: '3.0.0',
-                        mainFile: { inputFilePath: '/src/peer.js', targetFilePath: 'peer.js' }
+                        mainFile: { inputFilePath: '/source/peer.js', targetFilePath: 'peer.js' }
                     })
                 ]
             })
@@ -109,13 +109,15 @@ suite('versioned-bundle', function () {
     test('buildVersionedBundle() exposes the bin field and omits typesMainFile for an explicit bin-only surface', function () {
         const result = buildVersionedBundle(
             buildOptions({
-                bundle: explicitCliBundle({ bins: [ { root: 'cli', name: 'package-a' } ] })
+                bundle: explicitCommandLineInterfaceBundle({
+                    executables: [ { root: 'commandLineInterface', name: 'package-a' } ]
+                })
             })
         );
 
-        assertCliMainFile(result);
-        assert.deepStrictEqual(result.binField, { 'package-a': './cli.js' });
-        assert.strictEqual(Object.hasOwn(result, 'binField'), true);
+        assertCommandLineInterfaceMainFile(result);
+        assert.deepStrictEqual(result.executableField, { 'package-a': './cli.js' });
+        assert.strictEqual(Object.hasOwn(result, 'executableField'), true);
         assert.strictEqual(Object.hasOwn(result, 'typesMainFile'), false);
     });
 
@@ -153,15 +155,15 @@ suite('versioned-bundle', function () {
             buildOptions({
                 bundle: createAnalyzedBundle({
                     contents: [
-                        analyzedBundleResource('/src/index.js', {
+                        analyzedBundleResource('/source/index.js', {
                             content: 'export { foo } from "#foo";\n'
                         })
                     ]
                 }),
-                mainPackageJson: { type: 'module', imports: { '#foo': './src/foo.js' } }
+                mainPackageManifest: { type: 'module', imports: { '#foo': './source/foo.js' } }
             })
         );
 
-        assert.deepStrictEqual(result.importsField, { '#foo': './src/foo.js' });
+        assert.deepStrictEqual(result.importsField, { '#foo': './source/foo.js' });
     });
 });

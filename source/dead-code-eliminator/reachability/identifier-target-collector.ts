@@ -1,5 +1,5 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type Identifier,
     type ImportDeclaration,
@@ -9,25 +9,25 @@ import {
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 
 export type DeclarationNodeIndex = {
-    readonly idsByNode: ReadonlyMap<TsMorphNode, readonly string[]>;
-    readonly idsByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
-    readonly idsByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
+    readonly identifiersByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly identifiersByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
     readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
     readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
 };
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
-type IdsByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+type IdentifiersByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
 
-function declarationName(declaration: TsMorphNode): string {
+function declarationName(declaration: TypeScriptMorphNode): string {
     return declaration.getSymbolOrThrow().getName();
 }
 
 function declarationPathTargets(
-    declaration: TsMorphNode,
+    declaration: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
     const name = declarationName(declaration);
-    return declarationIndex.idsByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
+    return declarationIndex.identifiersByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
 }
 
 function importerTargetFilePath(
@@ -78,11 +78,11 @@ function relativeImportTargetPath(
 }
 
 function targetsByFileAndName(
-    idsByFileAndName: IdsByFileAndName,
+    identifiersByFileAndName: IdentifiersByFileAndName,
     filePath: string | undefined,
     name: string
 ): readonly string[] {
-    return filePath === undefined ? [] : idsByFileAndName.get(filePath)?.get(name) ?? [];
+    return filePath === undefined ? [] : identifiersByFileAndName.get(filePath)?.get(name) ?? [];
 }
 
 function relativeImportSpecifierTargets(
@@ -95,29 +95,29 @@ function relativeImportSpecifierTargets(
     }
 
     return targetsByFileAndName(
-        declarationIndex.idsByTargetFileAndName,
+        declarationIndex.identifiersByTargetFileAndName,
         relativeImportTargetPath(importDeclaration, declarationIndex),
         declaration.getName()
     );
 }
 
 function importSpecifierTargets(
-    declaration: TsMorphNode,
+    declaration: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
-    if (!TsMorphNode.isImportSpecifier(declaration)) {
+    if (!TypeScriptMorphNode.isImportSpecifier(declaration)) {
         return [];
     }
     return relativeImportSpecifierTargets(declaration, declarationIndex);
 }
 
 function declarationTargets(
-    declarations: readonly TsMorphNode[],
+    declarations: readonly TypeScriptMorphNode[],
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
     return declarations.flatMap(function (declaration) {
         return [
-            ...declarationIndex.idsByNode.get(declaration) ?? [],
+            ...declarationIndex.identifiersByNode.get(declaration) ?? [],
             ...declarationPathTargets(declaration, declarationIndex),
             ...importSpecifierTargets(declaration, declarationIndex)
         ];
@@ -136,7 +136,7 @@ function symbolTargets(
 }
 
 function shorthandPropertyTargets(
-    rootNode: TsMorphNode,
+    rootNode: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
     const targets: string[] = [];
@@ -153,7 +153,10 @@ function shorthandPropertyTargets(
     return targets;
 }
 
-export function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
+export function collectIdentifierTargets(
+    rootNode: TypeScriptMorphNode,
+    declarationIndex: DeclarationNodeIndex
+): Set<string> {
     const targets = new Set<string>();
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
         const symbol = identifier.getSymbol();

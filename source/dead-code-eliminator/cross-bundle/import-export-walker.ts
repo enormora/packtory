@@ -1,6 +1,6 @@
-import { Node as TsMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
-import { bindingId } from '../reachability/binding-id.ts';
+import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import type { CrossBundleSeedReason, DeadCodeEliminationTrace } from '../trace.ts';
 import type { IndexedBundle, ResolvedTarget } from './bundle-index.ts';
 import { recordSeed, type SeedMap } from './seed-store.ts';
@@ -41,7 +41,7 @@ function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNa
 }
 
 function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
-    return context.localReachable.has(bindingId(context.sourceTargetFilePath, localName));
+    return context.localReachable.has(bindingIdentifier(context.sourceTargetFilePath, localName));
 }
 
 function seedExists(seeds: SeedMap, bundleName: string, seed: string): boolean {
@@ -58,7 +58,7 @@ function recordCrossBundleSeed(input: CrossBundleSeedInput): SeedMap {
         context.trace.collector.record({
             type: 'cross-bundle-seed-added',
             bundleName: target.bundleName,
-            bindingId: seed,
+            bindingIdentifier: seed,
             sourceBundleName: context.sourceBundleName,
             inputFilePath: context.inputFilePath,
             line: statement.getStartLineNumber(),
@@ -74,7 +74,7 @@ function seedTargetBinding(input: TargetBindingSeedInput): SeedMap {
     return recordCrossBundleSeed({
         context,
         target,
-        seed: bindingId(target.targetFilePath, name),
+        seed: bindingIdentifier(target.targetFilePath, name),
         statement,
         reason
     });
@@ -218,9 +218,9 @@ function processExportDeclaration(exportDeclaration: ExportDeclaration, context:
 export function walkCrossBundleStatements(sourceFile: Readonly<SourceFile>, context: WalkContext): SeedMap {
     let { seeds } = context;
     for (const statement of sourceFile.getStatements()) {
-        if (TsMorphNode.isImportDeclaration(statement)) {
+        if (TypeScriptMorphNode.isImportDeclaration(statement)) {
             seeds = processImportDeclaration(statement, { ...context, seeds });
-        } else if (TsMorphNode.isExportDeclaration(statement)) {
+        } else if (TypeScriptMorphNode.isExportDeclaration(statement)) {
             seeds = processExportDeclaration(statement, { ...context, seeds });
         }
     }

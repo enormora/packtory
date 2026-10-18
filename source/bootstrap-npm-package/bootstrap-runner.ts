@@ -1,4 +1,4 @@
-import type { PackagePublication, PublicationManifest, WebOtpUrls } from './package-publication.ts';
+import type { PackagePublication, PublicationManifest, WebOneTimePasswordAddresses } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 import type { WebLogin } from './web-login.ts';
 
@@ -11,7 +11,9 @@ export type BootstrapRunnerDependencies = {
     readonly placeholderTarballBuilder: PlaceholderTarballBuilder;
     readonly webLogin: WebLogin;
     readonly packagePublication: PackagePublication;
-    readonly promptForOneTimePassword: (webOtpUrls: WebOtpUrls | undefined) => Promise<string>;
+    readonly promptForOneTimePassword: (
+        webOneTimePasswordAddresses: WebOneTimePasswordAddresses | undefined
+    ) => Promise<string>;
     readonly log: (message: string) => void;
 };
 
@@ -19,8 +21,8 @@ export type BootstrapRunner = {
     readonly run: (input: BootstrapInput) => Promise<void>;
 };
 
-const registryUrl = 'https://registry.npmjs.org/';
-const workaroundUrl = 'https://github.com/npm/cli/issues/8544';
+const registryAddress = 'https://registry.npmjs.org/';
+const workaroundAddress = 'https://github.com/npm/cli/issues/8544';
 const distTag = 'bootstrap';
 const placeholderVersion = '0.0.1';
 const placeholderLicense = 'MIT';
@@ -28,12 +30,13 @@ const placeholderLicense = 'MIT';
 function buildManifestDescription(packageName: string): string {
     return (
         `Placeholder claiming the npm package name "${packageName}" so a trusted publisher ` +
-        `can be configured. See ${workaroundUrl}.`
+        `can be configured. See ${workaroundAddress}.`
     );
 }
 
 function buildDeprecationMessage(): string {
-    return `Placeholder published as a workaround so a Trusted Publisher could be configured. See ${workaroundUrl}.`;
+    return 'Placeholder published as a workaround so a Trusted Publisher could be configured. ' +
+        `See ${workaroundAddress}.`;
 }
 
 function buildManifest(packageName: string): PublicationManifest {
@@ -54,13 +57,13 @@ function buildReadme(packageName: string): string {
         'can subsequently be configured for it. It contains no real package content and is published already',
         'deprecated.',
         '',
-        `Workaround context: ${workaroundUrl}`,
+        `Workaround context: ${workaroundAddress}`,
         ''
     ]
         .join('\n');
 }
 
-function buildTrustedPublisherUrl(packageName: string): string {
+function buildTrustedPublisherAddress(packageName: string): string {
     return `https://www.npmjs.com/package/${packageName}/access`;
 }
 
@@ -86,7 +89,7 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
             const tarball = await placeholderTarballBuilder.build({ manifest, readmeContent });
 
             log('Opening browser for npm web login');
-            const session = await webLogin.login({ registryUrl, hostname: input.hostname });
+            const session = await webLogin.login({ registryAddress, hostname: input.hostname });
             log(buildAuthenticatedMessage(session.username));
 
             log(buildPublishLogMessage(input.packageName, manifest.version));
@@ -94,12 +97,12 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
                 manifest,
                 tarball,
                 token: session.token,
-                registryUrl,
+                registryAddress,
                 distTag,
                 promptForOneTimePassword
             });
 
-            log(`Done. Configure the Trusted Publisher at ${buildTrustedPublisherUrl(input.packageName)}`);
+            log(`Done. Configure the Trusted Publisher at ${buildTrustedPublisherAddress(input.packageName)}`);
         }
     };
 }

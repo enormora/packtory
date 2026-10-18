@@ -1,4 +1,4 @@
-import { decorateWithPackageJsonExport } from './package-json-export.ts';
+import { decorateWithPackageManifestExport } from './package-manifest-export.ts';
 import {
     buildExportEntry,
     toImportTarget,
@@ -8,7 +8,7 @@ import {
 } from './package-shape.ts';
 import { getRoot } from './root-registry.ts';
 
-type ExplicitExportsBundle = Pick<BundleLike, 'exportPackageJson' | 'name' | 'roots'>;
+type ExplicitExportsBundle = Pick<BundleLike, 'exportPackageManifest' | 'name' | 'roots'>;
 
 function buildExplicitExportEntry(
     bundle: ExplicitExportsBundle,
@@ -28,12 +28,12 @@ function buildEntries(
         });
     }
 
-    const [ binEntry ] = surface.packageInterface.bins ?? [];
-    if (binEntry === undefined) {
+    const [ executableEntry ] = surface.packageInterface.executables ?? [];
+    if (executableEntry === undefined) {
         return [];
     }
 
-    const { declarationFile } = getRoot(bundle, binEntry.root);
+    const { declarationFile } = getRoot(bundle, executableEntry.root);
     if (declarationFile === undefined) {
         return [];
     }
@@ -45,5 +45,5 @@ export function buildExplicitExportsField(
     bundle: ExplicitExportsBundle,
     surface: ExplicitSurface
 ): Record<string, ExportEntry | string> {
-    return decorateWithPackageJsonExport(bundle, Object.fromEntries(buildEntries(bundle, surface)));
+    return decorateWithPackageManifestExport(bundle, Object.fromEntries(buildEntries(bundle, surface)));
 }

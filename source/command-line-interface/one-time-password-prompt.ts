@@ -14,7 +14,7 @@ export type OneTimePasswordPromptDependencies = {
 
 export type OneTimePasswordPrompt = () => Promise<string>;
 
-const oneTimePasswordPromptTimeoutMs = 90_000;
+const oneTimePasswordPromptTimeoutMilliseconds = 90_000;
 
 async function readOneTimePassword(
     interfaceInstance: OneTimePasswordReadline,
@@ -25,7 +25,7 @@ async function readOneTimePassword(
         new Promise<undefined>(function (resolve) {
             clock.setTimeout(function () {
                 resolve(undefined);
-            }, oneTimePasswordPromptTimeoutMs);
+            }, oneTimePasswordPromptTimeoutMilliseconds);
         })
     ]);
 

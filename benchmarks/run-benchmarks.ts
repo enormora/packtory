@@ -1,19 +1,19 @@
 import path from 'node:path';
 import {
-    cliWorkloadSizes,
+    commandLineInterfaceWorkloadSizes,
     workloadSizes,
-    type CliResponsivenessMeasurement,
+    type CommandLineInterfaceResponsivenessMeasurement,
     type ThresholdsFile,
     type ThroughputBenchmarkMeasurement,
     type WorkloadsFile
 } from './benchmark-types.ts';
 import { formatMilliseconds, formatMultiplier } from './benchmark-formatting.ts';
-import { readJsonFile } from './benchmark-json.ts';
+import { readJavaScriptObjectNotationFile } from './benchmark-structured-data.ts';
 import { parseThresholdsFile, parseWorkloadsFile } from './benchmark-file-codecs.ts';
 import { measureNormalization } from './measure-normalization.ts';
 import { runResolveAndLinkBenchmark } from './resolve-and-link.benchmark.ts';
 import { runBuildArtifactsBenchmark } from './build-artifacts.benchmark.ts';
-import { runCliResponsivenessBenchmark } from './cli-responsiveness.benchmark.ts';
+import { runCommandLineInterfaceResponsivenessBenchmark } from './command-line-interface-responsiveness.benchmark.ts';
 
 function writeLine(message: string): void {
     process.stdout.write(`${message}\n`);
@@ -24,35 +24,35 @@ function writeHeading(title: string): void {
     writeLine(title);
 }
 
-function getThresholdMultiplier(currentNormalizationMs: number, baselineMilliseconds: number): number {
-    return currentNormalizationMs / baselineMilliseconds;
+function getThresholdMultiplier(currentNormalizationMilliseconds: number, baselineMilliseconds: number): number {
+    return currentNormalizationMilliseconds / baselineMilliseconds;
 }
 
 function formatThroughputRow(measurement: ThroughputBenchmarkMeasurement, effectiveThreshold: number): string {
     return [
         `- ${measurement.benchmarkName}/${measurement.size}:`,
-        `median ${formatMilliseconds(measurement.medianMs)}`,
+        `median ${formatMilliseconds(measurement.medianMilliseconds)}`,
         `threshold ${formatMilliseconds(effectiveThreshold)}`,
         `samples ${measurement.sampleCount}`
     ]
         .join(' ');
 }
 
-function formatCliRow(
-    measurement: CliResponsivenessMeasurement,
+function formatCommandLineInterfaceRow(
+    measurement: CommandLineInterfaceResponsivenessMeasurement,
     effectiveP99Threshold: number,
-    effectiveMaxThreshold: number
+    effectiveMaximumThreshold: number
 ): string {
     const p99Threshold = formatMilliseconds(effectiveP99Threshold);
-    const maxThreshold = formatMilliseconds(effectiveMaxThreshold);
+    const maximumThreshold = formatMilliseconds(effectiveMaximumThreshold);
     return [
         `- ${measurement.benchmarkName}/${measurement.size}:`,
-        `median ${formatMilliseconds(measurement.medianMs)}`,
-        `p99 gap ${formatMilliseconds(measurement.p99FrameGapMs)} (threshold ${p99Threshold})`,
-        `max gap ${formatMilliseconds(measurement.maxFrameGapMs)} (threshold ${maxThreshold})`,
-        `loop p99 ${formatMilliseconds(measurement.eventLoopHistogramP99Ms)}`,
-        `loop max ${formatMilliseconds(measurement.eventLoopHistogramMaxMs)}`,
-        `loop block ${formatMilliseconds(measurement.eventLoopSampledMaxBlockMs)}`,
+        `median ${formatMilliseconds(measurement.medianMilliseconds)}`,
+        `p99 gap ${formatMilliseconds(measurement.p99FrameGapMilliseconds)} (threshold ${p99Threshold})`,
+        `max gap ${formatMilliseconds(measurement.maximumFrameGapMilliseconds)} (threshold ${maximumThreshold})`,
+        `loop p99 ${formatMilliseconds(measurement.eventLoopHistogramP99Milliseconds)}`,
+        `loop max ${formatMilliseconds(measurement.eventLoopHistogramMaximumMilliseconds)}`,
+        `loop block ${formatMilliseconds(measurement.eventLoopSampledMaximumBlockMilliseconds)}`,
         `frames ${measurement.frameCount}`,
         `samples ${measurement.sampleCount}`
     ]
@@ -61,28 +61,34 @@ function formatCliRow(
 
 function validateThroughputMeasurement(
     measurement: ThroughputBenchmarkMeasurement,
-    configuredThresholdMs: number
+    configuredThresholdMilliseconds: number
 ): void {
-    if (measurement.medianMs > configuredThresholdMs) {
-        const details = `${formatMilliseconds(measurement.medianMs)} > ${formatMilliseconds(configuredThresholdMs)}`;
+    if (measurement.medianMilliseconds > configuredThresholdMilliseconds) {
+        const details = `${formatMilliseconds(measurement.medianMilliseconds)} > ${
+            formatMilliseconds(configuredThresholdMilliseconds)
+        }`;
         throw new Error(`${measurement.benchmarkName}/${measurement.size} exceeded its median threshold: ${details}`);
     }
 }
 
-function validateCliMeasurement(
-    measurement: CliResponsivenessMeasurement,
-    p99ThresholdMs: number,
-    maxThresholdMs: number
+function validateCommandLineInterfaceMeasurement(
+    measurement: CommandLineInterfaceResponsivenessMeasurement,
+    p99ThresholdMilliseconds: number,
+    maximumThresholdMilliseconds: number
 ): void {
-    if (measurement.p99FrameGapMs > p99ThresholdMs) {
-        const details = `${formatMilliseconds(measurement.p99FrameGapMs)} > ${formatMilliseconds(p99ThresholdMs)}`;
+    if (measurement.p99FrameGapMilliseconds > p99ThresholdMilliseconds) {
+        const details = `${formatMilliseconds(measurement.p99FrameGapMilliseconds)} > ${
+            formatMilliseconds(p99ThresholdMilliseconds)
+        }`;
         throw new Error(
             `${measurement.benchmarkName}/${measurement.size} exceeded its p99 frame-gap threshold: ${details}`
         );
     }
 
-    if (measurement.maxFrameGapMs > maxThresholdMs) {
-        const details = `${formatMilliseconds(measurement.maxFrameGapMs)} > ${formatMilliseconds(maxThresholdMs)}`;
+    if (measurement.maximumFrameGapMilliseconds > maximumThresholdMilliseconds) {
+        const details = `${formatMilliseconds(measurement.maximumFrameGapMilliseconds)} > ${
+            formatMilliseconds(maximumThresholdMilliseconds)
+        }`;
         throw new Error(
             `${measurement.benchmarkName}/${measurement.size} exceeded its max frame-gap threshold: ${details}`
         );
@@ -99,8 +105,8 @@ async function loadBenchmarkFiles(benchmarksDirectory: string): Promise<Benchmar
     const thresholdsPath = path.join(benchmarksDirectory, 'thresholds.json');
 
     const [ rawWorkloads, rawThresholds ] = await Promise.all([
-        readJsonFile(workloadsPath),
-        readJsonFile(thresholdsPath)
+        readJavaScriptObjectNotationFile(workloadsPath),
+        readJavaScriptObjectNotationFile(thresholdsPath)
     ]);
 
     return {
@@ -116,10 +122,11 @@ async function runResolveBenchmarks(thresholdMultiplier: number, benchmarkFiles:
 
     for (const size of workloadSizes) {
         const measurement = await runResolveAndLinkBenchmark(size, workloads);
-        const configuredThresholdMs = thresholds.throughput['resolve-and-link'][size].medianMs * thresholdMultiplier;
+        const configuredThresholdMilliseconds = thresholds.throughput['resolve-and-link'][size].medianMilliseconds *
+            thresholdMultiplier;
 
-        writeLine(formatThroughputRow(measurement, configuredThresholdMs));
-        validateThroughputMeasurement(measurement, configuredThresholdMs);
+        writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
+        validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
     }
 }
 
@@ -128,49 +135,55 @@ async function runBuildBenchmarks(thresholdMultiplier: number, benchmarkFiles: B
 
     for (const size of workloadSizes) {
         const measurement = await runBuildArtifactsBenchmark(size, workloads);
-        const configuredThresholdMs = thresholds.throughput['build-artifacts'][size].medianMs * thresholdMultiplier;
+        const configuredThresholdMilliseconds = thresholds.throughput['build-artifacts'][size].medianMilliseconds *
+            thresholdMultiplier;
 
-        writeLine(formatThroughputRow(measurement, configuredThresholdMs));
-        validateThroughputMeasurement(measurement, configuredThresholdMs);
+        writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
+        validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
     }
 }
 
-async function runCliBenchmarks(thresholdMultiplier: number, benchmarkFiles: BenchmarkFiles): Promise<void> {
+async function runCommandLineInterfaceBenchmarks(
+    thresholdMultiplier: number,
+    benchmarkFiles: BenchmarkFiles
+): Promise<void> {
     const { thresholds, workloads } = benchmarkFiles;
 
     writeHeading('CLI Responsiveness Benchmarks');
-    writeLine(`- spinner interval: ${thresholds.responsiveness['publish-cli'].intervalMs}ms`);
+    writeLine(
+        `- spinner interval: ${thresholds.responsiveness['publish-command-line-interface'].intervalMilliseconds}ms`
+    );
 
-    for (const size of cliWorkloadSizes) {
-        const measurement = await runCliResponsivenessBenchmark(size, workloads);
-        const configuredThresholds = thresholds.responsiveness['publish-cli'][size];
-        const scaledP99Ms = configuredThresholds.p99Ms * thresholdMultiplier;
-        const scaledMaxMs = configuredThresholds.maxMs * thresholdMultiplier;
+    for (const size of commandLineInterfaceWorkloadSizes) {
+        const measurement = await runCommandLineInterfaceResponsivenessBenchmark(size, workloads);
+        const configuredThresholds = thresholds.responsiveness['publish-command-line-interface'][size];
+        const scaledP99Milliseconds = configuredThresholds.p99Milliseconds * thresholdMultiplier;
+        const scaledMaximumMilliseconds = configuredThresholds.maximumMilliseconds * thresholdMultiplier;
 
-        writeLine(formatCliRow(measurement, scaledP99Ms, scaledMaxMs));
-        validateCliMeasurement(measurement, scaledP99Ms, scaledMaxMs);
+        writeLine(formatCommandLineInterfaceRow(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds));
+        validateCommandLineInterfaceMeasurement(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds);
     }
 }
 
-function printNormalization(normalizationMs: number, thresholdMultiplier: number): void {
+function printNormalization(normalizationMilliseconds: number, thresholdMultiplier: number): void {
     writeHeading('Benchmark Normalization');
-    writeLine(`- baseline workload median: ${formatMilliseconds(normalizationMs)}`);
+    writeLine(`- baseline workload median: ${formatMilliseconds(normalizationMilliseconds)}`);
     writeLine(`- threshold multiplier: ${formatMultiplier(thresholdMultiplier)}`);
 }
 
 async function main(): Promise<void> {
     const benchmarksDirectory = path.join(process.cwd(), 'benchmarks');
     const benchmarkFiles = await loadBenchmarkFiles(benchmarksDirectory);
-    const normalizationMs = await measureNormalization();
+    const normalizationMilliseconds = await measureNormalization();
     const thresholdMultiplier = getThresholdMultiplier(
-        normalizationMs,
+        normalizationMilliseconds,
         benchmarkFiles.thresholds.normalization.baselineMilliseconds
     );
 
-    printNormalization(normalizationMs, thresholdMultiplier);
+    printNormalization(normalizationMilliseconds, thresholdMultiplier);
     await runResolveBenchmarks(thresholdMultiplier, benchmarkFiles);
     await runBuildBenchmarks(thresholdMultiplier, benchmarkFiles);
-    await runCliBenchmarks(thresholdMultiplier, benchmarkFiles);
+    await runCommandLineInterfaceBenchmarks(thresholdMultiplier, benchmarkFiles);
 }
 
 await main().catch(function (error: unknown) {

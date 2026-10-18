@@ -1,34 +1,34 @@
-import type { ReleasePullRequestConfig } from './release-pull-request-config.ts';
+import type { ReleasePullRequestConfiguration } from './release-pull-request-configuration.ts';
 
 export type ReleasePullRequestPolicyInput = {
     readonly author: string;
     readonly changedFiles: readonly string[];
-    readonly expectedBaseSha: string;
-    readonly headRef: string;
+    readonly expectedBaseHash: string;
+    readonly headReference: string;
     readonly labels: readonly string[];
-    readonly parentShas: readonly string[];
+    readonly parentHashes: readonly string[];
     readonly subject: string;
     readonly title: string;
 };
 
 type ReleasePullRequestShape = Pick<
     ReleasePullRequestPolicyInput,
-    'author' | 'changedFiles' | 'headRef' | 'labels' | 'subject' | 'title'
+    'author' | 'changedFiles' | 'headReference' | 'labels' | 'subject' | 'title'
 >;
-type ReleasePullRequestPolicyConfigShape = Pick<
-    ReleasePullRequestConfig,
+type ReleasePullRequestPolicyConfigurationShape = Pick<
+    ReleasePullRequestConfiguration,
     'automationAuthor' | 'branch' | 'commitSubject' | 'defaultBranch' | 'label' | 'title'
 >;
 
 export type ReleasePullRequestPublishInput = ReleasePullRequestShape & {
-    readonly baseRef: string;
+    readonly baseReference: string;
     readonly headRepository: string;
-    readonly mergeCommitSha: string | undefined;
+    readonly mergeCommitHash: string | undefined;
     readonly merged: boolean;
     readonly repository: string;
 };
 
-export type ReleasePullRequestPolicyConfig = ReleasePullRequestPolicyConfigShape & {
+export type ReleasePullRequestPolicyConfiguration = ReleasePullRequestPolicyConfigurationShape & {
     readonly allowedFiles: ReadonlySet<string>;
 };
 
@@ -42,67 +42,79 @@ function requirePolicy(condition: boolean, message: string): void {
     }
 }
 
-function validateReleaseLabelSet(labels: readonly string[], config: ReleasePullRequestPolicyConfig): void {
+function validateReleaseLabelSet(
+    labels: readonly string[],
+    configuration: ReleasePullRequestPolicyConfiguration
+): void {
     requirePolicy(
-        labels.length === 1 && labels[0] === config.label,
-        `Release PRs must only have the ${config.label} label`
+        labels.length === 1 && labels[0] === configuration.label,
+        `Release PRs must only have the ${configuration.label} label`
     );
 }
 
-function validateReleaseChangedFiles(changedFiles: readonly string[], config: ReleasePullRequestPolicyConfig): void {
+function validateReleaseChangedFiles(
+    changedFiles: readonly string[],
+    configuration: ReleasePullRequestPolicyConfiguration
+): void {
     requirePolicy(changedFiles.length > 0, 'Release PRs must change release output files');
 
     for (const changedFile of changedFiles) {
-        requirePolicy(config.allowedFiles.has(changedFile), `Unexpected release PR file change: ${changedFile}`);
+        requirePolicy(configuration.allowedFiles.has(changedFile), `Unexpected release PR file change: ${changedFile}`);
     }
 }
 
 function validateReleaseIdentity(
-    input: Pick<ReleasePullRequestPolicyInput, 'author' | 'headRef' | 'labels' | 'subject' | 'title'>,
-    config: ReleasePullRequestPolicyConfig
+    input: Pick<ReleasePullRequestPolicyInput, 'author' | 'headReference' | 'labels' | 'subject' | 'title'>,
+    configuration: ReleasePullRequestPolicyConfiguration
 ): void {
-    validateReleaseLabelSet(input.labels, config);
+    validateReleaseLabelSet(input.labels, configuration);
     requirePolicy(
-        input.author === config.automationAuthor,
-        `Release PRs must be authored by ${config.automationAuthor}`
+        input.author === configuration.automationAuthor,
+        `Release PRs must be authored by ${configuration.automationAuthor}`
     );
-    requirePolicy(input.headRef === config.branch, `Release PRs must use ${config.branch}`);
-    requirePolicy(input.title === config.title, `Release PR title must be ${config.title}`);
-    requirePolicy(input.subject === config.commitSubject, `Release PR commit subject must be ${config.commitSubject}`);
+    requirePolicy(input.headReference === configuration.branch, `Release PRs must use ${configuration.branch}`);
+    requirePolicy(input.title === configuration.title, `Release PR title must be ${configuration.title}`);
+    requirePolicy(
+        input.subject === configuration.commitSubject,
+        `Release PR commit subject must be ${configuration.commitSubject}`
+    );
 }
 
 export function validateReleasePullRequestPolicy(
     input: ReleasePullRequestPolicyInput,
-    config: ReleasePullRequestPolicyConfig
+    configuration: ReleasePullRequestPolicyConfiguration
 ): void {
-    validateReleaseIdentity(input, config);
-    requirePolicy(input.parentShas.length === 1, 'Release PR head must have exactly one parent');
-    requirePolicy(input.parentShas[0] === input.expectedBaseSha, 'Release PR head must be based on expected main');
-    validateReleaseChangedFiles(input.changedFiles, config);
+    validateReleaseIdentity(input, configuration);
+    requirePolicy(input.parentHashes.length === 1, 'Release PR head must have exactly one parent');
+    requirePolicy(input.parentHashes[0] === input.expectedBaseHash, 'Release PR head must be based on expected main');
+    validateReleaseChangedFiles(input.changedFiles, configuration);
 }
 
 export function validateReleasePullRequestPublishPolicy(
     input: ReleasePullRequestPublishInput,
-    config: ReleasePullRequestPolicyConfig,
-    expectedMergeCommitSha: string
+    configuration: ReleasePullRequestPolicyConfiguration,
+    expectedMergeCommitHash: string
 ): void {
-    validateReleaseIdentity(input, config);
-    requirePolicy(input.baseRef === config.defaultBranch, `Release PR base must be ${config.defaultBranch}`);
+    validateReleaseIdentity(input, configuration);
+    requirePolicy(
+        input.baseReference === configuration.defaultBranch,
+        `Release PR base must be ${configuration.defaultBranch}`
+    );
     requirePolicy(input.headRepository === input.repository, 'Release PRs must come from the release repository');
     requirePolicy(input.merged, 'Release PR must be merged');
     requirePolicy(
-        input.mergeCommitSha === expectedMergeCommitSha,
-        `Release PR merge commit must be ${expectedMergeCommitSha}`
+        input.mergeCommitHash === expectedMergeCommitHash,
+        `Release PR merge commit must be ${expectedMergeCommitHash}`
     );
-    validateReleaseChangedFiles(input.changedFiles, config);
+    validateReleaseChangedFiles(input.changedFiles, configuration);
 }
 
 export function validateReleaseMergeGroupPolicy(
     input: MergeGroupPolicyInput,
-    config: ReleasePullRequestPolicyConfig
+    configuration: ReleasePullRequestPolicyConfiguration
 ): void {
     const releasePullRequests = input.pullRequests.filter(function (pullRequest) {
-        return pullRequest.labels.includes(config.label);
+        return pullRequest.labels.includes(configuration.label);
     });
 
     if (releasePullRequests.length > 0 && input.pullRequests.length !== 1) {
@@ -110,6 +122,6 @@ export function validateReleaseMergeGroupPolicy(
     }
 
     for (const pullRequest of releasePullRequests) {
-        validateReleasePullRequestPolicy(pullRequest, config);
+        validateReleasePullRequestPolicy(pullRequest, configuration);
     }
 }

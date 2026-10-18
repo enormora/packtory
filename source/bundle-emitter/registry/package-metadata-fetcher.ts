@@ -1,13 +1,13 @@
 import { Maybe } from 'true-myth';
-import type { RegistrySettings } from '../../config/registry-settings.ts';
-import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
+import type { RegistrySettings } from '../../configuration/registry-settings.ts';
+import { retryWithFallbackAuthentication } from './metadata-authentication-retry.ts';
 import { toRegistryPackagePath } from './registry-package-path.ts';
 import {
-    resolveMetadataAuthOptions,
-    resolveStageListingAuthOptions,
-    type AuthResolution,
+    resolveMetadataAuthenticationOptions,
+    resolveStageListingAuthenticationOptions,
+    type AuthenticationResolution,
     type NpmFetchOptions
-} from './registry-auth-config.ts';
+} from './registry-authentication-configuration.ts';
 import {
     parseAbbreviatedPackageResponse,
     parseFullPackageResponse,
@@ -21,14 +21,14 @@ const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
 
 export type PackageVersionDetails = {
     readonly version: string;
-    readonly tarballUrl: string;
+    readonly tarballAddress: string;
     readonly tarballIntegrity: TarballIntegrity;
     readonly gitHead: string | undefined;
 };
 
 export type PackageReleaseMetadata = {
     readonly publishedAt?: Date | undefined;
-    readonly tarballUrl: string;
+    readonly tarballAddress: string;
     readonly tarballIntegrity: TarballIntegrity;
     readonly version: string;
     readonly gitHead: string | undefined;
@@ -119,7 +119,7 @@ const stageListPageSize = 100;
 const maximumStageListPages = 1000;
 
 export type NpmFetch = {
-    readonly json: (url: string, options: NpmFetchOptions) => Promise<unknown>;
+    readonly javaScriptObjectNotation: (address: string, options: NpmFetchOptions) => Promise<unknown>;
 };
 
 async function fetchPackageMetadataResponse<TPackageResponse extends Record<string, unknown>>(
@@ -128,9 +128,9 @@ async function fetchPackageMetadataResponse<TPackageResponse extends Record<stri
     registrySettings: Readonly<RegistrySettings>,
     request: PackageMetadataRequest<TPackageResponse>
 ): Promise<unknown> {
-    const auth = resolveMetadataAuthOptions(registrySettings);
-    return retryWithFallbackAuth(registrySettings, auth, async function ({ options }) {
-        return npmFetch.json(`/${toRegistryPackagePath(packageName)}`, {
+    const authentication = resolveMetadataAuthenticationOptions(registrySettings);
+    return retryWithFallbackAuthentication(registrySettings, authentication, async function ({ options }) {
+        return npmFetch.javaScriptObjectNotation(`/${toRegistryPackagePath(packageName)}`, {
             ...options,
             headers: request.headers
         });
@@ -205,7 +205,7 @@ function extractPackageVersionDetails(
 
     return Maybe.just({
         version,
-        tarballUrl: versionData.dist.tarball,
+        tarballAddress: versionData.dist.tarball,
         tarballIntegrity: readTarballIntegrity(versionData.dist, packageName, version),
         gitHead: versionData.gitHead
     });
@@ -238,7 +238,7 @@ function releaseMetadataFrom(
 
     return {
         version: versionDetails.version,
-        tarballUrl: versionDetails.tarballUrl,
+        tarballAddress: versionDetails.tarballAddress,
         tarballIntegrity: versionDetails.tarballIntegrity,
         publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp),
         gitHead: versionDetails.gitHead
@@ -314,16 +314,18 @@ export async function fetchPackageVersionReleaseMetadata(
 
 async function fetchStagedPackageVersionPage(
     npmFetch: NpmFetch,
-    auth: AuthResolution,
+    authentication: AuthenticationResolution,
     packageName: string,
     page: number
 ): Promise<StagedPackageListResponse> {
-    const searchParams = new URLSearchParams({
+    const searchParameters = new URLSearchParams({
         package: packageName,
         page: String(page),
         perPage: String(stageListPageSize)
     });
-    return parseStagedPackageListResponse(await npmFetch.json(`/-/stage?${searchParams.toString()}`, auth.options));
+    return parseStagedPackageListResponse(
+        await npmFetch.javaScriptObjectNotation(`/-/stage?${searchParameters.toString()}`, authentication.options)
+    );
 }
 
 export async function fetchStagedPackageVersions(
@@ -331,14 +333,14 @@ export async function fetchStagedPackageVersions(
     packageName: string,
     registrySettings: Readonly<RegistrySettings>
 ): Promise<readonly string[]> {
-    const auth = resolveStageListingAuthOptions(registrySettings);
+    const authentication = resolveStageListingAuthenticationOptions(registrySettings);
     const versions: string[] = [];
     const pages = Array.from({ length: maximumStageListPages }, function (_value, index) {
         return index;
     });
 
     for (const page of pages) {
-        const response = await fetchStagedPackageVersionPage(npmFetch, auth, packageName, page);
+        const response = await fetchStagedPackageVersionPage(npmFetch, authentication, packageName, page);
 
         versions.push(...response.items.map(function (item) {
             return item.version;

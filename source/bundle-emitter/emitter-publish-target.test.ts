@@ -7,12 +7,12 @@ import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.t
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createBundleEmitter, type BundleEmitter, type BundleEmitterDependencies } from './emitter.ts';
 
-const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const registrySettings = { authentication: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const targetReleaseMetadata = {
     version: '1.2.4',
-    tarballUrl: 'https://registry.example.test/package-1.2.4.tgz',
+    tarballAddress: 'https://registry.example.test/package-1.2.4.tgz',
     tarballIntegrity: emptyTarballIntegrity,
     publishedAt,
     gitHead: undefined,
@@ -20,7 +20,7 @@ const targetReleaseMetadata = {
 } as const;
 type TargetReleaseMetadata = {
     readonly version: string;
-    readonly tarballUrl: string;
+    readonly tarballAddress: string;
     readonly tarballIntegrity: typeof emptyTarballIntegrity;
     readonly publishedAt: Date | undefined;
     readonly gitHead: string | undefined;
@@ -49,7 +49,7 @@ function versionedNamedBundle(version: string): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         name: 'the-name',
         version,
-        packageJson: { name: 'the-name', version }
+        packageManifest: { name: 'the-name', version }
     });
 }
 
@@ -79,7 +79,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
             fetchStagedVersions: fake(),
             fetchTarball
         },
-        ciRepositoryUrl: undefined,
+        continuousIntegrationRepositoryAddress: undefined,
         async readCurrentGitHead() {
             return undefined;
         }
@@ -154,7 +154,7 @@ suite('emitter publish target verification', function () {
             files: []
         });
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
-            targetReleaseMetadata.tarballUrl,
+            targetReleaseMetadata.tarballAddress,
             targetReleaseMetadata.tarballIntegrity,
             registrySettings
         ]);

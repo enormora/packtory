@@ -2,11 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { isString } from 'remeda';
 import type { FileSystemHost } from 'ts-morph';
-import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
+import { bindRequiredMethod, synchronousMethodNames } from './host-method-binding.ts';
 
 suite('host-method-binding', function () {
-    test('syncMethodNames maps each async name to its synchronous counterpart', function () {
-        assert.deepStrictEqual(syncMethodNames, {
+    test('synchronousMethodNames maps each async name to its synchronous counterpart', function () {
+        assert.deepStrictEqual(synchronousMethodNames, {
             fileExists: 'fileExistsSync',
             directoryExists: 'directoryExistsSync',
             readFile: 'readFileSync'

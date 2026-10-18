@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import os from 'node:os';
+import operatingSystem from 'node:os';
 import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
-import { binary, command, positional, run, string } from 'cmd-ts';
+import { binary, command as createLibraryCommand, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
-import { getProxyForUrl } from 'proxy-from-env';
-import { loginWeb, webAuthOpener } from 'npm-profile';
+import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
+import { loginWeb, webAuthOpener as webAuthenticationOpener } from 'npm-profile';
 import open from 'open';
 import tar from 'tar-stream';
 import {
@@ -15,34 +15,37 @@ import {
     type BootstrapRunner,
     type BootstrapRunnerDependencies
 } from '../../bootstrap-npm-package/bootstrap-runner.ts';
-import { createPackagePublication, type WebOtpUrls } from '../../bootstrap-npm-package/package-publication.ts';
+import {
+    createPackagePublication,
+    type WebOneTimePasswordAddresses
+} from '../../bootstrap-npm-package/package-publication.ts';
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
 import { createClock } from '../../common/clock.ts';
 import { withRegistryTransport } from '../../bundle-emitter/registry/registry-transport.ts';
 
-type WebAuthOpenerOptions = {
+type WebAuthenticationOpenerOptions = {
     readonly registry: string;
 };
 
-type WebAuthOpenerResult = {
+type WebAuthenticationOpenerResult = {
     readonly token: string;
 };
 
 declare module 'npm-profile' {
     // eslint-disable-next-line unicorn/no-exports-in-scripts -- module augmentation must live beside the script import it patches
     export function webAuthOpener(
-        opener: (url: string) => Promise<void>,
-        authUrl: string,
-        doneUrl: string,
-        options: WebAuthOpenerOptions
-    ): Promise<WebAuthOpenerResult>;
+        opener: (address: string) => Promise<void>,
+        authenticationAddress: string,
+        doneAddress: string,
+        options: WebAuthenticationOpenerOptions
+    ): Promise<WebAuthenticationOpenerResult>;
 }
 
-const npmRegistryUrl = 'https://registry.npmjs.org/';
+const npmRegistryAddress = 'https://registry.npmjs.org/';
 
-async function openInBrowser(loginUrl: string): Promise<void> {
-    await open(loginUrl, { wait: false });
+async function openInBrowser(loginAddress: string): Promise<void> {
+    await open(loginAddress, { wait: false });
 }
 
 function requireOneTimePassword(answer: string): string {
@@ -61,25 +64,34 @@ async function askOneTimePassword(prompt: readline.Interface): Promise<string> {
     }
 }
 
+function isInteractiveTerminal(): boolean {
+    return process.stdin.isTTY && process.stdout.isTTY;
+}
+
 async function promptForOneTimePasswordViaTerminal(): Promise<string> {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    if (!isInteractiveTerminal()) {
         throw new Error('The npm registry requested a one-time password, but stdin is not an interactive terminal');
     }
     const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
     return requireOneTimePassword(await askOneTimePassword(prompt));
 }
 
-async function promptForOneTimePasswordViaBrowser(urls: WebOtpUrls): Promise<string> {
+async function promptForOneTimePasswordViaBrowser(addresses: WebOneTimePasswordAddresses): Promise<string> {
     process.stdout.write('Opening browser to authorize the publish; complete the prompt in your browser…\n');
-    const result = await webAuthOpener(openInBrowser, urls.authUrl, urls.doneUrl, { registry: npmRegistryUrl });
+    const result = await webAuthenticationOpener(
+        openInBrowser,
+        addresses.authenticationAddress,
+        addresses.doneAddress,
+        { registry: npmRegistryAddress }
+    );
     return result.token;
 }
 
-async function promptForOneTimePassword(urls: WebOtpUrls | undefined): Promise<string> {
-    if (urls === undefined) {
+async function promptForOneTimePassword(addresses: WebOneTimePasswordAddresses | undefined): Promise<string> {
+    if (addresses === undefined) {
         return promptForOneTimePasswordViaTerminal();
     }
-    return promptForOneTimePasswordViaBrowser(urls);
+    return promptForOneTimePasswordViaBrowser(addresses);
 }
 
 function createDependencies(): BootstrapRunnerDependencies {
@@ -92,7 +104,7 @@ function createDependencies(): BootstrapRunnerDependencies {
         packagePublication: createPackagePublication({
             async publish(manifest, tarball, options) {
                 return withRegistryTransport(
-                    { resolveProxy: getProxyForUrl, clock: createClock() },
+                    { resolveProxy: getProxyForAddress, clock: createClock() },
                     options,
                     async function (requestOptions) {
                         return libnpmpublishPublish(manifest, tarball, requestOptions);
@@ -111,18 +123,30 @@ function createComposedRunner(): BootstrapRunner {
     return createBootstrapRunner(createDependencies());
 }
 
-const bootstrapCommand = command({
-    name: 'bootstrap-npm-package',
-    description: 'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
-        'a Trusted Publisher can subsequently be configured for the name.',
-    args: {
-        packageName: positional({ type: string, displayName: 'package-name' })
-    },
-    async handler(commandInput) {
-        const runner = createComposedRunner();
-        const input: BootstrapInput = { packageName: commandInput.packageName, hostname: os.hostname() };
-        await runner.run(input);
-    }
-});
+type BootstrapCommandInput = {
+    readonly packageName: string;
+};
 
-await run(binary(bootstrapCommand), process.argv);
+async function publishPlaceholder(commandInput: BootstrapCommandInput): Promise<void> {
+    const runner = createComposedRunner();
+    const input: BootstrapInput = { packageName: commandInput.packageName, hostname: operatingSystem.hostname() };
+    await runner.run(input);
+}
+
+const bootstrapCommandArguments = {
+    packageName: positional({ type: string, displayName: 'package-name' })
+};
+
+function createBootstrapCommand(): ReturnType<
+    typeof createLibraryCommand<typeof bootstrapCommandArguments, typeof publishPlaceholder>
+> {
+    return createLibraryCommand({
+        name: 'bootstrap-npm-package',
+        description: 'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
+            'a Trusted Publisher can subsequently be configured for the name.',
+        args: bootstrapCommandArguments,
+        handler: publishPlaceholder
+    });
+}
+
+await run(binary(createBootstrapCommand()), process.argv);

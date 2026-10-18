@@ -4,21 +4,21 @@
     },
     "throughput": {
         "resolve-and-link": {
-            "small": { "medianMs": 2500 },
-            "medium": { "medianMs": 5400 },
-            "large": { "medianMs": 13400 }
+            "small": { "medianMilliseconds": 2500 },
+            "medium": { "medianMilliseconds": 5400 },
+            "large": { "medianMilliseconds": 13400 }
         },
         "build-artifacts": {
-            "small": { "medianMs": 3500 },
-            "medium": { "medianMs": 8000 },
-            "large": { "medianMs": 20000 }
+            "small": { "medianMilliseconds": 3500 },
+            "medium": { "medianMilliseconds": 8000 },
+            "large": { "medianMilliseconds": 20000 }
         }
     },
     "responsiveness": {
-        "publish-cli": {
-            "intervalMs": 80,
-            "medium": { "p99Ms": 120, "maxMs": 200 },
-            "large": { "p99Ms": 120, "maxMs": 200 }
+        "publish-command-line-interface": {
+            "intervalMilliseconds": 80,
+            "medium": { "p99Milliseconds": 120, "maximumMilliseconds": 200 },
+            "large": { "p99Milliseconds": 120, "maximumMilliseconds": 200 }
         }
     }
 }

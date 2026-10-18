@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { spinnerRendererStub } from '../../test-libraries/cli-handler-fixtures.ts';
+import { spinnerRendererStub } from '../../test-libraries/command-line-interface-handler-fixtures.ts';
 import { runChangelogHandler, type ChangelogHandlerDependencies } from './changelog-handler.ts';
 
 type TraceFixture = {
@@ -10,11 +10,11 @@ type TraceFixture = {
     readonly log: SinonSpy;
 };
 
-async function unusedPackageInfo(): Promise<never> {
+async function unusedPackageInformation(): Promise<never> {
     throw new Error('unused package info');
 }
 
-function unusedPrLogEngine(): never {
+function unusedPullRequestLogEngine(): never {
     throw new Error('unused pr-log engine');
 }
 
@@ -41,7 +41,7 @@ function createTraceFixture(): TraceFixture {
     const log = fake();
     return {
         dependencies: {
-            createPrLogEngine: unusedPrLogEngine,
+            createPullRequestLogEngine: unusedPullRequestLogEngine,
             currentDate() {
                 return new Date('2026-06-13T00:00:00.000Z');
             },
@@ -54,9 +54,9 @@ function createTraceFixture(): TraceFixture {
             readEnvironmentVariable() {
                 return undefined;
             },
-            readPackageInfo: unusedPackageInfo,
+            readPackageInformation: unusedPackageInformation,
             spinnerRenderer: spinnerRendererStub(),
-            configLoader: { load: fake.rejects(new Error('config failed')) },
+            configurationLoader: { load: fake.rejects(new Error('config failed')) },
             trace: true,
             workingDirectory: '/repo'
         },

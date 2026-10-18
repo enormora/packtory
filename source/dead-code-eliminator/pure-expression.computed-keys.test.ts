@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, type Expression } from 'ts-morph';
@@ -12,7 +12,7 @@ type ProjectFile = { readonly filePath: string; readonly content: string; };
 function initializerFromProjectFiles(files: readonly ProjectFile[]): Expression {
     const project = createProject({ withFiles: files });
     return project
-        .getSourceFileOrThrow('/project/src/index.ts')
+        .getSourceFileOrThrow('/project/source/index.ts')
         .getVariableDeclarationOrThrow('schema')
         .getInitializerOrThrow();
 }
@@ -41,16 +41,16 @@ async function writeDiskPackage(root: string): Promise<void> {
         path.join(packageFolder, 'package.json'),
         '{"name":"schema-lib","type":"module","exports":"./index.js"}'
     );
-    await writeFile(path.join(packageFolder, 'index.js'), 'export const resultType = { config: "config" };');
+    await writeFile(path.join(packageFolder, 'index.js'), 'export const resultType = { config: "configuration" };');
 }
 
 async function assertDiskPackageInitializerPurity(expected: boolean): Promise<void> {
-    const root = await mkdtemp(path.join(tmpdir(), 'packtory-pure-expression-computed-key-'));
+    const root = await mkdtemp(path.join(temporaryDirectory(), 'packtory-pure-expression-computed-key-'));
     await writeDiskPackage(root);
     const project = createRuntimeProject();
     try {
         const sourceFile = project.createSourceFile(
-            path.join(root, 'src/index.ts'),
+            path.join(root, 'source/index.ts'),
             'import { resultType } from "schema-lib";\nconst schema = { [resultType.config]: true };',
             { overwrite: true }
         );
@@ -61,31 +61,31 @@ async function assertDiskPackageInitializerPurity(expected: boolean): Promise<vo
     }
 }
 
-function relativeComputedKeyFiles(resultTypeModule: string, includePackageJson: boolean): readonly ProjectFile[] {
-    const packageJson = includePackageJson
+function relativeComputedKeyFiles(resultTypeModule: string, includePackageManifest: boolean): readonly ProjectFile[] {
+    const packageManifest = includePackageManifest
         ? [ { filePath: '/project/package.json', content: '{"type":"module"}' } ]
         : [];
     return [
-        ...packageJson,
+        ...packageManifest,
         {
-            filePath: '/project/src/index.ts',
+            filePath: '/project/source/index.ts',
             content: 'import { resultType } from "./result-type.js";\nconst schema = { [resultType.config]: true };'
         },
-        { filePath: '/project/src/result-type.js', content: resultTypeModule }
+        { filePath: '/project/source/result-type.js', content: resultTypeModule }
     ];
 }
 
 function packageComputedKeyFiles(
-    packageJson: string,
+    packageManifest: string,
     runtimePath: string,
     resultTypeModule: string
 ): readonly ProjectFile[] {
     return [
         {
-            filePath: '/project/src/index.ts',
+            filePath: '/project/source/index.ts',
             content: 'import { resultType } from "schema-lib";\nconst schema = { [resultType.config]: true };'
         },
-        { filePath: '/project/node_modules/schema-lib/package.json', content: packageJson },
+        { filePath: '/project/node_modules/schema-lib/package.json', content: packageManifest },
         { filePath: `/project/node_modules/schema-lib/${runtimePath}`, content: resultTypeModule }
     ];
 }
@@ -94,7 +94,7 @@ suite('pure-expression computed keys', function () {
     suite('accepted', function () {
         test('isPureExpression accepts computed names from relative exported literal object members', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { config: "config" };', true),
+                relativeComputedKeyFiles('export const resultType = { config: "configuration" };', true),
                 true
             );
         });
@@ -104,7 +104,7 @@ suite('pure-expression computed keys', function () {
                 packageComputedKeyFiles(
                     '{"name":"schema-lib","type":"module","exports":"./index.js"}',
                     'index.js',
-                    'export const resultType = { config: "config" };'
+                    'export const resultType = { config: "configuration" };'
                 ),
                 true
             );
@@ -121,7 +121,7 @@ suite('pure-expression computed keys', function () {
                 packageComputedKeyFiles(
                     '{"name":"schema-lib","exports":"./index.cjs"}',
                     'index.cjs',
-                    'exports.resultType = { config: "config" };'
+                    'exports.resultType = { config: "configuration" };'
                 ),
                 false
             );
@@ -132,7 +132,7 @@ suite('pure-expression computed keys', function () {
                 packageComputedKeyFiles(
                     '{"name":"schema-lib","type":"module","exports":"./index.cjs"}',
                     'index.cjs',
-                    'export const resultType = { config: "config" };'
+                    'export const resultType = { config: "configuration" };'
                 ),
                 false
             );
@@ -143,7 +143,7 @@ suite('pure-expression computed keys', function () {
                 [
                     { filePath: '/project/package.json', content: '{"type":"module"}' },
                     {
-                        filePath: '/project/src/index.ts',
+                        filePath: '/project/source/index.ts',
                         content:
                             'import { resultType } from "./missing.js";\nconst schema = { [resultType.config]: true };'
                     }
@@ -154,7 +154,7 @@ suite('pure-expression computed keys', function () {
 
         test('isPureExpression rejects computed names from relative non-ESM sources', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { config: "config" };', false),
+                relativeComputedKeyFiles('export const resultType = { config: "configuration" };', false),
                 false
             );
         });
@@ -163,21 +163,21 @@ suite('pure-expression computed keys', function () {
     suite('rejected bindings', function () {
         test('isPureExpression rejects computed names from non-const exported bindings', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export let resultType = { config: "config" };', true),
+                relativeComputedKeyFiles('export let resultType = { config: "configuration" };', true),
                 false
             );
         });
 
         test('isPureExpression rejects computed names from non-exported bindings', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('const resultType = { config: "config" };', true),
+                relativeComputedKeyFiles('const resultType = { config: "configuration" };', true),
                 false
             );
         });
 
         test('isPureExpression rejects computed names from missing exports', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const other = { config: "config" };', true),
+                relativeComputedKeyFiles('export const other = { config: "configuration" };', true),
                 false
             );
         });
@@ -187,7 +187,7 @@ suite('pure-expression computed keys', function () {
         test('isPureExpression rejects computed names from local property reads', function () {
             assertProjectInitializerPurity(
                 [ {
-                    filePath: '/project/src/index.ts',
+                    filePath: '/project/source/index.ts',
                     content: 'const local = {};\nconst schema = { [local.config]: true };'
                 } ],
                 false
@@ -199,13 +199,13 @@ suite('pure-expression computed keys', function () {
                 [
                     { filePath: '/project/package.json', content: '{"type":"module"}' },
                     {
-                        filePath: '/project/src/index.ts',
+                        filePath: '/project/source/index.ts',
                         content:
                             'import { resultType } from "./result-type.js";\nconst schema = { [new resultType()]: true };'
                     },
                     {
-                        filePath: '/project/src/result-type.js',
-                        content: 'export const resultType = { config: "config" };'
+                        filePath: '/project/source/result-type.js',
+                        content: 'export const resultType = { config: "configuration" };'
                     }
                 ],
                 false
@@ -214,7 +214,7 @@ suite('pure-expression computed keys', function () {
 
         test('isPureExpression rejects computed names from missing exported members', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { other: "config" };', true),
+                relativeComputedKeyFiles('export const resultType = { other: "configuration" };', true),
                 false
             );
         });
@@ -224,13 +224,13 @@ suite('pure-expression computed keys', function () {
                 [
                     { filePath: '/project/package.json', content: '{"type":"module"}' },
                     {
-                        filePath: '/project/src/index.ts',
+                        filePath: '/project/source/index.ts',
                         content:
                             'import { resultType } from "./result-type.js";\nconst schema = { [resultType.config.value]: true };'
                     },
                     {
-                        filePath: '/project/src/result-type.js',
-                        content: 'export const resultType = { config: "config" };'
+                        filePath: '/project/source/result-type.js',
+                        content: 'export const resultType = { config: "configuration" };'
                     }
                 ],
                 false
@@ -239,21 +239,24 @@ suite('pure-expression computed keys', function () {
 
         test('isPureExpression rejects computed names from exported non-objects', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = "config";', true),
+                relativeComputedKeyFiles('export const resultType = "configuration";', true),
                 false
             );
         });
 
         test('isPureExpression rejects computed names from exported accessors', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { get config() { return "config"; } };', true),
+                relativeComputedKeyFiles(
+                    'export const resultType = { get config() { return "configuration"; } };',
+                    true
+                ),
                 false
             );
         });
 
         test('isPureExpression rejects computed names from non-primitive exported members', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { config: { value: "config" } };', true),
+                relativeComputedKeyFiles('export const resultType = { config: { value: "configuration" } };', true),
                 false
             );
         });

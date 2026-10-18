@@ -39,13 +39,13 @@ suite('partial-result', function () {
     });
 
     test('succeededResultsFrom ignores object failures without the partial discriminant', function () {
-        const configFailure: Result<readonly string[], unknown> = Result.err({
-            type: 'config',
+        const configurationFailure: Result<readonly string[], unknown> = Result.err({
+            type: 'configuration',
             succeeded: [ 'wrong' ],
             issues: []
         });
 
-        assert.deepStrictEqual(succeededResultsFrom(configFailure), []);
+        assert.deepStrictEqual(succeededResultsFrom(configurationFailure), []);
     });
 
     test('isSuccessOrPartialSuccess distinguishes full, partial, and failed results', function () {

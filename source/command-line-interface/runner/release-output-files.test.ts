@@ -7,7 +7,7 @@ suite('release-output-files', function () {
         assert.deepStrictEqual(
             collectReleaseOutputFiles({
                 workingDirectory: '/repo',
-                config: { packages: [ { name: 'pkg-a' } ] }
+                configuration: { packages: [ { name: 'package-a' } ] }
             }),
             []
         );
@@ -17,19 +17,19 @@ suite('release-output-files', function () {
         assert.deepStrictEqual(
             collectReleaseOutputFiles({
                 workingDirectory: '/repo',
-                config: {
+                configuration: {
                     changelog: {
                         outputs: [
                             { kind: 'repository-file', path: 'CHANGELOG.md' },
-                            { kind: 'package-file', path: 'docs/CHANGELOG.md' },
+                            { kind: 'package-file', path: 'documentation/CHANGELOG.md' },
                             { kind: 'github-release' }
                         ]
                     },
                     commonPackageSettings: { sourcesFolder: 'packages' },
-                    packages: [ { name: 'pkg-a' }, { name: 'pkg-b', sourcesFolder: 'other/pkg-b' } ]
+                    packages: [ { name: 'package-a' }, { name: 'package-b', sourcesFolder: 'other/package-b' } ]
                 }
             }),
-            [ 'CHANGELOG.md', 'packages/docs/CHANGELOG.md', 'other/pkg-b/docs/CHANGELOG.md' ]
+            [ 'CHANGELOG.md', 'packages/documentation/CHANGELOG.md', 'other/package-b/documentation/CHANGELOG.md' ]
         );
     });
 
@@ -37,22 +37,22 @@ suite('release-output-files', function () {
         assert.deepStrictEqual(
             collectReleaseOutputFiles({
                 workingDirectory: '/repo',
-                config: {
+                configuration: {
                     changelog: {
                         outputs: [
                             {
                                 kind: 'package-file',
                                 paths: {
-                                    'pkg-a': 'source/pkg-a/CHANGELOG.md',
-                                    'pkg-b': 'source/pkg-b/CHANGELOG.md'
+                                    'package-a': 'source/package-a/CHANGELOG.md',
+                                    'package-b': 'source/package-b/CHANGELOG.md'
                                 }
                             }
                         ]
                     },
-                    packages: [ { name: 'pkg-a' }, { name: 'pkg-b' } ]
+                    packages: [ { name: 'package-a' }, { name: 'package-b' } ]
                 }
             }),
-            [ 'source/pkg-a/CHANGELOG.md', 'source/pkg-b/CHANGELOG.md' ]
+            [ 'source/package-a/CHANGELOG.md', 'source/package-b/CHANGELOG.md' ]
         );
     });
 });

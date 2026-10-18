@@ -54,11 +54,11 @@ function expectedNestedIndexDependency(references: readonly ExpectedReference[])
 async function resolvePackageA(resolver: ResourceResolver): Promise<ResolvedBundle> {
     return await resolver.resolve({
         name: 'package-a',
-        sourcesFolder: '/src',
-        roots: { main: { js: '/src/nested/index.js' } },
+        sourcesFolder: '/source',
+        roots: { main: { javaScript: '/source/nested/index.js' } },
         includeSourceMapFiles: false,
         additionalFiles: [],
-        mainPackageJson: { type: 'module' }
+        mainPackageManifest: { type: 'module' }
     });
 }
 
@@ -74,7 +74,7 @@ suite('resource-resolver external dependencies', function () {
                 return {
                     localFiles: [
                         {
-                            filePath: '/src/nested/index.js',
+                            filePath: '/source/nested/index.js',
                             directDependencies: new Set<string>(),
                             moduleReferences: []
                         }
@@ -84,7 +84,7 @@ suite('resource-resolver external dependencies', function () {
                             'dep',
                             {
                                 name: 'dep',
-                                referencedFrom: [ '/src/nested/index.js' ]
+                                referencedFrom: [ '/source/nested/index.js' ]
                             }
                         ]
                     ])
@@ -103,7 +103,7 @@ suite('resource-resolver external dependencies', function () {
 
     test('resolve() rewrites external dependency references to target paths', async function () {
         const graph = createDependencyGraph();
-        graph.addDependency('/src/nested/index.js', {
+        graph.addDependency('/source/nested/index.js', {
             sourceMapFilePath: Maybe.nothing(),
             externalDependencies: [
                 { name: 'dep', sourceSpecifier: 'dep/source', emittedSpecifier: 'dep' },

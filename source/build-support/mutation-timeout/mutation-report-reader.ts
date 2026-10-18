@@ -5,7 +5,7 @@ function isErrorWithCode(error: unknown, code: string): error is Error & { reado
     return error instanceof Error && Reflect.get(error, 'code') === code;
 }
 
-function parseJsonString(content: string): unknown {
+function parseJavaScriptObjectNotationString(content: string): unknown {
     return JSON.parse(content) as unknown;
 }
 
@@ -14,7 +14,7 @@ export async function readMutationReport(
     fileManager: Pick<FileManager, 'readFile'>
 ): Promise<MutationReport> {
     try {
-        return parseMutationReport(parseJsonString(await fileManager.readFile(reportPath)));
+        return parseMutationReport(parseJavaScriptObjectNotationString(await fileManager.readFile(reportPath)));
     } catch (error) {
         if (isErrorWithCode(error, 'ENOENT')) {
             throw new Error(`Mutation report not found at "${reportPath}"`, { cause: error });

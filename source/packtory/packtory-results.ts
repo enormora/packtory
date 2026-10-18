@@ -109,11 +109,11 @@ export type ResolveAndLinkAllOptions = {
 export type BuildReport = ReportBuildReport;
 
 export const checksErrorType = 'checks';
-export const configErrorType = 'config';
+export const configurationErrorType = 'configuration';
 export const partialFailureType = 'partial';
 export const previewResultType = {
     checks: checksErrorType,
-    config: configErrorType,
+    configuration: configurationErrorType,
     partial: partialFailureType,
     success: 'success'
 } as const;
@@ -124,8 +124,8 @@ export const releaseAnalysisClassification = {
     unchanged: 'unchanged'
 } as const;
 
-export function configError(issues: readonly string[]): ConfigError {
-    return { type: configErrorType, issues };
+export function configurationError(issues: readonly string[]): ConfigurationError {
+    return { type: configurationErrorType, issues };
 }
 
 export type PublishAllOutcome = {
@@ -152,8 +152,8 @@ export function createResolveAndLinkAllOutcome(
     return { result, getReport };
 }
 
-export type ConfigError = {
-    readonly type: typeof configErrorType;
+export type ConfigurationError = {
+    readonly type: typeof configurationErrorType;
     readonly issues: readonly string[];
 };
 
@@ -161,7 +161,7 @@ type PublishPartialFailure = PartialError<BuildAndPublishResult> & { readonly ty
 
 type PublishFailures = readonly [
     CheckError,
-    ConfigError,
+    ConfigurationError,
     PublishPartialFailure
 ];
 
@@ -182,14 +182,14 @@ export function resolvePartialFailure(error: PartialError<ResolvedPackage>): Par
     return { type: partialFailureType, error };
 }
 
-export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResult;
+export type ResolveAndLinkFailure = CheckError | ConfigurationError | PartialErrorResult;
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
 type ReleaseDiffPartialFailure = PartialError<PackageReleaseDiff> & { readonly type: typeof partialFailureType; };
 
 type ReleaseDiffFailures = readonly [
     CheckError,
-    ConfigError,
+    ConfigurationError,
     ReleaseDiffPartialFailure
 ];
 
@@ -230,7 +230,7 @@ type ReleaseAnalysisPartialFailure = PartialError<PackageReleaseAnalysis> & {
 
 type ReleaseAnalysisFailures = readonly [
     CheckError,
-    ConfigError,
+    ConfigurationError,
     ReleaseAnalysisPartialFailure
 ];
 
@@ -286,7 +286,7 @@ type ReleasePlanPartialFailure = PartialError<ReleasePlanPackage> & { readonly t
 
 type ReleasePlanFailures = readonly [
     CheckError,
-    ConfigError,
+    ConfigurationError,
     ReleasePlanPartialFailure
 ];
 
@@ -332,7 +332,7 @@ export type PackAllSuccess = {
     readonly packageNames: readonly string[];
 };
 
-export type PackFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;
+export type PackFailure = CheckError | ConfigurationError | PackPackageFailure | PartialErrorResult;
 
 export type PackResult = Result<undefined, PackFailure>;
 
@@ -359,7 +359,7 @@ export type PackageTree = {
     readonly entries: readonly ArtifactEntry[];
 };
 
-export type PackageTreeFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;
+export type PackageTreeFailure = CheckError | ConfigurationError | PackPackageFailure | PartialErrorResult;
 
 export type PackageTreeResult = Result<PackageTree, PackageTreeFailure>;
 
@@ -413,7 +413,7 @@ export type PackageDependencyInspection = {
     readonly dependencies: readonly PackageDependency[];
 };
 
-export type PackageDependencyInspectionFailure = ConfigError | PackPackageFailure | PartialErrorResult;
+export type PackageDependencyInspectionFailure = ConfigurationError | PackPackageFailure | PartialErrorResult;
 
 export type PackageDependencyInspectionResult = Result<
     PackageDependencyInspection,
@@ -468,11 +468,11 @@ export type PackageSideEffectsFile = {
 
 export type PackageSideEffectsInspection = {
     readonly packageName: string;
-    readonly packageJsonDecision: PackageSideEffectsDecision;
+    readonly packageManifestDecision: PackageSideEffectsDecision;
     readonly impureFiles: readonly PackageSideEffectsFile[];
 };
 
-export type PackageSideEffectsInspectionFailure = ConfigError | PackPackageFailure | PartialErrorResult;
+export type PackageSideEffectsInspectionFailure = ConfigurationError | PackPackageFailure | PartialErrorResult;
 
 export type PackageSideEffectsInspectionResult = Result<
     PackageSideEffectsInspection,
@@ -490,16 +490,25 @@ export function createPackageSideEffectsInspectionOutcome(
 }
 
 export type Packtory = {
-    analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
-    buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
-    diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
-    inspectPackageDependencies: (config: unknown, packageName: string) => Promise<PackageDependencyInspectionOutcome>;
-    inspectPackageSideEffects: (config: unknown, packageName: string) => Promise<PackageSideEffectsInspectionOutcome>;
-    planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
-    resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
-    packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
-    packAllPackages: (config: unknown, options: PackAllPublicOptions) => Promise<PackAllOutcome>;
-    inspectPackageTree: (config: unknown, packageName: string) => Promise<PackageTreeOutcome>;
+    analyzeReleaseAgainstLatestPublished: (configuration: unknown) => Promise<ReleaseAnalysisOutcome>;
+    buildAndPublishAll: (configuration: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
+    diffAgainstLatestPublished: (configuration: unknown) => Promise<ReleaseDiffAllOutcome>;
+    inspectPackageDependencies: (
+        configuration: unknown,
+        packageName: string
+    ) => Promise<PackageDependencyInspectionOutcome>;
+    inspectPackageSideEffects: (
+        configuration: unknown,
+        packageName: string
+    ) => Promise<PackageSideEffectsInspectionOutcome>;
+    planReleaseAgainstLatestPublished: (configuration: unknown) => Promise<ReleasePlanOutcome>;
+    resolveAndLinkAll: (
+        configuration: unknown,
+        options?: ResolveAndLinkAllOptions
+    ) => Promise<ResolveAndLinkAllOutcome>;
+    packPackage: (configuration: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
+    packAllPackages: (configuration: unknown, options: PackAllPublicOptions) => Promise<PackAllOutcome>;
+    inspectPackageTree: (configuration: unknown, packageName: string) => Promise<PackageTreeOutcome>;
 };
 
 export type ProgressBroadcaster = ProgressBroadcasterBase;

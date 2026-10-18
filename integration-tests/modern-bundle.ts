@@ -2,7 +2,7 @@ import path from 'node:path';
 import { getModuleReferenceLiterals } from '../source/dependency-scanner/source-file-references.ts';
 import type { ArtifactModuleReference } from '../source/resource-resolver/resolved-bundle.ts';
 import { createProject } from '../source/test-libraries/typescript-project.ts';
-import { serializePackageJson } from '../source/version-manager/manifest/serialize.ts';
+import { serializePackageManifest } from '../source/version-manager/manifest/serialize.ts';
 
 type TransferableFile = {
     readonly inputFilePath: string;
@@ -29,7 +29,7 @@ type LocalModuleReference = Extract<
 
 type LegacyImplicitBundleExpectation = {
     readonly name: string;
-    readonly packageJson: Readonly<Record<string, unknown>>;
+    readonly packageManifest: Readonly<Record<string, unknown>>;
     readonly manifestFile: ManifestFile;
     readonly mainFile: TransferableFile;
     readonly typesMainFile?: TransferableFile | undefined;
@@ -37,12 +37,12 @@ type LegacyImplicitBundleExpectation = {
 };
 
 type ModernImplicitBundleExpectation = {
-    readonly packageJson: Readonly<Record<string, unknown>>;
+    readonly packageManifest: Readonly<Record<string, unknown>>;
     readonly manifestFile: ManifestFile;
     readonly mainFile: TransferableFile;
     readonly roots: {
         readonly main: {
-            readonly js: TransferableFile;
+            readonly javaScript: TransferableFile;
             readonly declarationFile?: TransferableFile | undefined;
         };
     };
@@ -57,7 +57,7 @@ type ModernImplicitBundleExpectation = {
 type ModernBundleExpectation<TExpected extends LegacyImplicitBundleExpectation> = {
     readonly name: TExpected['name'];
     readonly mainFile: TExpected['mainFile'];
-    readonly packageJson: ModernImplicitBundleExpectation['packageJson'];
+    readonly packageManifest: ModernImplicitBundleExpectation['packageManifest'];
     readonly manifestFile: ModernImplicitBundleExpectation['manifestFile'];
     readonly roots: ModernImplicitBundleExpectation['roots'];
     readonly surface: ModernImplicitBundleExpectation['surface'];
@@ -65,9 +65,9 @@ type ModernBundleExpectation<TExpected extends LegacyImplicitBundleExpectation> 
     readonly typesMainFile?: ModernImplicitBundleExpectation['typesMainFile'];
 };
 
-function omitLegacyPackageFields(packageJson: Readonly<Record<string, unknown>>): Record<string, unknown> {
+function omitLegacyPackageFields(packageManifest: Readonly<Record<string, unknown>>): Record<string, unknown> {
     return Object.fromEntries(
-        Object.entries(packageJson).filter(function ([ key ]) {
+        Object.entries(packageManifest).filter(function ([ key ]) {
             return key !== 'main' && key !== 'types';
         })
     );
@@ -177,31 +177,31 @@ function normalizeContents(contents: readonly BundleContentExpectation[]): reado
 export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleExpectation>(
     expected: TExpected
 ): ModernBundleExpectation<TExpected> {
-    const { packageJson, manifestFile, mainFile, typesMainFile, contents, ...rest } = expected;
+    const { packageManifest, manifestFile, mainFile, typesMainFile, contents, ...rest } = expected;
     const exportsField = {
         '.': {
             import: `./${mainFile.targetFilePath}`,
             ...typesMainFile === undefined ? {} : { types: `./${typesMainFile.targetFilePath}` }
         }
     };
-    const modernPackageJson = {
-        ...omitLegacyPackageFields(packageJson),
+    const modernPackageManifest = {
+        ...omitLegacyPackageFields(packageManifest),
         exports: exportsField
     };
 
     const result = {
         ...rest,
         ...contents === undefined ? {} : { contents: normalizeContents(contents) },
-        packageJson: modernPackageJson,
+        packageManifest: modernPackageManifest,
         manifestFile: {
             ...manifestFile,
-            content: serializePackageJson(modernPackageJson)
+            content: serializePackageManifest(modernPackageManifest)
         },
         mainFile,
         ...typesMainFile === undefined ? {} : { typesMainFile },
         roots: {
             main: {
-                js: mainFile,
+                javaScript: mainFile,
                 declarationFile: typesMainFile
             }
         },

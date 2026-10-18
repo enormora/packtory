@@ -4,7 +4,7 @@ import { checkPackage, Package, type ResolutionKind } from '@arethetypeswrong/co
 import {
     problemAffectsEntrypointResolution,
     problemAffectsResolutionKind,
-    problemKindInfo
+    problemKindInfo as problemKindInformation
 } from '@arethetypeswrong/core/problems';
 import { createPackageResolutionAnalyzer } from '../../source/checks/rules/type-script-package-resolution.ts';
 import { summarizeResolutionReport } from '../../source/checks/rules/type-script-resolution-summary.ts';
@@ -16,7 +16,7 @@ const checkedResolutionKinds: readonly ResolutionKind[] = [ 'node16-esm', 'bundl
 const analyzePackageResolution = createPackageResolutionAnalyzer({
     Package,
     checkPackage,
-    problemKindInfo,
+    problemKindInformation,
     problemAffectsResolutionKind,
     problemAffectsEntrypointResolution
 });
@@ -42,7 +42,7 @@ type EntrypointSources = {
     readonly declarationSource: string;
 };
 
-const brokenCommonJsEntrypoint: EntrypointSources = {
+const brokenCommonJavaScriptEntrypoint: EntrypointSources = {
     javascriptSource: 'module.exports = function value() {};\nmodule.exports.default = module.exports;\n',
     declarationSource: 'declare function value(): void;\nexport default value;\n'
 };
@@ -87,7 +87,7 @@ suite('package resolution against the real types checker', function () {
     });
 
     test('reports resolution problems without exposing the internal checker name', async function () {
-        const issues = await checkPackageResolution(typedPackage('broken-package', brokenCommonJsEntrypoint));
+        const issues = await checkPackageResolution(typedPackage('broken-package', brokenCommonJavaScriptEntrypoint));
 
         assert.deepStrictEqual(issues, [
             'Package "broken-package" failed TypeScript integrity: Missing `export =` ' +
@@ -100,7 +100,7 @@ suite('package resolution against the real types checker', function () {
     test('groups a repeated problem kind of several entrypoints into one summary', async function () {
         const issues = await checkPackageResolution(twoEntrypointPackage(
             'multi-entrypoint-package',
-            brokenCommonJsEntrypoint,
+            brokenCommonJavaScriptEntrypoint,
             {
                 javascriptSource: 'module.exports = function feature() {};\nmodule.exports.default = module.exports;\n',
                 declarationSource: 'declare function feature(): void;\nexport default feature;\n'
@@ -118,7 +118,7 @@ suite('package resolution against the real types checker', function () {
     test('reports only the entrypoints a problem affects', async function () {
         const issues = await checkPackageResolution(twoEntrypointPackage(
             'mixed-entrypoint-package',
-            brokenCommonJsEntrypoint,
+            brokenCommonJavaScriptEntrypoint,
             {
                 javascriptSource: 'export const feature = 1;\n',
                 declarationSource: 'export declare const feature: number;\n'

@@ -1,16 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { Node as TsMorphNode, Statement } from 'ts-morph';
+import type { Node as TypeScriptMorphNode, Statement } from 'ts-morph';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
-import { bindingId } from './reachability/binding-id.ts';
+import { bindingIdentifier } from './reachability/binding-identifier.ts';
 import { extractTopLevelBindings } from './reachability/binding-extractor.ts';
 
-const statementStub = { id: 'stmt' };
-const declarationStub = { id: 'decl' };
-const referenceStub = { id: 'ref' };
+const statementStub = { identifier: 'stmt' };
+const declarationStub = { identifier: 'decl' };
+const referenceStub = { identifier: 'ref' };
 
 function loadedCodeResource(targetFilePath: string, content: string): LoadedCodeResource {
     const project = createProject({ withFiles: [ { filePath: targetFilePath, content } ] });
@@ -18,7 +18,7 @@ function loadedCodeResource(targetFilePath: string, content: string): LoadedCode
     return {
         resource: {
             fileDescription: {
-                inputFilePath: `/src/${targetFilePath}`,
+                inputFilePath: `/source/${targetFilePath}`,
                 targetFilePath,
                 content,
                 isExecutable: false
@@ -37,7 +37,7 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
     return {
         resource: {
             fileDescription: {
-                inputFilePath: `/src/${targetFilePath}`,
+                inputFilePath: `/source/${targetFilePath}`,
                 targetFilePath,
                 content,
                 isExecutable: false
@@ -52,7 +52,7 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
 }
 
 const baseContext: AnalysisContext = {
-    bundleName: 'pkg',
+    bundleName: 'package',
     reachable: new Set<string>(),
     transformationsEnabled: false,
     deadCodeElimination: undefined,
@@ -108,7 +108,7 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, {
             ...baseContext,
-            reachable: new Set([ bindingId('a.ts', 'foo') ]),
+            reachable: new Set([ bindingIdentifier('a.ts', 'foo') ]),
             transformationsEnabled: true
         });
 
@@ -130,8 +130,8 @@ suite('code-file-analyzer', function () {
                     name: 'foo',
                     isExported: true,
                     statement: statementStub as unknown as Statement,
-                    declarationNode: declarationStub as unknown as TsMorphNode,
-                    referenceNode: referenceStub as unknown as TsMorphNode
+                    declarationNode: declarationStub as unknown as TypeScriptMorphNode,
+                    referenceNode: referenceStub as unknown as TypeScriptMorphNode
                 }
             ]
         };

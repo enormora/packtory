@@ -8,7 +8,7 @@ function allRules(): AllCheckRules {
 }
 
 suite('registry', function () {
-    test('createAllRules() exposes the nine well-known check rules by name', function () {
+    test('createAllRules() exposes the ten well-known check rules by name', function () {
         const names = allRules()
             .map(function (rule) {
                 return rule.name;
@@ -17,8 +17,9 @@ suite('registry', function () {
                 return left.localeCompare(right);
             });
         assert.deepStrictEqual(names, [
-            'maxBundleSize',
-            'noDevDependencyImports',
+            'maximumBundleSize',
+            'nodeEngineCompatibility',
+            'noDevelopmentDependencyImports',
             'noDuplicatedFiles',
             'noSideEffects',
             'noUnexposedExecutables',

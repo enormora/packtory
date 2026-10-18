@@ -67,26 +67,26 @@ suite('code-files', function () {
 
     suite('text diffable paths', function () {
         test('isTextDiffablePath recognizes each code-file extension at the end of the path', function () {
-            assert.strictEqual(isTextDiffablePath('src/index.ts'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.tsx'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.cts'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.mts'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.js'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.jsx'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.cjs'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.mjs'), true);
-            assert.strictEqual(isTextDiffablePath('src/index.d.ts'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.ts'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.tsx'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.cts'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.mts'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.js'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.jsx'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.cjs'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.mjs'), true);
+            assert.strictEqual(isTextDiffablePath('source/index.d.ts'), true);
         });
 
         test('isTextDiffablePath requires the code-file extension to appear at the end of the path', function () {
-            assert.strictEqual(isTextDiffablePath('src/index.ts.bak'), false);
-            assert.strictEqual(isTextDiffablePath('src/index.js.bak'), false);
-            assert.strictEqual(isTextDiffablePath('src/index.d.ts.bak'), false);
+            assert.strictEqual(isTextDiffablePath('source/index.ts.bak'), false);
+            assert.strictEqual(isTextDiffablePath('source/index.js.bak'), false);
+            assert.strictEqual(isTextDiffablePath('source/index.d.ts.bak'), false);
         });
 
         test('isTextDiffablePath recognizes .json only when it terminates the path', function () {
             assert.strictEqual(isTextDiffablePath('package.json'), true);
-            assert.strictEqual(isTextDiffablePath('sbom.cdx.json'), true);
+            assert.strictEqual(isTextDiffablePath('software-bill-of-materials.cyclonedx.json'), true);
             assert.strictEqual(isTextDiffablePath('package.json.bak'), false);
         });
 

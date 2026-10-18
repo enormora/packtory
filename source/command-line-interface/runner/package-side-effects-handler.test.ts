@@ -4,7 +4,7 @@ import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import { createConfigurationLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runPackageSideEffectsHandler } from './package-side-effects-handler.ts';
 
@@ -48,8 +48,8 @@ async function renderOutcome(outcome: PackageSideEffectsOutcome, trace: boolean)
         },
         packtory: packtoryStub(outcome),
         spinnerRenderer: spinnerRenderer(fake()),
-        configLoader: createConfigLoaderStub(),
-        flags: { packageName: 'pkg-a', trace }
+        configurationLoader: createConfigurationLoaderStub(),
+        flags: { packageName: 'package-a', trace }
     });
     return String(log.firstCall.args[0]);
 }
@@ -58,8 +58,8 @@ suite('package-side-effects-handler', function () {
     test('loads config, renders successful inspection output, and stops spinners', async function () {
         const inspectPackageSideEffects = fake.resolves({
             result: Result.ok({
-                packageName: 'pkg-a',
-                packageJsonDecision: { type: 'side-effects-false' },
+                packageName: 'package-a',
+                packageManifestDecision: { type: 'side-effects-false' },
                 impureFiles: []
             })
         });
@@ -92,8 +92,8 @@ suite('package-side-effects-handler', function () {
             },
             packtory,
             spinnerRenderer: sideEffectsSpinnerRenderer,
-            configLoader: createConfigLoaderStub(),
-            flags: { packageName: 'pkg-a', trace: false }
+            configurationLoader: createConfigurationLoaderStub(),
+            flags: { packageName: 'package-a', trace: false }
         });
 
         assert.strictEqual(exitCode, 0);
@@ -102,7 +102,7 @@ suite('package-side-effects-handler', function () {
             log.firstCall.args[0],
             [
                 'Packtory side effects [Dry run]',
-                'pkg-a',
+                'package-a',
                 'Generated package.json sideEffects: false',
                 'No runtime side effects.'
             ]
@@ -112,7 +112,7 @@ suite('package-side-effects-handler', function () {
 
     test('prints config failures', async function () {
         const message = await renderOutcome({
-            result: Result.err({ type: 'config', issues: [ 'bad config' ] })
+            result: Result.err({ type: 'configuration', issues: [ 'bad config' ] })
         }, false);
 
         assert.strictEqual(message, 'Packtory side effects [Dry run]\nConfiguration issues\n- bad config');
@@ -153,7 +153,7 @@ suite('package-side-effects-handler', function () {
 
     test('prints fallback package failures', async function () {
         const message = await renderOutcome({
-            result: Result.err({ type: 'unsafe-output-folder', packageName: 'pkg-a', outputPath: 'dist' })
+            result: Result.err({ type: 'unsafe-output-folder', packageName: 'package-a', outputPath: 'dist' })
         }, false);
 
         assert.strictEqual(message, 'Package side effects could not be inspected');

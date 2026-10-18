@@ -38,7 +38,7 @@ export function createTarballBuilder(dependencies: Partial<TarballBuilderDepende
             },
             payload
         );
-        entry.end();
+        entry.end(undefined);
     }
 
     async function createPack(

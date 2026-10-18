@@ -1,67 +1,67 @@
-import type { PackageJson } from 'type-fest';
-import { hasProp, isDefined, isEmpty, pickBy } from 'remeda';
-import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
+import type { PackageJson as PackageManifest } from 'type-fest';
+import { hasProp as hasProperty, isDefined, isEmpty, pickBy } from 'remeda';
+import type { VersionedBundle, BundlePackageManifest } from '../versioned-bundle.ts';
 
-type PackageJsonSideEffectsValue = NonNullable<PackageJson['sideEffects']>;
+type PackageManifestSideEffectsValue = NonNullable<PackageManifest['sideEffects']>;
 
 function resolveSideEffectsValue(bundle: VersionedBundle): boolean | readonly string[] | undefined {
-    if (hasProp(bundle.additionalAttributes, 'sideEffects')) {
+    if (hasProperty(bundle.additionalAttributes, 'sideEffects')) {
         return undefined;
     }
     return bundle.sideEffectsField;
 }
 
-type PackageJsonImports = NonNullable<PackageJson['imports']>;
-type PackageJsonBin = Readonly<Record<string, string>> | string;
-type VersionedBundleBinField = Readonly<Record<string, string | undefined>> | string | undefined;
+type PackageManifestImports = NonNullable<PackageManifest['imports']>;
+type PackageManifestExecutable = Readonly<Record<string, string>> | string;
+type VersionedBundleExecutableField = Readonly<Record<string, string | undefined>> | string | undefined;
 
 function buildSideEffectsEntry(
     sideEffects: boolean | readonly string[] | undefined
-): Record<PropertyKey, never> | { readonly sideEffects: PackageJsonSideEffectsValue; } {
+): Record<PropertyKey, never> | { readonly sideEffects: PackageManifestSideEffectsValue; } {
     if (sideEffects === undefined) {
         return {};
     }
     return { sideEffects: typeof sideEffects === 'boolean' ? sideEffects : Array.from(sideEffects) };
 }
 
-function toPackageJsonImports(importsField: NonNullable<VersionedBundle['importsField']>): PackageJsonImports {
+function toPackageManifestImports(importsField: NonNullable<VersionedBundle['importsField']>): PackageManifestImports {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- config validation constrains imports values to JSON-compatible package.json data
-    return Object.fromEntries(Object.entries(importsField)) as PackageJsonImports;
+    return Object.fromEntries(Object.entries(importsField)) as PackageManifestImports;
 }
 
 function buildImportsEntry(
     importsField: VersionedBundle['importsField']
-): Record<PropertyKey, never> | { readonly imports: PackageJsonImports; } {
-    return importsField === undefined ? {} : { imports: toPackageJsonImports(importsField) };
+): Record<PropertyKey, never> | { readonly imports: PackageManifestImports; } {
+    return importsField === undefined ? {} : { imports: toPackageManifestImports(importsField) };
 }
 
-function toPackageJsonBinTargets(
-    binField: Exclude<NonNullable<VersionedBundleBinField>, string>
+function toPackageManifestExecutableTargets(
+    executableField: Exclude<NonNullable<VersionedBundleExecutableField>, string>
 ): Readonly<Record<string, string>> {
-    return pickBy(binField, isDefined);
+    return pickBy(executableField, isDefined);
 }
 
-function buildBinEntry(
-    binField: VersionedBundleBinField
-): Record<PropertyKey, never> | { readonly bin: PackageJsonBin; } {
-    if (binField === undefined) {
+function buildExecutableEntry(
+    executableField: VersionedBundleExecutableField
+): Record<PropertyKey, never> | { readonly bin: PackageManifestExecutable; } {
+    if (executableField === undefined) {
         return {};
     }
 
-    if (typeof binField === 'string') {
-        return { bin: binField };
+    if (typeof executableField === 'string') {
+        return { bin: executableField };
     }
 
-    return { bin: toPackageJsonBinTargets(binField) };
+    return { bin: toPackageManifestExecutableTargets(executableField) };
 }
 
-export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson {
+export function buildPackageManifest(bundle: VersionedBundle): BundlePackageManifest {
     const sideEffects = resolveSideEffectsValue(bundle);
     const sideEffectsEntry = buildSideEffectsEntry(sideEffects);
     const importsEntry = buildImportsEntry(bundle.importsField);
-    const binEntry = buildBinEntry(bundle.binField);
+    const executableEntry = buildExecutableEntry(bundle.executableField);
 
-    const packageJson: BundlePackageJson = {
+    const packageManifest: BundlePackageManifest = {
         ...bundle.additionalAttributes,
         exports: bundle.exportsField,
         name: bundle.name,
@@ -69,10 +69,10 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
         type: bundle.packageType,
         ...sideEffectsEntry,
         ...importsEntry,
-        ...binEntry,
+        ...executableEntry,
         ...isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies },
         ...isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies }
     };
 
-    return packageJson;
+    return packageManifest;
 }

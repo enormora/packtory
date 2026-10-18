@@ -47,11 +47,11 @@ suite('fake-clock', function () {
     test('createFakeClock() can clear scheduled handlers', function () {
         const clock = createFakeClock();
         const calls: string[] = [];
-        const timeoutId = clock.setTimeout(function () {
+        const timeoutIdentifier = clock.setTimeout(function () {
             calls.push('should-not-run');
         }, 10);
 
-        clock.clearTimeout(timeoutId);
+        clock.clearTimeout(timeoutIdentifier);
         clock.tick(10);
 
         assert.deepStrictEqual(calls, []);
@@ -60,31 +60,31 @@ suite('fake-clock', function () {
     test('createFakeClock() returns sequential timeout identifiers', function () {
         const clock = createFakeClock();
 
-        const firstTimeoutId = clock.setTimeout(function () {
+        const firstTimeoutIdentifier = clock.setTimeout(function () {
             return undefined;
         }, 10);
-        const secondTimeoutId = clock.setTimeout(function () {
+        const secondTimeoutIdentifier = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
-        assert.strictEqual(firstTimeoutId, 0);
-        assert.strictEqual(secondTimeoutId, 1);
+        assert.strictEqual(firstTimeoutIdentifier, 0);
+        assert.strictEqual(secondTimeoutIdentifier, 1);
     });
 
     test('createFakeClock() keeps returning increasing timeout identifiers after clearing timers', function () {
         const clock = createFakeClock();
-        const firstTimeoutId = clock.setTimeout(function () {
+        const firstTimeoutIdentifier = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
-        clock.clearTimeout(firstTimeoutId);
+        clock.clearTimeout(firstTimeoutIdentifier);
 
-        const secondTimeoutId = clock.setTimeout(function () {
+        const secondTimeoutIdentifier = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
-        assert.strictEqual(firstTimeoutId, 0);
-        assert.strictEqual(secondTimeoutId, 1);
+        assert.strictEqual(firstTimeoutIdentifier, 0);
+        assert.strictEqual(secondTimeoutIdentifier, 1);
     });
 
     test('createFakeClock() rejects negative delays', function () {

@@ -1,7 +1,7 @@
 import { isDefined, pickBy } from 'remeda';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
-import type { BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishOptions } from './map-configuration.ts';
 import type {
     BuildAndPublishResult,
     DetermineVersionAndPublishOptions

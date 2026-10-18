@@ -89,7 +89,7 @@ const passthroughCases: readonly PassthroughCase[] = [
     },
     {
         title: 'passes through reads for package.json paths outside node_modules unchanged',
-        filePath: '/project/src/package.json',
+        filePath: '/project/source/package.json',
         content: JSON.stringify({ exports: { '.': { import: './lib/index.js' } } })
     },
     {
@@ -142,12 +142,12 @@ suite('node-modules-manifest-synthesizer', function () {
                 const content = JSON.stringify({ exports: testCase.inputExports });
                 const [ synchronous, asynchronous ] = await readBothWays(filePath, content);
 
-                const parsedSync = JSON.parse(synchronous) as Record<string, unknown>;
-                const parsedAsync = JSON.parse(asynchronous) as Record<string, unknown>;
+                const parsedSynchronous = JSON.parse(synchronous) as Record<string, unknown>;
+                const parsedAsynchronous = JSON.parse(asynchronous) as Record<string, unknown>;
 
-                assert.deepStrictEqual(parsedSync.exports, testCase.expectedExports);
-                assert.deepStrictEqual(parsedAsync.exports, testCase.expectedExports);
-                assertConditionKeyOrder(parsedSync.exports, testCase.expectedConditionKeyOrder);
+                assert.deepStrictEqual(parsedSynchronous.exports, testCase.expectedExports);
+                assert.deepStrictEqual(parsedAsynchronous.exports, testCase.expectedExports);
+                assertConditionKeyOrder(parsedSynchronous.exports, testCase.expectedConditionKeyOrder);
             });
         }
     });

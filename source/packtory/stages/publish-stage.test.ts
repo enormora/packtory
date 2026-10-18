@@ -14,8 +14,8 @@ import {
 } from '../../test-libraries/orchestrator-stub-fixtures.ts';
 import {
     buildAndPublishResultFixture,
-    emptyPublishConfigFixture,
-    publishableConfigFixture,
+    emptyPublishConfigurationFixture,
+    publishableConfigurationFixture,
     resolvedPublishPackageFixture,
     versionedPublishBundleFixture
 } from '../../test-libraries/publish-stage-fixtures.ts';
@@ -31,7 +31,7 @@ suite('publish-stage', function () {
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            emptyPublishConfigFixture(),
+            emptyPublishConfigurationFixture(),
             [],
             { dryRun: false, stage: false }
         );
@@ -42,7 +42,7 @@ suite('publish-stage', function () {
     test('determineVersionAndPublishAll forwards a scheduler failure unchanged', async function () {
         const result = await determineVersionAndPublishAll(
             failingDependencies('boom'),
-            emptyPublishConfigFixture(),
+            emptyPublishConfigurationFixture(),
             [],
             { dryRun: false, stage: false }
         );
@@ -51,16 +51,16 @@ suite('publish-stage', function () {
     });
 
     test('determineVersionAndPublishAll returns a partial failure when no analyzed bundle is found for a scheduled package', async function () {
-        const config = publishableConfigFixture('pkg-orphan');
+        const configuration = publishableConfigurationFixture('package-orphan');
 
         const result = await determineVersionAndPublishAll(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler([ 'pkg-orphan' ]),
+                scheduler: iteratingScheduler([ 'package-orphan' ]),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            config,
+            configuration,
             [],
             { dryRun: false, stage: false }
         );
@@ -71,12 +71,12 @@ suite('publish-stage', function () {
         assert.strictEqual(result.error.failures.length, 1);
         assert.match(
             (result.error.failures[0] as Error).message,
-            /Analyzed bundle for package "pkg-orphan" is missing/u
+            /Analyzed bundle for package "package-orphan" is missing/u
         );
     });
 
     test('determineVersionAndPublishAll exposes dry-run bundles via selectNext and progress events', async function () {
-        const bundle = versionedPublishBundleFixture('pkg-a', '2.0.0');
+        const bundle = versionedPublishBundleFixture('package-a', '2.0.0');
         const published = buildAndPublishResultFixture(bundle);
         const processor: PackageProcessor = {
             ...stubPackageProcessor,
@@ -85,17 +85,17 @@ suite('publish-stage', function () {
             }
         };
         const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
-        const config = publishableConfigFixture('pkg-a');
+        const configuration = publishableConfigurationFixture('package-a');
 
         await determineVersionAndPublishAll(
             {
                 packageProcessor: processor,
-                scheduler: iteratingScheduler([ 'pkg-a' ], capture),
+                scheduler: iteratingScheduler([ 'package-a' ], capture),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            config,
-            [ resolvedPublishPackageFixture('pkg-a') ],
+            configuration,
+            [ resolvedPublishPackageFixture('package-a') ],
             { dryRun: true, stage: false }
         );
 
@@ -114,7 +114,7 @@ suite('publish-stage', function () {
         broadcaster.consumer.on('packageFailed', function (payload) {
             failures.push(payload);
         });
-        const config = publishableConfigFixture('pkg-a');
+        const configuration = publishableConfigurationFixture('package-a');
         const processor: PackageProcessor = {
             ...stubPackageProcessor,
             async tryBuildAndPublish() {
@@ -125,17 +125,17 @@ suite('publish-stage', function () {
         await determineVersionAndPublishAll(
             {
                 packageProcessor: processor,
-                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster,
                 repositoryFolder: '/'
             },
-            config,
-            [ resolvedPublishPackageFixture('pkg-a') ],
+            configuration,
+            [ resolvedPublishPackageFixture('package-a') ],
             { dryRun: false, stage: false }
         );
 
         assert.deepStrictEqual(failures, [
-            { packageName: 'pkg-a', stage: 'publish', message: 'publish failed' }
+            { packageName: 'package-a', stage: 'publish', message: 'publish failed' }
         ]);
     });
 });

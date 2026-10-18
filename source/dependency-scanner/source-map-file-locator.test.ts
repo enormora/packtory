@@ -126,7 +126,7 @@ suite('source-map-file-locator', function () {
             });
 
             test('returns nothing when the sourceMappingURL is URL-like', async function () {
-                const urlLikeReferences = [
+                const addressLikeReferences = [
                     'https://example.com/baz.map',
                     'https://example.com/baz.map',
                     'file:///tmp/baz.map',
@@ -134,7 +134,7 @@ suite('source-map-file-locator', function () {
                     'a1+.-:maps/baz.map'
                 ];
 
-                for (const reference of urlLikeReferences) {
+                for (const reference of addressLikeReferences) {
                     const { locator, fileManager } = sourceMapFileLocatorFactory({
                         readFileContent: `foo\n//# sourceMappingURL=${reference}`,
                         isReadable: true

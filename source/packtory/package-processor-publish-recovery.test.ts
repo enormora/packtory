@@ -217,7 +217,7 @@ suite('package-processor publish recovery', function () {
         assert.deepStrictEqual(scenario.findCurrentHeadPublishedVersion.secondCall.args, [
             {
                 name: 'package-a',
-                registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
             }
         ]);
     });

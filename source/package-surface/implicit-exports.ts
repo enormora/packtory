@@ -1,9 +1,9 @@
 import { buildImplicitRootExports } from './implicit-root-exports.ts';
-import { decorateWithPackageJsonExport } from './package-json-export.ts';
+import { decorateWithPackageManifestExport } from './package-manifest-export.ts';
 import type { BundleLike, ExportEntry, ImplicitSurface } from './package-shape.ts';
 import { collectSubstitutionExports } from './substitution-exports.ts';
 
-type ImplicitExportsBundle = Pick<BundleLike, 'contents' | 'exportPackageJson' | 'name' | 'roots'>;
+type ImplicitExportsBundle = Pick<BundleLike, 'contents' | 'exportPackageManifest' | 'name' | 'roots'>;
 
 export function buildImplicitExportsField(
     bundle: ImplicitExportsBundle,
@@ -14,5 +14,5 @@ export function buildImplicitExportsField(
         ...buildImplicitRootExports(bundle, surface),
         ...collectSubstitutionExports(bundle, substitutionPublicModuleSourcePaths)
     };
-    return decorateWithPackageJsonExport(bundle, merged);
+    return decorateWithPackageManifestExport(bundle, merged);
 }

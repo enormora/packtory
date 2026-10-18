@@ -1,14 +1,17 @@
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile as executeFile } from 'node:child_process';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
-import { compareCanaryApis, type CanaryIssue } from './canary-comparison.ts';
-import { writeCanaryConfigOverlay } from './canary-config-overlay.ts';
-import { inspectPackageApis, runNodeImportProbe } from './package-api-inspection.ts';
+import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';
+import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
+import {
+    inspectPackageApplicationProgrammingInterfaces,
+    runNodeImportProbe
+} from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
-    readonly stderr: string;
-    readonly stdout: string;
+    readonly standardError: string;
+    readonly standardOutput: string;
 };
 
 type CommandRunner = (command: string, cwd: string) => Promise<CommandResult>;
@@ -17,9 +20,9 @@ type FolderRemover = (folderPath: string) => Promise<void>;
 type ShellCommandFailure = {
     readonly command: string;
     readonly error: Error;
-    readonly stderr: string;
-    readonly stdout: string;
-    readonly timeoutMs: number;
+    readonly standardError: string;
+    readonly standardOutput: string;
+    readonly timeoutMilliseconds: number;
 };
 
 export type CanaryRunnerDependencies = {
@@ -34,8 +37,8 @@ export type CanaryRunnerDependencies = {
 };
 
 export type CanaryRunResult = {
-    readonly baselineResolvedRef: string;
-    readonly candidateResolvedRef: string;
+    readonly baselineResolvedReference: string;
+    readonly candidateResolvedReference: string;
     readonly issues: readonly CanaryIssue[];
     readonly name: string;
 };
@@ -45,24 +48,24 @@ type PacktoryMode = 'baseline' | 'candidate';
 type PreparedClone = {
     readonly cloneFolder: string;
     readonly nodeModulesFolder: string;
-    readonly resolvedRef: string;
+    readonly resolvedReference: string;
 };
 
 type PacktoryRunResult = {
     readonly error: string;
     readonly failed: true;
-    readonly resolvedRef: string;
+    readonly resolvedReference: string;
 } | {
     readonly failed: false;
-    readonly inspection: Awaited<ReturnType<typeof inspectPackageApis>>;
-    readonly resolvedRef: string;
+    readonly inspection: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>;
+    readonly resolvedReference: string;
 };
 
 const packOutputFolderName = 'packtory-canary-packages';
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const shellCommandTimeoutMinutes = 15;
-const shellCommandTimeoutMs = shellCommandTimeoutMinutes * secondsPerMinute * millisecondsPerSecond;
+const shellCommandTimeoutMilliseconds = shellCommandTimeoutMinutes * secondsPerMinute * millisecondsPerSecond;
 
 function shellScript(content: string): string {
     return `#!/usr/bin/env sh\n${content}\n`;
@@ -76,7 +79,7 @@ function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function packtoryBinPath(cloneFolder: string): string {
+function packtoryExecutablePath(cloneFolder: string): string {
     return path.join(cloneFolder, 'node_modules', '.bin', 'packtory');
 }
 
@@ -89,7 +92,7 @@ function canarySourcePacktoryCommand(repositoryFolder: string): string {
     }`;
 }
 
-async function installBaselinePacktoryCli(
+async function installBaselinePacktoryCommandLineInterface(
     dependencies: CanaryRunnerDependencies,
     cloneFolder: string
 ): Promise<void> {
@@ -100,19 +103,19 @@ async function writeCandidatePacktoryShim(
     dependencies: CanaryRunnerDependencies,
     cloneFolder: string
 ): Promise<void> {
-    const shimPath = packtoryBinPath(cloneFolder);
+    const shimPath = packtoryExecutablePath(cloneFolder);
     const content = shellScript(`exec ${canarySourcePacktoryCommand(dependencies.repositoryFolder)} "$@"`);
     await dependencies.fileManager.writeFile(shimPath, content);
     await dependencies.fileManager.setExecutable(shimPath, true);
 }
 
-async function installPacktoryCli(
+async function installPacktoryCommandLineInterface(
     dependencies: CanaryRunnerDependencies,
     cloneFolder: string,
     mode: PacktoryMode
 ): Promise<void> {
     if (mode === 'baseline') {
-        await installBaselinePacktoryCli(dependencies, cloneFolder);
+        await installBaselinePacktoryCommandLineInterface(dependencies, cloneFolder);
     } else {
         await writeCandidatePacktoryShim(dependencies, cloneFolder);
     }
@@ -125,18 +128,18 @@ async function prepareCanaryClone(
     cloneFolder: string
 ): Promise<PreparedClone> {
     await dependencies.runCommand(
-        `git clone --depth 1 --branch ${JSON.stringify(canary.ref)} ${JSON.stringify(canary.repository)} .`,
+        `git clone --depth 1 --branch ${JSON.stringify(canary.reference)} ${JSON.stringify(canary.repository)} .`,
         cloneFolder
     );
     await dependencies.runCommand('git fetch --tags --force', cloneFolder);
-    const revParseResult = await dependencies.runCommand('git rev-parse HEAD', cloneFolder);
-    const resolvedRef = revParseResult.stdout.trim();
+    const revisionParseResult = await dependencies.runCommand('git rev-parse HEAD', cloneFolder);
+    const resolvedReference = revisionParseResult.standardOutput.trim();
     await dependencies.runCommand(canary.installCommand, cloneFolder);
-    await installPacktoryCli(dependencies, cloneFolder, mode);
+    await installPacktoryCommandLineInterface(dependencies, cloneFolder, mode);
     return {
         cloneFolder,
         nodeModulesFolder: path.join(cloneFolder, packOutputFolderName, 'node_modules'),
-        resolvedRef
+        resolvedReference
     };
 }
 
@@ -205,23 +208,26 @@ async function runPacktoryInClone(
 ): Promise<PacktoryRunResult> {
     try {
         await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
-        await writeCanaryConfigOverlay({ cloneFolder: clone.cloneFolder, fileManager: dependencies.fileManager });
+        await writeCanaryConfigurationOverlay({
+            cloneFolder: clone.cloneFolder,
+            fileManager: dependencies.fileManager
+        });
         await packGeneratedPackages(dependencies, clone);
         return {
             failed: false,
-            inspection: await inspectPackageApis({
+            inspection: await inspectPackageApplicationProgrammingInterfaces({
                 fileManager: dependencies.fileManager,
                 nodeModulesFolder: clone.nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
                 runImportProbe: runNodeImportProbe
             }),
-            resolvedRef: clone.resolvedRef
+            resolvedReference: clone.resolvedReference
         };
     } catch (error: unknown) {
         return {
             error: errorMessage(error),
             failed: true,
-            resolvedRef: clone.resolvedRef
+            resolvedReference: clone.resolvedReference
         };
     } finally {
         await dependencies.removeFolder(clone.cloneFolder);
@@ -279,7 +285,7 @@ function compareRuns(
     if (baseline.failed || candidate.failed) {
         return failures;
     }
-    return compareCanaryApis(baseline.inspection, candidate.inspection).issues;
+    return compareCanaryApplicationProgrammingInterfaces(baseline.inspection, candidate.inspection).issues;
 }
 
 async function runCanary(
@@ -290,8 +296,8 @@ async function runCanary(
     const baseline = await runPacktoryInClone(dependencies, canary, baselineClone);
     const candidate = await runPacktoryInClone(dependencies, canary, candidateClone);
     return {
-        baselineResolvedRef: baseline.resolvedRef,
-        candidateResolvedRef: candidate.resolvedRef,
+        baselineResolvedReference: baseline.resolvedReference,
+        candidateResolvedReference: candidate.resolvedReference,
         issues: compareRuns(baseline, candidate, canary.publishCommand),
         name: canary.name
     };
@@ -313,40 +319,44 @@ function shellCommandErrorProperty(error: Error, property: string): unknown {
 function shellCommandErrorMessage(input: ShellCommandFailure): string {
     const signal = shellCommandErrorProperty(input.error, 'signal');
     const killed = shellCommandErrorProperty(input.error, 'killed');
-    const timeout = input.timeoutMs < millisecondsPerSecond
-        ? `${input.timeoutMs} ms`
-        : `${Math.round(input.timeoutMs / millisecondsPerSecond)} seconds`;
+    const timeout = input.timeoutMilliseconds < millisecondsPerSecond
+        ? `${input.timeoutMilliseconds} ms`
+        : `${Math.round(input.timeoutMilliseconds / millisecondsPerSecond)} seconds`;
     const details = killed === true && signal === 'SIGTERM'
         ? `Command timed out after ${timeout}: ${input.command}`
         : input.error.message;
-    return [ input.stdout.trim(), input.stderr.trim(), details ].filter(Boolean).join('\n');
+    return [ input.standardOutput.trim(), input.standardError.trim(), details ].filter(Boolean).join('\n');
 }
 
 async function runShellCommandWithTimeout(
     command: string,
     cwd: string,
-    timeoutMs: number
+    timeoutMilliseconds: number
 ): Promise<CommandResult> {
     return new Promise(function (resolve, reject) {
-        const nodeModulesBinPath = path.join(cwd, 'node_modules', '.bin');
+        const nodeModulesExecutablePath = path.join(cwd, 'node_modules', '.bin');
         const shellCommand = [
-            `PATH=${shellQuote(nodeModulesBinPath)}:$PATH`,
+            `PATH=${shellQuote(nodeModulesExecutablePath)}:$PATH`,
             'export PATH',
             'NPM_TOKEN=dry-run',
             'export NPM_TOKEN',
             command
         ]
             .join('\n');
-        execFile(
+        executeFile(
             '/usr/bin/env',
             [ 'sh', '-lc', shellCommand ],
-            { cwd, encoding: 'utf8', timeout: timeoutMs },
-            function (error, stdout, stderr) {
+            { cwd, encoding: 'utf8', timeout: timeoutMilliseconds },
+            function (error, standardOutput, standardError) {
                 if (error === null) {
-                    resolve({ stdout, stderr });
+                    resolve({ standardOutput, standardError });
                     return;
                 }
-                reject(new Error(shellCommandErrorMessage({ command, error, stderr, stdout, timeoutMs })));
+                reject(
+                    new Error(
+                        shellCommandErrorMessage({ command, error, standardError, standardOutput, timeoutMilliseconds })
+                    )
+                );
             }
         );
     });
@@ -356,5 +366,5 @@ export async function runShellCommand(
     command: string,
     cwd: string
 ): Promise<CommandResult> {
-    return await runShellCommandWithTimeout(command, cwd, shellCommandTimeoutMs);
+    return await runShellCommandWithTimeout(command, cwd, shellCommandTimeoutMilliseconds);
 }

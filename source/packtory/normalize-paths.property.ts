@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import path from 'node:path';
-import fc from 'fast-check';
+import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import { normalizeAdditionalFile, normalizeRoot } from './normalize-paths.ts';
 
-const pathSegmentArbitrary = fc.stringMatching(/^[\w.-]+$/);
+const pathSegmentArbitrary = fastCheck.stringMatching(/^[\w.-]+$/);
 
-const relativePathArbitrary = fc
+const relativePathArbitrary = fastCheck
     .array(pathSegmentArbitrary, {
         minLength: 1,
         maxLength: 4
@@ -15,7 +15,7 @@ const relativePathArbitrary = fc
         return segments.join('/');
     });
 
-const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitrary).map(
+const absolutePathArbitrary = fastCheck.tuple(relativePathArbitrary, relativePathArbitrary).map(
     function ([ folder, filePath ]) {
         return path.join(path.sep, folder, filePath);
     }
@@ -23,16 +23,18 @@ const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitr
 
 suite('normalize-paths', function () {
     test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths against the source folder', function () {
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 relativePathArbitrary,
                 relativePathArbitrary,
-                fc.option(relativePathArbitrary, { nil: undefined }),
-                function (sourceFolder, js, declarationFile) {
-                    const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                fastCheck.option(relativePathArbitrary, { nil: undefined }),
+                function (sourceFolder, javaScript, declarationFile) {
+                    const relativeRoot = declarationFile === undefined
+                        ? { javaScript }
+                        : { javaScript, declarationFile };
                     const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
-                    assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
+                    assert.strictEqual(normalizedRelativeRoot.javaScript, path.join(sourceFolder, javaScript));
                     if (declarationFile === undefined) {
                         assert.strictEqual(Object.hasOwn(normalizedRelativeRoot, 'declarationFile'), false);
                     } else {
@@ -45,16 +47,18 @@ suite('normalize-paths', function () {
             )
         );
 
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 absolutePathArbitrary,
                 relativePathArbitrary,
-                fc.option(absolutePathArbitrary, { nil: undefined }),
-                function (js, sourceFolder, declarationFile) {
-                    const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                fastCheck.option(absolutePathArbitrary, { nil: undefined }),
+                function (javaScript, sourceFolder, declarationFile) {
+                    const absoluteRoot = declarationFile === undefined
+                        ? { javaScript }
+                        : { javaScript, declarationFile };
                     const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
-                    assert.strictEqual(normalizedAbsoluteRoot.js, js);
+                    assert.strictEqual(normalizedAbsoluteRoot.javaScript, javaScript);
                     if (declarationFile === undefined) {
                         assert.strictEqual(Object.hasOwn(normalizedAbsoluteRoot, 'declarationFile'), false);
                     } else {
@@ -66,8 +70,8 @@ suite('normalize-paths', function () {
     });
 
     test('normalizeAdditionalFile() keeps the target path and resolves only the source path', function () {
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 relativePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,
@@ -82,8 +86,8 @@ suite('normalize-paths', function () {
             )
         );
 
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 relativePathArbitrary,
                 absolutePathArbitrary,
                 relativePathArbitrary,
@@ -100,13 +104,13 @@ suite('normalize-paths', function () {
     });
 
     test('normalizeRoot() is idempotent once all paths are normalized', function () {
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 absolutePathArbitrary,
                 relativePathArbitrary,
-                fc.option(relativePathArbitrary, { nil: undefined }),
-                function (sourceFolder, js, declarationFile) {
-                    const root = declarationFile === undefined ? { js } : { js, declarationFile };
+                fastCheck.option(relativePathArbitrary, { nil: undefined }),
+                function (sourceFolder, javaScript, declarationFile) {
+                    const root = declarationFile === undefined ? { javaScript } : { javaScript, declarationFile };
                     const normalizedOnce = normalizeRoot(root, sourceFolder);
                     const normalizedTwice = normalizeRoot(normalizedOnce, sourceFolder);
 
@@ -117,8 +121,8 @@ suite('normalize-paths', function () {
     });
 
     test('normalizeAdditionalFile() is idempotent once the source path is normalized', function () {
-        fc.assert(
-            fc.property(
+        fastCheck.assert(
+            fastCheck.property(
                 absolutePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,

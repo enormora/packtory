@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { serializeStableJson } from '../common/stable-json.ts';
+import { serializeStableJavaScriptObjectNotation } from '../common/stable-structured-data.ts';
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
@@ -36,53 +36,43 @@ type DeadCodeEliminationArtifactResource = {
     readonly targetFilePath: string;
 };
 
-export type DeadCodeEliminationConsumerProducerApiCase = {
+export type DeadCodeEliminationConsumerProducerApplicationProgrammingInterfaceCase = {
     readonly type: 'consumer-producer-api';
-    readonly id: string;
+    readonly identifier: string;
     readonly fixture: string;
     readonly entryPackage: string;
     readonly entryTargetFilePath: string;
-    readonly expectedApiResult: string;
+    readonly expectedApplicationProgrammingInterfaceResult: string;
     readonly contentAssertions: readonly DeadCodeEliminationTextAssertion[];
-    readonly fixtureSha256: string;
-    readonly assertionSha256: string;
+    readonly fixtureHash256: string;
+    readonly assertionHash256: string;
 };
 
 export type DeadCodeEliminationArtifactBundleContentCase = {
     readonly type: 'artifact-bundle-content';
-    readonly id: string;
+    readonly identifier: string;
     readonly fixture: string;
     readonly bundleName: string;
     readonly entryTargetFilePath: string;
     readonly resources: readonly DeadCodeEliminationArtifactResource[];
     readonly contentAssertions: readonly DeadCodeEliminationContentAssertion[];
-    readonly fixtureSha256: string;
-    readonly assertionSha256: string;
+    readonly fixtureHash256: string;
+    readonly assertionHash256: string;
 };
 
 type DeadCodeEliminationRegressionCaseByType = {
-    readonly artifactBundleContent: DeadCodeEliminationArtifactBundleContentCase;
-    readonly consumerProducerApi: DeadCodeEliminationConsumerProducerApiCase;
+    readonly artifactBundle: DeadCodeEliminationArtifactBundleContentCase;
+    readonly consumerProducer: DeadCodeEliminationConsumerProducerApplicationProgrammingInterfaceCase;
 };
 
 export type DeadCodeEliminationRegressionCase =
     DeadCodeEliminationRegressionCaseByType[keyof DeadCodeEliminationRegressionCaseByType];
 
-type ConsumerProducerApiAssertionPayload = Pick<
-    DeadCodeEliminationConsumerProducerApiCase,
-    'contentAssertions' | 'entryPackage' | 'entryTargetFilePath' | 'expectedApiResult' | 'fixture' | 'id' | 'type'
->;
-
-type ArtifactBundleContentAssertionPayload = Pick<
-    DeadCodeEliminationArtifactBundleContentCase,
-    'bundleName' | 'contentAssertions' | 'entryTargetFilePath' | 'fixture' | 'id' | 'resources' | 'type'
->;
-
-type RegressionCaseAssertionPayload = ArtifactBundleContentAssertionPayload | ConsumerProducerApiAssertionPayload;
+type RegressionCaseAssertionPayload = Readonly<Record<string, unknown>>;
 
 type DirectoryEntry = Awaited<ReturnType<FileManager['listDirectoryEntries']>>[number];
 
-const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -207,32 +197,36 @@ function readArtifactResources(
     });
 }
 
-function readConsumerProducerApiCase(
+function readConsumerProducerApplicationProgrammingInterfaceCase(
     record: Readonly<Record<string, unknown>>,
     context: string
-): DeadCodeEliminationConsumerProducerApiCase {
+): DeadCodeEliminationConsumerProducerApplicationProgrammingInterfaceCase {
     assertKnownKeys(record, [
         'type',
-        'id',
+        'identifier',
         'fixture',
         'entryPackage',
         'entryTargetFilePath',
-        'expectedApiResult',
+        'expectedApplicationProgrammingInterfaceResult',
         'contentAssertions',
-        'fixtureSha256',
-        'assertionSha256'
+        'fixtureHash256',
+        'assertionHash256'
     ], context);
 
     return {
         type: 'consumer-producer-api',
-        id: readString(record, 'id', context),
+        identifier: readString(record, 'identifier', context),
         fixture: readString(record, 'fixture', context),
         entryPackage: readString(record, 'entryPackage', context),
         entryTargetFilePath: readString(record, 'entryTargetFilePath', context),
-        expectedApiResult: readString(record, 'expectedApiResult', context),
+        expectedApplicationProgrammingInterfaceResult: readString(
+            record,
+            'expectedApplicationProgrammingInterfaceResult',
+            context
+        ),
         contentAssertions: readTextAssertionArray(record, context),
-        fixtureSha256: readString(record, 'fixtureSha256', context),
-        assertionSha256: readString(record, 'assertionSha256', context)
+        fixtureHash256: readString(record, 'fixtureHash256', context),
+        assertionHash256: readString(record, 'assertionHash256', context)
     };
 }
 
@@ -242,26 +236,43 @@ function readArtifactBundleContentCase(
 ): DeadCodeEliminationArtifactBundleContentCase {
     assertKnownKeys(record, [
         'type',
-        'id',
+        'identifier',
         'fixture',
         'bundleName',
         'entryTargetFilePath',
         'resources',
         'contentAssertions',
-        'fixtureSha256',
-        'assertionSha256'
+        'fixtureHash256',
+        'assertionHash256'
     ], context);
 
     return {
         type: 'artifact-bundle-content',
-        id: readString(record, 'id', context),
+        identifier: readString(record, 'identifier', context),
         fixture: readString(record, 'fixture', context),
         bundleName: readString(record, 'bundleName', context),
         entryTargetFilePath: readString(record, 'entryTargetFilePath', context),
         resources: readArtifactResources(record, context),
         contentAssertions: readContentAssertionArray(record, context),
-        fixtureSha256: readString(record, 'fixtureSha256', context),
-        assertionSha256: readString(record, 'assertionSha256', context)
+        fixtureHash256: readString(record, 'fixtureHash256', context),
+        assertionHash256: readString(record, 'assertionHash256', context)
+    };
+}
+
+function expandRegressionRecord(record: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+    const {
+        id: identifier,
+        fixtureSha256: fixtureHash256,
+        assertionSha256: assertionHash256,
+        expectedApiResult: expectedApplicationProgrammingInterfaceResult,
+        ...rest
+    } = record;
+    return {
+        ...rest,
+        identifier,
+        fixtureHash256,
+        assertionHash256,
+        ...record.type === 'consumer-producer-api' ? { expectedApplicationProgrammingInterfaceResult } : {}
     };
 }
 
@@ -271,12 +282,13 @@ function readRegressionCase(value: unknown, index: number): DeadCodeEliminationR
         throw new TypeError(`${context}: case must be an object`);
     }
 
-    const type = readString(value, 'type', context);
+    const record = expandRegressionRecord(value);
+    const type = readString(record, 'type', context);
     if (type === 'consumer-producer-api') {
-        return readConsumerProducerApiCase(value, context);
+        return readConsumerProducerApplicationProgrammingInterfaceCase(record, context);
     }
     if (type === 'artifact-bundle-content') {
-        return readArtifactBundleContentCase(value, context);
+        return readArtifactBundleContentCase(record, context);
     }
 
     throw new TypeError(`${context}: "type" must be "artifact-bundle-content" or "consumer-producer-api"`);
@@ -315,7 +327,7 @@ function assertionPayload(regressionCase: DeadCodeEliminationRegressionCase): Re
     if (regressionCase.type === 'artifact-bundle-content') {
         return {
             type: regressionCase.type,
-            id: regressionCase.id,
+            id: regressionCase.identifier,
             fixture: regressionCase.fixture,
             bundleName: regressionCase.bundleName,
             entryTargetFilePath: regressionCase.entryTargetFilePath,
@@ -326,11 +338,11 @@ function assertionPayload(regressionCase: DeadCodeEliminationRegressionCase): Re
 
     return {
         type: regressionCase.type,
-        id: regressionCase.id,
+        id: regressionCase.identifier,
         fixture: regressionCase.fixture,
         entryPackage: regressionCase.entryPackage,
         entryTargetFilePath: regressionCase.entryTargetFilePath,
-        expectedApiResult: regressionCase.expectedApiResult,
+        expectedApiResult: regressionCase.expectedApplicationProgrammingInterfaceResult,
         contentAssertions: regressionCase.contentAssertions
     };
 }
@@ -341,7 +353,7 @@ export async function readDeadCodeEliminationRegressionCases(
     return parseRegressionCases(await fileManager.readFile(manifestFilePath));
 }
 
-export async function deadCodeEliminationFixtureSha256(
+export async function deadCodeEliminationFixtureHash256(
     regressionCase: DeadCodeEliminationRegressionCase,
     fixtureRootPath: string
 ): Promise<string> {
@@ -399,7 +411,7 @@ async function deadCodeEliminationArtifactBundle(
         return resource.fileDescription.targetFilePath === regressionCase.entryTargetFilePath;
     });
     if (entry === undefined) {
-        throw new Error(`${regressionCase.id}: artifact resources must include the entry target file`);
+        throw new Error(`${regressionCase.identifier}: artifact resources must include the entry target file`);
     }
 
     return linkedBundle({
@@ -407,7 +419,7 @@ async function deadCodeEliminationArtifactBundle(
         contents,
         roots: {
             main: {
-                js: {
+                javaScript: {
                     content: entry.fileDescription.content,
                     isExecutable: false,
                     inputFilePath: entry.fileDescription.inputFilePath,
@@ -427,14 +439,14 @@ export async function eliminateDeadCodeEliminationArtifactBundle(
         inputs(await deadCodeEliminationArtifactBundle(regressionCase, fixtureRootPath))
     );
     if (analyzedBundle === undefined) {
-        throw new Error(`${regressionCase.id}: expected dead code elimination output`);
+        throw new Error(`${regressionCase.identifier}: expected dead code elimination output`);
     }
 
     return analyzedBundle;
 }
 
-export function deadCodeEliminationAssertionSha256(regressionCase: DeadCodeEliminationRegressionCase): string {
-    const serializedPayload = serializeStableJson(assertionPayload(regressionCase), {
+export function deadCodeEliminationAssertionHash256(regressionCase: DeadCodeEliminationRegressionCase): string {
+    const serializedPayload = serializeStableJavaScriptObjectNotation(assertionPayload(regressionCase), {
         shouldPreserveArrayOrder() {
             return true;
         }

@@ -1,5 +1,5 @@
 import { Maybe } from 'true-myth/maybe';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { MainPackageManifest } from '../configuration/package-manifest.ts';
 import { isCodeFile } from '../common/code-files.ts';
 import { createDependencyGraph, type DependencyGraph, type DependencyGraphNodeData } from './dependency-graph.ts';
 import type { DependencySpecifierReference } from './external-dependencies.ts';
@@ -10,11 +10,11 @@ import type { TypescriptProject, TypescriptProjectAnalyzer } from './typescript-
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;
     readonly resolveDeclarationFiles: boolean;
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
 };
 
 type ScanOptionsInput = {
-    readonly mainPackageJson: MainPackageJson;
+    readonly mainPackageManifest: MainPackageManifest;
     readonly includeSourceMapFiles?: boolean;
     readonly resolveDeclarationFiles?: boolean;
 };
@@ -177,17 +177,17 @@ export function createDependencyScanner(
         folder: string,
         options: ScanOptionsInput
     ): Promise<DependencyGraph> {
-        const { resolveDeclarationFiles = false, includeSourceMapFiles = false, mainPackageJson } = options;
+        const { resolveDeclarationFiles = false, includeSourceMapFiles = false, mainPackageManifest } = options;
         const scanOptions = {
             includeSourceMapFiles,
             resolveDeclarationFiles,
-            mainPackageJson
+            mainPackageManifest
         };
 
         const graph = createDependencyGraph();
         const project = typescriptProjectAnalyzer.analyzeProject(folder, {
             resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
-            mainPackageJson: scanOptions.mainPackageJson
+            mainPackageManifest: scanOptions.mainPackageManifest
         });
 
         await scanEntryReferences(entryPointFiles, {

@@ -1,29 +1,29 @@
 /// <reference lib="es2024.promise" />
 
-import { execFile, type ExecFileException } from 'node:child_process';
+import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
 
 type GitCommandResult = {
-    readonly stdout: string;
-    readonly stderr: string;
+    readonly standardOutput: string;
+    readonly standardError: string;
 };
 export type GitCommandRunner = (command: string, commandArguments: readonly string[]) => Promise<GitCommandResult>;
 type GitCommandExecutorResult = {
-    readonly stdout: Readonly<Buffer> | string;
-    readonly stderr: Readonly<Buffer> | string;
+    readonly standardOutput: Readonly<Buffer> | string;
+    readonly standardError: Readonly<Buffer> | string;
 };
 type GitCommandExecutor = (command: string, commandArguments: readonly string[]) => Promise<GitCommandExecutorResult>;
 type GitCommandChildProcess = {
     readonly once: (eventName: 'close', listener: () => void) => GitCommandChildProcess;
 };
-type ExecFileCallback = (
-    error: Readonly<ExecFileException> | null,
-    stdout: Readonly<Buffer> | string,
-    stderr: Readonly<Buffer> | string
+type ExecuteFileCallback = (
+    error: Readonly<ExecuteFileException> | null,
+    standardOutput: Readonly<Buffer> | string,
+    standardError: Readonly<Buffer> | string
 ) => void;
 type SpawnGitCommand = (
     command: string,
     commandArguments: readonly string[],
-    callback: ExecFileCallback
+    callback: ExecuteFileCallback
 ) => GitCommandChildProcess;
 type Deferred<T> = {
     readonly promise: Promise<T>;
@@ -35,9 +35,9 @@ function toGitCommandError(error: unknown): Error {
 }
 
 function toGitCommandResult(result: GitCommandExecutorResult): GitCommandResult {
-    const stdoutText = String(result.stdout);
-    const stderrText = String(result.stderr);
-    return { stdout: stdoutText, stderr: stderrText };
+    const standardOutputText = String(result.standardOutput);
+    const standardErrorText = String(result.standardError);
+    return { standardOutput: standardOutputText, standardError: standardErrorText };
 }
 
 export function createGitCommandRunner(executeGitCommand: GitCommandExecutor): GitCommandRunner {
@@ -50,14 +50,14 @@ export function createGitCommandRunner(executeGitCommand: GitCommandExecutor): G
     };
 }
 
-function reportExecFileResult(
+function reportExecuteFileResult(
     deferred: Deferred<GitCommandExecutorResult>,
-    error: Readonly<ExecFileException> | null,
-    stdout: Readonly<Buffer> | string,
-    stderr: Readonly<Buffer> | string
+    error: Readonly<ExecuteFileException> | null,
+    standardOutput: Readonly<Buffer> | string,
+    standardError: Readonly<Buffer> | string
 ): void {
     if (error === null) {
-        deferred.resolve({ stdout, stderr });
+        deferred.resolve({ standardOutput, standardError });
         return;
     }
     deferred.reject(error);
@@ -82,8 +82,8 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
     return async function (command, commandArguments) {
         const output = Promise.withResolvers<GitCommandExecutorResult>();
         const closed = Promise.withResolvers<never>();
-        const callback: ExecFileCallback = function (error, stdout, stderr) {
-            reportExecFileResult(output, error, stdout, stderr);
+        const callback: ExecuteFileCallback = function (error, standardOutput, standardError) {
+            reportExecuteFileResult(output, error, standardOutput, standardError);
         };
         const rejectClosedChildProcess = closed.reject.bind(
             undefined,
@@ -98,7 +98,7 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
 export function spawnChildProcessGitCommand(
     command: string,
     commandArguments: readonly string[],
-    callback: ExecFileCallback
+    callback: ExecuteFileCallback
 ): GitCommandChildProcess {
-    return execFile(command, Array.from(commandArguments), callback);
+    return executeFile(command, Array.from(commandArguments), callback);
 }

@@ -16,8 +16,8 @@ suite('spinner-boot', function () {
             spawnWorker(request) {
                 spawnWorker(request);
             },
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 80,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
             initialLabel: 'lbl',
             initialMessage: 'msg'
         });
@@ -31,8 +31,8 @@ suite('spinner-boot', function () {
     test('bootSpinnerRuntime writes the initial label and message to slot zero', function () {
         const runtime = bootSpinnerRuntime({
             spawnWorker: noop,
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 80,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
             initialLabel: 'packtory',
             initialMessage: 'Starting …'
         });
@@ -48,8 +48,8 @@ suite('spinner-boot', function () {
         const runtime = bootSpinnerRuntime({
             slotCount: 4,
             spawnWorker: noop,
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 80,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 80,
             initialLabel: 'lbl',
             initialMessage: 'msg'
         });
@@ -63,17 +63,17 @@ suite('spinner-boot', function () {
         }
     });
 
-    test('bootSpinnerRuntime forwards runtime options like intervalMs and stdoutColumns', function () {
+    test('bootSpinnerRuntime forwards runtime options like intervalMilliseconds and standardOutputColumns', function () {
         const runtime = bootSpinnerRuntime({
-            intervalMs: 25,
-            stdoutFileDescriptor: 1,
-            stdoutColumns: 132,
+            intervalMilliseconds: 25,
+            standardOutputFileDescriptor: 1,
+            standardOutputColumns: 132,
             spawnWorker: noop,
             initialLabel: 'lbl',
             initialMessage: 'msg'
         });
 
-        assert.strictEqual(runtime.accessors.getIntervalMs(), 25);
+        assert.strictEqual(runtime.accessors.getIntervalMilliseconds(), 25);
         assert.strictEqual(runtime.accessors.getColumns(), 132);
     });
 });

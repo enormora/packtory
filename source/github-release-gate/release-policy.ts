@@ -6,14 +6,14 @@ type OpenGitHubReleaseGateDecision = GitHubReleaseGateDecision & { readonly shou
 
 type PacktoryReleasePolicyInput = {
     readonly baseDecision: OpenGitHubReleaseGateDecision;
-    readonly dependencyOnlyMinAgeDays: number;
+    readonly dependencyOnlyMinimumAgeDays: number;
     readonly now: Date;
     readonly releaseAnalysis: ReleaseAnalysis;
 };
 
 type DependencyAgePolicyDecisionReason = keyof {
-    readonly dependency_only_min_age_elapsed: true;
-    readonly dependency_only_min_age_not_elapsed: true;
+    readonly dependency_only_minimum_age_elapsed: true;
+    readonly dependency_only_minimum_age_not_elapsed: true;
     readonly dependency_only_published_at_unknown: true;
 };
 type PolicyDecisionReason = DependencyAgePolicyDecisionReason | 'release_unchanged';
@@ -40,18 +40,18 @@ function buildReleaseAnalysisLogs(releaseAnalysis: ReleaseAnalysis): readonly st
     return logs;
 }
 
-function minAgeElapsed(now: Date, publishedAt: Date, dependencyOnlyMinAgeDays: number): boolean {
-    return now.getTime() - publishedAt.getTime() >= dependencyOnlyMinAgeDays * millisecondsPerDay;
+function minimumAgeElapsed(now: Date, publishedAt: Date, dependencyOnlyMinimumAgeDays: number): boolean {
+    return now.getTime() - publishedAt.getTime() >= dependencyOnlyMinimumAgeDays * millisecondsPerDay;
 }
 
-function formatMinimumAgePendingLog(dependencyOnlyMinAgeDays: number): string {
+function formatMinimumAgePendingLog(dependencyOnlyMinimumAgeDays: number): string {
     const intro = 'Skipping publish: dependency-only releases must age for at least';
-    return `${intro} ${dependencyOnlyMinAgeDays} day(s).`;
+    return `${intro} ${dependencyOnlyMinimumAgeDays} day(s).`;
 }
 
-function formatMinimumAgeElapsedLog(dependencyOnlyMinAgeDays: number): string {
+function formatMinimumAgeElapsedLog(dependencyOnlyMinimumAgeDays: number): string {
     const intro = 'Publishing is allowed because the dependency-only minimum age of';
-    return `${intro} ${dependencyOnlyMinAgeDays} day(s) has elapsed.`;
+    return `${intro} ${dependencyOnlyMinimumAgeDays} day(s) has elapsed.`;
 }
 
 function createPolicyDecision(
@@ -95,19 +95,25 @@ export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): G
         );
     }
 
-    if (!minAgeElapsed(input.now, input.releaseAnalysis.mostRecentPublishedAt, input.dependencyOnlyMinAgeDays)) {
+    if (
+        !minimumAgeElapsed(
+            input.now,
+            input.releaseAnalysis.mostRecentPublishedAt,
+            input.dependencyOnlyMinimumAgeDays
+        )
+    ) {
         return createPolicyDecision(
             false,
-            'dependency_only_min_age_not_elapsed',
+            'dependency_only_minimum_age_not_elapsed',
             logs,
-            formatMinimumAgePendingLog(input.dependencyOnlyMinAgeDays)
+            formatMinimumAgePendingLog(input.dependencyOnlyMinimumAgeDays)
         );
     }
 
     return createPolicyDecision(
         true,
-        'dependency_only_min_age_elapsed',
+        'dependency_only_minimum_age_elapsed',
         logs,
-        formatMinimumAgeElapsedLog(input.dependencyOnlyMinAgeDays)
+        formatMinimumAgeElapsedLog(input.dependencyOnlyMinimumAgeDays)
     );
 }

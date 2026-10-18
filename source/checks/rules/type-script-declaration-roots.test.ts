@@ -47,7 +47,7 @@ suite('type-script-declaration-roots', function () {
     });
 
     test('ignores other manifest fields', function () {
-        assert.deepStrictEqual(rootsOf({ name: 'pkg', main: './index.js', files: [ './index.d.ts' ] }), []);
+        assert.deepStrictEqual(rootsOf({ name: 'package', main: './index.js', files: [ './index.d.ts' ] }), []);
     });
 
     test('returns no roots for a manifest that is not an object', function () {

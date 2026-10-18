@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
 import { distributeDependencies } from './versioned-bundle-dependencies.ts';
 
-function externalDep(name: string): ExternalDependency {
-    return { name, referencedFrom: [ '/src/a.ts' ] };
+function externalDependency(name: string): ExternalDependency {
+    return { name, referencedFrom: [ '/source/a.ts' ] };
 }
 
 suite('versioned-bundle-dependencies', function () {
@@ -12,7 +12,7 @@ suite('versioned-bundle-dependencies', function () {
         assert.deepStrictEqual(
             distributeDependencies({
                 bundle: { externalDependencies: new Map(), linkedBundleDependencies: new Map() },
-                mainPackageJson: { type: 'module' },
+                mainPackageManifest: { type: 'module' },
                 bundleDependencies: [],
                 bundlePeerDependencies: [],
                 allowMutableSpecifiers: []
@@ -25,10 +25,10 @@ suite('versioned-bundle-dependencies', function () {
         assert.deepStrictEqual(
             distributeDependencies({
                 bundle: {
-                    externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]),
-                    linkedBundleDependencies: new Map([ [ 'my-bundle-dep', externalDep('my-bundle-dep') ] ])
+                    externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]),
+                    linkedBundleDependencies: new Map([ [ 'my-bundle-dep', externalDependency('my-bundle-dep') ] ])
                 },
-                mainPackageJson: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
+                mainPackageManifest: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
                 bundleDependencies: [ { name: 'my-bundle-dep', version: '2.0.0' } ],
                 bundlePeerDependencies: [],
                 allowMutableSpecifiers: []

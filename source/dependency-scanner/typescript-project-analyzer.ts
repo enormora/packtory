@@ -10,7 +10,7 @@ export type TypescriptProjectAnalyzerDependencies = {
     readonly fileSystemAdapters: FileSystemAdapters;
     getReferencedModules: (
         sourceFile: Readonly<SourceFile>,
-        packageJsonPath: string
+        packageManifestPath: string
     ) => readonly Readonly<ModuleReference>[];
 };
 
@@ -30,15 +30,15 @@ export function createTypescriptProjectAnalyzer(
 
     return {
         analyzeProject(folder, options) {
-            const packageJsonPath = packageManifestPathIn(folder);
+            const packageManifestPath = packageManifestPathIn(folder);
             const project = new Project({
                 compilerOptions: analyzationOptionsToCompilerOptions(options),
-                fileSystem: fileSystemAdapters.withVirtualPackageJson(
+                fileSystem: fileSystemAdapters.withVirtualPackageManifest(
                     options.resolveDeclarationFiles
                         ? fileSystemAdapters.fileSystemHostWithoutFilter
                         : fileSystemAdapters.fileSystemHostFilteringDeclarationFiles,
                     folder,
-                    options.mainPackageJson
+                    options.mainPackageManifest
                 )
             });
 
@@ -54,7 +54,7 @@ export function createTypescriptProjectAnalyzer(
                         return [];
                     }
 
-                    return getReferencedModules(currentSourceFile, packageJsonPath);
+                    return getReferencedModules(currentSourceFile, packageManifestPath);
                 },
 
                 getProject() {

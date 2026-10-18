@@ -3,13 +3,13 @@ import { ModuleKind, ModuleResolutionKind } from 'ts-morph';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { analyzationOptionsToCompilerOptions } from './typescript-compiler-options.ts';
 
-const stubMainPackageJson = { type: 'module' } as const;
+const stubMainPackageManifest = { type: 'module' } as const;
 
 suite('typescript-compiler-options', function () {
     test('analyzationOptionsToCompilerOptions returns Node16 module resolution and module kinds', function () {
         const options = analyzationOptionsToCompilerOptions({
             resolveDeclarationFiles: true,
-            mainPackageJson: stubMainPackageJson
+            mainPackageManifest: stubMainPackageManifest
         });
 
         assertDeepSubset(options, {
@@ -18,10 +18,10 @@ suite('typescript-compiler-options', function () {
         });
     });
 
-    test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJs, resolveJsonModule, noLib, skipLibCheck, and noEmit', function () {
+    test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJavaScript, resolveJavaScriptObjectNotationModule, noLibrary, skipLibraryCheck, and noEmit', function () {
         const options = analyzationOptionsToCompilerOptions({
             resolveDeclarationFiles: true,
-            mainPackageJson: stubMainPackageJson
+            mainPackageManifest: stubMainPackageManifest
         });
 
         assertDeepSubset(options, {
@@ -37,7 +37,7 @@ suite('typescript-compiler-options', function () {
     test('analyzationOptionsToCompilerOptions clears types and typeRoots when declaration-file resolution is disabled', function () {
         const options = analyzationOptionsToCompilerOptions({
             resolveDeclarationFiles: false,
-            mainPackageJson: stubMainPackageJson
+            mainPackageManifest: stubMainPackageManifest
         });
 
         assertDeepSubset(options, {
@@ -49,7 +49,7 @@ suite('typescript-compiler-options', function () {
     test('analyzationOptionsToCompilerOptions omits types and typeRoots when declaration-file resolution is enabled', function () {
         const options = analyzationOptionsToCompilerOptions({
             resolveDeclarationFiles: true,
-            mainPackageJson: stubMainPackageJson
+            mainPackageManifest: stubMainPackageManifest
         });
 
         assertDeepSubset(options, {

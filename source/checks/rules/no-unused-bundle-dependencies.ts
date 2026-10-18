@@ -5,20 +5,23 @@ import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
     type CheckRuleDefinition,
-    type RulePackageConfig,
+    type RulePackageConfiguration,
     type RuleRunInput
 } from '../rule.ts';
 
 const ruleName = 'noUnusedBundleDependencies';
 
-type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
-function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
+type GlobalConfiguration = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof emptyPerPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
+function checkBundle(
+    bundle: AnalyzedBundle,
+    packageConfiguration: RulePackageConfiguration | undefined
+): readonly string[] {
     const issues: string[] = [];
 
     for (const group of bundledDependencyGroups()) {
-        const declaredDependencies = packageConfig?.[group.propertyName] ?? [];
+        const declaredDependencies = packageConfiguration?.[group.propertyName] ?? [];
         for (const dependencyName of declaredDependencies) {
             if (!bundle.linkedBundleDependencies.has(dependencyName)) {
                 issues.push(
@@ -32,17 +35,21 @@ function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | 
 }
 
 async function run(input: RunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.noUnusedBundleDependencies;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.noUnusedBundleDependencies;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
 
     return input.bundles.flatMap(function (bundle) {
-        return checkBundle(bundle, input.packageConfigs?.[bundle.name]);
+        return checkBundle(bundle, input.packageConfigurations?.[bundle.name]);
     });
 }
 
-export const noUnusedBundleDependenciesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+export const noUnusedBundleDependenciesRule: CheckRuleDefinition<
+    typeof ruleName,
+    GlobalConfiguration,
+    PerPackageConfiguration
+> = {
     name: ruleName,
     globalSchema: enabledOnlyGlobalSchema,
     perPackageSchema: emptyPerPackageSchema,

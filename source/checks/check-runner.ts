@@ -1,4 +1,8 @@
-import type { ChecksSettings, PackageChecksSettings, PackageConfigsByName } from '../config/config.ts';
+import type {
+    ChecksSettings,
+    PackageChecksSettings,
+    PackageConfigurationsByName
+} from '../configuration/configuration.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import type { AllCheckRules } from './rules/registry.ts';
@@ -9,10 +13,11 @@ export type CheckRunnerDependencies = {
 
 type CheckRunnerInput = {
     readonly bundles: readonly AnalyzedBundle[];
+    readonly sourceFolders: ReadonlyMap<string, string>;
     readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: ChecksSettings | undefined;
     readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings | undefined>;
-    readonly packageConfigs: PackageConfigsByName;
+    readonly packageConfigurations: PackageConfigurationsByName;
 };
 
 export type CheckRunner = (input: CheckRunnerInput) => Promise<readonly string[]>;

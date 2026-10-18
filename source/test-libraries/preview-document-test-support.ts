@@ -18,7 +18,7 @@ import {
 } from './preview-fixtures.ts';
 
 export const eliminatedUnusedFile = {
-    path: '/workspace/src/unused.js',
+    path: '/workspace/source/unused.js',
     reason: 'not-emitted-after-analysis',
     sourceBytes: 14
 } as const;
@@ -39,13 +39,13 @@ export function buildResult(overrides: Parameters<typeof createBuildResultFixtur
     return createBuildResultFixture({
         contents: [
             createAnalyzedResource({
-                inputFilePath: '/workspace/src/index.js',
-                targetFilePath: 'src/index.js',
+                inputFilePath: '/workspace/source/index.js',
+                targetFilePath: 'source/index.js',
                 content: 'export const kept = 1;\n'
             }),
             createAnalyzedResource({
-                inputFilePath: '/workspace/src/index.js.map',
-                targetFilePath: 'src/index.js.map',
+                inputFilePath: '/workspace/source/index.js.map',
+                targetFilePath: 'source/index.js.map',
                 content: '{"version":3}'
             }),
             createAnalyzedResource({
@@ -77,10 +77,13 @@ export function createPackageReport(
     };
 }
 
-export function reportForPkgA(entries: readonly ArtifactEntry[], overrides: Partial<PackageReport> = {}): BuildReport {
+export function reportForPackageA(
+    entries: readonly ArtifactEntry[],
+    overrides: Partial<PackageReport> = {}
+): BuildReport {
     return createBuildReportFixture({
         packages: {
-            'pkg-a': createPackageReport(entries, overrides)
+            'package-a': createPackageReport(entries, overrides)
         }
     });
 }
@@ -98,19 +101,19 @@ export function tinyUnchangedSource(pathname: string): ArtifactEntry {
 export function baseReport(): BuildReport {
     return createBuildReportFixture({
         packages: {
-            'pkg-a': createPackageReport(
+            'package-a': createPackageReport(
                 [
                     createArtifactEntryFixture({
-                        path: 'src/index.js',
+                        path: 'source/index.js',
                         sizeBytes: 22,
-                        sourcePath: '/workspace/src/index.js',
+                        sourcePath: '/workspace/source/index.js',
                         badges: [ 'dead-code-elimination' ]
                     }),
                     createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
                     createArtifactEntryFixture({
-                        path: 'src/index.js.map',
+                        path: 'source/index.js.map',
                         sizeBytes: 13,
-                        sourcePath: '/workspace/src/index.js.map',
+                        sourcePath: '/workspace/source/index.js.map',
                         badges: [ 'dead-code-elimination' ]
                     }),
                     createArtifactEntryFixture({
@@ -132,13 +135,13 @@ export function baseReport(): BuildReport {
                     eliminatedSourceFiles: [ eliminatedUnusedFile ]
                 }
             ),
-            'pkg-b': createPackageReport(
+            'package-b': createPackageReport(
                 [
                     createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
                     createArtifactEntryFixture({
                         path: 'index.js',
                         sizeBytes: 18,
-                        sourcePath: '/workspace/pkg-b/index.js',
+                        sourcePath: '/workspace/package-b/index.js',
                         status: 'unchanged',
                         badges: []
                     })
@@ -222,7 +225,7 @@ export function requireFileNodeByPath(
 
 function singleArtifactReport(options: SingleArtifactDocumentOptions, artifactSourcePath: string): BuildReport {
     return options.report ??
-        reportForPkgA([
+        reportForPackageA([
             createArtifactEntryFixture({
                 path: 'index.js',
                 sizeBytes: 10,
@@ -265,7 +268,7 @@ export async function buildUnchangedPackageDocument(overrides: Partial<PackageRe
     return buildPreviewDocument({
         report: createBuildReportFixture({
             packages: {
-                'pkg-a': createPackageReport([ tinyUnchangedSource('src/index.js') ], overrides)
+                'package-a': createPackageReport([ tinyUnchangedSource('source/index.js') ], overrides)
             }
         }),
         result: Result.ok([ buildResult({ contents: [ createAnalyzedResource({ content: 'export {};\n' }) ] }) ]),
@@ -281,10 +284,10 @@ export async function buildChangedSourceDiffDocument(
     workspaceContent: string
 ): Promise<PreviewDocument> {
     return buildPreviewDocument({
-        report: reportForPkgA([
+        report: reportForPackageA([
             createArtifactEntryFixture({
-                path: 'src/index.js',
-                sourcePath: '/workspace/src/index.js',
+                path: 'source/index.js',
+                sourcePath: '/workspace/source/index.js',
                 status: 'changed',
                 badges: []
             })
@@ -293,8 +296,8 @@ export async function buildChangedSourceDiffDocument(
             createBuildResultFixture({
                 contents: [
                     createAnalyzedResource({
-                        inputFilePath: '/workspace/src/index.js',
-                        targetFilePath: 'src/index.js',
+                        inputFilePath: '/workspace/source/index.js',
+                        targetFilePath: 'source/index.js',
                         content: emittedContent
                     })
                 ]
@@ -312,7 +315,7 @@ export async function expectTreePaths(
     expectedPaths: readonly string[]
 ): Promise<void> {
     const document = await buildPreviewDocument({
-        report: reportForPkgA(entries),
+        report: reportForPackageA(entries),
         result: Result.ok([ buildResult() ]),
         dryRun: true,
         fileManager: workspaceFileManager(async function () {

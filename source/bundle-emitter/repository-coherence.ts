@@ -1,16 +1,18 @@
-import { normalizeRepositoryUrl } from './repository-url-normalizer.ts';
+import { normalizeRepositoryAddress } from './repository-address-normalizer.ts';
 
-export type CiEnvironment = {
-    readonly githubServerUrl: string | undefined;
+export type ContinuousIntegrationEnvironment = {
+    readonly githubServerAddress: string | undefined;
     readonly githubRepository: string | undefined;
-    readonly gitlabProjectUrl: string | undefined;
+    readonly gitlabProjectAddress: string | undefined;
 };
 
-export function readCiEnvironment(environment: Readonly<Record<string, string | undefined>>): CiEnvironment {
+export function readContinuousIntegrationEnvironment(
+    environment: Readonly<Record<string, string | undefined>>
+): ContinuousIntegrationEnvironment {
     return {
-        githubServerUrl: environment.GITHUB_SERVER_URL,
+        githubServerAddress: environment.GITHUB_SERVER_URL,
         githubRepository: environment.GITHUB_REPOSITORY,
-        gitlabProjectUrl: environment.CI_PROJECT_URL
+        gitlabProjectAddress: environment.CI_PROJECT_URL
     };
 }
 
@@ -18,23 +20,25 @@ function isDefinedValue(value: string | undefined): value is string {
     return value !== undefined && value !== '';
 }
 
-export function getCiRepositoryUrl(environment: CiEnvironment): string | undefined {
-    if (isDefinedValue(environment.githubServerUrl) && isDefinedValue(environment.githubRepository)) {
-        return `${environment.githubServerUrl}/${environment.githubRepository}`;
+export function getContinuousIntegrationRepositoryAddress(
+    environment: ContinuousIntegrationEnvironment
+): string | undefined {
+    if (isDefinedValue(environment.githubServerAddress) && isDefinedValue(environment.githubRepository)) {
+        return `${environment.githubServerAddress}/${environment.githubRepository}`;
     }
 
-    if (isDefinedValue(environment.gitlabProjectUrl)) {
-        return environment.gitlabProjectUrl;
+    if (isDefinedValue(environment.gitlabProjectAddress)) {
+        return environment.gitlabProjectAddress;
     }
 
     return undefined;
 }
 
 const noRepositoryDeclaredMessage = 'Provenance is enabled but the package has no repository declared.\n' +
-    'Add a "repository" entry to additionalPackageJsonAttributes\n' +
+    'Add a "repository" entry to additionalPackageManifestAttributes\n' +
     "so consumers can verify the attestation's source claim.";
 
-const noCiDetectedMessage = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
+const noContinuousIntegrationDetectedMessage = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
     'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
     'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
 
@@ -42,12 +46,12 @@ type RepositoryManifest = {
     readonly repository?: unknown;
 };
 
-function buildMismatchMessage(configuredUrl: string, ciUrl: string): string {
+function buildMismatchMessage(configuredAddress: string, continuousIntegrationAddress: string): string {
     return (
         "Provenance is enabled but the package's repository URL does not match\n" +
         'the CI repository.\n' +
-        `Configured repository: ${configuredUrl}\n` +
-        `CI repository:         ${ciUrl}\n` +
+        `Configured repository: ${configuredAddress}\n` +
+        `CI repository:         ${continuousIntegrationAddress}\n` +
         'Either correct the package.json repository field, or disable provenance\n' +
         'if the mismatch is intentional.'
     );
@@ -55,19 +59,19 @@ function buildMismatchMessage(configuredUrl: string, ciUrl: string): string {
 
 export function assertRepositoryCoherence(
     manifest: RepositoryManifest,
-    ciRepositoryUrl: string | undefined
+    continuousIntegrationRepositoryAddress: string | undefined
 ): void {
-    const normalizedManifestUrl = normalizeRepositoryUrl(manifest.repository);
-    if (normalizedManifestUrl === undefined) {
+    const normalizedManifestAddress = normalizeRepositoryAddress(manifest.repository);
+    if (normalizedManifestAddress === undefined) {
         throw new Error(noRepositoryDeclaredMessage);
     }
 
-    const normalizedCiUrl = normalizeRepositoryUrl(ciRepositoryUrl);
-    if (normalizedCiUrl === undefined) {
-        throw new Error(noCiDetectedMessage);
+    const normalizedContinuousIntegrationAddress = normalizeRepositoryAddress(continuousIntegrationRepositoryAddress);
+    if (normalizedContinuousIntegrationAddress === undefined) {
+        throw new Error(noContinuousIntegrationDetectedMessage);
     }
 
-    if (normalizedCiUrl !== normalizedManifestUrl) {
-        throw new Error(buildMismatchMessage(normalizedManifestUrl, normalizedCiUrl));
+    if (normalizedContinuousIntegrationAddress !== normalizedManifestAddress) {
+        throw new Error(buildMismatchMessage(normalizedManifestAddress, normalizedContinuousIntegrationAddress));
     }
 }

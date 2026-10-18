@@ -15,17 +15,17 @@ import {
 
 suite('package-layout', function () {
     test('packageManifestPathIn() appends the package manifest file name', function () {
-        assert.strictEqual(packageManifestPathIn('/workspace/pkg'), '/workspace/pkg/package.json');
+        assert.strictEqual(packageManifestPathIn('/workspace/package'), '/workspace/package/package.json');
     });
 
     test('packageManifestAbsolutePathIn() resolves the package manifest path', function () {
-        assert.strictEqual(packageManifestAbsolutePathIn('/workspace/pkg'), '/workspace/pkg/package.json');
+        assert.strictEqual(packageManifestAbsolutePathIn('/workspace/package'), '/workspace/package/package.json');
     });
 
     test('installedDependencyManifestPathIn() targets a dependency manifest inside node_modules', function () {
         assert.strictEqual(
-            installedDependencyManifestPathIn('/workspace/pkg', '@scope/shared'),
-            '/workspace/pkg/node_modules/@scope/shared/package.json'
+            installedDependencyManifestPathIn('/workspace/package', '@scope/shared'),
+            '/workspace/package/node_modules/@scope/shared/package.json'
         );
     });
 
@@ -49,23 +49,32 @@ suite('package-layout', function () {
 
     test('isPackageManifestPath() recognizes package manifests by basename', function () {
         assert.strictEqual(isPackageManifestPath(packageManifestFilePath), true);
-        assert.strictEqual(isPackageManifestPath('/workspace/pkg/package.json'), true);
-        assert.strictEqual(isPackageManifestPath('/workspace/pkg/manifest.json'), false);
+        assert.strictEqual(isPackageManifestPath('/workspace/package/package.json'), true);
+        assert.strictEqual(isPackageManifestPath('/workspace/package/manifest.json'), false);
     });
 
     test('isInstalledDependencyManifestPath() only recognizes dependency manifests inside node_modules', function () {
-        assert.strictEqual(isInstalledDependencyManifestPath('/workspace/pkg/node_modules/shared/package.json'), true);
-        assert.strictEqual(isInstalledDependencyManifestPath('/workspace/pkg/package.json'), false);
-        assert.strictEqual(isInstalledDependencyManifestPath('/workspace/pkg/node_modules/shared/data.json'), false);
+        assert.strictEqual(
+            isInstalledDependencyManifestPath('/workspace/package/node_modules/shared/package.json'),
+            true
+        );
+        assert.strictEqual(isInstalledDependencyManifestPath('/workspace/package/package.json'), false);
+        assert.strictEqual(
+            isInstalledDependencyManifestPath('/workspace/package/node_modules/shared/data.json'),
+            false
+        );
     });
 
     test('ancestorInstalledDependencyPathCandidates() searches the current folder and each ancestor once', function () {
-        assert.deepStrictEqual(ancestorInstalledDependencyPathCandidates('/workspace/src/feature', 'foo/module.wasm'), [
-            '/workspace/src/feature/node_modules/foo/module.wasm',
-            '/workspace/src/node_modules/foo/module.wasm',
-            '/workspace/node_modules/foo/module.wasm',
-            '/node_modules/foo/module.wasm'
-        ]);
+        assert.deepStrictEqual(
+            ancestorInstalledDependencyPathCandidates('/workspace/source/feature', 'foo/module.wasm'),
+            [
+                '/workspace/source/feature/node_modules/foo/module.wasm',
+                '/workspace/source/node_modules/foo/module.wasm',
+                '/workspace/node_modules/foo/module.wasm',
+                '/node_modules/foo/module.wasm'
+            ]
+        );
     });
 
     test('ancestorInstalledDependencyPathCandidates() stops once it reaches the filesystem root', function () {

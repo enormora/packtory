@@ -12,9 +12,9 @@ async function typeSurface(
     return await typedExportSpecifiers({
         exports,
         types,
-        name: 'pkg',
-        packageFolder: '/artifact/node_modules/pkg',
-        targets: [ { specifier: 'pkg', targetFilePath } ],
+        name: 'package',
+        packageFolder: '/artifact/node_modules/package',
+        targets: [ { specifier: 'package', targetFilePath } ],
         fileManager: createFakeFileManager({
             simulatedCheckReadabilityResponses: [
                 { value: { isReadable: declarationExists } },
@@ -35,9 +35,9 @@ suite('package-type-surface', function () {
                 'index.js',
                 false
             ),
-            [ 'pkg' ]
+            [ 'package' ]
         );
-        assert.deepStrictEqual(await typeSurface('./index.js', './missing.d.ts', 'index.js', false), [ 'pkg' ]);
+        assert.deepStrictEqual(await typeSurface('./index.js', './missing.d.ts', 'index.js', false), [ 'package' ]);
         assert.deepStrictEqual(
             await typeSurface(
                 {
@@ -47,14 +47,14 @@ suite('package-type-surface', function () {
                 'index.js',
                 false
             ),
-            [ 'pkg' ]
+            [ 'package' ]
         );
     });
 
     test('includes declaration companions for JavaScript module extensions', async function () {
         for (const extension of [ '.js', '.mjs', '.cjs' ]) {
             assert.deepStrictEqual(await typeSurface(`./index${extension}`, undefined, `index${extension}`, true), [
-                'pkg'
+                'package'
             ]);
         }
     });
@@ -66,8 +66,8 @@ suite('package-type-surface', function () {
 
     test('selects typed subpaths independently of untyped exports', async function () {
         const result = await typedExportSpecifiers({
-            name: 'pkg',
-            packageFolder: '/artifact/node_modules/pkg',
+            name: 'package',
+            packageFolder: '/artifact/node_modules/package',
             types: undefined,
             exports: {
                 '.': { import: './index.js' },
@@ -75,9 +75,9 @@ suite('package-type-surface', function () {
                 './plain': { import: './plain.js' }
             },
             targets: [
-                { specifier: 'pkg', targetFilePath: 'index.js' },
-                { specifier: 'pkg/typed', targetFilePath: 'typed.js' },
-                { specifier: 'pkg/plain', targetFilePath: 'plain.js' }
+                { specifier: 'package', targetFilePath: 'index.js' },
+                { specifier: 'package/typed', targetFilePath: 'typed.js' },
+                { specifier: 'package/plain', targetFilePath: 'plain.js' }
             ],
             fileManager: createFakeFileManager({
                 simulatedCheckReadabilityResponses: [
@@ -86,6 +86,6 @@ suite('package-type-surface', function () {
                 ]
             })
         });
-        assert.deepStrictEqual(result, [ 'pkg/typed' ]);
+        assert.deepStrictEqual(result, [ 'package/typed' ]);
     });
 });

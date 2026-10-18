@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { ts, type SourceFile } from 'ts-morph';
+import { ts as typeScript, type SourceFile } from 'ts-morph';
 
 type TypescriptModuleFilePathResolution = {
     readonly moduleSpecifier: string;
@@ -106,7 +106,7 @@ function stringProperty(record: Readonly<Record<string, unknown>>, key: string):
     return typeof value === 'string' ? value : undefined;
 }
 
-function parseJsonObject(content: string): unknown {
+function parseJavaScriptObjectNotationObject(content: string): unknown {
     let parsed: unknown = null;
     try {
         parsed = JSON.parse(content) as unknown;
@@ -116,7 +116,7 @@ function parseJsonObject(content: string): unknown {
 }
 
 function parsePackageManifest(content: string): Readonly<Record<string, unknown>> | undefined {
-    const parsed = parseJsonObject(content);
+    const parsed = parseJavaScriptObjectNotationObject(content);
     return isRecord(parsed) ? parsed : undefined;
 }
 
@@ -144,9 +144,9 @@ function packageManifestPathsFor(filePath: string): readonly string[] {
 
 export function packageTypeForResolvedFilePath(input: PackageTypeLookup): string | undefined {
     const { containingSourceFile, filePath } = input;
-    for (const packageJsonPath of packageManifestPathsFor(filePath)) {
-        if (hostFileExists(containingSourceFile, packageJsonPath)) {
-            const manifest = parsePackageManifest(String(hostReadFile(containingSourceFile, packageJsonPath)));
+    for (const packageManifestPath of packageManifestPathsFor(filePath)) {
+        if (hostFileExists(containingSourceFile, packageManifestPath)) {
+            const manifest = parsePackageManifest(String(hostReadFile(containingSourceFile, packageManifestPath)));
             return manifest === undefined ? undefined : stringProperty(manifest, 'type');
         }
     }
@@ -263,7 +263,7 @@ function typeResolution(
     containingSourceFile: Readonly<SourceFile>
 ): string | undefined {
     const project = containingSourceFile.getProject();
-    return ts
+    return typeScript
         .resolveModuleName(
             moduleSpecifier,
             containingSourceFile.getFilePath(),

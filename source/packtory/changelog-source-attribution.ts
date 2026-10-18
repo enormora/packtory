@@ -11,7 +11,7 @@ export type ChangelogSourceAttributionDependencies = {
 };
 
 export type ManifestChangelogInputs = {
-    readonly additionalPackageJsonAttributes?: Readonly<Record<string, unknown>> | undefined;
+    readonly additionalPackageManifestAttributes?: Readonly<Record<string, unknown>> | undefined;
     readonly dependencies?: Readonly<Record<string, unknown>> | undefined;
     readonly imports?: Readonly<Record<string, unknown>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
@@ -36,12 +36,12 @@ function hasEntries(value: Readonly<Record<string, unknown>> | undefined): boole
     return value !== undefined && Object.keys(value).length > 0;
 }
 
-function hasGeneratedManifestInputs(mainPackageJson: ManifestChangelogInputs): boolean {
+function hasGeneratedManifestInputs(mainPackageManifest: ManifestChangelogInputs): boolean {
     return (
-        hasEntries(mainPackageJson.additionalPackageJsonAttributes) ||
-        hasEntries(mainPackageJson.dependencies) ||
-        hasEntries(mainPackageJson.peerDependencies) ||
-        hasEntries(mainPackageJson.imports)
+        hasEntries(mainPackageManifest.additionalPackageManifestAttributes) ||
+        hasEntries(mainPackageManifest.dependencies) ||
+        hasEntries(mainPackageManifest.peerDependencies) ||
+        hasEntries(mainPackageManifest.imports)
     );
 }
 
@@ -49,7 +49,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseJsonRecord(content: string): Readonly<Record<string, unknown>> | undefined {
+function parseJavaScriptObjectNotationRecord(content: string): Readonly<Record<string, unknown>> | undefined {
     const parsed = JSON.parse(content) as unknown;
     return isRecord(parsed) ? parsed : undefined;
 }
@@ -92,10 +92,10 @@ function dependencyVersionFrom(
 }
 
 export function collectManifestChangelogSourceFiles(
-    mainPackageJson: ManifestChangelogInputs,
+    mainPackageManifest: ManifestChangelogInputs,
     additionalSourceFiles: readonly string[]
 ): readonly string[] {
-    return [ ...hasGeneratedManifestInputs(mainPackageJson) ? [ 'package.json' ] : [], ...additionalSourceFiles ];
+    return [ ...hasGeneratedManifestInputs(mainPackageManifest) ? [ 'package.json' ] : [], ...additionalSourceFiles ];
 }
 
 function packageManifestInputFilePaths(): string {
@@ -111,8 +111,8 @@ export function changedPackageManifestDependencyNames(
     previousManifestContent: string,
     currentManifestContent: string
 ): readonly string[] {
-    const previousManifest = parseJsonRecord(previousManifestContent);
-    const currentManifest = parseJsonRecord(currentManifestContent);
+    const previousManifest = parseJavaScriptObjectNotationRecord(previousManifestContent);
+    const currentManifest = parseJavaScriptObjectNotationRecord(currentManifestContent);
     if (previousManifest === undefined || currentManifest === undefined) {
         return [];
     }
@@ -132,7 +132,7 @@ export function packageManifestDependencyVersions(
     manifestContent: string,
     dependencyNames: readonly string[]
 ): readonly { readonly name: string; readonly version: string; }[] {
-    const manifest = parseJsonRecord(manifestContent);
+    const manifest = parseJavaScriptObjectNotationRecord(manifestContent);
     if (manifest === undefined) {
         return [];
     }
@@ -156,14 +156,14 @@ function toRepositoryRelativePath(repositoryFolder: string, filePath: string): s
     return relativePath.split(path.sep).join('/');
 }
 
-function collectSourceMappingUrls(fileContent: string): readonly string[] {
+function collectSourceMappingAddresses(fileContent: string): readonly string[] {
     return fileContent.split('\n').flatMap(function (line) {
         const prefix = sourceMappingPrefix();
         if (!line.startsWith(prefix)) {
             return [];
         }
-        const sourceMappingUrl = line.slice(prefix.length);
-        return sourceMappingUrl === '' ? [] : [ sourceMappingUrl ];
+        const sourceMappingAddress = line.slice(prefix.length);
+        return sourceMappingAddress === '' ? [] : [ sourceMappingAddress ];
     });
 }
 
@@ -182,15 +182,15 @@ function resolveMapSource(mapFilePath: string, traceMap: TraceMap, source: strin
     return path.resolve(path.dirname(mapFilePath), traceMap.sourceRoot ?? '', source);
 }
 
-function resolveSingleSourceMappingUrl(
+function resolveSingleSourceMappingAddress(
     inputFilePath: string,
-    sourceMappingUrls: readonly string[]
+    sourceMappingAddresses: readonly string[]
 ): string | undefined {
-    if (sourceMappingUrls.length > 1) {
+    if (sourceMappingAddresses.length > 1) {
         throw new Error(`Multiple sourceMappingURL references found in "${inputFilePath}"`);
     }
 
-    return sourceMappingUrls[0];
+    return sourceMappingAddresses[0];
 }
 
 async function ensureMapIsReadable(
@@ -209,13 +209,16 @@ async function readReferencedMap(
     inputFilePath: string
 ): Promise<ReferencedMap | undefined> {
     const fileContent = await dependencies.fileManager.readFile(inputFilePath);
-    const sourceMappingUrl = resolveSingleSourceMappingUrl(inputFilePath, collectSourceMappingUrls(fileContent));
+    const sourceMappingAddress = resolveSingleSourceMappingAddress(
+        inputFilePath,
+        collectSourceMappingAddresses(fileContent)
+    );
 
-    if (sourceMappingUrl === undefined) {
+    if (sourceMappingAddress === undefined) {
         return undefined;
     }
 
-    const mapFilePath = path.resolve(path.dirname(inputFilePath), sourceMappingUrl);
+    const mapFilePath = path.resolve(path.dirname(inputFilePath), sourceMappingAddress);
     await ensureMapIsReadable(dependencies, inputFilePath, mapFilePath);
     return {
         mapFilePath,

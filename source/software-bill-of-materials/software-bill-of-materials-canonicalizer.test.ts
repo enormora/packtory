@@ -1,0 +1,229 @@
+import assert from 'node:assert';
+import { suite, test } from 'mocha';
+import { createFileDescription } from '../file-manager/file-description.ts';
+import { buildSoftwareBillOfMaterialsFixtureContent } from '../test-libraries/software-bill-of-materials-fixtures.ts';
+import { canonicalizeSoftwareBillOfMaterialsInFileSet } from './software-bill-of-materials-canonicalizer.ts';
+
+function canonicalize(content: string): string {
+    const [ file ] = canonicalizeSoftwareBillOfMaterialsInFileSet([
+        createFileDescription('software-bill-of-materials.cyclonedx.json', content)
+    ]);
+    if (file === undefined) {
+        assert.fail('Expected canonicalized SBOM file');
+    }
+    return file.content;
+}
+
+function firstToolComponentOf(content: string): Record<string, unknown> {
+    const parsed = JSON.parse(canonicalize(content)) as {
+        readonly metadata: { readonly tools: { readonly components: readonly Readonly<Record<string, unknown>>[]; }; };
+    };
+    const [ entry ] = parsed.metadata.tools.components;
+    if (entry === undefined) {
+        assert.fail('Expected first tool component');
+    }
+    return entry;
+}
+
+function toolEntryByName(
+    components: readonly Readonly<Record<string, unknown>>[]
+): ReadonlyMap<string, Readonly<Record<string, unknown>>> {
+    return new Map(
+        components.map(function (entry) {
+            return [ entry.name as string, entry ];
+        })
+    );
+}
+
+function isPacktoryEntry(entry: unknown): entry is Record<string, unknown> {
+    return typeof entry === 'object' && entry !== null && (entry as Record<string, unknown>).name === 'packtory';
+}
+
+suite('sbom-canonicalizer', function () {
+    suite('SBOM content rewriting', function () {
+        suite('tool entries', function () {
+            test('removes the version field from the packtory tool entry', function () {
+                const entry = firstToolComponentOf(
+                    buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '1.2.3' })
+                );
+                assert.strictEqual(entry.name, 'packtory');
+                assert.strictEqual(Object.hasOwn(entry, 'version'), false);
+            });
+
+            test('produces byte-identical output for inputs that differ only in the packtory version', function () {
+                const first = canonicalize(buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '1.2.3' }));
+                const second = canonicalize(buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '9.9.9' }));
+                assert.strictEqual(first, second);
+            });
+
+            test('preserves the version field on non-packtory tool entries', function () {
+                const input = JSON.stringify({
+                    metadata: { tools: { components: [ { name: 'some-other-tool', version: '4.5.6' } ] } }
+                });
+                const entry = firstToolComponentOf(input);
+                assert.strictEqual(entry.version, '4.5.6');
+            });
+
+            test('only strips the packtory entry when packtory and another tool coexist', function () {
+                const input = JSON.stringify({
+                    metadata: {
+                        tools: {
+                            components: [
+                                { name: 'packtory', version: '1.2.3' },
+                                { name: 'some-other-tool', version: '4.5.6' }
+                            ]
+                        }
+                    }
+                });
+                const parsed = JSON.parse(canonicalize(input)) as {
+                    readonly metadata: {
+                        readonly tools: { readonly components: readonly Readonly<Record<string, unknown>>[]; };
+                    };
+                };
+                const byName = toolEntryByName(parsed.metadata.tools.components);
+                const packtoryEntry = byName.get('packtory');
+                const otherEntry = byName.get('some-other-tool');
+                if (packtoryEntry === undefined || otherEntry === undefined) {
+                    assert.fail('Expected both tool entries');
+                }
+                assert.strictEqual(Object.hasOwn(packtoryEntry, 'version'), false);
+                assert.strictEqual(otherEntry.version, '4.5.6');
+            });
+        });
+
+        suite('pass-through content', function () {
+            test('produces byte-identical output for two SBOMs that differ only in object key order', function () {
+                assert.strictEqual(canonicalize('{"a":1,"b":2}'), canonicalize('{"b":2,"a":1}'));
+            });
+
+            test('returns the input verbatim when the content is not valid JSON', function () {
+                const malformed = '{not valid json';
+                assert.strictEqual(canonicalize(malformed), malformed);
+            });
+
+            test('passes through when metadata is missing entirely', function () {
+                const input = JSON.stringify({ billOfMaterialsFormat: 'CycloneDX' });
+                assert.deepStrictEqual(JSON.parse(canonicalize(input)), { billOfMaterialsFormat: 'CycloneDX' });
+            });
+
+            test('passes through when metadata.tools is missing', function () {
+                const input = JSON.stringify({ metadata: { component: { name: 'foo' } } });
+                assert.deepStrictEqual(JSON.parse(canonicalize(input)), { metadata: { component: { name: 'foo' } } });
+            });
+
+            test('passes through when metadata.tools.components is missing', function () {
+                const input = JSON.stringify({ metadata: { tools: { services: [] } } });
+                assert.deepStrictEqual(JSON.parse(canonicalize(input)), { metadata: { tools: { services: [] } } });
+            });
+
+            test('passes through legacy metadata.tools array shape without crashing', function () {
+                const input = JSON.stringify({ metadata: { tools: [ { name: 'packtory', version: '1.2.3' } ] } });
+                const parsed = JSON.parse(canonicalize(input)) as {
+                    readonly metadata: { readonly tools: readonly Readonly<Record<string, unknown>>[]; };
+                };
+                const [ entry ] = parsed.metadata.tools;
+                if (entry === undefined) {
+                    assert.fail('Expected legacy tool entry');
+                }
+                assert.strictEqual(entry.version, '1.2.3');
+            });
+
+            test('ignores non-object entries inside the components array', function () {
+                const input = JSON.stringify({
+                    metadata: { tools: { components: [ 'not-an-object', { name: 'packtory', version: '1.2.3' } ] } }
+                });
+                const parsed = JSON.parse(canonicalize(input)) as {
+                    readonly metadata: { readonly tools: { readonly components: readonly unknown[]; }; };
+                };
+                const packtoryEntry = parsed.metadata.tools.components.find(isPacktoryEntry);
+                if (packtoryEntry === undefined) {
+                    assert.fail('Expected packtory entry');
+                }
+                assert.strictEqual(Object.hasOwn(packtoryEntry, 'version'), false);
+            });
+
+            test('leaves the packtory entry untouched when it already has no version', function () {
+                const input = JSON.stringify({
+                    metadata: { tools: { components: [ { name: 'packtory' } ] } }
+                });
+                const parsed = JSON.parse(canonicalize(input)) as {
+                    readonly metadata: {
+                        readonly tools: { readonly components: readonly Readonly<Record<string, unknown>>[]; };
+                    };
+                };
+                assert.deepStrictEqual(parsed.metadata.tools.components, [ { name: 'packtory' } ]);
+            });
+        });
+    });
+
+    suite('file-set rewriting', function () {
+        test('preserves filePath and isExecutable on the canonicalized SBOM entry', function () {
+            const softwareBillOfMaterials = createFileDescription(
+                'software-bill-of-materials.cyclonedx.json',
+                buildSoftwareBillOfMaterialsFixtureContent(),
+                true
+            );
+            const [ result ] = canonicalizeSoftwareBillOfMaterialsInFileSet([ softwareBillOfMaterials ]);
+            if (result === undefined) {
+                assert.fail('Expected canonicalized SBOM file');
+            }
+            assert.partialDeepStrictEqual(result, {
+                filePath: 'software-bill-of-materials.cyclonedx.json',
+                isExecutable: true
+            });
+        });
+
+        test('canonicalizes SBOM entries under the npm tarball package prefix', function () {
+            const previous = createFileDescription(
+                'package/software-bill-of-materials.cyclonedx.json',
+                buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '1.2.3' })
+            );
+            const current = createFileDescription(
+                'package/software-bill-of-materials.cyclonedx.json',
+                buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '9.9.9' })
+            );
+            const [ result ] = canonicalizeSoftwareBillOfMaterialsInFileSet([ current ]);
+            const [ previousResult ] = canonicalizeSoftwareBillOfMaterialsInFileSet([ previous ]);
+            if (result === undefined || previousResult === undefined) {
+                assert.fail('Expected canonicalized SBOM files');
+            }
+            assert.partialDeepStrictEqual(result, {
+                filePath: 'package/software-bill-of-materials.cyclonedx.json',
+                content: previousResult.content
+            });
+        });
+
+        test('does not modify entries whose path is not software-bill-of-materials.cyclonedx.json', function () {
+            const other = createFileDescription('package.json', buildSoftwareBillOfMaterialsFixtureContent());
+            const [ result ] = canonicalizeSoftwareBillOfMaterialsInFileSet([ other ]);
+            assert.strictEqual(result, other);
+        });
+
+        test('passes through file sets that do not contain an SBOM', function () {
+            const files = [
+                createFileDescription('readme.md', '# hello'),
+                createFileDescription('package.json', '{}')
+            ];
+            const result = canonicalizeSoftwareBillOfMaterialsInFileSet(files);
+            assert.deepStrictEqual(result, files);
+        });
+
+        test('only canonicalizes the SBOM in a mixed file set', function () {
+            const readme = createFileDescription('readme.md', '# hello');
+            const softwareBillOfMaterials = createFileDescription(
+                'software-bill-of-materials.cyclonedx.json',
+                buildSoftwareBillOfMaterialsFixtureContent()
+            );
+            const [ first, second ] = canonicalizeSoftwareBillOfMaterialsInFileSet([ readme, softwareBillOfMaterials ]);
+            assert.strictEqual(first, readme);
+            if (second === undefined) {
+                assert.fail('Expected second file');
+            }
+            assert.notStrictEqual(second.content, softwareBillOfMaterials.content);
+        });
+
+        test('returns an empty array for an empty input', function () {
+            assert.deepStrictEqual(canonicalizeSoftwareBillOfMaterialsInFileSet([]), []);
+        });
+    });
+});

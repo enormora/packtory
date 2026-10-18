@@ -231,8 +231,8 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             },
             {
                 'index.d.ts': [
-                    'import type { PackageJson } from "type-fest";',
-                    'export type Manifest = PackageJson;'
+                    'import type { PackageJson as PackageManifest } from "type-fest";',
+                    'export type Manifest = PackageManifest;'
                 ]
                     .join('\n')
             },

@@ -1,14 +1,14 @@
 import {
-    Node as TsMorphNode,
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
     type Identifier,
-    type Node as TsMorphNodeType,
+    type Node as TypeScriptMorphNodeType,
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import {
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
@@ -127,11 +127,11 @@ function operatorKindIsAssignment(kind: SyntaxKind): boolean {
     );
 }
 
-function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expression: Identifier): boolean {
+function declarationIsAvailableBeforeRead(declaration: TypeScriptMorphNodeType, expression: Identifier): boolean {
     return Math.sign(expression.getStart() - declaration.getEnd()) === 1;
 }
 
-function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expression: Identifier): boolean {
+function declarationMakesIdentifierReadPure(declaration: TypeScriptMorphNodeType, expression: Identifier): boolean {
     const kind = declaration.getKind();
     if (declarationKindIsAlwaysAvailable(kind)) {
         return true;
@@ -143,24 +143,27 @@ function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expres
     return false;
 }
 
-function identifierDeclarations(expression: Identifier): readonly TsMorphNodeType[] {
+function identifierDeclarations(expression: Identifier): readonly TypeScriptMorphNodeType[] {
     const symbol = expression.getSymbol();
     return symbol?.getDeclarations() ?? [];
 }
 
 function rootMutationIdentifier(expression: Expression): Identifier | undefined {
     const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
+    if (TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return unwrapped;
     }
-    if (TsMorphNode.isPropertyAccessExpression(unwrapped) || TsMorphNode.isElementAccessExpression(unwrapped)) {
+    if (
+        TypeScriptMorphNode.isPropertyAccessExpression(unwrapped) ||
+        TypeScriptMorphNode.isElementAccessExpression(unwrapped)
+    ) {
         return rootMutationIdentifier(unwrapped.getExpression());
     }
     return undefined;
 }
 
-function binaryExpressionMutationRecord(expression: TsMorphNode): MutationRecord | undefined {
-    if (!TsMorphNode.isBinaryExpression(expression)) {
+function binaryExpressionMutationRecord(expression: TypeScriptMorphNode): MutationRecord | undefined {
+    if (!TypeScriptMorphNode.isBinaryExpression(expression)) {
         return undefined;
     }
     if (!operatorKindIsAssignment(expression.getOperatorToken().getKind())) {
@@ -170,8 +173,11 @@ function binaryExpressionMutationRecord(expression: TsMorphNode): MutationRecord
     return identifier === undefined ? undefined : { name: identifier.getText(), start: expression.getStart() };
 }
 
-function updateExpressionMutationRecord(expression: TsMorphNode): MutationRecord | undefined {
-    if (!TsMorphNode.isPrefixUnaryExpression(expression) && !TsMorphNode.isPostfixUnaryExpression(expression)) {
+function updateExpressionMutationRecord(expression: TypeScriptMorphNode): MutationRecord | undefined {
+    if (
+        !TypeScriptMorphNode.isPrefixUnaryExpression(expression) &&
+        !TypeScriptMorphNode.isPostfixUnaryExpression(expression)
+    ) {
         return undefined;
     }
     const operator = expression.getOperatorToken();
@@ -182,7 +188,7 @@ function updateExpressionMutationRecord(expression: TsMorphNode): MutationRecord
     return identifier === undefined ? undefined : { name: identifier.getText(), start: expression.getStart() };
 }
 
-function mutationRecordForNode(node: TsMorphNode): MutationRecord | undefined {
+function mutationRecordForNode(node: TypeScriptMorphNode): MutationRecord | undefined {
     return binaryExpressionMutationRecord(node) ?? updateExpressionMutationRecord(node);
 }
 
@@ -250,7 +256,7 @@ function variableDeclarationFact(
 }
 
 function importedOriginForIdentifierDeclaration(
-    declaration: TsMorphNodeType,
+    declaration: TypeScriptMorphNodeType,
     expression: Identifier
 ): ImportedExpressionOrigin | undefined {
     return declarationKindHasImportedOrigin(declaration.getKind())
@@ -259,7 +265,7 @@ function importedOriginForIdentifierDeclaration(
 }
 
 function declarationFactForIdentifier(
-    declaration: TsMorphNodeType,
+    declaration: TypeScriptMorphNodeType,
     expression: Identifier,
     factFor: ExpressionFactResolver,
     settings: DeadCodeEliminationSettings | undefined
@@ -268,7 +274,7 @@ function declarationFactForIdentifier(
     if (origin !== undefined) {
         return importedExpressionFact(origin, expression, settings);
     }
-    if (TsMorphNode.isVariableDeclaration(declaration)) {
+    if (TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return variableDeclarationFact(declaration, expression, factFor);
     }
     return declarationMakesIdentifierReadPure(declaration, expression) ? pureValueFact : unknownFact;

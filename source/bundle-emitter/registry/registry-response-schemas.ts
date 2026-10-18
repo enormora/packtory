@@ -26,7 +26,7 @@ const fullPackageResponseSchema = z.object({
     versions: z.record(z.string(), packageVersionDetailsSchema)
 });
 
-const oidcExchangeResponseSchema = z.object({
+const openIdentityConnectExchangeResponseSchema = z.object({
     token: z.string(),
     expires: z.coerce.date()
 });
@@ -72,15 +72,22 @@ export type FullPackageResponse = {
     >;
 };
 
-type OidcExchangeResponse = {
+type OpenIdentityConnectExchangeResponse = {
     readonly token: string;
     readonly expires: Date;
 };
 
-type FailedOidcExchangeParseResult = { readonly success: false; readonly issues: readonly string[]; };
-type SuccessfulOidcExchangeParseResult = { readonly success: true; readonly data: OidcExchangeResponse; };
+type FailedOpenIdentityConnectExchangeParseResult = { readonly success: false; readonly issues: readonly string[]; };
+type SuccessfulOpenIdentityConnectExchangeParseResult = {
+    readonly success: true;
+    readonly data: OpenIdentityConnectExchangeResponse;
+};
 
-export type OidcExchangeParseResult = FailedOidcExchangeParseResult | SuccessfulOidcExchangeParseResult;
+type ExchangeResultByStatus = {
+    readonly failed: FailedOpenIdentityConnectExchangeParseResult;
+    readonly successful: SuccessfulOpenIdentityConnectExchangeParseResult;
+};
+export type OpenIdentityConnectExchangeParseResult = ExchangeResultByStatus[keyof ExchangeResultByStatus];
 
 function isRecord(response: unknown): response is Readonly<Record<string, unknown>> {
     return typeof response === 'object' && response !== null && !Array.isArray(response);
@@ -96,11 +103,11 @@ export function parseFullPackageResponse(response: unknown): FullPackageResponse
     return result.success ? result.data : undefined;
 }
 
-export function parseOidcExchangeResponse(response: unknown): OidcExchangeParseResult {
+export function parseOpenIdentityConnectExchangeResponse(response: unknown): OpenIdentityConnectExchangeParseResult {
     if (!isRecord(response)) {
         return { success: false, issues: [ 'expected object' ] };
     }
-    const result = safeParse(oidcExchangeResponseSchema, response);
+    const result = safeParse(openIdentityConnectExchangeResponseSchema, response);
     if (result.success) {
         return { success: true, data: result.data };
     }

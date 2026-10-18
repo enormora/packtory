@@ -1,41 +1,41 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
+import fileSystem from 'node:fs';
 import path from 'node:path';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
     runGitHubReleaseGate,
     type GitHubReleaseGateRunnerDependencies
-} from '../../github-release-gate/cli-runner.ts';
+} from '../../github-release-gate/command-line-interface-runner.ts';
 
 type UnknownFunction = (...inputArguments: readonly unknown[]) => unknown;
 
-type ConfigModule = Readonly<Record<PropertyKey, unknown>>;
+type ConfigurationModule = Readonly<Record<PropertyKey, unknown>>;
 
 function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';
 }
 
-function isConfigModule(value: unknown): value is ConfigModule {
+function isConfigurationModule(value: unknown): value is ConfigurationModule {
     return value !== null && typeof value === 'object';
 }
 
-function unwrapConfigModule(module: ConfigModule): unknown {
-    if (Object.hasOwn(module, 'config')) {
-        return module.config;
+function unwrapConfigurationModule(module: ConfigurationModule): unknown {
+    if (Object.hasOwn(module, 'configuration')) {
+        return module.configuration;
     }
 
-    if (Object.hasOwn(module, 'buildConfig')) {
-        const { buildConfig } = module;
-        if (isFunction(buildConfig)) {
-            return buildConfig();
+    if (Object.hasOwn(module, 'buildConfiguration')) {
+        const { buildConfiguration } = module;
+        if (isFunction(buildConfiguration)) {
+            return buildConfiguration();
         }
 
-        throw new Error('Named export of "buildConfig" config file is not a function');
+        throw new Error('Named export of "buildConfiguration" config file is not a function');
     }
 
-    throw new Error('Config file doesn’t have a named export "config" nor "buildConfig"');
+    throw new Error('Config file doesn’t have a named export "configuration" nor "buildConfiguration"');
 }
 
 function getEnvironmentVariable(variableName: string): string | undefined {
@@ -43,31 +43,31 @@ function getEnvironmentVariable(variableName: string): string | undefined {
     return value === undefined || value.length === 0 ? undefined : value;
 }
 
-async function loadPacktoryConfigFromCwd(): Promise<unknown> {
-    const configFilePath = path.join(process.cwd(), 'packtory.config.js');
-    const module: unknown = await import(configFilePath);
+async function loadPacktoryConfigurationFromCwd(): Promise<unknown> {
+    const configurationFilePath = path.join(process.cwd(), 'packtory.config.js');
+    const module: unknown = await import(configurationFilePath);
 
-    if (!isConfigModule(module)) {
+    if (!isConfigurationModule(module)) {
         throw new Error('Invalid config file');
     }
 
-    return unwrapConfigModule(module);
+    return unwrapConfigurationModule(module);
 }
 
 function createDependencies(): GitHubReleaseGateRunnerDependencies {
     return {
-        async analyzeReleaseAgainstLatestPublished(config) {
+        async analyzeReleaseAgainstLatestPublished(configuration) {
             const packtory: typeof packtoryEntryPoint = await import('../packtory/packtory.entry-point.ts');
-            return packtory.analyzeReleaseAgainstLatestPublished(config);
+            return packtory.analyzeReleaseAgainstLatestPublished(configuration);
         },
         fetch,
-        fileManager: createFileManager({ hostFileSystem: fs.promises }),
+        fileManager: createFileManager({ hostFileSystem: fileSystem.promises }),
         getEnvironmentVariable,
-        loadPacktoryConfig: loadPacktoryConfigFromCwd,
+        loadPacktoryConfiguration: loadPacktoryConfigurationFromCwd,
         now() {
             return new Date();
         },
-        stdoutWrite(message) {
+        standardOutputWrite(message) {
             process.stdout.write(`${message}\n`);
         }
     };

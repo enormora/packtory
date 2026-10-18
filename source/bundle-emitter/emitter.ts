@@ -37,7 +37,7 @@ type PreviousReleaseArtifacts = Awaited<ReturnType<typeof fetchPublishedArtifact
 export type BundleEmitterDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
-    readonly ciRepositoryUrl: string | undefined;
+    readonly continuousIntegrationRepositoryAddress: string | undefined;
     readonly readCurrentGitHead: () => Promise<string | undefined>;
 };
 
@@ -100,11 +100,11 @@ export type BundleEmitter = {
 const stageRegistryUnsupportedMessage = 'npm staged publishing is only supported with the npmjs.org registry';
 const stageFirstPublishUnsupportedMessage =
     'npm staged publishing requires the package to already exist on the npm registry';
-const npmRegistryUrl = 'https://registry.npmjs.org/';
+const npmRegistryAddress = 'https://registry.npmjs.org/';
 
-function isNpmRegistry(registryUrl: string | undefined): boolean {
-    const resolvedRegistryUrl = new URL(registryUrl ?? npmRegistryUrl);
-    return resolvedRegistryUrl.href === npmRegistryUrl;
+function isNpmRegistry(registryAddress: string | undefined): boolean {
+    const resolvedRegistryAddress = new URL(registryAddress ?? npmRegistryAddress);
+    return resolvedRegistryAddress.href === npmRegistryAddress;
 }
 
 function validateVersion(version: string): string {
@@ -161,7 +161,7 @@ function artifactsMatch(
 }
 
 function packageTargetDescription(bundle: ArtifactPublishPackage): string {
-    return `Package "${bundle.name}" version "${bundle.packageJson.version}"`;
+    return `Package "${bundle.name}" version "${bundle.packageManifest.version}"`;
 }
 
 function assertTargetArtifactsMatch(
@@ -178,20 +178,21 @@ function assertTargetIsTaggedLatest(
     bundle: ArtifactPublishPackage,
     latestVersion: string | undefined
 ): void {
-    if (latestVersion !== bundle.packageJson.version) {
+    if (latestVersion !== bundle.packageManifest.version) {
         throw new Error(`${packageTargetDescription(bundle)} already exists but is not tagged latest`);
     }
 }
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
-    const { artifactsBuilder, registryClient, ciRepositoryUrl, readCurrentGitHead } = dependencies;
+    const { artifactsBuilder, registryClient, continuousIntegrationRepositoryAddress, readCurrentGitHead } =
+        dependencies;
 
     async function determineCurrentVersionForStageMode(
         name: string,
         registrySettings: RegistrySettings,
         versioning: VersioningSettings
     ): Promise<Maybe<string>> {
-        if (!isNpmRegistry(registrySettings.registryUrl)) {
+        if (!isNpmRegistry(registrySettings.registryAddress)) {
             throw new Error(stageRegistryUnsupportedMessage);
         }
 
@@ -259,7 +260,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             const { bundle, registrySettings, extraFiles } = options;
             const metadata = await registryClient.fetchVersionReleaseMetadata(
                 bundle.name,
-                bundle.packageJson.version,
+                bundle.packageManifest.version,
                 registrySettings
             );
             if (metadata.isNothing) {
@@ -279,15 +280,17 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         },
 
         async publish(options) {
-            if (options.publishSettings.access === 'public' && options.publishSettings.provenance?.type === 'auto') {
-                assertRepositoryCoherence(options.bundle.packageJson, ciRepositoryUrl);
+            if (
+                options.publishSettings.access === 'public' && options.publishSettings.provenance?.type === 'automatic'
+            ) {
+                assertRepositoryCoherence(options.bundle.packageManifest, continuousIntegrationRepositoryAddress);
             }
 
             const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
             const currentGitHead = await readCurrentGitHead();
             const publishManifest = currentGitHead === undefined
-                ? options.bundle.packageJson
-                : { ...options.bundle.packageJson, gitHead: currentGitHead };
+                ? options.bundle.packageManifest
+                : { ...options.bundle.packageManifest, gitHead: currentGitHead };
 
             return registryClient.publishPackage(
                 publishManifest,

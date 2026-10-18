@@ -1,15 +1,15 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import type { RegistrySettings } from '../../config/registry-settings.ts';
+import type { RegistrySettings } from '../../configuration/registry-settings.ts';
 import { registryTarballBytes, fetchTarballForTest } from '../../test-libraries/registry-fetch-fixtures.ts';
 
 function fakeFetchWithContentLength(contentLength: string): typeof globalThis.fetch {
     return fake.resolves(new Response(registryTarballBytes, { headers: { 'content-length': contentLength } }));
 }
 
-const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
-const tarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.3.tgz';
+const settings: RegistrySettings = { authentication: { type: 'bearer-token', token: 'tok' } };
+const tarballAddress = 'https://registry.npmjs.org/package-a/-/package-a-1.2.3.tgz';
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 suite('package-tarball-fetcher', function () {
@@ -18,7 +18,7 @@ suite('package-tarball-fetcher', function () {
 
         const result = await fetchTarballForTest(
             fetchImplementation,
-            tarballUrl,
+            tarballAddress,
             emptyTarballIntegrity,
             settings
         );
@@ -30,7 +30,7 @@ suite('package-tarball-fetcher', function () {
         await assert.rejects(
             fetchTarballForTest(
                 fakeFetchWithContentLength('268435457'),
-                tarballUrl,
+                tarballAddress,
                 emptyTarballIntegrity,
                 settings
             ),
@@ -41,7 +41,7 @@ suite('package-tarball-fetcher', function () {
     test('fetchPackageTarball accepts tarballs whose content-length is exactly the download limit', async function () {
         const result = await fetchTarballForTest(
             fakeFetchWithContentLength('268435456'),
-            tarballUrl,
+            tarballAddress,
             emptyTarballIntegrity,
             settings
         );
@@ -59,7 +59,7 @@ suite('package-tarball-fetcher', function () {
         await assert.rejects(
             fetchTarballForTest(
                 fetchImplementation,
-                'https://attacker.example/pkg-a-1.2.3.tgz',
+                'https://attacker.example/package-a-1.2.3.tgz',
                 emptyTarballIntegrity,
                 settings
             ),
@@ -70,14 +70,14 @@ suite('package-tarball-fetcher', function () {
 
     test('fetchPackageTarball accepts a tarball URL whose host matches a custom configured registry', async function () {
         const customSettings: RegistrySettings = {
-            registryUrl: 'https://registry.example.test/',
-            auth: { type: 'bearer-token', token: 'tok' }
+            registryAddress: 'https://registry.example.test/',
+            authentication: { type: 'bearer-token', token: 'tok' }
         };
         const fetchImplementation = fake.resolves(new Response(registryTarballBytes));
 
         const result = await fetchTarballForTest(
             fetchImplementation,
-            'https://registry.example.test/pkg-a/-/pkg-a-1.2.3.tgz',
+            'https://registry.example.test/package-a/-/package-a-1.2.3.tgz',
             emptyTarballIntegrity,
             customSettings
         );

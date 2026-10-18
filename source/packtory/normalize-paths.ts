@@ -1,6 +1,6 @@
 import path from 'node:path';
-import type { AdditionalFileDescription } from '../config/additional-files.ts';
-import type { Root } from '../config/root.ts';
+import type { AdditionalFileDescription } from '../configuration/additional-files.ts';
+import type { Root } from '../configuration/root.ts';
 
 function ensureAbsolutePath(filePath: string, folder: string): string {
     if (path.isAbsolute(filePath)) {
@@ -11,17 +11,17 @@ function ensureAbsolutePath(filePath: string, folder: string): string {
 }
 
 export function normalizeRoot(root: Root, sourceFolder: string): Root {
-    const { js, declarationFile } = root;
+    const { javaScript, declarationFile } = root;
 
     if (declarationFile !== undefined) {
         return {
-            js: ensureAbsolutePath(js, sourceFolder),
+            javaScript: ensureAbsolutePath(javaScript, sourceFolder),
             declarationFile: ensureAbsolutePath(declarationFile, sourceFolder)
         };
     }
 
     return {
-        js: ensureAbsolutePath(js, sourceFolder)
+        javaScript: ensureAbsolutePath(javaScript, sourceFolder)
     };
 }
 

@@ -1,7 +1,7 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
-    explicitBinTargetPaths,
+    explicitExecutableTargetPaths,
     type PublishedPackageWithManifest
 } from '../../published-package/published-package.ts';
 import {
@@ -13,9 +13,9 @@ import {
 
 const ruleName = 'noUnexposedExecutables';
 
-type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type GlobalConfiguration = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfiguration = Readonly<z.infer<typeof emptyPerPackageSchema>>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfiguration, PerPackageConfiguration>;
 
 function reportExecutable(bundleName: string, resource: AnalyzedBundleResource): string {
     const { inputFilePath, targetFilePath } = resource.fileDescription;
@@ -27,13 +27,13 @@ function findUnexposedExecutables(
     bundle: AnalyzedBundle,
     publishedPackage: PublishedPackageWithManifest
 ): readonly string[] {
-    const binTargets = explicitBinTargetPaths(publishedPackage);
+    const executableTargets = explicitExecutableTargetPaths(publishedPackage);
 
     return bundle.contents.flatMap(function (resource) {
         if (!resource.fileDescription.isExecutable) {
             return [];
         }
-        if (binTargets.has(resource.fileDescription.targetFilePath)) {
+        if (executableTargets.has(resource.fileDescription.targetFilePath)) {
             return [];
         }
         return [ reportExecutable(bundle.name, resource) ];
@@ -41,8 +41,8 @@ function findUnexposedExecutables(
 }
 
 async function run(input: RunInput): Promise<readonly string[]> {
-    const globalConfig = input.settings?.noUnexposedExecutables;
-    if (globalConfig?.enabled !== true) {
+    const globalConfiguration = input.settings?.noUnexposedExecutables;
+    if (globalConfiguration?.enabled !== true) {
         return [];
     }
 
@@ -60,7 +60,11 @@ async function run(input: RunInput): Promise<readonly string[]> {
     });
 }
 
-export const noUnexposedExecutablesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+export const noUnexposedExecutablesRule: CheckRuleDefinition<
+    typeof ruleName,
+    GlobalConfiguration,
+    PerPackageConfiguration
+> = {
     name: ruleName,
     globalSchema: enabledOnlyGlobalSchema,
     perPackageSchema: emptyPerPackageSchema,

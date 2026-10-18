@@ -4,7 +4,7 @@ import { eachMapping, TraceMap } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
-import { loadPackageJson } from '../load-package-json.ts';
+import { loadPackageManifest } from '../load-package-manifest.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 function firstGeneratedColumn(mapContent: string): number | undefined {
@@ -19,18 +19,18 @@ function firstGeneratedColumn(mapContent: string): number | undefined {
 
 suite('source-maps', function () {
     test('adds map files to the bundle when enabled', async function () {
-        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-and-source-maps');
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/javascript-and-source-maps');
         const result = await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/entry.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: true,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
@@ -39,7 +39,7 @@ suite('source-maps', function () {
             result,
             asImplicitExportsBundle({
                 additionalAttributes: {},
-                packageJson: {
+                packageManifest: {
                     sideEffects: false,
                     type: 'module',
                     name: 'the-package-name',
@@ -53,13 +53,13 @@ suite('source-maps', function () {
                 contents: [
                     {
                         directDependencies: new Set([
-                            path.join(fixture, 'src/foo.js'),
-                            path.join(fixture, 'src/entry.js.map')
+                            path.join(fixture, 'source/foo.js'),
+                            path.join(fixture, 'source/entry.js.map')
                         ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js'),
+                            inputFilePath: path.join(fixture, 'source/entry.js'),
                             targetFilePath: 'entry.js'
                         },
                         isExplicitlyIncluded: false,
@@ -68,14 +68,14 @@ suite('source-maps', function () {
                     },
                     {
                         directDependencies: new Set([
-                            path.join(fixture, 'src/bar.js'),
-                            path.join(fixture, 'src/foo.js.map')
+                            path.join(fixture, 'source/bar.js'),
+                            path.join(fixture, 'source/foo.js.map')
                         ]),
                         fileDescription: {
                             content:
                                 "import { bar } from './bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js'),
+                            inputFilePath: path.join(fixture, 'source/foo.js'),
                             targetFilePath: 'foo.js'
                         },
                         isExplicitlyIncluded: false,
@@ -86,9 +86,9 @@ suite('source-maps', function () {
                         directDependencies: new Set(),
                         fileDescription: {
                             content:
-                                '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
+                                '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./source/entry.ts"],"names":[],"mappings":""}\n',
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/entry.js.map'),
+                            inputFilePath: path.join(fixture, 'source/entry.js.map'),
                             targetFilePath: 'entry.js.map'
                         },
                         isExplicitlyIncluded: false,
@@ -100,7 +100,7 @@ suite('source-maps', function () {
                         fileDescription: {
                             content: "export const bar = 'bar';\n",
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/bar.js'),
+                            inputFilePath: path.join(fixture, 'source/bar.js'),
                             targetFilePath: 'bar.js'
                         },
                         isExplicitlyIncluded: false,
@@ -111,9 +111,9 @@ suite('source-maps', function () {
                         directDependencies: new Set(),
                         fileDescription: {
                             content:
-                                '{"version":3,"file":"foo.js","sourceRoot":"","sources":["./src/foo.ts"],"names":[],"mappings":""}\n',
+                                '{"version":3,"file":"foo.js","sourceRoot":"","sources":["./source/foo.ts"],"names":[],"mappings":""}\n',
                             isExecutable: false,
-                            inputFilePath: path.join(fixture, 'src/foo.js.map'),
+                            inputFilePath: path.join(fixture, 'source/foo.js.map'),
                             targetFilePath: 'foo.js.map'
                         },
                         isExplicitlyIncluded: false,
@@ -125,7 +125,7 @@ suite('source-maps', function () {
                 mainFile: {
                     content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
                     isExecutable: false,
-                    inputFilePath: path.join(fixture, 'src/entry.js'),
+                    inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'
                 },
                 name: 'the-package-name',
@@ -143,28 +143,28 @@ suite('source-maps', function () {
         const providerBundle = await packageProcessor.build({
             name: 'provider-package',
             version: '1.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/provider.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/provider.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: true,
             additionalFiles: [],
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });
         const consumerBundle = await packageProcessor.build({
             name: 'consumer-package',
             version: '1.0.0',
-            sourcesFolder: path.join(fixture, 'src'),
-            roots: { main: { js: path.join(fixture, 'src/consumer.js') } },
-            mainPackageJson: await loadPackageJson(fixture),
+            sourcesFolder: path.join(fixture, 'source'),
+            roots: { main: { javaScript: path.join(fixture, 'source/consumer.js') } },
+            mainPackageManifest: await loadPackageManifest(fixture),
             includeSourceMapFiles: true,
             additionalFiles: [],
             bundleDependencies: [ providerBundle ],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
+            additionalPackageManifestAttributes: {},
             allowMutableSpecifiers: [],
             deadCodeElimination: { enabled: false }
         });

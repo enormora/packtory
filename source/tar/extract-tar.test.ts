@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import { suite, test } from 'mocha';
 import sinon from 'sinon';
 import { throwNonError } from '../test-libraries/non-error-failures.ts';
@@ -61,10 +61,14 @@ type FakeTarEntry = {
     readonly [Symbol.asyncIterator]: () => AsyncGenerator<FakeTarChunk>;
 };
 type ExtractFakeTarLimits = {
-    readonly maxEntryCount: number;
-    readonly maxEntryPathLength: number;
-    readonly maxExtractedBytes: number;
+    readonly maximumEntryCount: number;
+    readonly maximumEntryPathLength: number;
+    readonly maximumExtractedBytes: number;
 };
+
+async function* singleTarChunk(chunk: unknown): AsyncGenerator {
+    yield chunk;
+}
 
 async function* fakeTarChunks(chunks: FakeTarEntryInput['chunks']): AsyncGenerator<FakeTarChunk> {
     for (const chunk of chunks) {
@@ -93,12 +97,7 @@ async function* fakeTarEntries(entries: readonly FakeTarEntryInput[]): AsyncGene
     }
 }
 
-function createFakeTarSource(entries: readonly FakeTarEntryInput[]): Readable {
-    const tarEntries = {
-        [Symbol.asyncIterator]() {
-            return fakeTarEntries(entries);
-        }
-    };
+function createFakeTarSource(tarEntries: AsyncIterable<unknown>): Readable {
     const intermediateStream = {
         pipe() {
             return tarEntries;
@@ -123,7 +122,7 @@ async function extractFakeTarEntries(
         Buffer.from('unused'),
         {
             createSource() {
-                return createFakeTarSource(entries);
+                return createFakeTarSource(fakeTarEntries(entries));
             }
         },
         limits
@@ -131,6 +130,24 @@ async function extractFakeTarEntries(
 }
 
 suite('extract-tar', function () {
+    test('rejects tar chunks without a numeric length or callable toString method', async function () {
+        for (const chunk of [ undefined, null, 0, 'unexpected', {}, { length: '3' }, { length: 3, toString: null } ]) {
+            const entries = Readable.from([ {
+                header: { name: 'invalid.txt' },
+                [Symbol.asyncIterator]() {
+                    return singleTarChunk(chunk);
+                }
+            } ]);
+            await expectFailure(async function () {
+                await extractTarEntries(Buffer.from('unused'), {
+                    createSource() {
+                        return createFakeTarSource(entries);
+                    }
+                });
+            }, /Expected tar stream to yield chunks with a numeric length and toString method/u);
+        }
+    });
+
     suite('successful extraction', function () {
         test('returns an empty array when the given tar buffer has no files', async function () {
             const builder = createTarballBuilder();
@@ -189,14 +206,14 @@ suite('extract-tar', function () {
                 await extractFakeTarEntries([
                     { name: 'first.txt', chunks: [] },
                     { name: 'second.txt', chunks: [] }
-                ], { maxEntryCount: 1, maxEntryPathLength: 100, maxExtractedBytes: 100 });
+                ], { maximumEntryCount: 1, maximumEntryPathLength: 100, maximumExtractedBytes: 100 });
             }, /Refusing to extract tarball with more than 1 entries/u);
         });
 
         test('allows paths at the configured path length limit', async function () {
             const entries = await extractFakeTarEntries(
                 [ { name: 'a'.repeat(4), chunks: [ { length: 1, content: 'x' } ] } ],
-                { maxEntryCount: 2, maxEntryPathLength: 4, maxExtractedBytes: 10 }
+                { maximumEntryCount: 2, maximumEntryPathLength: 4, maximumExtractedBytes: 10 }
             );
 
             assert.deepStrictEqual(entries, [
@@ -208,7 +225,7 @@ suite('extract-tar', function () {
             await expectFailure(async function () {
                 await extractFakeTarEntries(
                     [ { name: 'a'.repeat(5), chunks: [] } ],
-                    { maxEntryCount: 2, maxEntryPathLength: 4, maxExtractedBytes: 10 }
+                    { maximumEntryCount: 2, maximumEntryPathLength: 4, maximumExtractedBytes: 10 }
                 );
             }, /Refusing to extract tarball entry with path longer than 4 characters/u);
         });
@@ -218,7 +235,7 @@ suite('extract-tar', function () {
                 await extractFakeTarEntries([
                     { name: 'first.txt', chunks: [ { length: 3, content: 'abc' } ] },
                     { name: 'second.txt', chunks: [ { length: 3, content: 'def' } ] }
-                ], { maxEntryCount: 3, maxEntryPathLength: 100, maxExtractedBytes: 5 });
+                ], { maximumEntryCount: 3, maximumEntryPathLength: 100, maximumExtractedBytes: 5 });
             }, /Refusing to extract tarball larger than 5 bytes/u);
         });
 
@@ -226,7 +243,7 @@ suite('extract-tar', function () {
             const entries = await extractFakeTarEntries([
                 { name: 'first.txt', chunks: [ { length: 3, content: 'abc' } ] },
                 { name: 'second.txt', chunks: [ { length: 2, content: 'de' } ] }
-            ], { maxEntryCount: 3, maxEntryPathLength: 100, maxExtractedBytes: 5 });
+            ], { maximumEntryCount: 3, maximumEntryPathLength: 100, maximumExtractedBytes: 5 });
 
             assert.deepStrictEqual(entries, [
                 { header: { name: 'first.txt' }, content: 'abc' },

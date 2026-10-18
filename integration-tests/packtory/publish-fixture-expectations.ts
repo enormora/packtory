@@ -1,11 +1,11 @@
-import { serializePackageJson } from '../../source/version-manager/manifest/serialize.ts';
+import { serializePackageManifest } from '../../source/version-manager/manifest/serialize.ts';
 
 export const expectedFirstPackageVersion = {
     version: '0.0.1',
     files: [
         {
             isExecutable: false,
-            content: serializePackageJson({
+            content: serializePackageManifest({
                 exports: {
                     '.': {
                         import: './entry1.js',
@@ -64,7 +64,7 @@ export const expectedSecondPackageFirstRunVersion = {
     files: [
         {
             isExecutable: false,
-            content: serializePackageJson({
+            content: serializePackageManifest({
                 dependencies: {
                     first: '0.0.1'
                 },
@@ -105,7 +105,7 @@ export const expectedSecondPackageSecondRunVersion = {
     files: [
         {
             isExecutable: false,
-            content: serializePackageJson({
+            content: serializePackageManifest({
                 dependencies: {
                     first: '0.0.1'
                 },

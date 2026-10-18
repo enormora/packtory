@@ -3,11 +3,11 @@ import { suite, test } from 'mocha';
 import { formatCanarySummary, hasCanaryIssues, warningAnnotationMessages } from './canary-summary.ts';
 import type { CanaryRunResult } from './canary-runner.ts';
 
-const ansiRed = `${String.fromCodePoint(0x1B)}[31m`;
-const ansiReset = `${String.fromCodePoint(0x1B)}[39m`;
+const terminalControlRed = `${String.fromCodePoint(0x1B)}[31m`;
+const terminalControlReset = `${String.fromCodePoint(0x1B)}[39m`;
 const escapeCharacter = String.fromCodePoint(0x1B);
 const deleteCharacter = String.fromCodePoint(0x7F);
-const nonFinalAnsiByte = String.fromCodePoint(0x1F);
+const nonFinalTerminalControlByte = String.fromCodePoint(0x1F);
 const issueTitleLimit = 200;
 const longTitleLength = 201;
 const whitespaceOnlyLine = ' '.repeat(3);
@@ -15,8 +15,8 @@ const escapedDeleteBoundaryLeak = [ 'm', 'delete boundary' ].join('');
 
 function resultWithIssues(issues: CanaryRunResult['issues']): CanaryRunResult {
     return {
-        baselineResolvedRef: 'base',
-        candidateResolvedRef: 'candidate',
+        baselineResolvedReference: 'base',
+        candidateResolvedReference: 'candidate',
         issues,
         name: 'sample'
     };
@@ -30,7 +30,7 @@ suite('canary-summary', function () {
                 {
                     kind: 'baseline-rot',
                     message: [
-                        `${ansiRed}baseline failed${ansiReset}`,
+                        `${terminalControlRed}baseline failed${terminalControlReset}`,
                         '/workspace/packtory-canary-overkill-baseline-abcd/file.js'
                     ]
                         .join('\n')
@@ -119,7 +119,7 @@ suite('canary-summary', function () {
             `${escapeCharacter}[${deleteCharacter}${escapedDeleteBoundaryLeak}`
         ]
             .join('\n');
-        const unterminatedMessage = `${escapeCharacter}[${nonFinalAnsiByte}`;
+        const unterminatedMessage = `${escapeCharacter}[${nonFinalTerminalControlByte}`;
         const summary = formatCanarySummary(resultWithIssues([
             { kind: 'warning', message },
             { kind: 'warning', message: unterminatedMessage }
@@ -131,7 +131,7 @@ suite('canary-summary', function () {
         assert.match(summary, /not an ansi sequence/u);
         assert.match(summary, /\(empty message\)/u);
         assert.strictEqual(summary.includes(escapedDeleteBoundaryLeak), false);
-        assert.strictEqual(summary.includes(nonFinalAnsiByte), false);
+        assert.strictEqual(summary.includes(nonFinalTerminalControlByte), false);
     });
 
     test('warningAnnotationMessages prefixes canary names and shortens details', function () {

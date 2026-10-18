@@ -5,12 +5,12 @@ import { readAllSnapshots } from './spinner-snapshots.ts';
 export type SpinnerWorkerInput = {
     readonly buffer: SharedArrayBuffer;
     readonly slotCount: number;
-    readonly stdoutFileDescriptor: number;
+    readonly standardOutputFileDescriptor: number;
 };
 
 export type SpinnerWorkerDependencies<Handle = unknown> = {
     readonly write: (fileDescriptor: number, chunk: string) => void;
-    readonly setInterval: (callback: () => void, ms: number) => Handle;
+    readonly setInterval: (callback: () => void, milliseconds: number) => Handle;
     readonly clearInterval: (handle: Handle) => void;
 };
 
@@ -29,7 +29,7 @@ export function startSpinnerWorker<Handle>(
     function renderTick(): void {
         const output = buildRenderTickOutput(accessors, state);
         if (output.sequence !== undefined) {
-            dependencies.write(input.stdoutFileDescriptor, output.sequence);
+            dependencies.write(input.standardOutputFileDescriptor, output.sequence);
             state = {
                 snapshots: output.snapshots,
                 renderedLineCount: output.expectedLineCount,
@@ -39,14 +39,14 @@ export function startSpinnerWorker<Handle>(
         accessors.acknowledgeRender(output.targetMutation);
     }
 
-    const intervalMs = accessors.getIntervalMs();
+    const intervalMilliseconds = accessors.getIntervalMilliseconds();
     const ticker = dependencies.setInterval(function () {
         renderTick();
         if (accessors.isShutdownRequested()) {
             renderTick();
             dependencies.clearInterval(ticker);
         }
-    }, intervalMs);
+    }, intervalMilliseconds);
 }
 
 export function isSpinnerWorkerInput(value: unknown): value is SpinnerWorkerInput {
@@ -55,6 +55,6 @@ export function isSpinnerWorkerInput(value: unknown): value is SpinnerWorkerInpu
         value !== null &&
         Reflect.get(value, 'buffer') instanceof SharedArrayBuffer &&
         typeof Reflect.get(value, 'slotCount') === 'number' &&
-        typeof Reflect.get(value, 'stdoutFileDescriptor') === 'number'
+        typeof Reflect.get(value, 'standardOutputFileDescriptor') === 'number'
     );
 }

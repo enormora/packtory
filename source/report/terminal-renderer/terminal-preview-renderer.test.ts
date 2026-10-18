@@ -21,14 +21,14 @@ suite('terminal-preview-renderer', function () {
                 '',
                 '1 package(s) · 1 changed · 0 failed',
                 '',
-                'pkg-a 1.0.0 -> 1.0.1',
+                'package-a 1.0.0 -> 1.0.1',
                 '  • package.json (manifest, 2 B) [generated]',
-                '  ▸ src/',
-                '    • src/index.js (source, 20 B) [changed, dead code elimination]',
+                '  ▸ source/',
+                '    • source/index.js (source, 20 B) [changed, dead code elimination]',
                 '  Eliminated source files',
-                '    - /workspace/src/unused.js (14 B)',
+                '    - /workspace/source/unused.js (14 B)',
                 '  Diffs',
-                '    src/index.js',
+                '    source/index.js',
                 '      @@ -1,1 +1,1 @@',
                 '      -export const removed = 1;',
                 '      +export const kept = 1;',
@@ -56,7 +56,7 @@ suite('terminal-preview-renderer', function () {
                 'Packtory preview [Dry run]',
                 'Check failures',
                 '- bundle is too large',
-                'pkg-a resolveAndLink: boom',
+                'package-a resolveAndLink: boom',
                 ''
             ]
                 .join('\n')
@@ -87,12 +87,12 @@ suite('terminal-preview-renderer', function () {
         );
 
         assert.ok(output.includes('Issues\n- first\n- second'));
-        assert.ok(!output.includes('src/index.js'));
+        assert.ok(!output.includes('source/index.js'));
     });
 
     test('renderFailureOnlyTerminalPreview renders config and partial headings', function () {
-        const configOutput = renderFailureOnlyTerminalPreview(
-            createPreviewDocumentFixture({ previewable: false, resultType: 'config', packages: [] }),
+        const configurationOutput = renderFailureOnlyTerminalPreview(
+            createPreviewDocumentFixture({ previewable: false, resultType: 'configuration', packages: [] }),
             { color: false }
         );
         const partialOutput = renderFailureOnlyTerminalPreview(
@@ -100,7 +100,7 @@ suite('terminal-preview-renderer', function () {
             { color: false }
         );
 
-        assert.ok(configOutput.includes('Configuration issues'));
+        assert.ok(configurationOutput.includes('Configuration issues'));
         assert.ok(partialOutput.includes('Package failures'));
     });
 
@@ -127,12 +127,12 @@ suite('terminal-preview-renderer', function () {
                     createPreviewPackageFixture({
                         tree: [
                             {
-                                path: 'src/index.js',
+                                path: 'source/index.js',
                                 name: 'index.js',
                                 depth: 0,
                                 type: 'file',
                                 artifact: {
-                                    path: 'src/index.js',
+                                    path: 'source/index.js',
                                     sizeBytes: 20,
                                     kind: 'source',
                                     status: 'changed',
@@ -163,7 +163,7 @@ suite('terminal-preview-renderer', function () {
             { color: false }
         );
 
-        assert.ok(output.includes('pkg-a'));
+        assert.ok(output.includes('package-a'));
         assert.ok(!output.includes('undefined'));
     });
 
@@ -183,7 +183,7 @@ suite('terminal-preview-renderer', function () {
                 '',
                 '1 package(s) · 1 changed · 0 failed',
                 '',
-                'pkg-a',
+                'package-a',
                 '  • package.json (manifest, 2 B) [generated]',
                 ''
             ]

@@ -2,20 +2,20 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import type { PublishSettings } from '../config/publish-settings.ts';
+import type { PublishSettings } from '../configuration/publish-settings.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { emptyTarball } from '../test-libraries/tarball-fixtures.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createBundleEmitter, type BundleEmitter, type BundleEmitterDependencies } from './emitter.ts';
 
-const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const registrySettings = { authentication: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedOutcome = { type: 'published' } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
 const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const latestReleaseMetadata = {
     version: '1.2.3',
-    tarballUrl: 'https://registry.example.test/package.tgz',
+    tarballAddress: 'https://registry.example.test/package.tgz',
     tarballIntegrity: emptyTarballIntegrity
 } as const;
 type PublishRequest = Parameters<BundleEmitter['publish']>[0];
@@ -36,7 +36,7 @@ type Overrides = {
     readonly fetchLatestReleaseMetadata?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
-    readonly ciRepositoryUrl?: string | undefined;
+    readonly continuousIntegrationRepositoryAddress?: string | undefined;
     readonly readCurrentGitHead?: () => Promise<string | undefined>;
 };
 
@@ -45,8 +45,8 @@ function namedBundle(): VersionedBundleWithManifest {
 }
 
 function bundleWithRepository(repository: string | undefined): VersionedBundleWithManifest {
-    const packageJson = repository === undefined ? { name: 'the-name' } : { name: 'the-name', repository };
-    return versionedBundleWithManifest({ packageJson });
+    const packageManifest = repository === undefined ? { name: 'the-name' } : { name: 'the-name', repository };
+    return versionedBundleWithManifest({ packageManifest });
 }
 
 function createSpy<TSpy extends Readonly<SinonSpy>>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -81,7 +81,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
                 return fake.resolves(emptyTarball);
             })
         },
-        ciRepositoryUrl: overrides.ciRepositoryUrl,
+        continuousIntegrationRepositoryAddress: overrides.continuousIntegrationRepositoryAddress,
         readCurrentGitHead: overrides.readCurrentGitHead ?? async function () {
             return undefined;
         }
@@ -104,13 +104,13 @@ async function publishBundle(emitter: BundleEmitter, input: PublishInput): Promi
     await emitter.publish(publishRequest(input));
 }
 
-function createPublishScenario(ciRepositoryUrl: string | undefined): PublishScenario {
+function createPublishScenario(continuousIntegrationRepositoryAddress: string | undefined): PublishScenario {
     const buildTarball = fake.resolves({ tarData: emptyTarball });
     const publishPackage = fake.resolves(publishedOutcome);
     return {
         buildTarball,
         publishPackage,
-        emitter: emitterFactory({ buildTarball, publishPackage, ciRepositoryUrl })
+        emitter: emitterFactory({ buildTarball, publishPackage, continuousIntegrationRepositoryAddress })
     };
 }
 
@@ -124,10 +124,10 @@ suite('emitter publish', function () {
         await publishBundle(emitter, { publishSettings });
 
         assert.deepStrictEqual(
-            { callCount: publishPackage.callCount, args: publishPackage.firstCall.args },
+            { callCount: publishPackage.callCount, arguments: publishPackage.firstCall.args },
             {
                 callCount: 1,
-                args: [ { name: '', version: '' }, emptyTarball, registrySettings, publishSettings, false ]
+                arguments: [ { name: '', version: '' }, emptyTarball, registrySettings, publishSettings, false ]
             }
         );
     });
@@ -136,7 +136,7 @@ suite('emitter publish', function () {
         const buildTarball = fake.resolves({ tarData: emptyTarball });
         const publishPackage = fake.resolves(publishedOutcome);
         const bundle = versionedBundleWithManifest({
-            packageJson: { name: 'the-name', version: '1.0.0' },
+            packageManifest: { name: 'the-name', version: '1.0.0' },
             manifestFile: { content: '{"name":"the-name","version":"1.0.0"}' }
         });
         const emitter = emitterFactory({
@@ -158,7 +158,7 @@ suite('emitter publish', function () {
         assert.deepStrictEqual(buildTarball.firstCall.args[0], bundle);
         assert.partialDeepStrictEqual(bundle, {
             manifestFile: { content: '{"name":"the-name","version":"1.0.0"}' },
-            packageJson: { name: 'the-name', version: '1.0.0' }
+            packageManifest: { name: 'the-name', version: '1.0.0' }
         });
     });
 
@@ -173,7 +173,7 @@ suite('emitter publish', function () {
         const fetchLatestReleaseMetadata = fake.resolves(
             Maybe.just({
                 version: latestReleaseMetadata.version,
-                tarballUrl: latestReleaseMetadata.tarballUrl,
+                tarballAddress: latestReleaseMetadata.tarballAddress,
                 tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
                 publishedAt,
                 gitHead: 'old'
@@ -198,7 +198,7 @@ suite('emitter publish', function () {
         const buildTarball = fake.resolves({ tarData: emptyTarball });
         const emitter = emitterFactory({ buildTarball });
         const bundle = namedBundle();
-        const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+        const extraFile = { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false };
 
         await publishBundle(emitter, {
             bundle,
@@ -215,7 +215,7 @@ suite('emitter publish', function () {
         try {
             await publishBundle(scenario.emitter, {
                 bundle: bundleWithRepository('https://github.com/foo/forked-package'),
-                publishSettings: { access: 'public', provenance: { type: 'auto' } }
+                publishSettings: { access: 'public', provenance: { type: 'automatic' } }
             });
         } catch (error) {
             assert.ok(error instanceof Error);
@@ -262,7 +262,7 @@ suite('emitter publish', function () {
 
         await publishBundle(scenario.emitter, {
             bundle: bundleWithRepository('https://github.com/foo/forked-package'),
-            publishSettings: { access: 'restricted', provenance: { type: 'auto' } } as unknown as PublishSettings
+            publishSettings: { access: 'restricted', provenance: { type: 'automatic' } } as unknown as PublishSettings
         });
 
         assert.deepStrictEqual(

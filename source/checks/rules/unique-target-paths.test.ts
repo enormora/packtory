@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { emptyCheckContext } from '../../test-libraries/check-fixtures.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { uniqueTargetPathsRule } from './unique-target-paths.ts';
@@ -25,12 +26,12 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/src/a.js', 'collide.js' ],
-                    [ '/src/b.js', 'collide.js' ]
+                    [ '/source/a.js', 'collide.js' ],
+                    [ '/source/b.js', 'collide.js' ]
                 ])
             ],
             settings: undefined,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -40,12 +41,12 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/src/a.js', 'collide.js' ],
-                    [ '/src/b.js', 'collide.js' ]
+                    [ '/source/a.js', 'collide.js' ],
+                    [ '/source/b.js', 'collide.js' ]
                 ])
             ],
             settings: { uniqueTargetPaths: { enabled: false } },
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -55,12 +56,12 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/src/a.js', 'a.js' ],
-                    [ '/src/b.js', 'b.js' ]
+                    [ '/source/a.js', 'a.js' ],
+                    [ '/source/b.js', 'b.js' ]
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, []);
@@ -70,35 +71,37 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/src/b.js', 'collide.js' ],
-                    [ '/src/a.js', 'collide.js' ]
+                    [ '/source/b.js', 'collide.js' ],
+                    [ '/source/a.js', 'collide.js' ]
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
-        assert.deepStrictEqual(result, [ 'Package "a" maps multiple sources to "collide.js": /src/a.js, /src/b.js' ]);
+        assert.deepStrictEqual(result, [
+            'Package "a" maps multiple sources to "collide.js": /source/a.js, /source/b.js'
+        ]);
     });
 
     test('reports collisions independently per bundle', async function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/a-src/x.js', 'shared.js' ],
-                    [ '/a-src/y.js', 'shared.js' ]
+                    [ '/a-source/x.js', 'shared.js' ],
+                    [ '/a-source/y.js', 'shared.js' ]
                 ]),
                 bundleWithMappings('b', [
-                    [ '/b-src/p.js', 'p.js' ],
-                    [ '/b-src/q.js', 'q.js' ]
+                    [ '/b-source/p.js', 'p.js' ],
+                    [ '/b-source/q.js', 'q.js' ]
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [
-            'Package "a" maps multiple sources to "shared.js": /a-src/x.js, /a-src/y.js'
+            'Package "a" maps multiple sources to "shared.js": /a-source/x.js, /a-source/y.js'
         ]);
     });
 
@@ -106,19 +109,19 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    [ '/src/x1.js', 'one.js' ],
-                    [ '/src/x2.js', 'one.js' ],
-                    [ '/src/y1.js', 'two.js' ],
-                    [ '/src/y2.js', 'two.js' ]
+                    [ '/source/x1.js', 'one.js' ],
+                    [ '/source/x2.js', 'one.js' ],
+                    [ '/source/y1.js', 'two.js' ],
+                    [ '/source/y2.js', 'two.js' ]
                 ])
             ],
             settings: enabled,
-            perPackageSettings: new Map()
+            ...emptyCheckContext()
         });
 
         assert.deepStrictEqual(result, [
-            'Package "a" maps multiple sources to "one.js": /src/x1.js, /src/x2.js',
-            'Package "a" maps multiple sources to "two.js": /src/y1.js, /src/y2.js'
+            'Package "a" maps multiple sources to "one.js": /source/x1.js, /source/x2.js',
+            'Package "a" maps multiple sources to "two.js": /source/y1.js, /source/y2.js'
         ]);
     });
 });
