@@ -74,7 +74,7 @@
         "@enormora/eslint-config-typescript": "0.0.77",
         "@enormora/objectory": "0.0.25",
         "@jridgewell/gen-mapping": "0.3.13",
-        "@ls-lint/ls-lint": "2.3.1",
+        "@ls-lint/ls-lint": "2.3.2",
         "@packtory/cli": "0.0.124",
         "@packtory/github-release-gate": "0.0.85",
         "@stryker-mutator/core": "9.6.1",
