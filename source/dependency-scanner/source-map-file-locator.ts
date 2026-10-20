@@ -31,10 +31,9 @@ function isAddressLike(filePath: string): boolean {
 }
 
 function isRelativeMapFilePath(filePath: string): boolean {
-    if (path.posix.isAbsolute(filePath) || path.win32.isAbsolute(filePath)) {
-        return false;
-    }
-    if (isAddressLike(filePath) || filePath.includes('?') || filePath.includes('#')) {
+    const isAbsolute = path.posix.isAbsolute(filePath) || path.win32.isAbsolute(filePath);
+    const hasQueryOrFragment = filePath.includes('?') || filePath.includes('#');
+    if (isAbsolute || hasQueryOrFragment || isAddressLike(filePath)) {
         return false;
     }
     return path.extname(filePath) === '.map';

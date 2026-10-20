@@ -275,10 +275,7 @@ function shorthandPropertyImportsArgument(
     importArgumentIndex: number
 ): boolean {
     const shorthand = property.asKind(SyntaxKind.ShorthandPropertyAssignment);
-    if (shorthand === undefined) {
-        return false;
-    }
-    if (shorthand.getNameNode().getText() !== propertyName) {
+    if (shorthand?.getNameNode().getText() !== propertyName) {
         return false;
     }
 

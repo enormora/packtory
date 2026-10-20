@@ -9,13 +9,14 @@ type UsageRecorder = {
 };
 
 function* collectModuleSpecifiers(bundle: AnalyzedBundle): Generator<string, void, void> {
-    for (const resource of bundle.contents) {
-        const { targetFilePath, content } = resource.fileDescription;
-        if (isCodeFile(targetFilePath)) {
-            const parsedFile = typescript.preProcessFile(content, true);
-            for (const literal of parsedFile.importedFiles) {
-                yield literal.fileName;
-            }
+    const codeResources = bundle.contents.filter(function isCodeResource(resource) {
+        return isCodeFile(resource.fileDescription.targetFilePath);
+    });
+    for (const resource of codeResources) {
+        const { content } = resource.fileDescription;
+        const parsedFile = typescript.preProcessFile(content, true);
+        for (const literal of parsedFile.importedFiles) {
+            yield literal.fileName;
         }
     }
 }

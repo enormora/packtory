@@ -54,17 +54,17 @@ More concretely:
 3. Inspect all open PRs targeting the default branch.
 4. For each PR, derive its latest relevant branch activity from the PR timeline.
 5. Compute the latest relevant activity timestamp across:
-   - the successful CI completion time for `main` HEAD
-   - all open PR branch activity timestamps
+    - the successful CI completion time for `main` HEAD
+    - all open PR branch activity timestamps
 6. Open the GitHub activity gate if either condition is true:
-   - the quiet period has elapsed since the latest relevant activity
-   - the max latency has elapsed since `main` HEAD first went green
+    - the quiet period has elapsed since the latest relevant activity
+    - the max latency has elapsed since `main` HEAD first went green
 7. Run Packtory release analysis against npm `latest`.
 8. Apply the release-content policy:
-   - `unchanged`: skip
-   - `substantive`: publish
-   - `first-publish`: publish
-   - `dependency-only`: publish only after `DEPENDENCY_ONLY_MINIMUM_AGE_DAYS`
+    - `unchanged`: skip
+    - `substantive`: publish
+    - `first-publish`: publish
+    - `dependency-only`: publish only after `DEPENDENCY_ONLY_MINIMUM_AGE_DAYS`
 
 This means:
 

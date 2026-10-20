@@ -126,25 +126,17 @@ function createdSourceFiles(createSourceFile: SinonSpy, expectedFilePath: string
     });
 }
 
-function assertConsumerEntrypointSources(createSourceFile: SinonSpy, sources: readonly string[]): void {
+function assertConsumerSources(
+    createSourceFile: SinonSpy,
+    consumerFilePath: string,
+    sources: readonly string[]
+): void {
     assert.deepStrictEqual(
-        createdSourceFiles(createSourceFile, consumerEntrypointFilePath),
+        createdSourceFiles(createSourceFile, consumerFilePath),
         sources.flatMap(function (source) {
             return [
-                [ consumerEntrypointFilePath, source ],
-                [ consumerEntrypointFilePath, source ]
-            ];
-        })
-    );
-}
-
-function assertJavaScriptImportSources(createSourceFile: SinonSpy, sources: readonly string[]): void {
-    assert.deepStrictEqual(
-        createdSourceFiles(createSourceFile, javaScriptImportFilePath),
-        sources.flatMap(function (source) {
-            return [
-                [ javaScriptImportFilePath, source ],
-                [ javaScriptImportFilePath, source ]
+                [ consumerFilePath, source ],
+                [ consumerFilePath, source ]
             ];
         })
     );
@@ -276,7 +268,7 @@ suite('type-script-declaration-project', function () {
         ]);
     });
 
-    test('adds each virtual package file once per project', function () {
+    test('preserves the first virtual package file across duplicate package and resolution paths', function () {
         const createSourceFile = fake();
         const TypeScriptMorphProject = createFakeProjectConstructor({ createSourceFile });
 
@@ -285,7 +277,11 @@ suite('type-script-declaration-project', function () {
             [
                 { filePath: 'package.json', content: '{"name":"package"}' },
                 { filePath: 'package.json', content: '{"name":"package"}' }
-            ]
+            ],
+            [ {
+                packageName: 'package',
+                packageFiles: [ { filePath: './package.json', content: '{"name":"replacement"}' } ]
+            } ]
         );
 
         assert.deepStrictEqual(createSourceFile.args, [
@@ -315,7 +311,7 @@ suite('type-script-declaration-project', function () {
             assert.deepStrictEqual(firstProject(projects).publicEntrypointPaths, [
                 '.packtory-consumer-entrypoints.ts'
             ]);
-            assertConsumerEntrypointSources(createSourceFile, [ 'import "package";\n' ]);
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [ 'import "package";\n' ]);
         });
 
         test('adds public consumer imports for explicit package exports', function () {
@@ -336,7 +332,7 @@ suite('type-script-declaration-project', function () {
                 }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [
                 [
                     'import "package";',
                     'import "package/feature.js";',
@@ -354,7 +350,7 @@ suite('type-script-declaration-project', function () {
                 { filePath: 'package.json', content: '{"exports":"./index.js"}' }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [ 'import "package";\n' ]);
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [ 'import "package";\n' ]);
         });
 
         test('adds a public consumer import file for array package exports', function () {
@@ -365,7 +361,7 @@ suite('type-script-declaration-project', function () {
                 { filePath: 'package.json', content: '{"exports":["./index.js"]}' }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [ 'import "package";\n' ]);
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [ 'import "package";\n' ]);
         });
 
         test('adds a public consumer import file for conditional root exports', function () {
@@ -376,7 +372,7 @@ suite('type-script-declaration-project', function () {
                 { filePath: 'package.json', content: '{"exports":{"types":"./index.d.ts","import":"./index.js"}}' }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [ 'import "package";\n' ]);
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [ 'import "package";\n' ]);
         });
 
         test('adds public consumer imports for each legacy package root field', function () {
@@ -390,7 +386,7 @@ suite('type-script-declaration-project', function () {
                 { filePath: 'package.json', content: '{"main":"./index.js"}' }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [
                 'import "package";\n',
                 'import "package";\n'
             ]);
@@ -406,7 +402,7 @@ suite('type-script-declaration-project', function () {
                 { filePath: 'package.json', content: '{"types":"./index.d.ts"}' }
             ]);
 
-            assertConsumerEntrypointSources(createSourceFile, [ 'import "package";\n' ]);
+            assertConsumerSources(createSourceFile, consumerEntrypointFilePath, [ 'import "package";\n' ]);
         });
 
         test('does not add a public consumer import file without public entrypoints', function () {
@@ -469,7 +465,7 @@ suite('type-script-declaration-project', function () {
                 '.packtory-consumer-entrypoints.ts',
                 '.packtory-javascript-imports.ts'
             ]);
-            assertJavaScriptImportSources(createSourceFile, [
+            assertConsumerSources(createSourceFile, javaScriptImportFilePath, [
                 [
                     'import "@scope/core/public.js";',
                     'import "dependency";',

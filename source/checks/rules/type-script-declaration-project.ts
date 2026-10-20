@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { uniqueBy } from 'remeda';
 import {
     ModuleKind,
     ModuleResolutionKind,
@@ -247,15 +248,27 @@ export function createDeclarationProjectFactory(
         createdFilePaths: CreatedFilePathSet
     ): void {
         const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
-        for (const packageFile of packageFiles) {
-            const filePath = declarationProjectPackageFilePath(packageFolder, packageFile.filePath);
-            if (!createdFilePaths.has(filePath)) {
-                createdFilePaths.add(filePath);
-                if (path.basename(packageFile.filePath) === 'package.json') {
-                    project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
-                } else {
-                    project.createSourceFile(filePath, packageFile.content);
-                }
+        const sourceFiles = uniqueBy(
+            packageFiles.map(function packageSourceFile(packageFile) {
+                return {
+                    ...packageFile,
+                    filePath: declarationProjectPackageFilePath(packageFolder, packageFile.filePath)
+                };
+            }),
+            function sourceFilePath(sourceFile) {
+                return sourceFile.filePath;
+            }
+        );
+        const newSourceFiles = sourceFiles.filter(function uncreatedSourceFile(sourceFile) {
+            return !createdFilePaths.has(sourceFile.filePath);
+        });
+        for (const packageFile of newSourceFiles) {
+            const { filePath } = packageFile;
+            createdFilePaths.add(filePath);
+            if (path.basename(packageFile.filePath) === 'package.json') {
+                project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
+            } else {
+                project.createSourceFile(filePath, packageFile.content);
             }
         }
     }
