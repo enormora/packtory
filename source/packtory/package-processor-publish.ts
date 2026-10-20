@@ -330,18 +330,10 @@ export type PublishOperations = {
 
 export function createPublishOperations(dependencies: PublishDependencies): PublishOperations {
     async function buildVersionedBundle(
-        analyzedBundle: AnalyzedBundle,
-        options: BuildAndPublishOptions,
-        stage: boolean,
-        substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined
+        input: DetermineVersionAndPublishOptions,
+        currentVersion: CurrentVersion
     ): Promise<VersionedBundleBuildContext> {
-        assertEcmaScriptModuleMainPackageManifest(options.mainPackageManifest);
-        const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
-            name: analyzedBundle.name,
-            registrySettings: options.registrySettings,
-            stage,
-            versioning: options.versioning
-        });
+        const { analyzedBundle, buildOptions: options, stage, substitutionPublicModuleSourcePaths } = input;
         const version = await determineBuildVersion(
             currentVersion,
             options,
@@ -420,14 +412,9 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     async function tryFinalizeCurrentProviderVersion(
-        options: DetermineVersionAndPublishOptions
+        options: DetermineVersionAndPublishOptions,
+        currentVersion: CurrentVersion
     ): Promise<BuildAndPublishResult | undefined> {
-        const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
-            name: options.analyzedBundle.name,
-            registrySettings: options.buildOptions.registrySettings,
-            stage: options.stage,
-            versioning: options.buildOptions.versioning
-        });
         if (!usesVersionProvider(options.buildOptions.versioning) || currentVersion.isNothing) {
             return undefined;
         }
@@ -456,13 +443,11 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             : undefined;
     }
 
-    async function buildPendingPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
-        const buildContext = await buildVersionedBundle(
-            options.analyzedBundle,
-            options.buildOptions,
-            options.stage,
-            options.substitutionPublicModuleSourcePaths
-        );
+    async function buildPendingPublish(
+        options: DetermineVersionAndPublishOptions,
+        currentVersion: CurrentVersion
+    ): Promise<BuildAndPublishResult> {
+        const buildContext = await buildVersionedBundle(options, currentVersion);
         const preBumpExtraFiles = await generateExtraFiles(
             dependencies,
             buildContext.versionedBundle,
@@ -502,12 +487,24 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         assertEcmaScriptModuleMainPackageManifest(options.buildOptions.mainPackageManifest);
         const currentHeadPublishAttempt = await tryFinalizePublishedCurrentHead(dependencies, options);
-        if (currentHeadPublishAttempt === false) {
-            return verifyPreparedPublish({ dependencies, options, result: await buildPendingPublish(options) });
+        if (currentHeadPublishAttempt !== undefined && currentHeadPublishAttempt !== false) {
+            return verifyPreparedPublish({ dependencies, options, result: currentHeadPublishAttempt });
         }
-        const result = currentHeadPublishAttempt ??
-            await tryFinalizeCurrentProviderVersion(options) ??
-            await buildPendingPublish(options);
+        const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
+            name: options.analyzedBundle.name,
+            registrySettings: options.buildOptions.registrySettings,
+            stage: options.stage,
+            versioning: options.buildOptions.versioning
+        });
+        if (currentHeadPublishAttempt === false) {
+            return verifyPreparedPublish({
+                dependencies,
+                options,
+                result: await buildPendingPublish(options, currentVersion)
+            });
+        }
+        const result = await tryFinalizeCurrentProviderVersion(options, currentVersion) ??
+            await buildPendingPublish(options, currentVersion);
         return verifyPreparedPublish({ dependencies, options, result });
     }
 

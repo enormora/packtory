@@ -53,7 +53,7 @@ suite('package-processor publish provider versioning', function () {
             alreadyPublishedAsLatest: true,
             previousReleaseArtifacts: publishedArtifacts('1.2.3', 'published-head')
         });
-        const { processor } = createProcessor({
+        const { processor, determineCurrentVersion } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion,
             checkBundleAlreadyPublished
@@ -69,12 +69,13 @@ suite('package-processor publish provider versioning', function () {
             bundle: currentVersionedBundle,
             registrySettings: { authentication: { type: 'bearer-token', token: 'token' } }
         } ]);
+        assert.strictEqual(determineCurrentVersion.callCount, 1);
     });
 
     test('asks the provider for a new version when current artifacts changed', async function () {
         const provideVersion = fake.returns('1.2.4');
         const { addVersion, versions } = versionedBundleBuilder();
-        const { processor } = createProcessor({
+        const { processor, determineCurrentVersion } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion,
             checkBundleAlreadyPublished: fake.resolves({
@@ -91,6 +92,8 @@ suite('package-processor publish provider versioning', function () {
             1
         ]);
         assert.deepStrictEqual(versions, [ '1.2.3', '1.2.4' ]);
+        assert.strictEqual(determineCurrentVersion.callCount, 1);
+        assert.partialDeepStrictEqual(provideVersion.firstCall.args, [ { currentVersion: '1.2.3' } ]);
     });
 
     test('asks the provider directly when there is no current version to check', async function () {
@@ -115,13 +118,10 @@ suite('package-processor publish provider versioning', function () {
             stage: false,
             versioning
         } ];
-        const actualCurrentVersionLookups = [
-            determineCurrentVersion.firstCall.args,
-            determineCurrentVersion.secondCall.args
-        ];
-        assert.deepStrictEqual(actualCurrentVersionLookups, [
-            expectedCurrentVersionLookup,
-            expectedCurrentVersionLookup
-        ]);
+        assert.deepStrictEqual(
+            [ determineCurrentVersion.callCount, determineCurrentVersion.firstCall.args ],
+            [ 1, expectedCurrentVersionLookup ]
+        );
+        assert.partialDeepStrictEqual(provideVersion.firstCall.args, [ { currentVersion: undefined } ]);
     });
 });
