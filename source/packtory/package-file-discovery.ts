@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { isDefined } from 'remeda';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
-import { createWorklist, type Worklist } from '../common/worklist.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 
@@ -27,10 +26,9 @@ export type PackageInspectedFile = {
     readonly discovery: FileDiscovery;
 };
 
-type Predecessor = {
+type DiscoveryPath = {
     readonly resource: Resource;
-    readonly via: DiscoveryRelation;
-    readonly previous: Predecessor | undefined;
+    readonly chain: readonly DiscoveryStep[];
 };
 type DiscoveryEdge = {
     readonly target: string;
@@ -41,7 +39,13 @@ function resourcePath(resource: Resource): string {
     return resource.fileDescription.targetFilePath;
 }
 
-function discoverySeeds(bundle: LinkedBundle): ReadonlyMap<string, Predecessor> {
+function sourcePath(resource: Resource, repositoryFolder: string): string | undefined {
+    return resource.isGeneratedManifest
+        ? undefined
+        : path.relative(repositoryFolder, resource.fileDescription.inputFilePath).split(path.sep).join(path.posix.sep);
+}
+
+function discoverySeeds(bundle: LinkedBundle, repositoryFolder: string): ReadonlyMap<string, DiscoveryPath> {
     const roots = new Set(
         Object.values(bundle.roots).flatMap(function (root) {
             return root.declarationFile === undefined
@@ -60,8 +64,11 @@ function discoverySeeds(bundle: LinkedBundle): ReadonlyMap<string, Predecessor> 
             .map(function (resource) {
                 return [ resourcePath(resource), {
                     resource,
-                    via: roots.has(resourcePath(resource)) ? 'root' : 'additional-file',
-                    previous: undefined
+                    chain: [ {
+                        packagePath: `./${resourcePath(resource)}`,
+                        sourcePath: sourcePath(resource, repositoryFolder),
+                        via: roots.has(resourcePath(resource)) ? 'root' : 'additional-file'
+                    } ]
                 } ];
             })
     );
@@ -90,30 +97,36 @@ function discoveryEdges(
 type DiscoveryTraversal = {
     readonly discovered: {
         readonly has: (target: string) => boolean;
-        readonly set: (target: string, predecessor: Predecessor) => unknown;
+        readonly set: (target: string, discoveryPath: DiscoveryPath) => unknown;
     };
-    readonly pending: Worklist<Predecessor>;
+    readonly repositoryFolder: string;
     readonly resourcesByPath: ReadonlyMap<string, Resource>;
     readonly resourcesByInputPath: ReadonlyMap<string, Resource>;
 };
 
-function discoverAdjacentFiles(traversal: DiscoveryTraversal, current: Predecessor): void {
+function discoverAdjacentFiles(traversal: DiscoveryTraversal, current: DiscoveryPath): void {
     discoveryEdges(current.resource, traversal.resourcesByInputPath).forEach(function (edge) {
         const resource = traversal.resourcesByPath.get(edge.target);
         if (resource === undefined || traversal.discovered.has(edge.target)) {
             return;
         }
-        const predecessor = { resource, via: edge.via, previous: current };
-        traversal.discovered.set(edge.target, predecessor);
-        traversal.pending.schedule(predecessor);
+        const discoveryPath = {
+            resource,
+            chain: [ ...current.chain, {
+                packagePath: `./${resourcePath(resource)}`,
+                sourcePath: sourcePath(resource, traversal.repositoryFolder),
+                via: edge.via
+            } ]
+        };
+        traversal.discovered.set(edge.target, discoveryPath);
     });
 }
 
-function discoverFiles(bundle: LinkedBundle): ReadonlyMap<string, Predecessor> {
-    const discovered = new Map(discoverySeeds(bundle));
+function discoverFiles(bundle: LinkedBundle, repositoryFolder: string): ReadonlyMap<string, DiscoveryPath> {
+    const discovered = new Map(discoverySeeds(bundle, repositoryFolder));
     const traversal: DiscoveryTraversal = {
         discovered,
-        pending: createWorklist(discovered.values()),
+        repositoryFolder,
         resourcesByPath: new Map(bundle.contents.map(function (resource) {
             return [ resourcePath(resource), resource ];
         })),
@@ -121,39 +134,10 @@ function discoverFiles(bundle: LinkedBundle): ReadonlyMap<string, Predecessor> {
             return [ resource.fileDescription.inputFilePath, resource ];
         }))
     };
-    let current = traversal.pending.takeNext();
-    while (current !== undefined) {
+    for (const current of discovered.values()) {
         discoverAdjacentFiles(traversal, current);
-        current = traversal.pending.takeNext();
     }
     return discovered;
-}
-
-function sourcePath(resource: Resource, repositoryFolder: string): string | undefined {
-    return resource.isGeneratedManifest
-        ? undefined
-        : path.relative(repositoryFolder, resource.fileDescription.inputFilePath).split(path.sep).join(path.posix.sep);
-}
-
-function discoveryChain(
-    target: string,
-    discovered: ReadonlyMap<string, Predecessor>,
-    repositoryFolder: string
-): FileDiscovery {
-    let current = discovered.get(target);
-    if (current === undefined) {
-        return { type: 'unavailable', reason: 'no-discovery-path' };
-    }
-    const chain: DiscoveryStep[] = [];
-    while (current !== undefined) {
-        chain.push({
-            packagePath: `./${resourcePath(current.resource)}`,
-            sourcePath: sourcePath(current.resource, repositoryFolder),
-            via: current.via
-        });
-        current = current.previous;
-    }
-    return { type: 'discovered', chain: chain.toReversed() };
 }
 
 export function inspectFileDiscovery(
@@ -161,14 +145,17 @@ export function inspectFileDiscovery(
     retained: AnalyzedBundle['contents'],
     repositoryFolder: string
 ): readonly PackageInspectedFile[] {
-    const discovered = discoverFiles(bundle);
+    const discovered = discoverFiles(bundle, repositoryFolder);
     return retained
         .map(function (resource): PackageInspectedFile {
+            const discoveryPath = discovered.get(resourcePath(resource));
             return {
                 packagePath: `./${resourcePath(resource)}`,
                 sourcePath: sourcePath(resource, repositoryFolder),
                 kind: resource.isGeneratedManifest ? 'generated-manifest' : 'file',
-                discovery: discoveryChain(resourcePath(resource), discovered, repositoryFolder)
+                discovery: discoveryPath === undefined
+                    ? { type: 'unavailable', reason: 'no-discovery-path' }
+                    : { type: 'discovered', chain: discoveryPath.chain }
             };
         })
         .toSorted(function (left, right) {
