@@ -8,10 +8,16 @@ import type { ProgressBroadcastConsumer } from '../../progress/progress-broadcas
 import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runChangelogHandler } from './changelog-handler.ts';
-import { getParseExitCode } from './command-parsing.ts';
+import {
+    createParseLogger,
+    getParseExitCode,
+    prepareProgramArguments,
+    type PreparedProgramArguments
+} from './command-parsing.ts';
 import { runConfigurationInspectHandler } from './configuration-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPackageDependenciesHandler } from './package-dependencies-handler.ts';
+import { runPackageFilesHandler } from './package-files-handler.ts';
 import { runPackageSideEffectsHandler } from './package-side-effects-handler.ts';
 import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
@@ -34,11 +40,6 @@ type GitHubReleaseClientContext = {
     readonly owner: string;
     readonly repository: string;
     readonly token: string;
-};
-type PreparedProgramArguments = {
-    readonly arguments: readonly string[];
-    readonly rootHelp: boolean;
-    readonly trace: boolean;
 };
 
 export type CommandLineInterfaceRunnerDependencies = {
@@ -76,6 +77,7 @@ const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
 const configurationCommandName = 'configuration';
 const dependenciesInspectCommandName = 'dependencies';
+const filesInspectCommandName = 'files';
 const inspectCommandName = 'inspect';
 const inspectConfigurationCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
@@ -84,36 +86,6 @@ const sideEffectsInspectCommandName = 'side-effects';
 const treeCommandName = 'tree';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
-const traceFlag = '--trace';
-const traceHelpText = '  --trace  print stack traces for errors';
-const commandArgumentOffset = 2;
-const firstCommandArgumentIndex = 2;
-const firstArgumentAfterTraceIndex = 3;
-
-function isRootHelpRequest(programArguments: readonly string[]): boolean {
-    const commandArguments = programArguments.slice(commandArgumentOffset);
-    return commandArguments.length === 0 || commandArguments[0] === '--help' || commandArguments[0] === '-h';
-}
-
-function prepareProgramArguments(programArguments: readonly string[]): PreparedProgramArguments {
-    const trace = programArguments[firstCommandArgumentIndex] === traceFlag;
-    const preparedArguments = trace
-        ? [
-            ...programArguments.slice(0, commandArgumentOffset),
-            ...programArguments.slice(firstArgumentAfterTraceIndex)
-        ]
-        : Array.from(programArguments);
-    return {
-        arguments: preparedArguments,
-        rootHelp: isRootHelpRequest(preparedArguments),
-        trace
-    };
-}
-
-function addTraceHelp(message: string): string {
-    return `${message}\n${traceHelpText}`;
-}
-
 function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
@@ -124,12 +96,6 @@ function formatUnexpectedError(error: unknown): string {
 
 function formatUnexpectedTrace(error: unknown): string {
     return formatTerminalErrorTrace(toError(error));
-}
-
-function createParseLogger(log: (message: string) => void, rootHelp: boolean): (message: string) => void {
-    return function logParseMessage(message) {
-        log(rootHelp ? addTraceHelp(message) : message);
-    };
 }
 
 export function createCommandLineInterfaceRunner(
@@ -388,6 +354,22 @@ export function createCommandLineInterfaceRunner(
                         },
                         async handler({ packageName }) {
                             exitCode = await runPackageDependenciesHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configurationLoader,
+                                flags: { packageName, trace: traceEnabled }
+                            });
+                        }
+                    }),
+                    [filesInspectCommandName]: defineCommand({
+                        name: filesInspectCommandName,
+                        description: 'Prints source discovery chains for retained files in one package.',
+                        arguments: {
+                            packageName: positional({ type: string, displayName: 'package' })
+                        },
+                        async handler({ packageName }) {
+                            exitCode = await runPackageFilesHandler({
                                 log,
                                 packtory,
                                 spinnerRenderer,

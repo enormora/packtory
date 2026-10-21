@@ -6,6 +6,9 @@ import type {
     PackageDependencyInspection as PublicPackageDependencyInspection,
     PackageDependencyInspectionOutcome as PublicPackageDependencyInspectionOutcome,
     PackageDependencyInspectionResult as PublicPackageDependencyInspectionResult,
+    PackageFileInspection as PublicPackageFileInspection,
+    PackageFileInspectionOutcome as PublicPackageFileInspectionOutcome,
+    PackageFileInspectionResult as PublicPackageFileInspectionResult,
     PackageSideEffectsInspection as PublicPackageSideEffectsInspection,
     PackageSideEffectsInspectionOutcome as PublicPackageSideEffectsInspectionOutcome,
     PackageSideEffectsInspectionResult as PublicPackageSideEffectsInspectionResult,
@@ -48,6 +51,7 @@ export const {
     buildAndPublishAll,
     diffAgainstLatestPublished,
     inspectPackageDependencies,
+    inspectPackageFiles,
     inspectPackageSideEffects,
     planReleaseAgainstLatestPublished,
     resolveAndLinkAll,
@@ -63,6 +67,9 @@ export type BuildReport = PublicBuildReport;
 export type PackageDependencyInspection = PublicPackageDependencyInspection;
 export type PackageDependencyInspectionOutcome = PublicPackageDependencyInspectionOutcome;
 export type PackageDependencyInspectionResult = PublicPackageDependencyInspectionResult;
+export type PackageFileInspection = PublicPackageFileInspection;
+export type PackageFileInspectionOutcome = PublicPackageFileInspectionOutcome;
+export type PackageFileInspectionResult = PublicPackageFileInspectionResult;
 export type PackageSideEffectsInspection = PublicPackageSideEffectsInspection;
 export type PackageSideEffectsInspectionOutcome = PublicPackageSideEffectsInspectionOutcome;
 export type PackageSideEffectsInspectionResult = PublicPackageSideEffectsInspectionResult;

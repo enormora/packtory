@@ -6,6 +6,7 @@ import type {
 } from '../progress/progress-broadcaster.ts';
 import type { BuildReport as ReportBuildReport } from '../report/aggregator/report-types.ts';
 import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
+import type { PackageInspectedFile } from './package-file-discovery.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { CheckError, ResolvedPackage } from './resolved-package.ts';
 import type { PartialError } from './scheduler.ts';
@@ -430,6 +431,24 @@ export function createPackageDependencyInspectionOutcome(
     return { result };
 }
 
+export type PackageFileInspection = {
+    readonly packageName: string;
+    readonly files: readonly PackageInspectedFile[];
+};
+
+export type PackageFileInspectionResult = Result<
+    PackageFileInspection,
+    ConfigurationError | PackPackageFailure | PartialErrorResult
+>;
+
+export type PackageFileInspectionOutcome = {
+    readonly result: PackageFileInspectionResult;
+};
+
+export function createPackageFileInspectionOutcome(result: PackageFileInspectionResult): PackageFileInspectionOutcome {
+    return { result };
+}
+
 type SideEffectsFalseDecision = { readonly type: 'side-effects-false'; };
 type SideEffectsListDecision = { readonly type: 'side-effects-list'; readonly paths: readonly string[]; };
 type SideEffectsOmittedDecision = {
@@ -497,6 +516,10 @@ export type Packtory = {
         configuration: unknown,
         packageName: string
     ) => Promise<PackageDependencyInspectionOutcome>;
+    inspectPackageFiles: (
+        configuration: unknown,
+        packageName: string
+    ) => Promise<PackageFileInspectionOutcome>;
     inspectPackageSideEffects: (
         configuration: unknown,
         packageName: string
