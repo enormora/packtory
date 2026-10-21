@@ -99,6 +99,7 @@ suite('inspect files command', function () {
         const help = await expectSubcommandHelp('inspect', 'files');
         assert.match(help, /packtory inspect files/u);
         assert.match(help, /<package>/u);
+        assert.match(help, /Prints source discovery chains for retained files in one package\./u);
     });
 
     test('stops spinners when inspection throws', async function () {
