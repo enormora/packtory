@@ -20,6 +20,7 @@ packtory <command> [options]
 
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **tree:** Builds locally and prints one configured package's artifact tree without reading the registry or writing an artifact.
+- **inspect files:** Lists retained files and their source discovery chains for one configured package.
 - **inspect dependencies:** Builds locally and prints why one configured package emits final `dependencies` and `peerDependencies`.
 - **inspect side-effects:** Builds locally and prints why one configured package emits, lists, or omits `package.json` `sideEffects`.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
@@ -71,6 +72,24 @@ packtory <command> [options]
 - It never reads registry metadata, publishes, writes archives, writes folders, opens HTML, or uses a pager.
 - An unknown `<package>` argument is reported as `package-not-found`.
 - `packtory tree` exits with code `0` on a clean run and `1` on config errors, check failures, package failures, or an unknown package.
+
+**File inspect behavior:**
+
+- `packtory inspect files <package>` resolves and links locally, runs dead-code elimination, and lists the selected package's retained resources.
+- Each file shows one shortest discovery chain from a configured runtime or declaration root, or an explicitly included additional file. Source maps and declaration companions are labeled separately from imports.
+- Chains use local dependencies after linking and before dead-code elimination. They explain discovery, not symbol retention; a chain can include an intermediate file later removed from the package.
+- Equal-length chains are chosen deterministically by package path. Missing provenance is printed as `Discovery chain unavailable`.
+- Unlike `tree`, this is a resource explanation rather than a complete artifact listing. Build-generated manifests and SBOMs outside the analyzed resource set are omitted. Generated-manifest references within that set are labeled explicitly.
+- Use `inspect dependencies` for sibling substitutions and external dependencies. This command does not access the registry.
+- Exit codes are `0` on success and `1` on configuration errors, package failures, or an unknown package. `--trace` includes error stack traces.
+
+Example chain for a retained helper:
+
+```text
+./helper.js (source/helper.js)
+  root: ./index.js
+  import: ./helper.js
+```
 
 **Dependency inspect behavior:**
 

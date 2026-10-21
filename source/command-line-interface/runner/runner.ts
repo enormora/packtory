@@ -12,6 +12,7 @@ import { getParseExitCode } from './command-parsing.ts';
 import { runConfigurationInspectHandler } from './configuration-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPackageDependenciesHandler } from './package-dependencies-handler.ts';
+import { runPackageFilesHandler } from './package-files-handler.ts';
 import { runPackageSideEffectsHandler } from './package-side-effects-handler.ts';
 import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
@@ -388,6 +389,22 @@ export function createCommandLineInterfaceRunner(
                         },
                         async handler({ packageName }) {
                             exitCode = await runPackageDependenciesHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configurationLoader,
+                                flags: { packageName, trace: traceEnabled }
+                            });
+                        }
+                    }),
+                    files: defineCommand({
+                        name: 'files',
+                        description: 'Prints source discovery chains for retained files in one package.',
+                        arguments: {
+                            packageName: positional({ type: string, displayName: 'package' })
+                        },
+                        async handler({ packageName }) {
+                            exitCode = await runPackageFilesHandler({
                                 log,
                                 packtory,
                                 spinnerRenderer,

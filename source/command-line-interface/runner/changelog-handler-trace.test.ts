@@ -28,6 +28,7 @@ function createUnusedPacktory(): Packtory {
         buildAndPublishAll: unusedPacktoryMethod,
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageDependencies: unusedPacktoryMethod,
+        inspectPackageFiles: unusedPacktoryMethod,
         inspectPackageSideEffects: unusedPacktoryMethod,
         inspectPackageTree: unusedPacktoryMethod,
         packAllPackages: unusedPacktoryMethod,

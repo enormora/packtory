@@ -122,6 +122,7 @@ function createPacktory(result: ReleasePlanResult): Packtory {
         buildAndPublishAll: unusedPacktoryMethod,
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageDependencies: unusedPacktoryMethod,
+        inspectPackageFiles: unusedPacktoryMethod,
         inspectPackageSideEffects: unusedPacktoryMethod,
         inspectPackageTree: unusedPacktoryMethod,
         packAllPackages: unusedPacktoryMethod,
