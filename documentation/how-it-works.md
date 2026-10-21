@@ -412,6 +412,8 @@ The rationale: a published package whose `dependencies` point at a `workspace:*`
 
 In _manual_ versioning, the configured version is used verbatim. In _automatic_ mode, packtory decides for itself whether to bump.
 
+Publish preparation reuses a single current-version lookup for version selection and version-provider callbacks. Confirmed current-head publications skip that lookup. Artifact comparisons, exact target verification, and publish recovery perform independent registry reads.
+
 ### The algorithm
 
 ```text
