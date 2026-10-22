@@ -1,3 +1,4 @@
+import { validateConfiguration } from '../../configuration/validation.ts';
 import { succeededResultsFrom } from '../../packtory/partial-result.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { buildReleaseDiffDocument, type ReleaseDiffDocument } from '../../report/release-diff/release-diff-document.ts';
@@ -12,6 +13,7 @@ type Logger = (message: string) => void;
 
 type ReleaseDiffFlags = {
     readonly filesOnly: boolean;
+    readonly packageName: string | undefined;
 };
 
 export type ReleaseDiffHandlerDependencies = {
@@ -36,15 +38,31 @@ async function renderDocument(
     dependencies.log(renderFailureOnlyTerminalReleaseDiff(document).trimEnd());
 }
 
+function isUnknownPackage(configuration: unknown, packageName: string | undefined): boolean {
+    if (packageName === undefined) {
+        return false;
+    }
+    const validation = validateConfiguration(configuration);
+    return validation.isOk && validation.value.packtoryConfiguration.packages.every(function (entry) {
+        return entry.name !== packageName;
+    });
+}
+
 async function releaseDiff(dependencies: ReleaseDiffHandlerDependencies): Promise<number> {
     const { packtory, spinnerRenderer, configurationLoader } = dependencies;
     const configuration = await configurationLoader.load();
+    if (isUnknownPackage(configuration, dependencies.flags.packageName)) {
+        dependencies.log(`Package "${dependencies.flags.packageName}" is not declared in the packtory configuration`);
+        return 1;
+    }
     const outcome = await packtory.diffAgainstLatestPublished(configuration);
     spinnerRenderer.stopAll();
     const document = buildReleaseDiffDocument({
         report: outcome.getReport(),
         result: outcome.result,
-        packages: succeededResultsFrom(outcome.result)
+        packages: succeededResultsFrom(outcome.result).filter(function (entry) {
+            return dependencies.flags.packageName === undefined || entry.name === dependencies.flags.packageName;
+        })
     });
     await renderDocument(dependencies, document);
     return outcome.result.isErr ? 1 : 0;

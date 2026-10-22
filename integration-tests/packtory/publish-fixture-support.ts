@@ -174,7 +174,9 @@ export function getFixturePath(name: string): string {
     return path.join(process.cwd(), `integration-tests/fixtures/${name}`);
 }
 
-async function createPublishConfiguration(input: CreatePublishConfigurationInput): Promise<PublishConfiguration> {
+export async function createPublishConfiguration(
+    input: CreatePublishConfigurationInput
+): Promise<PublishConfiguration> {
     const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageManifestOverrides } = input;
     const baseMainPackageManifest = await loadPackageManifest(fixturePath);
     const mergedMainPackageManifest = { ...baseMainPackageManifest, ...mainPackageManifestOverrides };

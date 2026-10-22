@@ -148,6 +148,7 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
         addVersion,
         progressBroadcaster,
         packtory: createPacktory({
+            inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor: {
                 resolveAndLink,
                 resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,

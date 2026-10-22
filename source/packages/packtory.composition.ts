@@ -60,6 +60,7 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             scheduler,
             packageProcessor: parts.packageProcessor,
             deadCodeEliminator: parts.deadCodeEliminator,
+            inspectSymbols: parts.deadCodeEliminator.inspectSymbols,
             progressBroadcaster: parts.progressBroadcaster,
             artifactsBuilder: parts.artifactsBuilder,
             fileManager: parts.fileManager,

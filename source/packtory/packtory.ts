@@ -1,5 +1,6 @@
 /* eslint-disable import/max-dependencies -- the packtory facade legitimately stitches together validation, resolve+link, publish, release-diff, release-analysis, pack, and report attachment */
 import { Result } from 'true-myth';
+import type { SymbolEliminationInspector, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
 import {
@@ -7,12 +8,12 @@ import {
     validateConfigurationWithoutRegistry,
     type ValidConfigurationResult
 } from '../configuration/validation.ts';
-import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import type { VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
+import { createInspectPackageSymbolsValidated } from './packtory-package-symbols.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
 import { createInspectPackageDependenciesValidated } from './packtory-package-dependencies.ts';
@@ -45,6 +46,9 @@ import {
     type PackageDependencyInspectionOutcome as PackageDependencyInspectionOutcomeBase,
     type PackageDependencyInspectionResult as PackageDependencyInspectionResultBase,
     type PackageFileInspection as PackageFileInspectionBase,
+    type PackageSymbolInspection as PackageSymbolInspectionBase,
+    type PackageSymbolInspectionOutcome as PackageSymbolInspectionOutcomeBase,
+    type PackageSymbolInspectionResult as PackageSymbolInspectionResultBase,
     type PackageFileInspectionOutcome as PackageFileInspectionOutcomeBase,
     type PackageFileInspectionResult as PackageFileInspectionResultBase,
     type PackageSideEffectsInspection as PackageSideEffectsInspectionBase,
@@ -110,6 +114,9 @@ export type PackageDependencyInspection = PackageDependencyInspectionBase;
 export type PackageDependencyInspectionOutcome = PackageDependencyInspectionOutcomeBase;
 export type PackageDependencyInspectionResult = PackageDependencyInspectionResultBase;
 export type PackageFileInspection = PackageFileInspectionBase;
+export type PackageSymbolInspection = PackageSymbolInspectionBase;
+export type PackageSymbolInspectionOutcome = PackageSymbolInspectionOutcomeBase;
+export type PackageSymbolInspectionResult = PackageSymbolInspectionResultBase;
 export type PackageFileInspectionOutcome = PackageFileInspectionOutcomeBase;
 export type PackageFileInspectionResult = PackageFileInspectionResultBase;
 export type PackageSideEffectsInspection = PackageSideEffectsInspectionBase;
@@ -122,6 +129,7 @@ export type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
     readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly inspectSymbols: SymbolEliminationInspector;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: Pick<ArtifactsBuilder, 'collectContents'>;
     readonly fileManager: Pick<FileManager, 'checkDirectory' | 'checkReadability' | 'readFile'>;
@@ -148,6 +156,7 @@ type ValidatedRunners = {
     readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
     readonly inspectPackageFilesValidated: ReturnType<typeof createInspectPackageFilesValidated>;
+    readonly inspectPackageSymbolsValidated: ReturnType<typeof createInspectPackageSymbolsValidated>;
     readonly inspectPackageSideEffectsValidated: ReturnType<typeof createInspectPackageSideEffectsValidated>;
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
 };
@@ -165,6 +174,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         runPackAllValidated: createRunPackAllValidated(dependencies),
         inspectPackageDependenciesValidated: createInspectPackageDependenciesValidated(dependencies),
         inspectPackageFilesValidated: createInspectPackageFilesValidated(dependencies),
+        inspectPackageSymbolsValidated: createInspectPackageSymbolsValidated(dependencies),
         inspectPackageSideEffectsValidated: createInspectPackageSideEffectsValidated(dependencies),
         inspectPackageTreeValidated: createInspectPackageTreeValidated(dependencies)
     };
@@ -324,6 +334,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         runPackAllValidated,
         inspectPackageDependenciesValidated,
         inspectPackageFilesValidated,
+        inspectPackageSymbolsValidated,
         inspectPackageSideEffectsValidated,
         inspectPackageTreeValidated
     } = createValidatedRunners(dependencies);
@@ -474,6 +485,13 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                 ? Result.err(configurationError(validation.error))
                 : await inspectPackageFilesValidated(validation.value, packageName);
             return createPackageFileInspectionOutcome(result);
+        },
+        async inspectPackageSymbols(configuration, packageName) {
+            const validation = validateConfigurationWithoutRegistry(configuration);
+            const result = validation.isErr
+                ? Result.err(configurationError(validation.error))
+                : await inspectPackageSymbolsValidated(validation.value, packageName);
+            return { result };
         },
         async inspectPackageSideEffects(configuration, packageName) {
             return inspectPackageSideEffectsWithValidation({

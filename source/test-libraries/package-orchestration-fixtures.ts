@@ -279,6 +279,7 @@ export function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}
     const progressBroadcaster = createTestProgressBroadcaster();
     return {
         packtory: createPacktory({
+            inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor,
             scheduler: scheduler as never,
             deadCodeEliminator: fallback(overrides.deadCodeEliminator, createTestEliminator()),

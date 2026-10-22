@@ -1,4 +1,5 @@
 import type { Result } from 'true-myth';
+import type { InspectedSymbol } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackFormat } from '../pack-emitter/pack-emitter.ts';
 import type {
     ArtifactEntry,
@@ -414,11 +415,11 @@ export type PackageDependencyInspection = {
     readonly dependencies: readonly PackageDependency[];
 };
 
-export type PackageDependencyInspectionFailure = ConfigurationError | PackPackageFailure | PartialErrorResult;
+export type PackageInspectionFailure = ConfigurationError | PackPackageFailure | PartialErrorResult;
 
 export type PackageDependencyInspectionResult = Result<
     PackageDependencyInspection,
-    PackageDependencyInspectionFailure
+    PackageInspectionFailure
 >;
 
 export type PackageDependencyInspectionOutcome = {
@@ -438,7 +439,7 @@ export type PackageFileInspection = {
 
 export type PackageFileInspectionResult = Result<
     PackageFileInspection,
-    ConfigurationError | PackPackageFailure | PartialErrorResult
+    PackageInspectionFailure
 >;
 
 export type PackageFileInspectionOutcome = {
@@ -448,6 +449,20 @@ export type PackageFileInspectionOutcome = {
 export function createPackageFileInspectionOutcome(result: PackageFileInspectionResult): PackageFileInspectionOutcome {
     return { result };
 }
+
+export type PackageSymbolInspection = {
+    readonly packageName: string;
+    readonly symbols: readonly InspectedSymbol[];
+};
+
+export type PackageSymbolInspectionResult = Result<
+    PackageSymbolInspection,
+    PackageInspectionFailure
+>;
+
+export type PackageSymbolInspectionOutcome = {
+    readonly result: PackageSymbolInspectionResult;
+};
 
 type SideEffectsFalseDecision = { readonly type: 'side-effects-false'; };
 type SideEffectsListDecision = { readonly type: 'side-effects-list'; readonly paths: readonly string[]; };
@@ -491,11 +506,9 @@ export type PackageSideEffectsInspection = {
     readonly impureFiles: readonly PackageSideEffectsFile[];
 };
 
-export type PackageSideEffectsInspectionFailure = ConfigurationError | PackPackageFailure | PartialErrorResult;
-
 export type PackageSideEffectsInspectionResult = Result<
     PackageSideEffectsInspection,
-    PackageSideEffectsInspectionFailure
+    PackageInspectionFailure
 >;
 
 export type PackageSideEffectsInspectionOutcome = {
@@ -520,6 +533,7 @@ export type Packtory = {
         configuration: unknown,
         packageName: string
     ) => Promise<PackageFileInspectionOutcome>;
+    inspectPackageSymbols: (configuration: unknown, packageName: string) => Promise<PackageSymbolInspectionOutcome>;
     inspectPackageSideEffects: (
         configuration: unknown,
         packageName: string

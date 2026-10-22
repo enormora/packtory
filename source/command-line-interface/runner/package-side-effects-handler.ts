@@ -1,20 +1,10 @@
-import { match } from 'ts-pattern';
-import {
-    configurationErrorType,
-    packPackageFailureType,
-    partialFailureType,
-    type PackageSideEffectsInspectionFailure
-} from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import {
     renderTerminalPackageSideEffects
 } from '../../report/terminal-renderer/terminal-package-side-effects-renderer.ts';
 import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import { runPackageInspectionHandler } from './package-inspection-handler.ts';
-import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
-
-type Logger = (message: string) => void;
+import { formatPackageInspectionFailure, runPackageInspectionHandler } from './package-inspection-handler.ts';
 
 type PackageSideEffectsFlags = {
     readonly packageName: string;
@@ -22,65 +12,30 @@ type PackageSideEffectsFlags = {
 };
 
 export type PackageSideEffectsHandlerDependencies = {
-    readonly log: Logger;
+    readonly log: (message: string) => void;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configurationLoader: ConfigurationLoader;
     readonly flags: PackageSideEffectsFlags;
 };
 
-function formatConfigurationFailure(
-    error: Extract<PackageSideEffectsInspectionFailure, { readonly type: typeof configurationErrorType; }>
-): string {
-    return [
-        'Packtory side effects [Dry run]',
-        'Configuration issues',
-        ...error.issues.map(function (issue) {
-            return `- ${issue}`;
-        })
-    ]
-        .join('\n');
-}
-
-function formatPartialFailure(
-    error: Extract<PackageSideEffectsInspectionFailure, { readonly type: typeof partialFailureType; }>,
-    trace: boolean
-): string {
-    const formatError = trace ? formatTerminalErrorTraceBullet : formatTerminalErrorBullet;
-    return [
-        'Packtory side effects [Dry run]',
-        'Package failures',
-        ...error.error.failures.map(formatError)
-    ]
-        .join('\n');
-}
-
-function formatPackageSideEffectsFailure(error: PackageSideEffectsInspectionFailure, trace: boolean): string {
-    return match(error)
-        .with({ type: configurationErrorType }, formatConfigurationFailure)
-        .with({ type: partialFailureType }, function (partialFailure) {
-            return formatPartialFailure(partialFailure, trace);
-        })
-        .with({ type: packPackageFailureType.packageNotFound }, function (notFound) {
-            return `Package "${notFound.packageName}" is not declared in the packtory configuration`;
-        })
-        .otherwise(function () {
-            return 'Package side effects could not be inspected';
-        });
-}
-
 export async function runPackageSideEffectsHandler(
     dependencies: PackageSideEffectsHandlerDependencies
 ): Promise<number> {
     const { configurationLoader, flags, log, packtory, spinnerRenderer } = dependencies;
-    return await runPackageInspectionHandler({
+    return runPackageInspectionHandler({
         log,
         spinnerRenderer,
         async inspect() {
-            return await packtory.inspectPackageSideEffects(await configurationLoader.load(), flags.packageName);
+            return packtory.inspectPackageSideEffects(await configurationLoader.load(), flags.packageName);
         },
         renderFailure(error) {
-            return formatPackageSideEffectsFailure(error, flags.trace);
+            return formatPackageInspectionFailure({
+                error,
+                trace: flags.trace,
+                title: 'Packtory side effects [Dry run]',
+                fallback: 'Package side effects could not be inspected'
+            });
         },
         renderSuccess: renderTerminalPackageSideEffects
     });

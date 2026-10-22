@@ -40,3 +40,28 @@ export function createEmptyFileAnalysis(): FileAnalysis {
         sideEffectImports: new Set<string>()
     };
 }
+
+type SymbolRetentionStep = {
+    readonly binding: string;
+    readonly reason: string;
+    readonly consumerPackage: string | undefined;
+};
+
+export type InspectedSymbol = {
+    readonly packagePath: string;
+    readonly name: string;
+    readonly line: number;
+    readonly kind: string;
+    readonly decision: 'kept' | 'removed';
+    readonly reason: 'dead-code-elimination-disabled' | 'reachable' | 'unreachable';
+    readonly chain: readonly SymbolRetentionStep[];
+};
+
+export type BundleSymbolInspection = {
+    readonly bundle: AnalyzedBundle;
+    readonly symbols: readonly InspectedSymbol[];
+};
+
+export type SymbolEliminationInspector = (
+    inputs: readonly EliminationInput[]
+) => Promise<readonly BundleSymbolInspection[]>;

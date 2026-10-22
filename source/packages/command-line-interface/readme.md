@@ -21,6 +21,8 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **tree:** Builds locally and prints one configured package's artifact tree without reading the registry or writing an artifact.
 - **inspect files:** Lists retained files and their source discovery chains for one configured package.
+- **inspect symbols &lt;package&gt;:** Explains why top-level bindings are kept or removed.
+- **inspect changes &lt;package&gt;:** Compares one package with its latest published tarball.
 - **inspect dependencies:** Builds locally and prints why one configured package emits final `dependencies` and `peerDependencies`.
 - **inspect side-effects:** Builds locally and prints why one configured package emits, lists, or omits `package.json` `sideEffects`.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
@@ -90,6 +92,21 @@ Example chain for a retained helper:
   root: ./index.js
   import: ./helper.js
 ```
+
+**Symbol inspect behavior:**
+
+- `packtory inspect symbols <package>` reports named top-level bindings in linked runtime and declaration sources, including bindings from files removed by dead-code elimination.
+- Each binding shows its original package path, line, syntax kind, kept or removed decision, and one recorded retention chain. Chains start at entry exports, impure statements, or sibling-package consumers and follow identifier references.
+- Removed bindings are unreachable from the analyzer's seeds. With dead-code elimination disabled, bindings are retained and labeled `dead-code-elimination-disabled`, including unreachable bindings.
+- Locations refer to linked source before elimination. Nested locals and anonymous declarations are outside the top-level binding inventory. These are analyzer decisions, not general JavaScript purity proofs.
+- This command resolves the workspace locally without reading registry metadata, publishing, writing artifacts, or running package checks. Exit codes are `0` on success and `1` on configuration errors, package failures, or an unknown package. `--trace` includes error stacks.
+
+**Changes inspect behavior:**
+
+- `packtory inspect changes <package>` compares the selected package with its latest published tarball using the same pipeline as `release-diff`. `--files-only` omits text hunks.
+- The workspace is built in dry-run mode to preserve sibling version and dependency decisions; only the selected package's diff is rendered. Workspace failures remain visible and return exit code `1`.
+- Added, removed, modified, unchanged, and first-publish behavior matches `release-diff`, including executable mode changes and binary annotations. Output uses the pager when available.
+- Registry reads are required. The command never publishes or writes to the registry. Unknown packages are rejected before registry access; invalid configuration follows the existing release-diff diagnostics.
 
 **Dependency inspect behavior:**
 
