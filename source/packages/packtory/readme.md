@@ -10,6 +10,8 @@ npm install packtory
 import {
     buildAndPublishAll,
     inspectPackageDependencies,
+    inspectPackageFiles,
+    inspectPackageSymbols,
     inspectPackageSideEffects,
     packAllPackages,
     packPackage,
@@ -19,6 +21,8 @@ import {
 await buildAndPublishAll(configuration, { dryRun: true, stage: false });
 await resolveAndLinkAll(configuration);
 await inspectPackageDependencies(configuration, 'package');
+await inspectPackageFiles(configuration, 'package');
+await inspectPackageSymbols(configuration, 'package');
 await inspectPackageSideEffects(configuration, 'package');
 await packPackage(configuration, {
     packageName: 'package',
@@ -34,6 +38,8 @@ await packAllPackages(configuration, {
 });
 ```
 
-Main exports: `buildAndPublishAll`, `resolveAndLinkAll`, `diffAgainstLatestPublished`, `planReleaseAgainstLatestPublished`, `inspectPackageDependencies`, `inspectPackageSideEffects`, `packPackage`, and `packAllPackages`.
+Main exports: `buildAndPublishAll`, `resolveAndLinkAll`, `diffAgainstLatestPublished`, `planReleaseAgainstLatestPublished`, `inspectPackageDependencies`, `inspectPackageFiles`, `inspectPackageSymbols`, `inspectPackageSideEffects`, `packPackage`, and `packAllPackages`.
+
+`inspectPackageSymbols` returns top-level binding decisions with original linked-source locations and retention chains. It uses configured dead-code elimination settings and sibling consumption without accessing the registry. Use `diffAgainstLatestPublished` for published-tarball comparisons.
 
 See the repository readme for configuration and workflow documentation.

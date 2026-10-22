@@ -16,12 +16,10 @@ import {
 } from './command-parsing.ts';
 import { runConfigurationInspectHandler } from './configuration-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
-import { runPackageDependenciesHandler } from './package-dependencies-handler.ts';
-import { runPackageFilesHandler } from './package-files-handler.ts';
-import { runPackageSideEffectsHandler } from './package-side-effects-handler.ts';
 import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
+import { createInspectionCommands, inspectionCommandName } from './inspection-commands.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
 import { runReleaseHandler } from './release-handler.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
@@ -76,13 +74,9 @@ const releasePullRequestCommandName = 'release-pull-request';
 const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
 const configurationCommandName = 'configuration';
-const dependenciesInspectCommandName = 'dependencies';
-const filesInspectCommandName = 'files';
-const inspectCommandName = 'inspect';
 const inspectConfigurationCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
-const sideEffectsInspectCommandName = 'side-effects';
 const treeCommandName = 'tree';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
@@ -182,7 +176,7 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configurationLoader,
-                        flags: { filesOnly }
+                        flags: { filesOnly, packageName: undefined }
                     });
                 }
             }),
@@ -343,57 +337,17 @@ export function createCommandLineInterfaceRunner(
                     })
                 }
             }),
-            [inspectCommandName]: defineCommandGroup({
-                name: inspectCommandName,
-                commands: {
-                    [dependenciesInspectCommandName]: defineCommand({
-                        name: dependenciesInspectCommandName,
-                        description: 'Prints why final manifest dependencies are emitted for one package.',
-                        arguments: {
-                            packageName: positional({ type: string, displayName: 'package' })
-                        },
-                        async handler({ packageName }) {
-                            exitCode = await runPackageDependenciesHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                flags: { packageName, trace: traceEnabled }
-                            });
-                        }
-                    }),
-                    [filesInspectCommandName]: defineCommand({
-                        name: filesInspectCommandName,
-                        description: 'Prints source discovery chains for retained files in one package.',
-                        arguments: {
-                            packageName: positional({ type: string, displayName: 'package' })
-                        },
-                        async handler({ packageName }) {
-                            exitCode = await runPackageFilesHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                flags: { packageName, trace: traceEnabled }
-                            });
-                        }
-                    }),
-                    [sideEffectsInspectCommandName]: defineCommand({
-                        name: sideEffectsInspectCommandName,
-                        description: 'Prints why package.json sideEffects is false, listed, or omitted.',
-                        arguments: {
-                            packageName: positional({ type: string, displayName: 'package' })
-                        },
-                        async handler({ packageName }) {
-                            exitCode = await runPackageSideEffectsHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                flags: { packageName, trace: traceEnabled }
-                            });
-                        }
-                    })
+            [inspectionCommandName]: createInspectionCommands({
+                log,
+                packtory,
+                spinnerRenderer,
+                configurationLoader,
+                pageOutput,
+                getTraceEnabled() {
+                    return traceEnabled;
+                },
+                recordExitCode(code) {
+                    exitCode = code;
                 }
             }),
             [packCommandName]: defineCommand({

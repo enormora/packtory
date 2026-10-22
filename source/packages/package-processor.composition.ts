@@ -20,8 +20,7 @@ import {
     getContinuousIntegrationRepositoryAddress,
     type ContinuousIntegrationEnvironment
 } from '../bundle-emitter/repository-coherence.ts';
-import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
+import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedModules } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
@@ -142,7 +141,7 @@ export type PackageProcessorComposition = {
     readonly fileManager: FileManager;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
-    readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly deadCodeEliminator: InspectableDeadCodeEliminator;
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
@@ -236,7 +235,7 @@ function createDeadCodeEliminationProject(hostFileSystem: FileSystemHost): Proje
     });
 }
 
-function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
+function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): InspectableDeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
         trace: undefined,
@@ -253,7 +252,7 @@ type CompositionParts = {
     readonly bundleEmitter: BundleEmitter;
     readonly resourceResolver: ResourceResolver;
     readonly softwareBillOfMaterialsFileBuilder: SoftwareBillOfMaterialsFileBuilder;
-    readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly deadCodeEliminator: InspectableDeadCodeEliminator;
     readonly readCurrentGitHead: CurrentGitHeadReader;
     readonly repositoryFolder: string;
 };

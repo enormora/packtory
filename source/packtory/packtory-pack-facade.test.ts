@@ -146,6 +146,7 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
     return {
         packEmitterPack,
         packtory: createPacktory({
+            inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor: {
                 resolveAndLink,
                 resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,

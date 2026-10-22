@@ -33,6 +33,7 @@ export type Overrides = {
     readonly diffAgainstLatestPublished?: SinonSpy;
     readonly inspectPackageDependencies?: SinonSpy;
     readonly inspectPackageFiles?: SinonSpy;
+    readonly inspectPackageSymbols?: SinonSpy;
     readonly inspectPackageSideEffects?: SinonSpy;
     readonly inspectPackageTree?: SinonSpy;
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
@@ -158,6 +159,11 @@ function createInspectPackageFilesFixture(overrides: Overrides): SinonSpy {
         fake.resolves({ result: Result.ok({ packageName: 'package-a', files: [] }) });
 }
 
+function createInspectPackageSymbolsFixture(overrides: Overrides): SinonSpy {
+    return overrides.inspectPackageSymbols ??
+        fake.resolves({ result: Result.ok({ packageName: 'package-a', symbols: [] }) });
+}
+
 function createInspectPackageSideEffectsFixture(overrides: Overrides): SinonSpy {
     return overrides.inspectPackageSideEffects ??
         fake.resolves({
@@ -205,6 +211,7 @@ function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunner
             fake.resolves(toReleaseDiffOutcome(Result.ok([]))),
         inspectPackageDependencies: createInspectPackageDependenciesFixture(overrides),
         inspectPackageFiles: createInspectPackageFilesFixture(overrides),
+        inspectPackageSymbols: createInspectPackageSymbolsFixture(overrides),
         inspectPackageSideEffects: createInspectPackageSideEffectsFixture(overrides),
         inspectPackageTree: createInspectPackageTreeFixture(overrides),
         planReleaseAgainstLatestPublished: overrides.planReleaseAgainstLatestPublished ??

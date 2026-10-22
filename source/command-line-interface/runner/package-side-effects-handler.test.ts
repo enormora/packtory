@@ -21,6 +21,7 @@ function packtoryStub(outcome: PackageSideEffectsOutcome): Packtory {
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageDependencies: unusedPacktoryMethod,
         inspectPackageFiles: unusedPacktoryMethod,
+        inspectPackageSymbols: unusedPacktoryMethod,
         async inspectPackageSideEffects() {
             return outcome;
         },
@@ -72,6 +73,7 @@ suite('package-side-effects-handler', function () {
             diffAgainstLatestPublished: unusedPacktoryMethod,
             inspectPackageDependencies: unusedPacktoryMethod,
             inspectPackageFiles: unusedPacktoryMethod,
+            inspectPackageSymbols: unusedPacktoryMethod,
             inspectPackageSideEffects,
             inspectPackageTree: unusedPacktoryMethod,
             packAllPackages: unusedPacktoryMethod,

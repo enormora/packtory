@@ -1,5 +1,5 @@
 import type { DeadCodeEliminator, EliminationInput } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
+import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import type { DeadCodeEliminationTrace } from '../dead-code-eliminator/trace.ts';
 import {
     createDeadCodeEliminationTraceCollector,
@@ -19,7 +19,7 @@ const noopProvider = {
     }
 };
 
-export function createTestEliminator(): DeadCodeEliminator {
+export function createTestEliminator(): InspectableDeadCodeEliminator {
     return createDeadCodeEliminator({
         createProject() {
             return createProject();
@@ -29,7 +29,9 @@ export function createTestEliminator(): DeadCodeEliminator {
     });
 }
 
-export function createTracedTestEliminator(collector: DeadCodeEliminationTraceCollector): DeadCodeEliminator {
+export function createTracedTestEliminator(
+    collector: DeadCodeEliminationTraceCollector
+): InspectableDeadCodeEliminator {
     return createDeadCodeEliminator({
         createProject() {
             return createProject();

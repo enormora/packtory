@@ -188,6 +188,7 @@ function createPacktory(
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageDependencies: unusedPacktoryMethod,
         inspectPackageFiles: unusedPacktoryMethod,
+        inspectPackageSymbols: unusedPacktoryMethod,
         inspectPackageSideEffects: unusedPacktoryMethod,
         inspectPackageTree: unusedPacktoryMethod,
         packAllPackages: unusedPacktoryMethod,

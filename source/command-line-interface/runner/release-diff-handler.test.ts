@@ -43,7 +43,7 @@ type Spies = {
 function dependenciesWith(
     outcome: ReleaseDiffOutcome,
     spies: Spies,
-    flags: ReleaseDiffHandlerDependencies['flags'] = { filesOnly: false }
+    flags: ReleaseDiffHandlerDependencies['flags'] = { filesOnly: false, packageName: undefined }
 ): ReleaseDiffHandlerDependencies {
     return {
         log(message) {
@@ -92,7 +92,7 @@ suite('release-diff-handler', function () {
                 packtory: throwingPacktory,
                 spinnerRenderer: spinnerRendererCapturing(spies.stopAll),
                 configurationLoader: createConfigurationLoaderStub(),
-                flags: { filesOnly: false }
+                flags: { filesOnly: false, packageName: undefined }
             });
             assert.fail('expected the handler to rethrow');
         } catch (error) {
@@ -185,7 +185,9 @@ suite('release-diff-handler', function () {
             } as unknown as ReleaseDiffOutcome['result']
         });
 
-        const code = await runReleaseDiffHandler(dependenciesWith(outcome, spies, { filesOnly: true }));
+        const code = await runReleaseDiffHandler(
+            dependenciesWith(outcome, spies, { filesOnly: true, packageName: undefined })
+        );
 
         assert.strictEqual(code, 0);
         const pagedMessage = stripVTControlCharacters(spies.pageOutput.firstCall.args[0] as string);
