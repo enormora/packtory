@@ -3,11 +3,13 @@ import { declarationCompanionCandidates } from '../common/declaration-companion-
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { getEntryRootIdentifiers } from '../package-surface/root-registry.ts';
+import { createSideEffectClassifier, type SideEffectClassifier } from './side-effect-classifier.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
-import type { FileBindings } from './reachability/local-seed-gathering.ts';
-import { buildReachabilityIndex, type ReachabilityIndex } from './reachability/reachability.ts';
+import { buildReachabilityIndex, type ReachabilityIndex, type ReachabilityInput } from './reachability/reachability.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
+
+type FileBindings = ReachabilityInput['files'][number];
 
 export type CreateProject = () => Project;
 
@@ -25,6 +27,7 @@ type LoadedNonCodeResource = {
 export type LoadedResource = LoadedCodeResource | LoadedNonCodeResource;
 
 export type LoadedBundle = {
+    readonly classifySideEffects: SideEffectClassifier;
     readonly input: EliminationInput;
     readonly loaded: readonly LoadedResource[];
     readonly fileBindings: readonly FileBindings[];
@@ -140,12 +143,14 @@ export function loadBundle(
         return loadResource(runtimeProject, declarationProject, resource);
     });
     const fileBindings = buildFileBindings(loaded);
+    const classifySideEffects = createSideEffectClassifier(fileBindings);
     const reachability = buildReachabilityIndex({
         bundleName: input.bundle.name,
         files: fileBindings,
         entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleInputFilePaths),
         deadCodeElimination: input.deadCodeElimination,
+        classifySideEffects,
         trace
     });
-    return { input, loaded, fileBindings, reachability };
+    return { input, loaded, fileBindings, reachability, classifySideEffects };
 }

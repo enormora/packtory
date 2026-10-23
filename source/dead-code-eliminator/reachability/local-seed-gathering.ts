@@ -1,4 +1,5 @@
 import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { DeadCodeEliminationTrace, LocalSeedReason } from '../trace.ts';
 import { bindingIdentifier, type FileBindingSet } from './binding-identifier.ts';
@@ -18,6 +19,7 @@ type LocalSeed = {
 
 type SeedCollectionContext = {
     readonly declarationIndex: DeclarationNodeIndex;
+    readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };
@@ -26,6 +28,7 @@ export type LocalSeedGatheringInput = {
     readonly files: readonly FileBindings[];
     readonly entryPointFilePaths: ReadonlySet<string>;
     readonly declarationIndex: DeclarationNodeIndex;
+    readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
     readonly bundleName: string;
     readonly trace: DeadCodeEliminationTrace;
@@ -94,7 +97,11 @@ function seedsForFile(
     isEntry: boolean,
     context: SeedCollectionContext
 ): readonly LocalSeed[] {
-    const impureStatements = collectImpureStatements(file.sourceFile, context.deadCodeElimination);
+    const impureStatements = collectImpureStatements(
+        file.sourceFile,
+        context.deadCodeElimination,
+        context.classifySideEffects
+    );
     return [
         ...exportedBindingSeeds(file, isEntry, context.trace),
         ...isEntry ? entryPointExportDeclarationSeeds(file, context.declarationIndex) : [],
@@ -134,6 +141,7 @@ export function gatherLocalSeeds(input: LocalSeedGatheringInput): Set<string> {
         const fileSeeds = seedsForFile(file, isEntry, {
             declarationIndex: input.declarationIndex,
             deadCodeElimination: input.deadCodeElimination,
+            classifySideEffects: input.classifySideEffects,
             trace: input.trace
         });
         for (const seed of fileSeeds) {

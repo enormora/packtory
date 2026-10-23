@@ -1,10 +1,11 @@
 import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
-import { classifySideEffects } from '../side-effect-classifier.ts';
+import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 
 export function collectImpureStatements(
     sourceFile: Readonly<SourceFile>,
-    deadCodeElimination: DeadCodeEliminationSettings | undefined
+    deadCodeElimination: DeadCodeEliminationSettings | undefined,
+    classifySideEffects: SideEffectClassifier
 ): readonly Statement[] {
     const impureLines = new Set<number>();
     for (const statement of classifySideEffects(sourceFile, deadCodeElimination)) {

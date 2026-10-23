@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
-import { isPureExpression } from './pure-expression.ts';
+import { isPureExpression } from '../test-libraries/expression-purity-test-support.ts';
 import { expressionWithSchemaPackage, variableInitializer } from './pure-expression-test-support.ts';
 
 suite('pure-expression fact propagation', function () {

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import type { Node as TypeScriptMorphNode, SourceFile, Statement } from 'ts-morph';
 import { suite, test } from 'mocha';
+import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { buildDeclarationNodeIndex } from './binding-identifier.ts';
@@ -57,6 +58,7 @@ function gatherSeedsForSingleBinding(
         entryPointFilePaths: entryPoints,
         declarationIndex: buildDeclarationNodeIndex([ file ]),
         deadCodeElimination: undefined,
+        classifySideEffects,
         bundleName: 'package',
         trace: undefined
     });

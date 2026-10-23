@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import type { Node as TypeScriptMorphNode, Statement } from 'ts-morph';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import { classifySideEffects } from '../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
@@ -56,6 +57,7 @@ const baseContext: AnalysisContext = {
     reachable: new Set<string>(),
     transformationsEnabled: false,
     deadCodeElimination: undefined,
+    classifySideEffects,
     trace: undefined
 };
 

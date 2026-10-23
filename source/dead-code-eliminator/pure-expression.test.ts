@@ -4,7 +4,7 @@ import { SyntaxKind, type Expression } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { isPureExpression } from './pure-expression.ts';
+import { isPureExpression } from '../test-libraries/expression-purity-test-support.ts';
 
 function initializerFromProjectFiles(
     files: readonly { readonly filePath: string; readonly content: string; }[]

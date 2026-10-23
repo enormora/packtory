@@ -1,5 +1,6 @@
 import type { SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { SideEffectClassifier } from './side-effect-classifier.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { buildModuleAnalysis } from './liveness/module-analysis.ts';
@@ -12,6 +13,7 @@ export type AnalysisContext = {
     readonly bundleName: string;
     readonly reachable: ReadonlySet<string>;
     readonly transformationsEnabled: boolean;
+    readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };
@@ -77,7 +79,8 @@ function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): 
         targetFilePath: loaded.resource.fileDescription.targetFilePath,
         sourceFile: loaded.sourceFile,
         bindings: loaded.bindings,
-        deadCodeElimination: context.deadCodeElimination
+        deadCodeElimination: context.deadCodeElimination,
+        classifySideEffects: context.classifySideEffects
     });
     const sideEffectStatements = moduleAnalysis.effects;
     const reachableBindings = reachableBindingsFor(loaded, context.reachable);

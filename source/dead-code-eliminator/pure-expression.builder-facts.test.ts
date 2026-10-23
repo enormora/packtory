@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import type { Expression } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
-import { isPureExpression } from './pure-expression.ts';
+import { isPureExpression } from '../test-libraries/expression-purity-test-support.ts';
 import {
     initializerFromProjectFiles,
     schemaPackageFile,

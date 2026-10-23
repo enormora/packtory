@@ -1,5 +1,11 @@
 import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
+import { createExpressionPurityChecker } from './pure-expression.ts';
+import {
+    createRuntimeModuleResolver,
+    type RuntimeModuleOrigin
+} from './runtime-module-resolution.ts';
 import type { SideEffectStatement } from './analyzed-bundle.ts';
 import { booleanValue, factsAfterStatement, type BooleanFacts } from './liveness/boolean-facts.ts';
 import { statementClassifierFor } from './statement-classifiers.ts';
@@ -13,7 +19,7 @@ function isStaticallyUnreachableIfStatement(statement: Statement, facts: Boolean
 
 function classifyResidualStatement(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
     const kind = statement.getKind();
     const controlFlowKind = describeControlFlowStatementKind(kind);
@@ -22,34 +28,46 @@ function classifyResidualStatement(
     }
     const classifier = statementClassifierFor(kind);
     if (classifier !== undefined) {
-        return classifier(statement, settings);
+        return classifier(statement, isPure);
     }
     return 'unknown statement';
 }
 
 function classifyTopLevelStatement(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined,
+    isPure: ExpressionPurityChecker,
     facts: BooleanFacts
 ): string | undefined {
     if (pureDeclarationKinds.has(statement.getKind()) || isStaticallyUnreachableIfStatement(statement, facts)) {
         return undefined;
     }
-    return classifyResidualStatement(statement, settings);
+    return classifyResidualStatement(statement, isPure);
 }
 
-export function classifySideEffects(
+function classifyPreparedSideEffects(
     sourceFile: Readonly<SourceFile>,
-    settings?: DeadCodeEliminationSettings
+    isPure: ExpressionPurityChecker
 ): readonly SideEffectStatement[] {
     const results: SideEffectStatement[] = [];
     let facts: BooleanFacts = new Map();
     for (const statement of sourceFile.getStatements()) {
-        const kind = classifyTopLevelStatement(statement, settings, facts);
+        const kind = classifyTopLevelStatement(statement, isPure, facts);
         if (kind !== undefined) {
             results.push({ line: statement.getStartLineNumber(), kind });
         }
         facts = factsAfterStatement(statement, facts);
     }
     return results;
+}
+
+export type SideEffectClassifier = (
+    sourceFile: Readonly<SourceFile>,
+    settings: DeadCodeEliminationSettings | undefined
+) => readonly SideEffectStatement[];
+
+export function createSideEffectClassifier(files: readonly RuntimeModuleOrigin[]): SideEffectClassifier {
+    const resolveModule = createRuntimeModuleResolver(files);
+    return function (sourceFile, settings) {
+        return classifyPreparedSideEffects(sourceFile, createExpressionPurityChecker(settings, resolveModule));
+    };
 }

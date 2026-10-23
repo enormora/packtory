@@ -275,6 +275,7 @@ suite('source-file-references import.meta and package assets', function () {
                 result: resolveTypescriptModuleFilePath({
                     moduleSpecifier: literal.getLiteralValue(),
                     containingSourceFile: sourceFile,
+                    containingFilePath: sourceFile.getFilePath(),
                     resolutionMode: 'type'
                 })
             };

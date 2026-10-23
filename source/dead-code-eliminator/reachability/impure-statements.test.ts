@@ -1,13 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Node as TypeScriptMorphNode } from 'ts-morph';
+import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
 function impureLinesFor(content: string): readonly number[] {
     const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/source.ts');
-    return collectImpureStatements(sourceFile, undefined).map(function (statement) {
+    return collectImpureStatements(sourceFile, undefined, classifySideEffects).map(function (statement) {
         return statement.getStartLineNumber();
     });
 }
@@ -27,7 +28,7 @@ suite('impure-statements', function () {
         });
         const sourceFile = project.getSourceFileOrThrow('/source.ts');
 
-        const impure = collectImpureStatements(sourceFile, undefined);
+        const impure = collectImpureStatements(sourceFile, undefined, classifySideEffects);
 
         assert.strictEqual(impure.length, 1);
         assert.strictEqual(TypeScriptMorphNode.isImportDeclaration(impure[0]), false);

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
 import { buildModuleAnalysis } from './module-analysis.ts';
@@ -10,7 +11,8 @@ function moduleKindFor(targetFilePath: string): string {
         targetFilePath,
         sourceFile: undefined,
         bindings: [],
-        deadCodeElimination: undefined
+        deadCodeElimination: undefined,
+        classifySideEffects
     });
     return analysis.kind;
 }
@@ -31,7 +33,8 @@ suite('liveness module analysis', function () {
             targetFilePath: 'LICENSE',
             sourceFile: undefined,
             bindings: [],
-            deadCodeElimination: undefined
+            deadCodeElimination: undefined,
+            classifySideEffects
         });
 
         assert.deepStrictEqual(analysis.effects, []);
@@ -50,7 +53,8 @@ suite('liveness module analysis', function () {
             targetFilePath: 'index.ts',
             sourceFile,
             bindings: extractTopLevelBindings(sourceFile),
-            deadCodeElimination: undefined
+            deadCodeElimination: undefined,
+            classifySideEffects
         });
 
         assert.partialDeepStrictEqual(analysis, {

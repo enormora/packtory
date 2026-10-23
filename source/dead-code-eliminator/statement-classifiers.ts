@@ -8,14 +8,13 @@ import {
     type Statement,
     type VariableStatement
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { hasClassImpurity } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
-import { isPureExpression } from './pure-expression.ts';
 
 type StatementClassifier = (
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ) => string | undefined;
 
 function classifyImportDeclaration(statement: ImportDeclaration): string | undefined {
@@ -24,9 +23,9 @@ function classifyImportDeclaration(statement: ImportDeclaration): string | undef
 
 function classifyExportAssignment(
     statement: ExportAssignment,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    if (isPureExpression(statement.getExpression(), settings)) {
+    if (isPure(statement.getExpression())) {
         return undefined;
     }
     return 'export assignment';
@@ -34,9 +33,9 @@ function classifyExportAssignment(
 
 function classifyClassDeclaration(
     statement: ClassDeclaration,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    if (hasClassImpurity(statement, settings)) {
+    if (hasClassImpurity(statement, isPure)) {
         return 'class declaration';
     }
     return undefined;
@@ -44,14 +43,14 @@ function classifyClassDeclaration(
 
 function classifyEnumDeclaration(
     statement: EnumDeclaration,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
     if (statement.isConstEnum()) {
         return undefined;
     }
     for (const member of statement.getMembers()) {
         const initializer = member.getInitializer();
-        if (initializer !== undefined && !isPureExpression(initializer, settings)) {
+        if (initializer !== undefined && !isPure(initializer)) {
             return 'enum declaration';
         }
     }
@@ -68,11 +67,11 @@ function classifyModuleDeclaration(statement: ModuleDeclaration): string | undef
 
 function classifyVariableStatement(
     statement: VariableStatement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
     for (const declarator of statement.getDeclarations()) {
         const initializer = declarator.getInitializer();
-        if (initializer !== undefined && !isPureExpression(initializer, settings)) {
+        if (initializer !== undefined && !isPure(initializer)) {
             return 'variable initializer';
         }
     }
@@ -86,23 +85,23 @@ function importDeclarationClassifier(statement: Statement): string | undefined {
 
 function exportAssignmentClassifier(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    return classifyExportAssignment(statement.asKindOrThrow(SyntaxKind.ExportAssignment), settings);
+    return classifyExportAssignment(statement.asKindOrThrow(SyntaxKind.ExportAssignment), isPure);
 }
 
 function classDeclarationClassifier(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), settings);
+    return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), isPure);
 }
 
 function enumDeclarationClassifier(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    return classifyEnumDeclaration(statement.asKindOrThrow(SyntaxKind.EnumDeclaration), settings);
+    return classifyEnumDeclaration(statement.asKindOrThrow(SyntaxKind.EnumDeclaration), isPure);
 }
 
 function moduleDeclarationClassifier(statement: Statement): string | undefined {
@@ -111,9 +110,9 @@ function moduleDeclarationClassifier(statement: Statement): string | undefined {
 
 function variableStatementClassifier(
     statement: Statement,
-    settings: DeadCodeEliminationSettings | undefined
+    isPure: ExpressionPurityChecker
 ): string | undefined {
-    return classifyVariableStatement(statement.asKindOrThrow(SyntaxKind.VariableStatement), settings);
+    return classifyVariableStatement(statement.asKindOrThrow(SyntaxKind.VariableStatement), isPure);
 }
 
 function expressionStatementClassifier(): string {

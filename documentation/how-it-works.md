@@ -300,6 +300,14 @@ The whole exchange happens in two phases:
 
 ### 6.5 The side-effect classifier
 
+DCE analyzes prepared package contents in memory. Virtual file paths follow the
+published layout so local imports resolve against the prepared files. External
+dependency purity analysis uses each importing file's original on-disk location
+and recorded source specifier, preserving lookup of nearby `node_modules`.
+Dependency re-exports resolve from the dependency's own location. Linked sibling
+packages use cross-bundle analysis rather than installed copies. Purity summaries
+remain cached in memory within each TypeScript project.
+
 The classifier is what makes the difference between a file packtory will tree-shake and a file it will leave intact. It looks at every top-level statement and asks "could this run code on import?". A statement is impure iff it matches one of:
 
 - An expression statement: `console.log(...)`, `Object.freeze(...)`, IIFEs.

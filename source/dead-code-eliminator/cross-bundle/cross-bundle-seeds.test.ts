@@ -1,17 +1,18 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { analyzedBundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
-import type { FileBindings } from '../reachability/local-seed-gathering.ts';
-import { buildReachabilityIndex } from '../reachability/reachability.ts';
+import { buildReachabilityIndex, type ReachabilityInput } from '../reachability/reachability.ts';
 import {
     buildCrossBundleSeeds as buildCrossBundleSeedsWithTrace,
     type CrossBundleInput
 } from './cross-bundle-seeds.ts';
 
+type FileBindings = ReachabilityInput['files'][number];
 type SeedMap = ReadonlyMap<string, ReadonlySet<string>>;
 type LinkedBundleResource = LinkedBundle['contents'][number];
 const disabledTrace = undefined;
@@ -125,6 +126,7 @@ function inputFor(
             return resource.fileDescription.targetFilePath;
         })),
         deadCodeElimination: undefined,
+        classifySideEffects,
         trace: disabledTrace
     });
     return { bundle, fileBindings, localReachable };
