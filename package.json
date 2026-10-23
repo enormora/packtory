@@ -101,7 +101,7 @@
         "sinon": "22.1.0",
         "tinybench": "6.2.2",
         "tstyche": "7.2.5",
-        "typescript": "6.0.3",
+        "typescript": "7.0.2",
         "verdaccio": "6.10.6"
     },
     "engines": {
