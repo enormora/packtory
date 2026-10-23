@@ -6,6 +6,7 @@ import { bindingIdentifier } from '../dead-code-eliminator/reachability/binding-
 import type { FileBindings } from '../dead-code-eliminator/reachability/local-seed-gathering.ts';
 import { buildReachabilityIndex, type ReachabilityIndex } from '../dead-code-eliminator/reachability/reachability.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
+import { classifySideEffects } from './side-effect-classifier-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
 export const probeTestTimeoutMilliseconds = 10_000;
@@ -82,6 +83,7 @@ export function reachabilityForReExportTarget(entryPointExportDeclaration: strin
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
         deadCodeElimination: undefined,
+        classifySideEffects,
         trace: undefined
     });
 }
@@ -104,6 +106,7 @@ export function reachabilityForLocalValueExport(entryPointExportDeclaration: str
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
         deadCodeElimination: undefined,
+        classifySideEffects,
         trace: undefined
     });
 }

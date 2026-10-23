@@ -31,6 +31,7 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
         const resolvedFilePath = resolveTypescriptModuleFilePath({
             moduleSpecifier: literal.getLiteralValue(),
             containingSourceFile: sourceFile,
+            containingFilePath: sourceFile.getFilePath(),
             resolutionMode: 'type'
         });
         if (resolvedFilePath === undefined) {

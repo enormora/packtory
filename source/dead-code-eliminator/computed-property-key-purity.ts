@@ -8,37 +8,10 @@ import {
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import {
-    packageTypeForResolvedFilePath,
-    resolveTypescriptModuleFilePath
-} from '../dependency-scanner/typescript-module-resolution.ts';
+import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { expressionFactIsPure, type ExpressionFactResolver } from './expression-facts.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { resolveImportedExpressionPropertyPath } from './imported-expression-origin.ts';
-
-function packageTypeFor(filePath: string, containingSourceFile: SourceFile): string | undefined {
-    return packageTypeForResolvedFilePath({ filePath, containingSourceFile });
-}
-
-function isRuntimeModuleSource(filePath: string, containingSourceFile: SourceFile): boolean {
-    return path.extname(filePath) === '.js' && packageTypeFor(filePath, containingSourceFile) === 'module';
-}
-
-function resolvedRuntimeSourceFile(
-    moduleSpecifier: string,
-    containingSourceFile: SourceFile
-): SourceFile | undefined {
-    const filePath = resolveTypescriptModuleFilePath({
-        moduleSpecifier,
-        containingSourceFile,
-        resolutionMode: 'runtime'
-    });
-    if (filePath === undefined || !isRuntimeModuleSource(filePath, containingSourceFile)) {
-        return undefined;
-    }
-    const project = containingSourceFile.getProject();
-    return project.getSourceFile(filePath) ?? project.addSourceFileAtPathIfExists(filePath);
-}
+import { resolveImportedExpressionPropertyPath, type ImportedExpressionOrigin } from './imported-expression-origin.ts';
 
 function objectPropertyInitializer(expression: ObjectLiteralExpression, propertyName: string): Expression | undefined {
     const property = expression.getProperty(propertyName);
@@ -66,33 +39,35 @@ function constDeclarationInitializer(declaration: VariableDeclaration): Expressi
 
 function exportPathIsPrimitiveKey(
     sourceFile: SourceFile,
-    exportName: string,
-    propertyName: string
+    origin: ImportedExpressionOrigin
 ): boolean {
+    const [ exportName = origin.from, propertyName = exportName, ...rest ] = origin.path;
     const declaration = sourceFile.getVariableDeclaration(exportName);
     if (declaration === undefined) {
         return false;
     }
-    return expressionMemberIsPrimitiveKey(constDeclarationInitializer(declaration), propertyName);
+    return rest.length === 0 && expressionMemberIsPrimitiveKey(constDeclarationInitializer(declaration), propertyName);
 }
 
-function importedExpressionIsPrimitiveKey(expression: Expression): boolean {
+function importedExpressionIsPrimitiveKey(expression: Expression, resolveModule: RuntimeModuleResolver): boolean {
     const origin = resolveImportedExpressionPropertyPath(expression);
     if (origin === undefined) {
         return false;
     }
-    const sourceFile = resolvedRuntimeSourceFile(origin.from, expression.getSourceFile());
-    const [ exportName = origin.from, propertyName = exportName, ...rest ] = origin.path;
-    return sourceFile !== undefined && rest.length === 0 &&
-        exportPathIsPrimitiveKey(sourceFile, exportName, propertyName);
+    const sourceFile = resolveModule(origin.from, expression.getSourceFile());
+    if (sourceFile === undefined || path.extname(sourceFile.getFilePath()) !== '.js') {
+        return false;
+    }
+    return exportPathIsPrimitiveKey(sourceFile, origin);
 }
 
 export function computedPropertyNameIsPure(
     expression: Expression,
-    factFor: ExpressionFactResolver
+    factFor: ExpressionFactResolver,
+    resolveModule: RuntimeModuleResolver
 ): boolean {
     if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(expression))) {
-        return importedExpressionIsPrimitiveKey(expression);
+        return importedExpressionIsPrimitiveKey(expression, resolveModule);
     }
-    return expressionFactIsPure(factFor(expression)) || importedExpressionIsPrimitiveKey(expression);
+    return expressionFactIsPure(factFor(expression)) || importedExpressionIsPrimitiveKey(expression, resolveModule);
 }

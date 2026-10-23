@@ -2,6 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, type ClassDeclaration } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import { resolveRuntimeModule } from './runtime-module-resolution.ts';
+import { createExpressionPurityChecker } from './pure-expression.ts';
 import { hasClassImpurity } from './class-purity.ts';
 
 function classDeclaration(content: string): ClassDeclaration {
@@ -9,11 +11,13 @@ function classDeclaration(content: string): ClassDeclaration {
     return project.getSourceFileOrThrow('index.ts').getFirstChildByKindOrThrow(SyntaxKind.ClassDeclaration);
 }
 
+const isPure = createExpressionPurityChecker(undefined, resolveRuntimeModule);
+
 suite('class-purity', function () {
     test('hasClassImpurity returns false for a class with only methods and unannotated members', function () {
         const declaration = classDeclaration('class Foo { method() { return 1; } }');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), false);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), false);
     });
 
     test('hasClassImpurity returns true when the class itself is decorated', function () {
@@ -21,7 +25,7 @@ suite('class-purity', function () {
             'function dec(_: unknown): void {}\n@dec\nclass Foo { method() { return 1; } }'
         );
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 
     test('hasClassImpurity returns true when a method member is decorated', function () {
@@ -29,36 +33,36 @@ suite('class-purity', function () {
             'function dec(_: unknown, __: unknown): void {}\nclass Foo { @dec method() { return 1; } }'
         );
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 
     test('hasClassImpurity returns true when a static field has an impure initializer', function () {
         const declaration = classDeclaration('class Foo { static items = [].length; }');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 
     test('hasClassImpurity returns true when the class extends an impure expression', function () {
         const declaration = classDeclaration('class Foo extends compute() {}');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 
     test('hasClassImpurity returns true when a member has an impure computed name', function () {
         const declaration = classDeclaration('class Foo { [compute()]() {} }');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 
     test('hasClassImpurity returns false when a static field has a pure literal initializer', function () {
         const declaration = classDeclaration('class Foo { static items = 1; }');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), false);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), false);
     });
 
     test('hasClassImpurity returns true when the class declares a static initialization block', function () {
         const declaration = classDeclaration('class Foo { static { console.log("init"); } }');
 
-        assert.strictEqual(hasClassImpurity(declaration, undefined), true);
+        assert.strictEqual(hasClassImpurity(declaration, isPure), true);
     });
 });

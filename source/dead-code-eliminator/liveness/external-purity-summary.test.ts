@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Project, SourceFile } from 'ts-morph';
+import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import {
     exportHasPureObjectReturnForOrigin,
@@ -43,7 +44,8 @@ function projectWithSchemaLibrary(content: string): Project {
 function purityFor(path: readonly string[], files: readonly TestFile[]): ExportPurity {
     return exportPurityForOrigin(
         { from: 'schema-lib', path },
-        containingSourceFile(files)
+        containingSourceFile(files),
+        resolveRuntimeModule
     );
 }
 
@@ -226,7 +228,7 @@ suite('external purity summary', function () {
             );
 
             assert.strictEqual(
-                exportPurityForOrigin({ from: 'schema-lib', path: [ 'make' ] }, sourceFile),
+                exportPurityForOrigin({ from: 'schema-lib', path: [ 'make' ] }, sourceFile, resolveRuntimeModule),
                 'pure-callable'
             );
         });
@@ -312,9 +314,16 @@ suite('external purity summary', function () {
             })
                 .getSourceFileOrThrow('/project/source/index.ts');
 
-            assert.strictEqual(exportPurityForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing), 'unknown');
             assert.strictEqual(
-                exportHasPureObjectReturnForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing),
+                exportPurityForOrigin({ from: 'missing-lib', path: [ 'z' ] }, containing, resolveRuntimeModule),
+                'unknown'
+            );
+            assert.strictEqual(
+                exportHasPureObjectReturnForOrigin(
+                    { from: 'missing-lib', path: [ 'z' ] },
+                    containing,
+                    resolveRuntimeModule
+                ),
                 false
             );
         });
@@ -335,7 +344,10 @@ suite('external purity summary', function () {
             })
                 .getSourceFileOrThrow('/project/source/index.ts');
 
-            assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'unknown');
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing, resolveRuntimeModule),
+                'unknown'
+            );
         });
 
         test('exportPurityForOrigin accepts resolved mjs files without package type', function () {
@@ -354,7 +366,10 @@ suite('external purity summary', function () {
             })
                 .getSourceFileOrThrow('/project/source/index.ts');
 
-            assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'pure-object');
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing, resolveRuntimeModule),
+                'pure-object'
+            );
         });
 
         test('exportPurityForOrigin rejects resolved ts files in module packages', function () {
@@ -373,7 +388,10 @@ suite('external purity summary', function () {
             })
                 .getSourceFileOrThrow('/project/source/index.ts');
 
-            assert.strictEqual(exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing), 'unknown');
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'schema-lib', path: [ 'z' ] }, containing, resolveRuntimeModule),
+                'unknown'
+            );
         });
 
         test('exportPurityForOrigin rejects declaration and commonjs resolution targets', function () {
@@ -407,11 +425,11 @@ suite('external purity summary', function () {
                 .getSourceFileOrThrow('/project/source/index.ts');
 
             assert.strictEqual(
-                exportPurityForOrigin({ from: 'types-lib', path: [ 'z' ] }, declarationTarget),
+                exportPurityForOrigin({ from: 'types-lib', path: [ 'z' ] }, declarationTarget, resolveRuntimeModule),
                 'unknown'
             );
             assert.strictEqual(
-                exportPurityForOrigin({ from: 'commonjs-lib', path: [ 'z' ] }, commonjsTarget),
+                exportPurityForOrigin({ from: 'commonjs-lib', path: [ 'z' ] }, commonjsTarget, resolveRuntimeModule),
                 'unknown'
             );
         });
@@ -432,7 +450,10 @@ suite('external purity summary', function () {
             })
                 .getSourceFileOrThrow('/project/source/index.ts');
 
-            assert.strictEqual(exportPurityForOrigin({ from: 'module-lib', path: [ 'z' ] }, containing), 'unknown');
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'module-lib', path: [ 'z' ] }, containing, resolveRuntimeModule),
+                'unknown'
+            );
         });
 
         test('exportPurityForOrigin reuses the cached source-file summary', function () {
@@ -441,12 +462,20 @@ suite('external purity summary', function () {
             const implementation = project.getSourceFileOrThrow('/project/node_modules/schema-lib/index.js');
 
             assert.strictEqual(
-                exportPurityForOrigin({ from: 'schema-lib', path: [ 'z', 'object' ] }, containing),
+                exportPurityForOrigin(
+                    { from: 'schema-lib', path: [ 'z', 'object' ] },
+                    containing,
+                    resolveRuntimeModule
+                ),
                 'pure-callable'
             );
             implementation.replaceWithText('export const z = { object() { return compute(); } };');
             assert.strictEqual(
-                exportPurityForOrigin({ from: 'schema-lib', path: [ 'z', 'object' ] }, containing),
+                exportPurityForOrigin(
+                    { from: 'schema-lib', path: [ 'z', 'object' ] },
+                    containing,
+                    resolveRuntimeModule
+                ),
                 'pure-callable'
             );
         });
@@ -460,7 +489,8 @@ suite('external purity summary', function () {
             assert.strictEqual(
                 exportPurityForOrigin(
                     { from: 'schema-lib', path: [ 'build' ] },
-                    project.getSourceFileOrThrow('/project/source/index.ts')
+                    project.getSourceFileOrThrow('/project/source/index.ts'),
+                    resolveRuntimeModule
                 ),
                 'pure-callable'
             );

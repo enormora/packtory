@@ -175,6 +175,7 @@ function resolveModuleReferenceForImport(
     const resolvedFilePath = resolveTypescriptModuleFilePath({
         moduleSpecifier: importValue,
         containingSourceFile,
+        containingFilePath: containingSourceFile.getFilePath(),
         resolutionMode: 'type'
     });
     if (resolvedFilePath !== undefined) {

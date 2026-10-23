@@ -1,3 +1,4 @@
+import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import { assertArtifactModuleReferenceContract } from '../artifact-module-reference-contract.ts';
 import type { DeadCodeEliminationTrace } from '../trace.ts';
@@ -10,6 +11,7 @@ export type ReachabilityInput = {
     readonly bundleName: string;
     readonly files: readonly FileBindings[];
     readonly entryPointFilePaths: ReadonlySet<string>;
+    readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };
@@ -72,6 +74,7 @@ export function buildReachabilityIndex(
         entryPointFilePaths: input.entryPointFilePaths,
         declarationIndex,
         deadCodeElimination: input.deadCodeElimination,
+        classifySideEffects: input.classifySideEffects,
         bundleName: input.bundleName,
         trace: input.trace
     });

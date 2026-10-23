@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import {
@@ -23,6 +24,7 @@ function reachabilityInput(
         files,
         entryPointFilePaths,
         deadCodeElimination: undefined,
+        classifySideEffects,
         trace: undefined
     };
 }
@@ -308,6 +310,7 @@ suite('reachability', function () {
 import { createProject } from './source/test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './source/dead-code-eliminator/reachability/binding-extractor.ts';
 import { buildReachabilityIndex } from './source/dead-code-eliminator/reachability/reachability.ts';
+import { classifySideEffects } from './source/test-libraries/side-effect-classifier-test-support.ts';
 
 const project = createProject({
     withFiles: [{
@@ -328,6 +331,7 @@ const index = buildReachabilityIndex({
     files,
     entryPointFilePaths: new Set(['entry.ts']),
     deadCodeElimination: undefined,
+    classifySideEffects,
     trace: undefined
 });
 

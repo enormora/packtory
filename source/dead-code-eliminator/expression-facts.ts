@@ -8,7 +8,7 @@ import {
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { PurityContext } from './purity-context.ts';
 import {
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
@@ -57,12 +57,12 @@ export function pureCallableWithOrigin(origin: ImportedExpressionOrigin): Expres
 function importedExpressionFact(
     origin: ImportedExpressionOrigin,
     expression: Expression,
-    settings: DeadCodeEliminationSettings | undefined
+    context: PurityContext
 ): ExpressionFact {
-    if (originIsTrustedPureImport(origin, settings)) {
+    if (originIsTrustedPureImport(origin, context.settings)) {
         return pureObjectWithOrigin(origin);
     }
-    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile());
+    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule);
     if (exportPurity === 'pure-callable') {
         return pureCallableWithOrigin(origin);
     }
@@ -268,11 +268,11 @@ function declarationFactForIdentifier(
     declaration: TypeScriptMorphNodeType,
     expression: Identifier,
     factFor: ExpressionFactResolver,
-    settings: DeadCodeEliminationSettings | undefined
+    context: PurityContext
 ): ExpressionFact {
     const origin = importedOriginForIdentifierDeclaration(declaration, expression);
     if (origin !== undefined) {
-        return importedExpressionFact(origin, expression, settings);
+        return importedExpressionFact(origin, expression, context);
     }
     if (TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return variableDeclarationFact(declaration, expression, factFor);
@@ -283,13 +283,13 @@ function declarationFactForIdentifier(
 export function identifierReadFact(
     expression: Identifier,
     factFor: ExpressionFactResolver,
-    settings: DeadCodeEliminationSettings | undefined
+    context: PurityContext
 ): ExpressionFact {
     if (expression.getText() === 'undefined') {
         return pureValueFact;
     }
     for (const declaration of identifierDeclarations(expression)) {
-        const fact = declarationFactForIdentifier(declaration, expression, factFor, settings);
+        const fact = declarationFactForIdentifier(declaration, expression, factFor, context);
         if (expressionFactIsPure(fact)) {
             return fact;
         }

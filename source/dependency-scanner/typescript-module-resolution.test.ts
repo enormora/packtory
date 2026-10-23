@@ -34,6 +34,7 @@ function resolvedPath(
     return resolveTypescriptModuleFilePath({
         moduleSpecifier: from,
         containingSourceFile: containingSourceFile(files, filePath),
+        containingFilePath: filePath,
         resolutionMode
     });
 }
@@ -467,4 +468,24 @@ suite('typescript module resolution', function () {
     registerRuntimeRelativeResolutionTests();
     registerRuntimeFallbackTests();
     registerPackageTypeTests();
+
+    test('resolves package imports from the original location of a virtual file', function () {
+        const sourceFile = containingSourceFile([
+            {
+                filePath: '/project/package.json',
+                content: '{"type":"module","imports":{"#builder":"./builder.js"}}'
+            },
+            { filePath: '/project/builder.js', content: 'export const build = 1;' }
+        ], '/.packtory-artifacts/index.js');
+
+        assert.strictEqual(
+            resolveTypescriptModuleFilePath({
+                moduleSpecifier: '#builder',
+                containingSourceFile: sourceFile,
+                containingFilePath: '/project/source/index.js',
+                resolutionMode: 'runtime'
+            }),
+            '/project/builder.js'
+        );
+    });
 });

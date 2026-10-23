@@ -26,6 +26,7 @@ export function analyzeBundleWithSeeds(
         reachable: loaded.reachability.expandWith(externalSeeds),
         transformationsEnabled: loaded.input.transformationsEnabled,
         deadCodeElimination: loaded.input.deadCodeElimination,
+        classifySideEffects: loaded.classifySideEffects,
         trace
     };
     const outputs = loaded.loaded.map(function (entry) {

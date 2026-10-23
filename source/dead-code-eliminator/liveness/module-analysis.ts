@@ -1,8 +1,8 @@
 import type { SourceFile } from 'ts-morph';
+import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectStatement } from '../analyzed-bundle.ts';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
-import { classifySideEffects } from '../side-effect-classifier.ts';
 import { isDeclarationCodeTargetPath, isRuntimeCodeTargetPath } from './runtime-code.ts';
 
 type ModuleKind = 'asset' | 'declaration' | 'other' | 'runtime' | 'source-map';
@@ -25,6 +25,7 @@ type ModuleAnalysisInput = {
     readonly targetFilePath: string;
     readonly sourceFile: Readonly<SourceFile> | undefined;
     readonly bindings: readonly BindingDescriptor[];
+    readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
 };
 
@@ -51,6 +52,6 @@ export function buildModuleAnalysis(input: ModuleAnalysisInput): ModuleAnalysis 
         }),
         effects: input.sourceFile === undefined
             ? []
-            : classifySideEffects(input.sourceFile, input.deadCodeElimination)
+            : input.classifySideEffects(input.sourceFile, input.deadCodeElimination)
     };
 }

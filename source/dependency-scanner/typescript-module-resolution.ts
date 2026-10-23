@@ -4,6 +4,7 @@ import { ts as typeScript, type SourceFile } from 'ts-morph';
 type TypescriptModuleFilePathResolution = {
     readonly moduleSpecifier: string;
     readonly containingSourceFile: Readonly<SourceFile>;
+    readonly containingFilePath: string;
     readonly resolutionMode: TypescriptModuleResolutionMode;
 };
 type PackageTypeLookup = {
@@ -80,15 +81,16 @@ function ancestorFolderPaths(startPath: string): readonly string[] {
     });
 }
 
-function packageLookupDirectories(containingSourceFile: Readonly<SourceFile>): readonly string[] {
-    return ancestorFolderPaths(path.dirname(containingSourceFile.getFilePath()));
+function packageLookupDirectories(containingFilePath: string): readonly string[] {
+    return ancestorFolderPaths(path.dirname(containingFilePath));
 }
 
 function packageRootPath(
     specifier: PackageSpecifier,
-    containingSourceFile: Readonly<SourceFile>
+    containingSourceFile: Readonly<SourceFile>,
+    containingFilePath: string
 ): string | undefined {
-    for (const directory of packageLookupDirectories(containingSourceFile)) {
+    for (const directory of packageLookupDirectories(containingFilePath)) {
         const packageRoot = path.join(directory, 'node_modules', specifier.packageName);
         if (hostFileExists(containingSourceFile, path.join(packageRoot, 'package.json'))) {
             return packageRoot;
@@ -222,13 +224,14 @@ function runtimePackageFilePath(
 
 function runtimePackageResolution(
     moduleSpecifier: string,
-    containingSourceFile: Readonly<SourceFile>
+    containingSourceFile: Readonly<SourceFile>,
+    containingFilePath: string
 ): RuntimePackageResolution {
     const specifier = packageSpecifierFrom(moduleSpecifier);
     if (specifier === undefined) {
         return { filePath: undefined, canUseTypeFallback: true };
     }
-    const packageRoot = packageRootPath(specifier, containingSourceFile);
+    const packageRoot = packageRootPath(specifier, containingSourceFile, containingFilePath);
     if (packageRoot === undefined) {
         return { filePath: undefined, canUseTypeFallback: true };
     }
@@ -241,12 +244,13 @@ function runtimePackageResolution(
 
 function runtimeRelativeResolution(
     moduleSpecifier: string,
-    containingSourceFile: Readonly<SourceFile>
+    containingSourceFile: Readonly<SourceFile>,
+    containingFilePath: string
 ): RuntimeRelativeResolution {
     if (!isRelativeOrAbsoluteSpecifier(moduleSpecifier)) {
         return { filePath: undefined, canUseTypeFallback: true };
     }
-    const resolved = path.resolve(path.dirname(containingSourceFile.getFilePath()), moduleSpecifier);
+    const resolved = path.resolve(path.dirname(containingFilePath), moduleSpecifier);
     const candidates = path.extname(resolved) === ''
         ? [ resolved, `${resolved}.mjs`, `${resolved}.js` ]
         : [ resolved ];
@@ -260,13 +264,14 @@ function runtimeRelativeResolution(
 
 function typeResolution(
     moduleSpecifier: string,
-    containingSourceFile: Readonly<SourceFile>
+    containingSourceFile: Readonly<SourceFile>,
+    containingFilePath: string
 ): string | undefined {
     const project = containingSourceFile.getProject();
     return typeScript
         .resolveModuleName(
             moduleSpecifier,
-            containingSourceFile.getFilePath(),
+            containingFilePath,
             project.getCompilerOptions(),
             project.getModuleResolutionHost()
         )
@@ -277,18 +282,26 @@ function typeResolution(
 export function resolveTypescriptModuleFilePath(
     input: TypescriptModuleFilePathResolution
 ): string | undefined {
-    const { containingSourceFile, moduleSpecifier, resolutionMode } = input;
+    const { containingSourceFile, containingFilePath, moduleSpecifier, resolutionMode } = input;
     const resolutionByMode = new Map<string, () => string | undefined>([
         [ 'type', function () {
-            return typeResolution(moduleSpecifier, containingSourceFile);
+            return typeResolution(moduleSpecifier, containingSourceFile, containingFilePath);
         } ],
         [ 'runtime', function () {
-            const relativeResolution = runtimeRelativeResolution(moduleSpecifier, containingSourceFile);
-            const packageResolution = runtimePackageResolution(moduleSpecifier, containingSourceFile);
+            const relativeResolution = runtimeRelativeResolution(
+                moduleSpecifier,
+                containingSourceFile,
+                containingFilePath
+            );
+            const packageResolution = runtimePackageResolution(
+                moduleSpecifier,
+                containingSourceFile,
+                containingFilePath
+            );
             return relativeResolution.filePath ??
                 packageResolution.filePath ??
                 (relativeResolution.canUseTypeFallback && packageResolution.canUseTypeFallback
-                    ? typeResolution(moduleSpecifier, containingSourceFile)
+                    ? typeResolution(moduleSpecifier, containingSourceFile, containingFilePath)
                     : undefined);
         } ]
     ]);

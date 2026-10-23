@@ -5,7 +5,7 @@ import path from 'node:path';
 import { suite, test } from 'mocha';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, type Expression } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { isPureExpression } from './pure-expression.ts';
+import { isPureExpression } from '../test-libraries/expression-purity-test-support.ts';
 
 type ProjectFile = { readonly filePath: string; readonly content: string; };
 
@@ -208,6 +208,17 @@ suite('pure-expression computed keys', function () {
                         content: 'export const resultType = { config: "configuration" };'
                     }
                 ],
+                false
+            );
+        });
+
+        test('isPureExpression keeps computed names from mjs exports conservative', function () {
+            assertProjectInitializerPurity(
+                packageComputedKeyFiles(
+                    '{"name":"schema-lib","type":"module","exports":"./index.mjs"}',
+                    'index.mjs',
+                    'export const resultType = { config: "configuration" };'
+                ),
                 false
             );
         });
