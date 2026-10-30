@@ -126,7 +126,7 @@
             "qs": "6.16.0"
         },
         "verdaccio": {
-            "@verdaccio/hooks": "8.1.7",
+            "@verdaccio/hooks": "8.1.8",
             "compression": "1.8.2"
         },
         "yargs": "18.2.0"
