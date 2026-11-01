@@ -123,7 +123,7 @@
             "serialize-javascript": "7.1.2"
         },
         "typed-rest-client": {
-            "qs": "6.16.0"
+            "qs": "6.17.1"
         },
         "verdaccio": {
             "@verdaccio/hooks": "8.1.7",
