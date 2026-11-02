@@ -22,7 +22,7 @@ export type PreviewHandlerDependencies = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configurationLoader: ConfigurationLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: { readonly open: boolean; readonly packageName?: string | undefined; readonly allFiles?: boolean; };
+    readonly flags: { readonly open: boolean; readonly packageName: string | undefined; readonly allFiles: boolean; };
 };
 
 async function renderOpenedReport(
@@ -88,7 +88,7 @@ async function preview(dependencies: PreviewHandlerDependencies): Promise<number
     await renderDocument(dependencies, {
         ...document,
         selectedPackage: dependencies.flags.packageName,
-        allFiles: dependencies.flags.allFiles ?? false
+        allFiles: dependencies.flags.allFiles
     });
     return outcome.result.isErr ? 1 : 0;
 }
