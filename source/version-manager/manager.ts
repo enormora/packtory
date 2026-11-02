@@ -1,4 +1,5 @@
 import semver from 'semver';
+import type { WorkspaceInspector } from '../report/inspectors/inspect-workspace.ts';
 import { packageManifestFilePath } from '../common/package-layout.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { inspectPackageManifestProvenance } from '../report/inspectors/inspect-package-manifest-provenance.ts';
@@ -12,6 +13,7 @@ import {
 } from './versioned-bundle.ts';
 
 export type VersionManagerDependencies = {
+    readonly inspectWorkspace: WorkspaceInspector;
     readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
@@ -38,6 +40,23 @@ function toVersionedBundleWithManifest(versionedBundle: VersionedBundle): Versio
 export function createVersionManager(dependencies: VersionManagerDependencies): VersionManager {
     const { progressBroadcaster } = dependencies;
 
+    function capturePackage(bundle: VersionedBundleWithManifest): VersionedBundleWithManifest {
+        if (progressBroadcaster.hasSubscribers('packageCaptured')) {
+            const snapshot = dependencies.inspectWorkspace(bundle, {
+                dependencies: bundle.dependencies,
+                peerDependencies: bundle.peerDependencies
+            });
+            progressBroadcaster.emit('packageCaptured', {
+                packageName: bundle.name,
+                snapshot: {
+                    ...snapshot,
+                    exports: JSON.stringify(bundle.packageManifest.exports),
+                    executables: JSON.stringify(bundle.packageManifest.bin ?? {})
+                }
+            });
+        }
+        return bundle;
+    }
     return {
         addVersion(options) {
             const versionedBundle = buildVersionedBundle(options);
@@ -54,7 +73,7 @@ export function createVersionManager(dependencies: VersionManagerDependencies): 
                 });
             }
 
-            return materializedBundle;
+            return capturePackage(materializedBundle);
         },
 
         increaseVersion(versionedBundle) {
@@ -68,7 +87,7 @@ export function createVersionManager(dependencies: VersionManagerDependencies): 
                 version: newVersion
             };
 
-            return toVersionedBundleWithManifest(newVersionedBundle);
+            return capturePackage(toVersionedBundleWithManifest(newVersionedBundle));
         }
     };
 }

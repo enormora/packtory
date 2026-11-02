@@ -1,3 +1,4 @@
+import type { WorkspaceSnapshot } from '../report/inspectors/inspect-workspace.ts';
 import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
 
 export type StageName = 'build' | 'eliminate' | 'publish' | 'resolveAndLink' | 'tryPublish';
@@ -163,6 +164,8 @@ type PackageFailedPayload = {
 };
 
 type Events = {
+    readonly packageCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
+    readonly workspaceCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
     readonly scheduled: ScheduledEventPayload;
     readonly resolving: ResolvingEventPayload;
     readonly linking: LinkingEventPayload;
@@ -232,6 +235,8 @@ export type ProgressBroadcaster = {
 
 function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<Events[TEventName]>>; } {
     return {
+        packageCaptured: new Set(),
+        workspaceCaptured: new Set(),
         scheduled: new Set(),
         resolving: new Set(),
         linking: new Set(),

@@ -1,4 +1,4 @@
-import type { PreviewPackage } from '../preview/preview-document.ts';
+import type { PreviewPackage } from '../preview/preview-package-types.ts';
 import { formatTerminalBytes, renderArtifactNode } from './terminal-artifact-renderer.ts';
 import { renderDiffLine, type Colors } from './terminal-preview-renderer-shared.ts';
 

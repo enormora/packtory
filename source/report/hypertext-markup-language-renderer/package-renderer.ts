@@ -1,5 +1,5 @@
-import type { PreviewPackage } from '../preview/preview-document.ts';
-import { renderArtifactNode } from './artifact-tree-renderer.ts';
+import type { PreviewPackage } from '../preview/preview-package-types.ts';
+import { renderWorkspaceComparison } from './workspace-package-renderer.ts';
 import { renderPackageDiffs } from './diff-renderer.ts';
 import { renderDiagnostics, renderFailureBanner } from './diagnostics-renderer.ts';
 import { renderEliminatedFiles } from './eliminated-files-renderer.ts';
@@ -27,10 +27,7 @@ export function renderPackage(previewPackage: PreviewPackage): string {
     return `<details class="package"${previewPackage.openByDefault ? ' open' : ''}>
         <summary>${summary}</summary>
         ${renderFailureBanner(previewPackage)}
-        <section class="package-block">
-            <h3>Artifacts</h3>
-            <ul class="tree">${previewPackage.tree.map(renderArtifactNode).join('')}</ul>
-        </section>
+        ${renderWorkspaceComparison(previewPackage)}
         ${renderEliminatedFiles(previewPackage)}
         ${renderPackageDiffs(previewPackage)}
         ${renderDiagnostics(previewPackage)}

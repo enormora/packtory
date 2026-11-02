@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { inspectWorkspace } from '../test-libraries/workspace-inspector.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import {
@@ -21,6 +22,7 @@ function createAnalyzedBundle(): AnalyzedBundle {
 suite('manager', function () {
     test('addVersion() creates the versioned bundle and manifest file', function () {
         const manager = createVersionManager({
+            inspectWorkspace,
             progressBroadcaster: {
                 emit(): void {
                     return undefined;
@@ -91,6 +93,7 @@ suite('manager', function () {
 
     test('increaseVersion() bumps the patch version and rebuilds the package manifest', function () {
         const manager = createVersionManager({
+            inspectWorkspace,
             progressBroadcaster: {
                 emit(): void {
                     return undefined;
@@ -152,6 +155,7 @@ suite('manager', function () {
 
     test('increaseVersion() throws when the given version is invalid', function () {
         const manager = createVersionManager({
+            inspectWorkspace,
             progressBroadcaster: {
                 emit(): void {
                     return undefined;
@@ -207,7 +211,7 @@ suite('manager', function () {
             VersionManager['addVersion']
         >[0]['additionalPackageManifestAttributes'] = {}
     ): void {
-        const manager = createVersionManager({ progressBroadcaster });
+        const manager = createVersionManager({ inspectWorkspace, progressBroadcaster });
         manager.addVersion({
             bundle: analyzedBundle({}),
             version: '1.0.0',

@@ -7,6 +7,7 @@ import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
+import { createWorkspaceInspector } from '../report/inspectors/inspect-workspace.ts';
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
@@ -290,8 +291,19 @@ export function buildPackageProcessorComposition(
     options: PackageProcessorCompositionOptions
 ): PackageProcessorComposition {
     const parts = buildCompositionParts(options);
-    const versionManager = createVersionManager({ progressBroadcaster: parts.progressBroadcaster.provider });
+    const inspectWorkspace = createWorkspaceInspector(function () {
+        return new Project({
+            useInMemoryFileSystem: true,
+            skipLoadingLibFiles: true,
+            compilerOptions: { allowJs: true, checkJs: true, noEmit: true, noLib: true }
+        });
+    });
+    const versionManager = createVersionManager({
+        progressBroadcaster: parts.progressBroadcaster.provider,
+        inspectWorkspace
+    });
     const basePackageProcessor = createPackageProcessor({
+        inspectWorkspace,
         progressBroadcaster: parts.progressBroadcaster.provider,
         versionManager,
         bundleEmitter: parts.bundleEmitter,

@@ -51,6 +51,7 @@ type PipelineSpies = {
 
 function stubDependencies(): ResolveAndBuildDependencies {
     return {
+        inspectWorkspace: fake(),
         deadCodeEliminator: {
             eliminate: fake.resolves([])
         },
@@ -105,6 +106,7 @@ function createPipelineDependencies(
 ): PipelineDependenciesFixture {
     const spies = createPipelineSpies();
     const dependencies: ResolveAndBuildDependencies = {
+        inspectWorkspace: fake(),
         deadCodeEliminator: {
             eliminate: spies.eliminate
         },

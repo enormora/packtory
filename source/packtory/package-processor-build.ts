@@ -1,11 +1,11 @@
+import type { WorkspaceInspector } from '../report/inspectors/inspect-workspace.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { BundleLinker } from '../linker/linker.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
-import { inspectLinkerRewrites } from '../report/inspectors/inspect-linker-rewrites.ts';
-import { inspectScanResults, type ScanInspectionInput } from '../report/inspectors/inspect-scan-results.ts';
+import { reportResolvedBundle, reportLinkedBundle } from '../report/resolution-reporting.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildOptions, ResolveAndLinkOptions } from './map-configuration.ts';
 
@@ -14,6 +14,7 @@ type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion
 type ResolvedBundle = Awaited<ReturnType<ResourceResolver['resolve']>>;
 type MainPackageTypeField = { readonly type?: string | undefined; };
 export type ResolveAndBuildDependencies = {
+    readonly inspectWorkspace: WorkspaceInspector;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly linker: BundleLinker;
     readonly progressBroadcaster: ProgressBroadcastProvider;
@@ -24,29 +25,6 @@ export type ResolveAndBuildDependencies = {
 function assertEcmaScriptModuleMainPackageManifest(mainPackageManifest: MainPackageTypeField): void {
     if (mainPackageManifest.type !== 'module') {
         throw new Error('mainPackageManifest.type must be "module"');
-    }
-}
-
-function maybeEmitScanCompleted(
-    dependencies: Pick<ResolveAndBuildDependencies, 'progressBroadcaster'>,
-    packageName: string,
-    resolved: ScanInspectionInput
-): void {
-    if (dependencies.progressBroadcaster.hasSubscribers('scanCompleted')) {
-        dependencies.progressBroadcaster.emit('scanCompleted', { packageName, ...inspectScanResults(resolved) });
-    }
-}
-
-function maybeEmitLinkingCompleted(
-    dependencies: Pick<ResolveAndBuildDependencies, 'progressBroadcaster'>,
-    packageName: string,
-    linked: LinkedBundle
-): void {
-    if (dependencies.progressBroadcaster.hasSubscribers('linkingCompleted')) {
-        dependencies.progressBroadcaster.emit('linkingCompleted', {
-            packageName,
-            rewrites: inspectLinkerRewrites(linked)
-        });
     }
 }
 
@@ -85,14 +63,19 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         options: ResolveAndLinkOptions,
         resolvedBundle: ResolvedBundle
     ): Promise<LinkedBundle> {
-        maybeEmitScanCompleted(dependencies, options.name, resolvedBundle);
+        reportResolvedBundle(
+            dependencies.progressBroadcaster,
+            resolvedBundle,
+            options.mainPackageManifest,
+            dependencies.inspectWorkspace
+        );
         dependencies.progressBroadcaster.emit('linking', { packageName: options.name });
         const linkedBundle = await dependencies.linker.linkBundle({
             bundle: resolvedBundle,
             bundleDependencies: options.bundleDependencies,
             bundlePeerDependencies: options.bundlePeerDependencies
         });
-        maybeEmitLinkingCompleted(dependencies, options.name, linkedBundle);
+        reportLinkedBundle(dependencies.progressBroadcaster, linkedBundle);
         return linkedBundle;
     }
 

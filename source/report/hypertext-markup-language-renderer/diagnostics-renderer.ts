@@ -1,4 +1,4 @@
-import type { PreviewPackage } from '../preview/preview-document.ts';
+import type { PreviewPackage } from '../preview/preview-package-types.ts';
 import { escapeHypertextMarkupLanguage } from './hypertext-markup-language-escaping.ts';
 import { renderCollapsibleSection } from './hypertext-markup-language-primitives.ts';
 

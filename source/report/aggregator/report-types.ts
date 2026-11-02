@@ -1,3 +1,4 @@
+import type { WorkspaceSnapshot } from '../inspectors/inspect-workspace.ts';
 import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import type {
     ArtifactEntry,
@@ -26,6 +27,8 @@ type CrossBundleLink = {
 };
 
 export type PackageReport = {
+    readonly workspaceSnapshot?: WorkspaceSnapshot;
+    readonly packageSnapshot?: WorkspaceSnapshot;
     readonly inputs?: {
         readonly roots: Readonly<Record<string, string>>;
         readonly effectiveConfiguration?: RedactedConfiguration;
@@ -68,6 +71,8 @@ type Required<T> = NonNullable<T>;
 type Inputs = Required<PackageReport['inputs']>;
 
 export type MutablePackageReport = {
+    readonly workspaceSnapshot?: WorkspaceSnapshot;
+    readonly packageSnapshot?: WorkspaceSnapshot;
     readonly roots?: Inputs['roots'];
     readonly siblingVersions?: Inputs['siblingVersions'];
     readonly sourceFileCount?: Inputs['sourceFileCount'];
