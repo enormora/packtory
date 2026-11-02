@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { WorkspaceSnapshot } from '../inspectors/inspect-workspace.ts';
-import { compareWorkspace } from './workspace-comparison.ts';
+import { compareWorkspace } from './workspace-snapshot-comparison.ts';
 
 const empty: WorkspaceSnapshot = {
     imports: [],

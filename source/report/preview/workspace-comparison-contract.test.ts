@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { WorkspaceSnapshot } from '../inspectors/inspect-workspace.ts';
 import { createPackageReportFixture, createArtifactEntryFixture } from '../../test-libraries/preview-fixtures.ts';
-import { compareWorkspace, buildWorkspaceComparison } from './workspace-comparison.ts';
+import { buildWorkspaceComparison } from './workspace-comparison.ts';
+import { compareWorkspace } from './workspace-snapshot-comparison.ts';
 
 const empty: WorkspaceSnapshot = {
     files: [],
