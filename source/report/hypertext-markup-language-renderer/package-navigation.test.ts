@@ -14,8 +14,10 @@ suite('package navigation', function () {
         const markup = renderPackageNavigation(document);
         assert.ok(markup.includes('id="package-0" checked'));
         assert.ok(markup.includes('a-failed (failed)'));
+        assert.ok(markup.includes('<span class="package-option"><input class="package-choice"'));
+        assert.ok(markup.includes('</label></span>'));
         assert.ok(markup.indexOf('a-failed') < markup.indexOf('z-transformed'));
-        assert.ok(markup.includes('#package-0:checked ~ .package-panel-0'));
+        assert.ok(markup.includes('.packages:has(#package-0:checked) .package-panel-0'));
     });
 
     test('honors selected packages, escapes labels, and enables all files', function () {

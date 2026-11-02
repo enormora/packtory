@@ -20,9 +20,13 @@ export function renderPackageNavigation(document: PreviewDocument): string {
     const controls = packages
         .map(function (entry, index) {
             const name = escapeHypertextMarkupLanguage(entry.name);
-            return `<input class="package-choice" type="radio" name="package" id="package-${index}"${
+            const input = `<input class="package-choice" type="radio" name="package" id="package-${index}"${
                 entry.name === selected ? ' checked' : ''
-            }><label for="package-${index}">${name}${entry.failure === undefined ? '' : ' (failed)'}</label>`;
+            }>`;
+            const label = `<label for="package-${index}">${name}${
+                entry.failure === undefined ? '' : ' (failed)'
+            }</label>`;
+            return `<span class="package-option">${input}${label}</span>`;
         })
         .join('');
     const panels = packages
@@ -32,7 +36,7 @@ export function renderPackageNavigation(document: PreviewDocument): string {
         .join('');
     const rules = packages
         .map(function (_entry, index) {
-            return `#package-${index}:checked ~ .package-panel-${index} { display: block; }`;
+            return `.packages:has(#package-${index}:checked) .package-panel-${index} { display: block; }`;
         })
         .join('');
     return `<style>${rules}</style><input id="all-files" type="checkbox"${
@@ -43,7 +47,15 @@ export function renderPackageNavigation(document: PreviewDocument): string {
 export function packageNavigationStyles(): string {
     return `
 .package-panel, .tree-all { display: none; }
-.package-choice { margin-left: 1rem; }
+.package-option { display: inline-block; max-width: 100%; margin-right: 0.75rem; overflow-wrap: anywhere; }
+.package-choice { margin: 0 0.3rem 0 0; }
+.package-option label { cursor: pointer; }
+.packages > label { display: inline-block; margin: 0.4rem 0.75rem 0.4rem 0.25rem; cursor: pointer; }
+.package-panel { margin-top: 1rem; }
+.package-panel table { width: 100%; table-layout: fixed; border-collapse: collapse; overflow-wrap: anywhere; }
+.package-panel th, .package-panel td {
+    text-align: left; vertical-align: top; padding: 0.4rem; border-bottom: 1px solid var(--line);
+}
 .package-choice:focus-visible + label { outline: 2px solid currentColor; }
 .paired-trees { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 #all-files:not(:checked) ~ .package-panel .unchanged-row { display: none; }
