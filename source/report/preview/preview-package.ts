@@ -63,7 +63,8 @@ export async function buildPreviewPackage(
         })
     );
     const eliminatedSourceFiles = packageReport.eliminatedSourceFiles ?? [];
-    const hasChanges = hasMeaningfulChanges(artifacts, eliminatedSourceFiles);
+    const comparison = buildWorkspaceComparison(packageReport, artifacts);
+    const hasChanges = hasMeaningfulChanges(artifacts, eliminatedSourceFiles, comparison.comparisonRows);
     const tree = buildArtifactTree(artifacts);
     const { changedArtifacts, artifactCounts } = collectPackageArtifactData(artifacts);
     return {
@@ -77,6 +78,6 @@ export async function buildPreviewPackage(
         eliminatedSourceFiles,
         failure: packageReport.failure,
         diagnostics: packageReport,
-        ...buildWorkspaceComparison(packageReport, artifacts)
+        ...comparison
     };
 }
