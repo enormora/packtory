@@ -18,10 +18,20 @@ suite('workspace import comparison', function () {
             sourceSpecifier: 'external',
             emittedSpecifier: 'external'
         };
-        assert.deepStrictEqual(compareWorkspaceImports([ first, first, removed ], [ first ]), [
-            { label: 'external imports', before: 'old.js: external', after: 'no retained import' },
-            { label: 'sibling imports', before: 'index.js: ../sibling.js', after: 'index.js: sibling/subpath' }
-        ]);
+        assert.deepStrictEqual(
+            compareWorkspaceImports([ first, { ...first, sourcePath: 'another.js' }, first, removed ], [ first, {
+                ...first,
+                sourcePath: 'another.js'
+            } ]),
+            [
+                { label: 'external imports', before: 'old.js: external', after: 'no retained import' },
+                {
+                    label: 'sibling imports',
+                    before: 'another.js: ../sibling.js, index.js: ../sibling.js',
+                    after: 'another.js: sibling/subpath, index.js: sibling/subpath'
+                }
+            ]
+        );
     });
 
     test('records package and sibling references and excludes local references', function () {

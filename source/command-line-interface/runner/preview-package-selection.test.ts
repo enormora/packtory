@@ -10,7 +10,12 @@ import {
 } from '../../test-libraries/preview-fixtures.ts';
 import { createRunner } from '../../test-libraries/runner-test-support.ts';
 
-const configuration = { packages: [ packageConfigurationFixture({ publishSettings: publicPublishSettings }) ] };
+const configuration = {
+    packages: [
+        packageConfigurationFixture({ publishSettings: publicPublishSettings }),
+        packageConfigurationFixture({ name: 'package-b', publishSettings: publicPublishSettings })
+    ]
+};
 const report = createBuildReportFixture({
     packages: {
         'package-a': createPackageReportFixture({
@@ -70,5 +75,25 @@ suite('preview package selection', function () {
         const runner = createRunner({ buildAndPublishAll, log, loadConfiguration: fake.resolves(configuration) });
         assert.strictEqual(await runner.run([ 'node', 'packtory', 'preview', '--package', 'package-a' ]), 1);
         assert.ok(String(log.firstCall.args[0]).includes('sibling failed'));
+    });
+
+    test('shows summaries without a selection and hides unchanged files unless requested', async function () {
+        const buildAndPublishAll = fake.resolves({
+            result: Result.ok([]),
+            getReport() {
+                return report;
+            }
+        });
+        const pageOutput = fake.resolves(undefined);
+        const runner = createRunner({
+            buildAndPublishAll,
+            pageOutput,
+            loadConfiguration: fake.resolves(configuration)
+        });
+        assert.strictEqual(await runner.run([ 'node', 'packtory', 'preview' ]), 0);
+        assert.ok(String(pageOutput.firstCall.args[0]).includes('package-a:'));
+        assert.strictEqual(await runner.run([ 'node', 'packtory', 'preview', '--package', 'package-a' ]), 0);
+        assert.ok(!String(pageOutput.lastCall.args[0]).includes('retained.js'));
+        assert.ok(String(pageOutput.lastCall.args[0]).includes('1 unchanged output files hidden'));
     });
 });

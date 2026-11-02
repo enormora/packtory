@@ -10,14 +10,14 @@ suite('workspace symbols', function () {
                 {
                     filePath: '/index.ts',
                     content:
-                        "export type { Model } from './model.js'; export { Model as RuntimeModel } from './model.js';"
+                        "export type { Model } from './model.js'; export { Model as RuntimeModel, type Model as TypeModel } from './model.js';"
                 },
                 { filePath: '/model.ts', content: 'export class Model {}' }
             ]
         });
         assert.deepStrictEqual(inspectModuleSymbols(project.getSourceFileOrThrow('/index.ts')), {
             values: [ 'RuntimeModel' ],
-            types: [ 'Model', 'RuntimeModel' ],
+            types: [ 'Model', 'RuntimeModel', 'TypeModel' ],
             complete: true
         });
     });
@@ -43,5 +43,16 @@ suite('workspace symbols', function () {
             withFiles: [ { filePath: '/module.cjs', content: 'module.exports = load();' } ]
         });
         assert.strictEqual(inspectModuleSymbols(project.getSourceFileOrThrow('/module.cjs')).complete, false);
+    });
+
+    test('resolves local export aliases without a forwarding module', function () {
+        const project = createProject({
+            withFiles: [ { filePath: '/index.ts', content: 'const local = 1; export { local as renamed };' } ]
+        });
+        assert.deepStrictEqual(inspectModuleSymbols(project.getSourceFileOrThrow('/index.ts')), {
+            values: [ 'renamed' ],
+            types: [],
+            complete: true
+        });
     });
 });

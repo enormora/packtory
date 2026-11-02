@@ -28,10 +28,11 @@ function resolutionState(module: Module | undefined): string {
 function compareNames(
     original: Module | undefined,
     emitted: Module | undefined,
-    namespace: Namespace
+    namespace: Namespace,
+    specifier: string
 ): readonly ComparisonRow[] {
     const names = new Set([ ...moduleNames(original, namespace), ...moduleNames(emitted, namespace) ]);
-    const label = `${original?.specifier ?? emitted?.specifier} ${namespace}`;
+    const label = `${specifier} ${namespace}`;
     const rows = Array.from(names).toSorted(alphabetical).map(function (name) {
         return {
             label: `${label}: ${name}`,
@@ -55,8 +56,8 @@ function compareModules(before: WorkspaceSnapshot, after: WorkspaceSnapshot): re
     const specifiers = new Set([ ...originals.keys(), ...emitted.keys() ]);
     return Array.from(specifiers).toSorted(alphabetical).flatMap(function (specifier) {
         return [
-            ...compareNames(originals.get(specifier), emitted.get(specifier), 'values'),
-            ...compareNames(originals.get(specifier), emitted.get(specifier), 'types')
+            ...compareNames(originals.get(specifier), emitted.get(specifier), 'values', specifier),
+            ...compareNames(originals.get(specifier), emitted.get(specifier), 'types', specifier)
         ];
     });
 }

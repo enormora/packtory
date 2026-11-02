@@ -13,12 +13,9 @@ function alphabetical(left: string, right: string): number {
 }
 
 function isTypeOnly(symbol: MorphSymbol): boolean {
-    return symbol.getDeclarations().some(function (declaration) {
-        if (!MorphNode.isExportSpecifier(declaration)) {
-            return false;
-        }
-        return declaration.isTypeOnly() || declaration.getExportDeclaration().isTypeOnly();
-    });
+    const declaration = symbol.getDeclarations().at(0);
+    return MorphNode.isExportSpecifier(declaration) &&
+        (declaration.isTypeOnly() || declaration.getExportDeclaration().isTypeOnly());
 }
 
 function resolvedSymbol(symbol: MorphSymbol): MorphSymbol {
@@ -36,7 +33,7 @@ function exportsAreResolved(source: SourceFile, visited: ReadonlySet<string>): b
         return true;
     }
     const seen = new Set([ ...visited, source.getFilePath() ]);
-    if (source.isFromExternalLibrary() || source.getFilePath().endsWith('.cjs')) {
+    if (source.getFilePath().endsWith('.cjs')) {
         return false;
     }
     return source.getExportDeclarations().every(function (declaration) {
@@ -49,10 +46,7 @@ function exportsAreResolved(source: SourceFile, visited: ReadonlySet<string>): b
 }
 
 function hasExportConflict(source: SourceFile): boolean {
-    const forwarding = source.getExportDeclarations().filter(function (declaration) {
-        return declaration.getNamedExports().length === 0;
-    });
-    return forwarding.length > 1 && source.getPreEmitDiagnostics().some(function (diagnostic) {
+    return source.getPreEmitDiagnostics().some(function (diagnostic) {
         return diagnostic.getCode() === ambiguousExportDiagnosticCode;
     });
 }

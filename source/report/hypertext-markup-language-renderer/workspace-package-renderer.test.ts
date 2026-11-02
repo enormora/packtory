@@ -16,12 +16,14 @@ suite('workspace package renderer', function () {
             comparisonRows: [
                 { label: '<label>', before: '<before>', after: '<after>' },
                 { label: 'same', before: 'same', after: 'same' },
+                { label: 'another', before: 'same', after: 'same' },
                 { label: 'unknown', before: 'unknown exports', after: 'unknown exports' }
             ]
         }));
         assert.strictEqual(markup.split('retained.js').length - 1, 2);
         const fragments = [
             '<h3>Workspace sources</h3>',
+            '</td></tr><tr class="unchanged-row"><th scope="row">same',
             '<h3>Artifacts</h3>',
             '<h3>API and dependencies</h3>',
             '<div class="tree-changes"><ul class="tree">',
@@ -30,7 +32,7 @@ suite('workspace package renderer', function () {
             '<tr class="changed-row"><th scope="row">&lt;label&gt;</th><td>&lt;before&gt;</td><td>&lt;after&gt;</td></tr>',
             '<tr class="unchanged-row"><th scope="row">same</th><td>same</td><td>same</td></tr>',
             '<tr class="changed-row"><th scope="row">unknown</th><td>unknown exports</td><td>unknown exports</td></tr>',
-            '<p class="tree-changes">1 unchanged comparison rows hidden</p>',
+            '<p class="tree-changes">2 unchanged comparison rows hidden</p>',
             '<table><thead><tr><th scope="col">API or dependency</th><th scope="col">Workspace</th><th scope="col">Package</th></tr></thead><tbody>'
         ];
         assert.deepStrictEqual(

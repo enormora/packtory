@@ -41,7 +41,7 @@ function projectForBundle(bundle: SnapshotBundle, declarations: boolean, createP
     for (const resource of bundle.contents) {
         const file = resource.fileDescription;
         if (isCodeFile(file.targetFilePath) && isDeclarationCompanionFilePath(file.targetFilePath) === declarations) {
-            project.createSourceFile(file.targetFilePath, file.content, { overwrite: true });
+            project.createSourceFile(file.targetFilePath, file.content);
         }
     }
     return project;
@@ -54,7 +54,10 @@ function inspectModules(bundle: SnapshotBundle, createProject: CreateProject): W
         const resource = bundle.contents.find(function (entry) {
             return entry.fileDescription.inputFilePath === inputPath;
         });
-        const target = resource?.fileDescription.targetFilePath ?? '';
+        if (resource === undefined) {
+            return { specifier, values: [], types: [], complete: false };
+        }
+        const target = resource.fileDescription.targetFilePath;
         const declarationPath = declarationCompanionCandidates(target).find(function (candidate) {
             return declarations.getSourceFile(candidate) !== undefined;
         });

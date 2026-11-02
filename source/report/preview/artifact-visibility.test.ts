@@ -9,6 +9,7 @@ suite('artifact visibility', function () {
         const tree = buildArtifactTree([
             createArtifactEntryFixture({ path: 'kept/deep/a.js', status: 'changed' }),
             createArtifactEntryFixture({ path: 'hidden/b.js', status: 'unchanged' }),
+            createArtifactEntryFixture({ path: 'hidden/c.js', status: 'unchanged' }),
             createArtifactEntryFixture({ path: 'kept/unchanged.js', status: 'unchanged' }),
             createArtifactEntryFixture({ path: 'package.json', kind: 'manifest', status: 'generated' })
         ]);
@@ -18,7 +19,7 @@ suite('artifact visibility', function () {
             }),
             [ 'package.json', 'kept', 'kept/deep', 'kept/deep/a.js' ]
         );
-        assert.strictEqual(hiddenArtifactCount(tree, false), 2);
+        assert.strictEqual(hiddenArtifactCount(tree, false), 3);
         assert.deepStrictEqual(visibleArtifactTree(tree, true), tree);
         assert.strictEqual(hiddenArtifactCount(tree, true), 0);
     });

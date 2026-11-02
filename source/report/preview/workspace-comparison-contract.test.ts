@@ -49,6 +49,15 @@ suite('workspace comparison contract', function () {
         );
     });
 
+    test('keeps resolution diagnostics when a previously known surface becomes unknown', function () {
+        assert.deepStrictEqual(compareWorkspace({ ...empty, modules: [ known ] }, { ...empty, modules: [ unknown ] }), [
+            { label: 'pkg values: value', before: 'exported', after: 'unknown' },
+            { label: 'pkg values', before: 'resolved', after: 'unknown exports' },
+            { label: 'pkg types: Shape', before: 'exported', after: 'unknown' },
+            { label: 'pkg types', before: 'resolved', after: 'unknown exports' }
+        ]);
+    });
+
     test('compares export conditions and executable mappings', function () {
         assert.deepStrictEqual(
             compareWorkspace(empty, { ...empty, exports: '{".":"./index.js"}', executables: '{"cmd":"./cli.js"}' }),
