@@ -1,4 +1,5 @@
 import { Node as MorphNode, type SourceFile, type Symbol as MorphSymbol } from 'ts-morph';
+import { createWorklist } from '../../common/worklist.ts';
 
 const ambiguousExportDiagnosticCode = 2308;
 
@@ -28,21 +29,31 @@ function isTypeDeclaration(declaration: MorphNode): boolean {
         MorphNode.isEnumDeclaration(declaration);
 }
 
-function exportsAreResolved(source: SourceFile, visited: ReadonlySet<string>): boolean {
-    if (visited.has(source.getFilePath())) {
-        return true;
-    }
-    const seen = new Set([ ...visited, source.getFilePath() ]);
-    if (source.getFilePath().endsWith('.cjs')) {
-        return false;
-    }
-    return source.getExportDeclarations().every(function (declaration) {
-        if (declaration.getModuleSpecifierValue() === undefined) {
-            return true;
+function forwardedModules(source: SourceFile): ReadonlySet<SourceFile | undefined> {
+    return new Set(
+        source
+            .getExportDeclarations()
+            .filter(function (declaration) {
+                return declaration.getModuleSpecifierValue() !== undefined;
+            })
+            .map(function (declaration) {
+                return declaration.getModuleSpecifierSourceFile();
+            })
+    );
+}
+
+function exportsAreResolved(source: SourceFile): boolean {
+    const remaining = new Set(source.getProject().getSourceFiles());
+    const pending = createWorklist([ source ]);
+    for (let current = pending.takeNext(); current !== undefined; current = pending.takeNext()) {
+        remaining.delete(current);
+        const targets = forwardedModules(current);
+        if (current.getFilePath().endsWith('.cjs') || targets.has(undefined)) {
+            return false;
         }
-        const target = declaration.getModuleSpecifierSourceFile();
-        return target !== undefined && exportsAreResolved(target, seen);
-    });
+        pending.scheduleAll(remaining.intersection(targets));
+    }
+    return true;
 }
 
 function hasExportConflict(source: SourceFile): boolean {
@@ -73,7 +84,7 @@ export function inspectModuleSymbols(source: SourceFile | undefined): ModuleSymb
                 return symbol.getName();
             })
             .toSorted(alphabetical),
-        complete: exportsAreResolved(source, new Set()) && symbols.every(function (symbol) {
+        complete: exportsAreResolved(source) && symbols.every(function (symbol) {
             return resolvedSymbol(symbol).getDeclarations().length > 0;
         })
     };
