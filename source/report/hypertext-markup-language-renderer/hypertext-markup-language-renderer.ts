@@ -6,7 +6,7 @@ import {
     serializeJavaScriptObjectNotationBlock
 } from './hypertext-markup-language-primitives.ts';
 import { hypertextMarkupLanguageReportStyles } from './hypertext-markup-language-styles.ts';
-import { renderPackage } from './package-renderer.ts';
+import { renderPackageNavigation, packageNavigationStyles } from './package-navigation.ts';
 
 function renderIssues(document: PreviewDocument): string {
     if (document.issues.length === 0) {
@@ -17,14 +17,6 @@ function renderIssues(document: PreviewDocument): string {
         items += `<li>${escapeHypertextMarkupLanguage(issue)}</li>`;
     }
     return renderIssuesSection(items);
-}
-
-function renderPackages(document: PreviewDocument): string {
-    let result = '';
-    for (const previewPackage of document.packages) {
-        result += renderPackage(previewPackage);
-    }
-    return result;
 }
 
 function renderSummaryCards(document: PreviewDocument): string {
@@ -50,7 +42,7 @@ export function renderHypertextMarkupLanguageReport(document: PreviewDocument): 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Packtory build report</title>
-    <style>${hypertextMarkupLanguageReportStyles()}</style>
+    <style>${hypertextMarkupLanguageReportStyles()}${packageNavigationStyles()}</style>
 </head>
 <body>
     <main>
@@ -62,7 +54,7 @@ export function renderHypertextMarkupLanguageReport(document: PreviewDocument): 
         <section class="summary">${renderSummaryCards(document)}
         </section>
         ${renderIssues(document)}
-        <section class="packages">${renderPackages(document)}</section>
+        <section class="packages">${renderPackageNavigation(document)}</section>
         <script type="application/json" id="packtory-report-data">${reportData}</script>
     </main>
 </body>

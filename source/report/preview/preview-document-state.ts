@@ -1,5 +1,6 @@
 import type { EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
 import type { PackageReport } from '../aggregator/report-types.ts';
+import type { ComparisonRow } from './workspace-import-comparison.ts';
 import type { PreviewArtifact } from './artifact-tree-builder.ts';
 
 export function buildVersionTransition(packageReport: PackageReport): string | undefined {
@@ -15,12 +16,17 @@ export function buildVersionTransition(packageReport: PackageReport): string | u
 
 export function hasMeaningfulChanges(
     artifacts: readonly PreviewArtifact[],
-    eliminatedSourceFiles: readonly EliminatedSourceFile[]
+    eliminatedSourceFiles: readonly EliminatedSourceFile[],
+    comparisonRows: readonly ComparisonRow[] | undefined
 ): boolean {
+    const hasComparisonChanges = comparisonRows?.some(function (row) {
+        return row.before !== row.after;
+    }) === true;
     return (
         eliminatedSourceFiles.length > 0 ||
         artifacts.some(function (artifact) {
             return artifact.status === 'changed';
-        })
+        }) ||
+        hasComparisonChanges
     );
 }

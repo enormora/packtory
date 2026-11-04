@@ -1,11 +1,10 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
-import type { ArtifactBadge, ArtifactStatus, EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
-import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
-import { buildDiffForArtifact } from './artifact-diff-builder.ts';
-import { buildArtifactTree, type PreviewArtifact, type PreviewArtifactNode } from './artifact-tree-builder.ts';
-import { buildBundleArtifactIndex, type BundleArtifactIndex } from './bundle-artifact-index.ts';
-import { buildVersionTransition, hasMeaningfulChanges } from './preview-document-state.ts';
+import type { ArtifactBadge, ArtifactStatus } from '../../progress/progress-broadcaster.ts';
+import type { BuildReport } from '../aggregator/report-types.ts';
+import type { PreviewPackage } from './preview-package-types.ts';
+import { buildPreviewPackage } from './preview-package.ts';
+import { buildBundleArtifactIndex } from './bundle-artifact-index.ts';
 import {
     getIssues,
     getResultType,
@@ -15,29 +14,9 @@ import {
 } from './preview-result-inspectors.ts';
 import { summarizePackages, type PreviewSummary } from './preview-summary.ts';
 
-export type ChangedPreviewArtifact = PreviewArtifact & {
-    readonly diff: NonNullable<PreviewArtifact['diff']>;
-};
-
-type PreviewArtifactCounts = {
-    readonly emitted: number;
-    readonly changed: number;
-};
-
-export type PreviewPackage = {
-    readonly name: string;
-    readonly versionTransition?: string | undefined;
-    readonly hasChanges: boolean;
-    readonly openByDefault: boolean;
-    readonly tree: readonly PreviewArtifactNode[];
-    readonly changedArtifacts: readonly ChangedPreviewArtifact[];
-    readonly artifactCounts: PreviewArtifactCounts;
-    readonly eliminatedSourceFiles: readonly EliminatedSourceFile[];
-    readonly failure?: PackageReport['failure'];
-    readonly diagnostics: PackageReport;
-};
-
 export type PreviewDocument = {
+    readonly selectedPackage?: string | undefined;
+    readonly allFiles?: boolean;
     readonly title: string;
     readonly modeLabel: string;
     readonly previewable: boolean;
@@ -55,86 +34,17 @@ type PreviewDocumentInput = {
     readonly fileManager: Pick<FileManager, 'readFile'>;
 };
 
-type PackageArtifactData = {
-    readonly changedArtifacts: readonly ChangedPreviewArtifact[];
-    readonly artifactCounts: PreviewArtifactCounts;
-};
-
-function collectPackageArtifactData(artifacts: readonly PreviewArtifact[]): PackageArtifactData {
-    const changedArtifacts: ChangedPreviewArtifact[] = [];
-    const emittedArtifacts = artifacts.length;
-    let changedArtifactCount = 0;
-
-    for (const artifact of artifacts) {
-        if (artifact.status === 'changed') {
-            changedArtifactCount += 1;
-        }
-        if (artifact.diff !== undefined) {
-            changedArtifacts.push({ ...artifact, diff: artifact.diff });
-        }
-    }
-
-    return {
-        changedArtifacts,
-        artifactCounts: {
-            emitted: emittedArtifacts,
-            changed: changedArtifactCount
-        }
-    };
-}
-
-async function buildPreviewArtifactWithDiff(
-    packageName: string,
-    artifact: PreviewArtifact,
-    bundleArtifactIndex: BundleArtifactIndex,
-    readWorkspaceFile: (filePath: string) => Promise<string>
-): Promise<PreviewArtifact> {
-    const diff = await buildDiffForArtifact(packageName, artifact, bundleArtifactIndex, readWorkspaceFile);
-    if (diff === undefined) {
-        return artifact;
-    }
-    return {
-        ...artifact,
-        diff
-    };
-}
-
-async function buildPreviewPackage(
-    packageName: string,
-    packageReport: PackageReport,
-    bundleArtifactIndex: BundleArtifactIndex,
-    readWorkspaceFile: (filePath: string) => Promise<string>
-): Promise<PreviewPackage> {
-    const emittedArtifacts = packageReport.outputs?.tarball.entries ?? [];
-    const artifacts = await Promise.all(
-        emittedArtifacts.map(async function (artifact) {
-            return buildPreviewArtifactWithDiff(packageName, artifact, bundleArtifactIndex, readWorkspaceFile);
-        })
-    );
-    const eliminatedSourceFiles = packageReport.eliminatedSourceFiles ?? [];
-    const hasChanges = hasMeaningfulChanges(artifacts, eliminatedSourceFiles);
-    const tree = buildArtifactTree(artifacts);
-    const { changedArtifacts, artifactCounts } = collectPackageArtifactData(artifacts);
-    return {
-        name: packageName,
-        versionTransition: buildVersionTransition(packageReport),
-        hasChanges,
-        openByDefault: hasChanges || packageReport.failure !== undefined,
-        tree,
-        changedArtifacts,
-        artifactCounts,
-        eliminatedSourceFiles,
-        failure: packageReport.failure,
-        diagnostics: packageReport
-    };
-}
-
 export async function buildPreviewDocument(input: PreviewDocumentInput): Promise<PreviewDocument> {
     const readWorkspaceFile = input.fileManager.readFile;
     const bundleArtifactIndex = buildBundleArtifactIndex(getSucceededResults(input.result));
     const packages = await Promise.all(
         Object.entries(input.report.packages).map(async function ([ packageName, packageReport ]) {
-            return buildPreviewPackage(packageName, packageReport, bundleArtifactIndex, readWorkspaceFile);
+            return buildPreviewPackage(
+                packageName,
+                packageReport,
+                bundleArtifactIndex,
+                readWorkspaceFile
+            );
         })
     );
 

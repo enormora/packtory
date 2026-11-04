@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
+import { inspectWorkspace } from '../test-libraries/workspace-inspector.ts';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     baseOptions,
@@ -51,7 +52,10 @@ async function packPublicModuleFixture(packageName: string, vendorDependencies: 
     });
     const runPack = createRunPackValidated({
         ...dependencies,
-        versionManager: createVersionManager({ progressBroadcaster: createProgressBroadcaster().provider })
+        versionManager: createVersionManager({
+            inspectWorkspace,
+            progressBroadcaster: createProgressBroadcaster().provider
+        })
     });
     const result = await runPack(
         validatedConfiguration,

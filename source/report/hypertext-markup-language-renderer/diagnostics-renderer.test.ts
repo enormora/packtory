@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
-import type { PreviewPackage } from '../preview/preview-document.ts';
+import type { PreviewPackage } from '../preview/preview-package-types.ts';
 import { renderDiagnostics, renderFailureBanner } from './diagnostics-renderer.ts';
 
 const emptyDiagnostics: PreviewPackage['diagnostics'] = {

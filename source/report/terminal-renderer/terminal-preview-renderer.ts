@@ -1,4 +1,5 @@
 import type { PreviewDocument } from '../preview/preview-document.ts';
+import { renderPackageSummary, renderWorkspacePackage } from './terminal-workspace-preview.ts';
 import { renderPackage } from './terminal-package-renderer.ts';
 import { createColors, renderFailureDocumentHeader, type Colors } from './terminal-preview-renderer-shared.ts';
 
@@ -38,7 +39,13 @@ export function renderTerminalPreview(document: PreviewDocument, options: Termin
         colors.dim(renderSummary(document)),
         renderIssues(document.issues, colors),
         ...document.packages.map(function (previewPackage) {
-            return renderPackage(previewPackage, colors);
+            if (document.allFiles === undefined && document.selectedPackage === undefined) {
+                return renderPackage(previewPackage, colors);
+            }
+            if (document.selectedPackage !== previewPackage.name) {
+                return renderPackageSummary(previewPackage);
+            }
+            return renderWorkspacePackage(previewPackage, document.allFiles === true, colors);
         })
     ]
         .filter(function (section): section is string {

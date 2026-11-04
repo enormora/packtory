@@ -165,6 +165,16 @@ export function registerSubscribers(state: AggregatorState, consumer: ProgressBr
             consumer.off(eventName, handler);
         });
     };
+    subscribe('packageCaptured', function (payload) {
+        updatePackage(state, payload.packageName, function (entry) {
+            return { ...entry, packageSnapshot: payload.snapshot };
+        });
+    });
+    subscribe('workspaceCaptured', function (payload) {
+        updatePackage(state, payload.packageName, function (entry) {
+            return { ...entry, workspaceSnapshot: payload.snapshot };
+        });
+    });
     registerInputHandlers(state, subscribe);
     registerDecisionHandlers(state, subscribe);
     registerOutcomeHandlers(state, subscribe);

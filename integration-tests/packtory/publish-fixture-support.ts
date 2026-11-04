@@ -14,6 +14,7 @@ import { createRegistryClient } from '../../source/bundle-emitter/registry/regis
 import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
 const timers = process.getBuiltinModule('node:timers');
+const nodeUtilities = process.getBuiltinModule('node:util');
 const fileSystem = process.getBuiltinModule('node:fs').promises;
 const nodeCrypto = process.getBuiltinModule('node:crypto');
 
@@ -325,7 +326,7 @@ export async function publishTaggedRegistryVersion(input: PublishTaggedVersionIn
 }
 
 export function assertPublishSucceeded(result: PublishAllResult): void {
-    assert.strictEqual(result.isOk, true);
+    assert.strictEqual(result.isOk, true, nodeUtilities.inspect(result));
 }
 
 function findManifestFile(files: readonly PublishedFile[], packageName: string): PublishedFile {

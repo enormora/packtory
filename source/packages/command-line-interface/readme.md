@@ -37,6 +37,8 @@ packtory <command> [options]
 
 - **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing. The command line interface fails fast with a single config error when `registrySettings.authentication` is missing in this mode; dry-run, `preview`, `release-diff` and `pack` work without `authentication` against any registry that allows anonymous metadata reads.
 - **--trace:** Prints stack traces for unexpected errors and package-level partial failures. This is a root-level diagnostic flag, so place it before the command, for example `packtory --trace publish`.
+- **preview --package &lt;name&gt;:** Shows one package’s source and output trees, static export names, dependency changes, and file diffs. Other workspace failures remain visible.
+- **preview --all-files:** Includes unchanged entries. The default terminal view lists compact package summaries.
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **tree &lt;package&gt;:** Selects which package from the configuration to inspect. The output includes package-relative paths, file kind, byte size, status, and artifact badges.
 - **inspect dependencies &lt;package&gt;:** Selects which package from the configuration to inspect. The output groups final manifest dependencies by `dependencies`, `peerDependencies`, and unresolved version state, then lists source import specifiers and emitted import specifiers for each dependency.
@@ -60,6 +62,8 @@ packtory <command> [options]
 
 ![packtory preview showing per-package file trees and change chips for a 5-package monorepo](../../../documentation/preview-example.gif)
 
+- Preview compares discovered workspace inputs with generated package output. Use `release-diff` to compare releases. Export names are inspected statically; unresolved exports are labelled unknown.
+- The browser report provides package navigation and paired source/output trees.
 - `packtory preview` always performs a fresh dry-run build. It does not reuse prior report files.
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
 - Failure-only runs skip the pager and print diagnostics directly to standard output.

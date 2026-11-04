@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PreviewPackage } from '../preview/preview-document.ts';
+import type { PreviewPackage } from '../preview/preview-package-types.ts';
 import { renderPackage } from './package-renderer.ts';
 
 const emptyDiagnostics: PreviewPackage['diagnostics'] = {

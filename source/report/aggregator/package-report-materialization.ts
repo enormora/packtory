@@ -94,6 +94,8 @@ export function toPackageReport(entry: MutablePackageReport): PackageReport {
     const outputs = buildOutputs(entry);
     return pickBy(
         {
+            workspaceSnapshot: entry.workspaceSnapshot,
+            packageSnapshot: entry.packageSnapshot,
             decisions: entry.decisions,
             timings: entry.timings,
             inputs,

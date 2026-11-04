@@ -1,3 +1,4 @@
+import { validateConfiguration } from '../../configuration/validation.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument, type PreviewDocument } from '../../report/preview/preview-document.ts';
@@ -21,7 +22,7 @@ export type PreviewHandlerDependencies = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configurationLoader: ConfigurationLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: { readonly open: boolean; };
+    readonly flags: { readonly open: boolean; readonly packageName: string | undefined; readonly allFiles: boolean; };
 };
 
 async function renderOpenedReport(
@@ -55,23 +56,40 @@ async function renderDocument(dependencies: PreviewHandlerDependencies, document
     await renderInlinePreview(dependencies, document);
 }
 
+function unknownPackage(configuration: unknown, packageName: string | undefined): boolean {
+    if (packageName === undefined) {
+        return false;
+    }
+    const validated = validateConfiguration(configuration);
+    return validated.isOk && validated.value.packtoryConfiguration.packages.every(function (entry) {
+        return entry.name !== packageName;
+    });
+}
+
 async function preview(dependencies: PreviewHandlerDependencies): Promise<number> {
     const { packtory, spinnerRenderer, configurationLoader, fileManager } = dependencies;
     const configuration = await configurationLoader.load();
+    if (unknownPackage(configuration, dependencies.flags.packageName)) {
+        dependencies.log(`Package "${dependencies.flags.packageName}" is not configured`);
+        return 1;
+    }
     const outcome = await packtory.buildAndPublishAll(configuration, {
         dryRun: true,
         stage: false,
         collectReport: true
     });
     spinnerRenderer.stopAll();
-    const report = outcome.getReport() ?? createEmptyReport();
     const document = await buildPreviewDocument({
-        report,
+        report: outcome.getReport() ?? createEmptyReport(),
         result: outcome.result,
         dryRun: true,
         fileManager
     });
-    await renderDocument(dependencies, document);
+    await renderDocument(dependencies, {
+        ...document,
+        selectedPackage: dependencies.flags.packageName,
+        allFiles: dependencies.flags.allFiles
+    });
     return outcome.result.isErr ? 1 : 0;
 }
 

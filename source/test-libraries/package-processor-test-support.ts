@@ -5,6 +5,7 @@ import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { BuildAndPublishOptions, ResolveAndLinkOptions } from '../packtory/map-configuration.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
+import { inspectWorkspace } from './workspace-inspector.ts';
 
 export type TransferableFile = {
     readonly inputFilePath: string;
@@ -198,6 +199,7 @@ function createProcessorSpies(overrides: ProcessorOverrides): ProcessorSpies {
 export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorContext {
     const spies = createProcessorSpies(overrides);
     const dependencies = {
+        inspectWorkspace,
         progressBroadcaster: { emit: spies.emit, hasSubscribers: spies.hasSubscribers },
         resourceResolver: {
             resolve: spies.resolve,

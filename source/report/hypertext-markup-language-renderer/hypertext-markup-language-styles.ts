@@ -74,7 +74,7 @@ export function hypertextMarkupLanguageReportStyles(): string {
         padding: 1rem 1.1rem;
         margin: 1rem 0 0;
     }
-    .packages { display: grid; gap: 1rem; }
+    .packages { display: block; }
     details.package {
         background: var(--panel);
         border: 1px solid var(--line);

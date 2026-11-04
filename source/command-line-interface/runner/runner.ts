@@ -148,8 +148,12 @@ export function createCommandLineInterfaceRunner(
             [previewCommandName]: defineCommand({
                 name: previewCommandName,
                 description: 'Builds all packages in fresh dry-run mode and opens a human preview.',
-                arguments: { open: flag({ long: 'open' }) },
-                async handler({ open }) {
+                arguments: {
+                    open: flag({ long: 'open' }),
+                    packageName: option({ long: 'package', type: optionalType(string) }),
+                    allFiles: flag({ long: 'all-files' })
+                },
+                async handler({ open, packageName, allFiles }) {
                     exitCode = await runPreviewHandler({
                         log,
                         pageOutput,
@@ -159,7 +163,7 @@ export function createCommandLineInterfaceRunner(
                         spinnerRenderer,
                         configurationLoader,
                         fileManager,
-                        flags: { open }
+                        flags: { open, packageName, allFiles }
                     });
                 }
             }),

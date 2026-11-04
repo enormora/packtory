@@ -44,7 +44,7 @@ suite('preview-handler', function () {
             spinnerRenderer: createSpinnerRendererStub(),
             configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
-            flags: { open: false }
+            flags: { open: false, packageName: undefined, allFiles: false }
         });
 
         assert.strictEqual(code, 0);
@@ -69,7 +69,7 @@ suite('preview-handler', function () {
             spinnerRenderer: createSpinnerRendererStub(),
             configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
-            flags: { open: false }
+            flags: { open: false, packageName: undefined, allFiles: false }
         });
 
         assert.strictEqual(code, 1);
@@ -92,7 +92,7 @@ suite('preview-handler', function () {
             spinnerRenderer: createSpinnerRendererStub(),
             configurationLoader: createConfigurationLoaderStub(),
             fileManager,
-            flags: { open: true }
+            flags: { open: true, packageName: undefined, allFiles: false }
         });
 
         assert.strictEqual(openSpy.callCount, 1);
@@ -116,7 +116,7 @@ suite('preview-handler', function () {
             spinnerRenderer: createSpinnerRendererStub(),
             configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),
-            flags: { open: true }
+            flags: { open: true, packageName: undefined, allFiles: false }
         });
 
         assert.deepStrictEqual(messages, [ '/var/folders/preview.html' ]);
