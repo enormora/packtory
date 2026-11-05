@@ -35,6 +35,22 @@ suite('graph topology and traversal', function () {
                 }
             });
 
+            test('cycle checks reject a cycle after discovering an independent acyclic component', function () {
+                const graph = createGraphWithNodes({
+                    nodes: fourEmptyNodes,
+                    connections: [
+                        { from: 'a', to: 'b' },
+                        { from: 'c', to: 'd' },
+                        { from: 'd', to: 'c' }
+                    ]
+                });
+
+                assert.strictEqual(graph.isCyclic(), true);
+                assert.throws(graph.getTopologicalGenerations, {
+                    message: 'Failed to determine topological generations, current graph is cyclic'
+                });
+            });
+
             test('getTopologicalGenerations() returns an empty array when the graph is empty', function () {
                 const graph = createDirectedGraph<string, string>();
                 const generations = graph.getTopologicalGenerations();
@@ -220,6 +236,31 @@ suite('graph topology and traversal', function () {
             });
 
             assert.deepStrictEqual(visited, [ 'a:0', 'b:1', 'c:1', 'd:0', 'e:1' ]);
+        });
+
+        test('cycle checks preserve existing behavior for a NaN self-connection', function () {
+            const graph = createDirectedGraph<number, undefined>();
+            graph.addNode(Number.NaN, undefined);
+            graph.connect({ from: Number.NaN, to: Number.NaN });
+
+            assert.strictEqual(graph.isCyclic(), false);
+            assert.deepStrictEqual(graph.getTopologicalGenerations(), [ [] ]);
+        });
+
+        test('visitBreadthFirstSearch() bounds traversal when visitors extend the graph', function () {
+            const graph = createDirectedGraph<number, undefined>();
+            graph.addNode(0, undefined);
+            graph.addNode(1, undefined);
+            graph.connect({ from: 0, to: 1 });
+            const visited: number[] = [];
+
+            graph.visitBreadthFirstSearch(0, function (node) {
+                visited.push(node.identifier);
+                graph.addNode(node.identifier + 2, undefined);
+                graph.connect({ from: node.identifier + 1, to: node.identifier + 2 });
+            });
+
+            assert.deepStrictEqual(visited, [ 0, 1, 2, 3 ]);
         });
 
         test('visitBreadthFirstSearch() visits shared descendants only once', function () {
