@@ -1,16 +1,12 @@
 import { Result } from 'true-myth';
 import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
-import {
-    partialFailureType,
-    releasePlanPartialFailure,
-    type ReleasePlanFailure,
-    type ReleasePlanPackage,
-    type ReleasePlanResult,
-    type ResolveAndLinkFailure
+import type {
+    ReleasePlanPackage,
+    ReleasePlanResult
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
-import { mapResolvePartialFailure, succeededResultsFrom } from './partial-result.ts';
+import { prepareRelease, type ResolveReleasePackages } from './prepared-release.ts';
 import {
     createReleasePlanPackage,
     type CollectReleaseArtifactFiles,
@@ -18,11 +14,7 @@ import {
 } from './release-plan.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { classifyPackageRelease } from './release-analysis.ts';
-import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
-
-type ResolveAndLinkAllValidated = (
-    configuration: ValidConfigurationResult
-) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
+import type { PublishStageDependencies } from './stages/publish-stage.ts';
 
 type ReleasePlanArtifactDependencies = {
     readonly artifactsBuilder: { readonly collectContents: CollectReleaseArtifactFiles; };
@@ -32,16 +24,6 @@ type ReleasePlanOrchestratorDependencies = ReleasePlanMapperDependencies & Relea
 type ReleasePlanDependencies = ReleasePlanOrchestratorDependencies & {
     readonly readCurrentGitHead: CurrentGitHeadReader;
 };
-
-type PublishStageOutcome = Awaited<ReturnType<typeof determineVersionAndPublishAll>>;
-type PlanStageError = {
-    readonly failures: readonly Error[];
-    readonly succeeded: readonly ReleasePlanPackage[];
-};
-
-function toReleasePlanError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
 
 function resolvedPackagesByNameFrom(
     resolvedPackages: readonly ResolvedPackage[]
@@ -81,93 +63,24 @@ async function createPackagePlan(input: CreatePackagePlanInput): Promise<Release
     });
 }
 
-async function planSucceededPublishes(
-    dependencies: ReleasePlanOrchestratorDependencies,
-    resolvedPackages: readonly ResolvedPackage[],
-    succeededPublish: readonly BuildAndPublishResult[],
-    currentGitHead: string | undefined
-): Promise<Result<readonly ReleasePlanPackage[], PlanStageError>> {
-    const resolvedPackagesByName = resolvedPackagesByNameFrom(resolvedPackages);
-    const packages: ReleasePlanPackage[] = [];
-    const failures: Error[] = [];
-
-    for (const buildResult of succeededPublish) {
-        try {
-            const packagePlan = await createPackagePlan({
-                artifactsBuilder: dependencies.artifactsBuilder,
-                buildResult,
-                currentGitHead,
-                fileManager: dependencies.fileManager,
-                repositoryFolder: dependencies.repositoryFolder,
-                resolvedPackagesByName
-            });
-            packages.push(packagePlan);
-        } catch (error: unknown) {
-            failures.push(toReleasePlanError(error));
-        }
-    }
-
-    return failures.length === 0 ? Result.ok(packages) : Result.err({ failures, succeeded: packages });
-}
-
-function mapResolveFailureToReleasePlanFailure(error: ResolveAndLinkFailure): ReleasePlanFailure {
-    if (error.type === partialFailureType) {
-        return mapResolvePartialFailure<ReleasePlanPackage>(error);
-    }
-    return error;
-}
-
-function buildPartialFromPublish(
-    publishResult: Extract<PublishStageOutcome, { readonly isErr: true; }>,
-    packages: readonly ReleasePlanPackage[]
-): ReleasePlanFailure {
-    return {
-        type: partialFailureType,
-        succeeded: packages,
-        failures: publishResult.error.failures
-    };
-}
-
-function toFinalReleasePlanResult(
-    publishResult: PublishStageOutcome,
-    planResult: Awaited<ReturnType<typeof planSucceededPublishes>>
-): ReleasePlanResult {
-    if (publishResult.isErr) {
-        return Result.err(
-            buildPartialFromPublish(publishResult, planResult.isOk ? planResult.value : planResult.error.succeeded)
-        );
-    }
-
-    if (planResult.isErr) {
-        return Result.err(releasePlanPartialFailure(planResult.error));
-    }
-
-    return Result.ok({ packages: planResult.value });
-}
-
 export function createPlanReleaseAgainstLatestPublishedValidated(
     dependencies: ReleasePlanDependencies
 ): (
     validated: ValidConfigurationResult,
-    resolveAndLinkAllValidated: ResolveAndLinkAllValidated
+    resolveAndLinkAllValidated: ResolveReleasePackages
 ) => Promise<ReleasePlanResult> {
     return async function planReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated) {
-        const resolved = await resolveAndLinkAllValidated(validated);
-        if (resolved.isErr) {
-            return Result.err(mapResolveFailureToReleasePlanFailure(resolved.error));
+        const prepared = await prepareRelease(dependencies, validated, resolveAndLinkAllValidated);
+        if (prepared.isErr) {
+            return Result.err(prepared.error);
         }
-
-        const publishResult = await determineVersionAndPublishAll(dependencies, validated, resolved.value, {
-            dryRun: true,
-            stage: false
-        });
         const currentGitHead = await dependencies.readCurrentGitHead();
-        const planResult = await planSucceededPublishes(
-            dependencies,
-            resolved.value,
-            succeededResultsFrom(publishResult),
-            currentGitHead
-        );
-        return toFinalReleasePlanResult(publishResult, planResult);
+        const resolvedPackagesByName = resolvedPackagesByNameFrom(prepared.value.resolvedPackages);
+        const plan = await prepared.value.project(async function (buildResult) {
+            return createPackagePlan({ ...dependencies, buildResult, currentGitHead, resolvedPackagesByName });
+        });
+        return plan.map(function (packages) {
+            return { packages };
+        });
     };
 }

@@ -195,7 +195,7 @@ type ReleaseDiffFailures = readonly [
     ReleaseDiffPartialFailure
 ];
 
-export type ReleaseDiffFailure = ReleaseDiffFailures[number];
+type ReleaseDiffFailure = ReleaseDiffFailures[number];
 export type ReleaseDiffAllResult = Result<readonly PackageReleaseDiff[], ReleaseDiffFailure>;
 
 export type ReleaseDiffAllOutcome = {
@@ -236,7 +236,7 @@ type ReleaseAnalysisFailures = readonly [
     ReleaseAnalysisPartialFailure
 ];
 
-export type ReleaseAnalysisFailure = ReleaseAnalysisFailures[number];
+type ReleaseAnalysisFailure = ReleaseAnalysisFailures[number];
 export type ReleaseAnalysisResult = Result<ReleaseAnalysis, ReleaseAnalysisFailure>;
 
 export type ReleaseAnalysisOutcome = {
@@ -302,18 +302,6 @@ export type ReleasePlanOutcome = {
 
 export function createReleasePlanOutcome(result: ReleasePlanResult, getReport: () => BuildReport): ReleasePlanOutcome {
     return { result, getReport };
-}
-
-export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff>): ReleaseDiffFailure {
-    return { type: partialFailureType, ...error };
-}
-
-export function releaseAnalysisPartialFailure(error: PartialError<PackageReleaseAnalysis>): ReleaseAnalysisFailure {
-    return { type: partialFailureType, ...error };
-}
-
-export function releasePlanPartialFailure(error: PartialError<ReleasePlanPackage>): ReleasePlanFailure {
-    return { type: partialFailureType, ...error };
 }
 
 export type PackPublicOptions = {

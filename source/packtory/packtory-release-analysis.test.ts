@@ -20,7 +20,6 @@ import {
 } from './packtory-release-analysis.ts';
 import type {
     partialFailureType,
-    ReleaseAnalysisFailure,
     ReleaseAnalysisResult,
     ResolveAndLinkFailure
 } from './packtory-results.ts';
@@ -47,6 +46,7 @@ type DependencyOnlyFile = {
 type PartialFailureMarker = {
     readonly type: typeof partialFailureType;
 };
+type ReleaseAnalysisFailure = Extract<ReleaseAnalysisResult, { readonly isErr: true; }>['error'];
 type ReleaseAnalysisPartialFailure = Extract<ReleaseAnalysisFailure, PartialFailureMarker>;
 
 function createAnalyzer(input: AnalyzerSpecification): ReleaseAnalyzer {

@@ -224,35 +224,60 @@ async function publishPreparedResults(
     });
 }
 
-export async function determineVersionAndPublishAll(
+type ReleasePreparationOptions = {
+    readonly stage: boolean;
+    readonly emitDoneEvents: boolean;
+};
+
+export type PreparedReleasePackages = {
+    readonly result: PublishStageResult;
+    readonly publish: () => Promise<PublishStageResult>;
+};
+
+export async function prepareReleasePackages(
     dependencies: PublishStageDependencies,
     configuration: ValidConfigurationResult,
     resolvedPackages: readonly ResolvedPackage[],
-    options: BuildAndPublishAllOptions
-): Promise<PublishStageResult> {
+    options: ReleasePreparationOptions
+): Promise<PreparedReleasePackages> {
     const publishStageInputs = collectPublishStageInputs(resolvedPackages);
     const prepared = await preparePublishes({
         dependencies,
         configuration,
         publishStageInputs,
         stage: options.stage,
+        emitDoneEvents: options.emitDoneEvents
+    });
+    return {
+        result: prepared.isErr
+            ? publishResultFromPreparationDryRun(prepared)
+            : Result.ok(prepared.value.map(function (input) {
+                return input.result;
+            })),
+        async publish() {
+            if (prepared.isErr) {
+                return publishResultFromPreparationFailure(prepared);
+            }
+            return publishPreparedResults({
+                dependencies,
+                configuration,
+                publishStageInputs,
+                preparedPublishes: prepared.value,
+                stage: options.stage
+            });
+        }
+    };
+}
+
+export async function determineVersionAndPublishAll(
+    dependencies: PublishStageDependencies,
+    configuration: ValidConfigurationResult,
+    resolvedPackages: readonly ResolvedPackage[],
+    options: BuildAndPublishAllOptions
+): Promise<PublishStageResult> {
+    const prepared = await prepareReleasePackages(dependencies, configuration, resolvedPackages, {
+        stage: options.stage,
         emitDoneEvents: options.dryRun
     });
-    if (prepared.isErr) {
-        return options.dryRun
-            ? publishResultFromPreparationDryRun(prepared)
-            : publishResultFromPreparationFailure(prepared);
-    }
-    if (options.dryRun) {
-        return Result.ok(prepared.value.map(function (input) {
-            return input.result;
-        }));
-    }
-    return publishPreparedResults({
-        dependencies,
-        configuration,
-        publishStageInputs,
-        preparedPublishes: prepared.value,
-        stage: options.stage
-    });
+    return options.dryRun ? prepared.result : prepared.publish();
 }
