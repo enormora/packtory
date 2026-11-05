@@ -2,9 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
-import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
-import { registerSubscribers, type AggregatorState } from './report-event-handlers.ts';
-import type { MutablePackageReport } from './report-types.ts';
+import { createReportEventHandlers, type AggregatorState } from './report-event-handlers.ts';
+import type { PackageReport } from './report-types.ts';
 
 type EliminationFileInput = {
     readonly path: string;
@@ -15,14 +14,12 @@ type EliminationFileInput = {
 };
 
 function freshState(): AggregatorState {
-    const disposers: (() => void)[] = [];
-    return { packages: new Map(), disposers };
+    return { packages: new Map() };
 }
 
 function emitEliminationForPackageA(files: readonly EliminationFileInput[]): AggregatorState {
     const state = freshState();
-    const broadcaster = createProgressBroadcaster();
-    registerSubscribers(state, broadcaster.consumer);
+    const broadcaster = { provider: createReportEventHandlers(state) };
 
     broadcaster.provider.emit('eliminationCompleted', {
         perBundle: [ { packageName: 'package-a', files, droppedSymbols: [], seeds: [] } ]
@@ -30,7 +27,7 @@ function emitEliminationForPackageA(files: readonly EliminationFileInput[]): Agg
     return state;
 }
 
-function expectPackageEntry(state: AggregatorState, packageName: string): MutablePackageReport {
+function expectPackageEntry(state: AggregatorState, packageName: string): PackageReport {
     const entry = state.packages.get(packageName);
     if (entry === undefined) {
         assert.fail(`expected ${packageName} in report`);
@@ -39,10 +36,9 @@ function expectPackageEntry(state: AggregatorState, packageName: string): Mutabl
 }
 
 function registerPackageEventTests(): void {
-    test('registerSubscribers records inputs when an inputsResolved event arrives', function () {
+    test('createReportEventHandlers records inputs when an inputsResolved event arrives', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('inputsResolved', {
             packageName: 'package-a',
@@ -53,16 +49,17 @@ function registerPackageEventTests(): void {
 
         const entry = expectPackageEntry(state, 'package-a');
         assertDeepSubset(entry, {
-            roots: { main: 'source/index.js' },
-            siblingVersions: { 'package-b': '1.0.0' },
-            sourceFileCount: 3
+            inputs: {
+                roots: { main: 'source/index.js' },
+                siblingVersions: { 'package-b': '1.0.0' },
+                sourceFileCount: 3
+            }
         });
     });
 
-    test('registerSubscribers records the assembled package.json fields on the package entry', function () {
+    test('createReportEventHandlers records the assembled package.json fields on the package entry', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('packageManifestAssembled', {
             packageName: 'package-a',
@@ -75,23 +72,21 @@ function registerPackageEventTests(): void {
         });
     });
 
-    test('registerSubscribers records the effective config on the package entry', function () {
+    test('createReportEventHandlers records the effective config on the package entry', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('effectiveConfigurationResolved', {
             packageName: 'package-a',
             configuration: { feature: true }
         });
 
-        assert.deepStrictEqual(state.packages.get('package-a')?.effectiveConfiguration, { feature: true });
+        assert.deepStrictEqual(state.packages.get('package-a')?.inputs?.effectiveConfiguration, { feature: true });
     });
 
-    test('registerSubscribers records the version decision on the package entry', function () {
+    test('createReportEventHandlers records the version decision on the package entry', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('versionDetermined', {
             packageName: 'package-a',
@@ -107,10 +102,9 @@ function registerPackageEventTests(): void {
         });
     });
 
-    test('registerSubscribers records linker rewrites on the package entry', function () {
+    test('createReportEventHandlers records linker rewrites on the package entry', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('linkingCompleted', {
             packageName: 'package-a',
@@ -122,20 +116,18 @@ function registerPackageEventTests(): void {
         });
     });
 
-    test('registerSubscribers stores stageTimed entries in the timings record', function () {
+    test('createReportEventHandlers stores stageTimed entries in the timings record', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('stageTimed', { packageName: 'package-a', stage: 'build', durationMilliseconds: 42 });
 
         assert.strictEqual(state.packages.get('package-a')?.timings.build, 42);
     });
 
-    test('registerSubscribers records publication outcomes from done events', function () {
+    test('createReportEventHandlers records publication outcomes from done events', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('done', {
             packageName: 'package-a',
@@ -147,20 +139,18 @@ function registerPackageEventTests(): void {
         assert.deepStrictEqual(state.packages.get('package-a')?.publication, stagedForApproval('stage-123'));
     });
 
-    test('registerSubscribers records package failures', function () {
+    test('createReportEventHandlers records package failures', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('packageFailed', { packageName: 'package-a', stage: 'publish', message: 'boom' });
 
         assert.deepStrictEqual(state.packages.get('package-a')?.failure, { stage: 'publish', message: 'boom' });
     });
 
-    test('registerSubscribers aggregates artifact size and entries on artifactsCollected', function () {
+    test('createReportEventHandlers aggregates artifact size and entries on artifactsCollected', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('artifactsCollected', {
             packageName: 'package-a',
@@ -188,10 +178,9 @@ function registerPackageEventTests(): void {
         assert.strictEqual(state.packages.get('package-a')?.outputs?.tarball.entries.length, 2);
     });
 
-    test('registerSubscribers records scanCompleted entries under decisions.dependencyScan', function () {
+    test('createReportEventHandlers records scanCompleted entries under decisions.dependencyScan', function () {
         const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
+        const broadcaster = { provider: createReportEventHandlers(state) };
 
         broadcaster.provider.emit('scanCompleted', {
             packageName: 'package-a',
@@ -207,7 +196,7 @@ function registerPackageEventTests(): void {
 }
 
 function registerEliminationTests(): void {
-    test('registerSubscribers omits eliminatedSourceFiles when no files were eliminated', function () {
+    test('createReportEventHandlers omits eliminatedSourceFiles when no files were eliminated', function () {
         const state = emitEliminationForPackageA([
             { path: '/source/a.js', decision: 'kept', reason: 'reachable', sourceBytes: 1 }
         ]);
@@ -216,7 +205,7 @@ function registerEliminationTests(): void {
         assert.strictEqual(Object.hasOwn(entry, 'eliminatedSourceFiles'), false);
     });
 
-    test('registerSubscribers preserves outputBytes on eliminated files when it is provided', function () {
+    test('createReportEventHandlers preserves outputBytes on eliminated files when it is provided', function () {
         const state = emitEliminationForPackageA([
             {
                 path: '/source/a.js',
@@ -232,7 +221,7 @@ function registerEliminationTests(): void {
         ]);
     });
 
-    test('registerSubscribers separates eliminated source files from kept files when elimination completes', function () {
+    test('createReportEventHandlers separates eliminated source files from kept files when elimination completes', function () {
         const state = emitEliminationForPackageA([
             { path: 'a.js', decision: 'kept', reason: 'kept', sourceBytes: 10 },
             { path: 'b.js', decision: 'eliminated', reason: 'no-uses', sourceBytes: 5 }
@@ -258,29 +247,7 @@ function registerEliminationTests(): void {
     });
 }
 
-function registerDisposerTests(): void {
-    test('registerSubscribers exposes disposers that unsubscribe registered handlers', function () {
-        const state = freshState();
-        const broadcaster = createProgressBroadcaster();
-        registerSubscribers(state, broadcaster.consumer);
-
-        for (const dispose of state.disposers) {
-            dispose();
-        }
-
-        broadcaster.provider.emit('inputsResolved', {
-            packageName: 'package-a',
-            roots: { main: 'source/index.js' },
-            siblingVersions: {},
-            sourceFileCount: 0
-        });
-
-        assert.strictEqual(state.packages.has('package-a'), false);
-    });
-}
-
 suite('report-event-handlers', function () {
     registerPackageEventTests();
     registerEliminationTests();
-    registerDisposerTests();
 });

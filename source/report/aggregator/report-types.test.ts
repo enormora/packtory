@@ -1,19 +1,19 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createEmptyMutablePackageReport } from './report-types.ts';
+import { createEmptyPackageReport } from './report-types.ts';
 
 suite('report-types', function () {
-    test('createEmptyMutablePackageReport returns an empty decisions object', function () {
-        assert.deepStrictEqual(createEmptyMutablePackageReport().decisions, {});
+    test('createEmptyPackageReport returns an empty decisions object', function () {
+        assert.deepStrictEqual(createEmptyPackageReport().decisions, {});
     });
 
-    test('createEmptyMutablePackageReport returns an empty timings record', function () {
-        assert.deepStrictEqual(createEmptyMutablePackageReport().timings, {});
+    test('createEmptyPackageReport returns an empty timings record', function () {
+        assert.deepStrictEqual(createEmptyPackageReport().timings, {});
     });
 
-    test('createEmptyMutablePackageReport returns a fresh object on every call', function () {
-        const first = createEmptyMutablePackageReport();
-        const second = createEmptyMutablePackageReport();
+    test('createEmptyPackageReport returns a fresh object on every call', function () {
+        const first = createEmptyPackageReport();
+        const second = createEmptyPackageReport();
 
         assert.notStrictEqual(first, second);
     });

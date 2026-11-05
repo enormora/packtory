@@ -121,6 +121,7 @@ function withSubscriberVisibility(
     visibility: SubscriberVisibility
 ): TestProgressBroadcaster {
     return {
+        observe: progressBroadcaster.observe,
         consumer: progressBroadcaster.consumer,
         provider: {
             emit(eventName, payload) {

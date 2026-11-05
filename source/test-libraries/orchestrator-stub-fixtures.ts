@@ -33,6 +33,9 @@ const stubProcessorValue = {
 };
 
 const stubBroadcasterValue = {
+    observe(_observer: unknown, operation: () => unknown) {
+        return operation();
+    },
     consumer: {
         on() {
             return undefined;

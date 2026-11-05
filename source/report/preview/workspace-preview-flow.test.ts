@@ -48,15 +48,17 @@ function assertComparison(comparison: WorkspaceComparison): void {
 }
 
 suite('workspace preview flow', function () {
-    test('captures build-time input and final dependency changes without altering package bytes', function () {
+    test('captures build-time input and final dependency changes without altering package bytes', async function () {
         const broadcaster = createProgressBroadcaster();
-        const collector = createReportAggregator(broadcaster.consumer);
+        const collector = createReportAggregator();
         const options = buildOptions();
-        reportResolvedBundle(broadcaster.provider, options.bundle, options.mainPackageManifest, inspectWorkspace);
         const manager = createVersionManager({ inspectWorkspace, progressBroadcaster: broadcaster.provider });
-        const withReport = manager.addVersion(options);
-        assert.strictEqual(manager.increaseVersion(withReport).packageManifest.version, '1.0.1');
-        collector.unsubscribe();
+        const withReport = await broadcaster.observe(collector.provider, function () {
+            reportResolvedBundle(broadcaster.provider, options.bundle, options.mainPackageManifest, inspectWorkspace);
+            const built = manager.addVersion(options);
+            assert.strictEqual(manager.increaseVersion(built).packageManifest.version, '1.0.1');
+            return built;
+        });
         assert.deepStrictEqual(manager.addVersion(options), withReport);
         assertComparison(
             buildWorkspaceComparison(collector.build().packages.pkg ?? assert.fail('expected package report'), [])

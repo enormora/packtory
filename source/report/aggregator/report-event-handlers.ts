@@ -1,30 +1,23 @@
 import { sumBy } from 'remeda';
-import type { EliminatedSourceFile, ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
-import { createEmptyMutablePackageReport, type MutablePackageReport } from './report-types.ts';
+import type { EliminatedSourceFile, Events, ProgressBroadcastProvider } from '../../progress/progress-broadcaster.ts';
+import { createEmptyPackageReport, type PackageReport } from './report-types.ts';
 
 type PackageReportRegistry = {
-    readonly get: (packageName: string) => MutablePackageReport | undefined;
-    readonly has: (packageName: string) => boolean;
-    readonly set: (packageName: string, entry: MutablePackageReport) => unknown;
-    readonly [Symbol.iterator]: () => IterableIterator<readonly [string, MutablePackageReport]>;
-};
-
-type DisposerRegistry = {
-    readonly push: (dispose: () => void) => unknown;
-    readonly [Symbol.iterator]: () => IterableIterator<() => void>;
+    readonly get: (packageName: string) => PackageReport | undefined;
+    readonly set: (packageName: string, report: PackageReport) => unknown;
+    readonly [Symbol.iterator]: () => IterableIterator<readonly [string, PackageReport]>;
 };
 
 export type AggregatorState = {
     readonly packages: PackageReportRegistry;
-    readonly disposers: DisposerRegistry;
 };
 
-type Subscribe = ProgressBroadcastConsumer['on'];
+type ReportHandlers = { [TName in keyof Events]: ((payload: Events[TName]) => void) | undefined; };
 
-function getOrCreate(state: AggregatorState, packageName: string): MutablePackageReport {
+function getOrCreate(state: AggregatorState, packageName: string): PackageReport {
     let entry = state.packages.get(packageName);
     if (entry === undefined) {
-        entry = createEmptyMutablePackageReport();
+        entry = createEmptyPackageReport();
         state.packages.set(packageName, entry);
     }
     return entry;
@@ -33,149 +26,187 @@ function getOrCreate(state: AggregatorState, packageName: string): MutablePackag
 function updatePackage(
     state: AggregatorState,
     packageName: string,
-    update: (entry: MutablePackageReport) => MutablePackageReport
+    update: (entry: PackageReport) => PackageReport
 ): void {
     state.packages.set(packageName, update(getOrCreate(state, packageName)));
 }
 
-function registerInputHandlers(state: AggregatorState, subscribe: Subscribe): void {
-    subscribe('inputsResolved', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return {
-                ...entry,
-                roots: payload.roots,
-                siblingVersions: payload.siblingVersions,
-                sourceFileCount: payload.sourceFileCount
-            };
-        });
-    });
-    subscribe('effectiveConfigurationResolved', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, effectiveConfiguration: payload.configuration };
-        });
-    });
+function createInputReportHandlers(
+    state: AggregatorState
+): Pick<ReportHandlers, 'effectiveConfigurationResolved' | 'inputsResolved'> {
+    return {
+        inputsResolved(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return {
+                    ...entry,
+                    inputs: {
+                        ...entry.inputs,
+                        roots: payload.roots,
+                        siblingVersions: payload.siblingVersions,
+                        sourceFileCount: payload.sourceFileCount
+                    }
+                };
+            });
+        },
+        effectiveConfigurationResolved(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return {
+                    ...entry,
+                    inputs: {
+                        roots: {},
+                        siblingVersions: {},
+                        sourceFileCount: 0,
+                        ...entry.inputs,
+                        effectiveConfiguration: payload.configuration
+                    }
+                };
+            });
+        }
+    };
 }
 
-function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe): void {
-    subscribe('versionDetermined', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return {
-                ...entry,
-                decisions: {
-                    ...entry.decisions,
-                    version: {
-                        previousVersion: payload.previousVersion,
-                        chosenVersion: payload.chosenVersion,
-                        trigger: payload.trigger
-                    }
-                }
-            };
-        });
-    });
-    subscribe('packageManifestAssembled', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, decisions: { ...entry.decisions, packageManifest: payload.fields } };
-        });
-    });
-    subscribe('scanCompleted', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return {
-                ...entry,
-                decisions: {
-                    ...entry.decisions,
-                    dependencyScan: {
-                        included: payload.included,
-                        excluded: payload.excluded
-                    }
-                }
-            };
-        });
-    });
-    subscribe('linkingCompleted', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, decisions: { ...entry.decisions, linker: { rewrites: payload.rewrites } } };
-        });
-    });
-    subscribe('eliminationCompleted', function (payload) {
-        for (const bundle of payload.perBundle) {
-            const keptOrChanged = bundle.files.filter(function (file) {
-                return file.decision !== 'eliminated';
-            });
-            const eliminatedSourceFiles = bundle
-                .files
-                .filter(function (file) {
-                    return file.decision === 'eliminated';
-                })
-                .map(function (file): EliminatedSourceFile {
-                    return {
-                        path: file.path,
-                        reason: file.reason,
-                        sourceBytes: file.sourceBytes,
-                        ...file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes }
-                    };
-                });
-            updatePackage(state, bundle.packageName, function (entry) {
+function createDecisionReportHandlers(
+    state: AggregatorState
+): Pick<
+    ReportHandlers,
+    'eliminationCompleted' | 'linkingCompleted' | 'packageManifestAssembled' | 'scanCompleted' | 'versionDetermined'
+> {
+    return {
+        versionDetermined(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
                 return {
                     ...entry,
                     decisions: {
                         ...entry.decisions,
-                        deadCodeElimination: {
-                            files: keptOrChanged,
-                            symbols: bundle.droppedSymbols,
-                            seeds: bundle.seeds
+                        version: {
+                            previousVersion: payload.previousVersion,
+                            chosenVersion: payload.chosenVersion,
+                            trigger: payload.trigger
                         }
-                    },
-                    ...eliminatedSourceFiles.length > 0 ? { eliminatedSourceFiles } : {}
+                    }
                 };
             });
+        },
+        packageManifestAssembled(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, decisions: { ...entry.decisions, packageManifest: payload.fields } };
+            });
+        },
+        scanCompleted(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return {
+                    ...entry,
+                    decisions: {
+                        ...entry.decisions,
+                        dependencyScan: {
+                            included: payload.included,
+                            excluded: payload.excluded
+                        }
+                    }
+                };
+            });
+        },
+        linkingCompleted(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, decisions: { ...entry.decisions, linker: { rewrites: payload.rewrites } } };
+            });
+        },
+        eliminationCompleted(payload) {
+            for (const bundle of payload.perBundle) {
+                const keptOrChanged = bundle.files.filter(function (file) {
+                    return file.decision !== 'eliminated';
+                });
+                const eliminatedSourceFiles = bundle
+                    .files
+                    .filter(function (file) {
+                        return file.decision === 'eliminated';
+                    })
+                    .map(function (file): EliminatedSourceFile {
+                        return {
+                            path: file.path,
+                            reason: file.reason,
+                            sourceBytes: file.sourceBytes,
+                            ...file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes }
+                        };
+                    });
+                updatePackage(state, bundle.packageName, function (entry) {
+                    return {
+                        ...entry,
+                        decisions: {
+                            ...entry.decisions,
+                            deadCodeElimination: {
+                                files: keptOrChanged,
+                                symbols: bundle.droppedSymbols,
+                                seeds: bundle.seeds
+                            }
+                        },
+                        ...eliminatedSourceFiles.length > 0 ? { eliminatedSourceFiles } : {}
+                    };
+                });
+            }
         }
-    });
-}
-
-function registerOutcomeHandlers(state: AggregatorState, subscribe: Subscribe): void {
-    subscribe('done', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, publication: payload.publication };
-        });
-    });
-    subscribe('stageTimed', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, timings: { ...entry.timings, [payload.stage]: payload.durationMilliseconds } };
-        });
-    });
-    subscribe('packageFailed', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, failure: { stage: payload.stage, message: payload.message } };
-        });
-    });
-    subscribe('artifactsCollected', function (payload) {
-        const totalBytes = sumBy(payload.entries, function (item) {
-            return item.sizeBytes;
-        });
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, outputs: { tarball: { entries: payload.entries, totalBytes } } };
-        });
-    });
-}
-
-export function registerSubscribers(state: AggregatorState, consumer: ProgressBroadcastConsumer): void {
-    const subscribe: Subscribe = function (eventName, handler): void {
-        consumer.on(eventName, handler);
-        state.disposers.push(function () {
-            consumer.off(eventName, handler);
-        });
     };
-    subscribe('packageCaptured', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, packageSnapshot: payload.snapshot };
-        });
-    });
-    subscribe('workspaceCaptured', function (payload) {
-        updatePackage(state, payload.packageName, function (entry) {
-            return { ...entry, workspaceSnapshot: payload.snapshot };
-        });
-    });
-    registerInputHandlers(state, subscribe);
-    registerDecisionHandlers(state, subscribe);
-    registerOutcomeHandlers(state, subscribe);
+}
+
+function createOutcomeReportHandlers(
+    state: AggregatorState
+): Pick<ReportHandlers, 'artifactsCollected' | 'done' | 'packageFailed' | 'stageTimed'> {
+    return {
+        done(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, publication: payload.publication };
+            });
+        },
+        stageTimed(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, timings: { ...entry.timings, [payload.stage]: payload.durationMilliseconds } };
+            });
+        },
+        packageFailed(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, failure: { stage: payload.stage, message: payload.message } };
+            });
+        },
+        artifactsCollected(payload) {
+            const totalBytes = sumBy(payload.entries, function (item) {
+                return item.sizeBytes;
+            });
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, outputs: { tarball: { entries: payload.entries, totalBytes } } };
+            });
+        }
+    };
+}
+
+export function createReportEventHandlers(state: AggregatorState): ProgressBroadcastProvider {
+    const handlers: ReportHandlers = {
+        scheduled: undefined,
+        resolving: undefined,
+        linking: undefined,
+        building: undefined,
+        rebuilding: undefined,
+        publishing: undefined,
+        error: undefined,
+        ...createInputReportHandlers(state),
+        ...createDecisionReportHandlers(state),
+        ...createOutcomeReportHandlers(state),
+        packageCaptured(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, packageSnapshot: payload.snapshot };
+            });
+        },
+        workspaceCaptured(payload) {
+            updatePackage(state, payload.packageName, function (entry) {
+                return { ...entry, workspaceSnapshot: payload.snapshot };
+            });
+        }
+    };
+    return {
+        emit(eventName, payload) {
+            handlers[eventName]?.(payload);
+        },
+        hasSubscribers(eventName) {
+            return handlers[eventName] !== undefined;
+        }
+    };
 }

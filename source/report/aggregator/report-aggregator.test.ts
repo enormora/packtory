@@ -1,11 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { createReportAggregator, type ReportAggregator } from './report-aggregator.ts';
 
 function aggregatorWithEffectiveConfiguration(): ReportAggregator {
-    const broadcaster = createProgressBroadcaster();
-    const aggregator = createReportAggregator(broadcaster.consumer);
+    const aggregator = createReportAggregator();
+    const broadcaster = { provider: aggregator.provider };
     const opaqueConfiguration: Readonly<Record<string, unknown>> = { name: 'package-a' };
     broadcaster.provider.emit('effectiveConfigurationResolved', {
         packageName: 'package-a',
@@ -16,8 +15,8 @@ function aggregatorWithEffectiveConfiguration(): ReportAggregator {
 
 function registerArtifactReportTests(): void {
     test('only transformed dead code elimination files contribute changed status when outputs are materialized', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('artifactsCollected', {
             packageName: 'package-a',
@@ -97,8 +96,8 @@ function registerArtifactReportTests(): void {
 
 function registerLifecycleTests(): void {
     test('aggregator build() is memoised - second call returns the same object reference', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('inputsResolved', {
             packageName: 'package-a',
@@ -111,25 +110,9 @@ function registerLifecycleTests(): void {
         const second = aggregator.build();
         assert.strictEqual(first, second);
     });
-
-    test('unsubscribe() stops the aggregator from receiving further events', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
-
-        aggregator.unsubscribe();
-        broadcaster.provider.emit('versionDetermined', {
-            packageName: 'package-a',
-            previousVersion: undefined,
-            chosenVersion: '1.0.0',
-            trigger: 'initial'
-        });
-
-        assert.deepStrictEqual(aggregator.build().packages, {});
-    });
-
     test('aggregator omits inputs / outputs / failure when no related event was received', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('stageTimed', { packageName: 'package-a', stage: 'build', durationMilliseconds: 5 });
 
@@ -143,30 +126,27 @@ function registerLifecycleTests(): void {
     });
 
     test('build() reports schemaVersion 1 on an empty aggregator', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
 
         assert.strictEqual(aggregator.build().schemaVersion, 1);
     });
 
     test('build() emits generatedAt as an ISO 8601 timestamp string', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
 
         const { generatedAt } = aggregator.build();
         assert.match(generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     test('build() reports an empty packages map when no events were observed', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
 
         assert.deepStrictEqual(aggregator.build().packages, {});
     });
 
     test('build() reports aggregate.crossBundleLinks as an empty array', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('stageTimed', {
             packageName: 'package-a',
@@ -191,8 +171,8 @@ function registerInputReportTests(): void {
     });
 
     test('buildInputs() omits effectiveConfiguration when only inputsResolved fired', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('inputsResolved', {
             packageName: 'package-a',
@@ -209,8 +189,8 @@ function registerInputReportTests(): void {
     });
 
     test('artifactsCollected reports totalBytes 0 for an empty entries list', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('artifactsCollected', { packageName: 'package-a', entries: [] });
 
@@ -218,8 +198,8 @@ function registerInputReportTests(): void {
     });
 
     test('aggregator collects multiple packages independently', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
+        const aggregator = createReportAggregator();
+        const broadcaster = { provider: aggregator.provider };
 
         broadcaster.provider.emit('stageTimed', {
             packageName: 'package-a',
@@ -238,35 +218,8 @@ function registerInputReportTests(): void {
     });
 }
 
-function registerUnsubscribeTests(): void {
-    test('unsubscribe() removes every event subscription', function () {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
-
-        aggregator.unsubscribe();
-
-        for (
-            const eventName of [
-                'inputsResolved',
-                'effectiveConfigurationResolved',
-                'versionDetermined',
-                'packageManifestAssembled',
-                'scanCompleted',
-                'linkingCompleted',
-                'eliminationCompleted',
-                'stageTimed',
-                'packageFailed',
-                'artifactsCollected'
-            ] as const
-        ) {
-            assert.strictEqual(broadcaster.provider.hasSubscribers(eventName), false);
-        }
-    });
-}
-
 suite('report-aggregator', function () {
     registerArtifactReportTests();
     registerLifecycleTests();
     registerInputReportTests();
-    registerUnsubscribeTests();
 });

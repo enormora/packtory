@@ -1,109 +1,48 @@
 import { isDefined, pickBy } from 'remeda';
-import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { mergeArtifactEntry } from './artifact-entry-merger.ts';
-import type { MutablePackageReport, PackageReport } from './report-types.ts';
+import type { PackageReport } from './report-types.ts';
 
-type Required<T> = NonNullable<T>;
-type Inputs = Required<PackageReport['inputs']>;
-
-function materializeInputs(entry: MutablePackageReport): Inputs {
-    const inputs: Inputs = {
-        roots: entry.roots ?? {},
-        siblingVersions: entry.siblingVersions ?? {},
-        sourceFileCount: entry.sourceFileCount ?? 0
-    };
-
-    if (entry.effectiveConfiguration === undefined) {
-        return inputs;
-    }
-
-    return { ...inputs, effectiveConfiguration: entry.effectiveConfiguration };
-}
-
-function buildInputs(entry: MutablePackageReport): Inputs | undefined {
-    if (entry.roots === undefined && entry.effectiveConfiguration === undefined) {
-        return undefined;
-    }
-
-    return materializeInputs(entry);
-}
-
-function mergeArtifactEntries(
-    entries: readonly ArtifactEntry[],
-    rewrittenSourcePaths: ReadonlySet<string>,
-    transformedSourcePaths: ReadonlySet<string>
-): readonly ArtifactEntry[] {
-    const mergedEntries: ArtifactEntry[] = Array.from(
-        entries,
-        function (entry) {
-            return mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths);
-        }
-    );
-
-    return mergedEntries;
-}
-
-function collectRewrittenSourcePaths(entry: MutablePackageReport): ReadonlySet<string> {
-    const rewrittenSourcePaths = new Set<string>();
-    const rewrites = entry.decisions.linker?.rewrites;
-
-    if (rewrites === undefined) {
-        return rewrittenSourcePaths;
-    }
-
-    for (const rewrite of rewrites) {
-        rewrittenSourcePaths.add(rewrite.file);
-    }
-
-    return rewrittenSourcePaths;
-}
-
-function collectTransformedSourcePaths(entry: MutablePackageReport): ReadonlySet<string> {
-    const transformedSourcePaths = new Set<string>();
-    const files = entry.decisions.deadCodeElimination?.files;
-
-    if (files === undefined) {
-        return transformedSourcePaths;
-    }
-
-    for (const file of files) {
-        if (file.decision === 'transformed') {
-            transformedSourcePaths.add(file.path);
-        }
-    }
-
-    return transformedSourcePaths;
-}
-
-function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | undefined {
+function buildOutputs(entry: PackageReport): PackageReport['outputs'] {
     if (entry.outputs === undefined) {
         return undefined;
     }
-    const rewrittenSourcePaths = collectRewrittenSourcePaths(entry);
-    const transformedSourcePaths = collectTransformedSourcePaths(entry);
+    const rewrittenSourcePaths = new Set(
+        entry.decisions.linker?.rewrites.map(function (rewrite) {
+            return rewrite.file;
+        })
+    );
+    const transformedSourcePaths = new Set(
+        entry
+            .decisions
+            .deadCodeElimination
+            ?.files
+            .filter(function (file) {
+                return file.decision === 'transformed';
+            })
+            .map(function (file) {
+                return file.path;
+            })
+    );
     return {
         tarball: {
             totalBytes: entry.outputs.tarball.totalBytes,
-            entries: mergeArtifactEntries(entry.outputs.tarball.entries, rewrittenSourcePaths, transformedSourcePaths)
+            entries: entry.outputs.tarball.entries.map(function (artifact) {
+                return mergeArtifactEntry(artifact, rewrittenSourcePaths, transformedSourcePaths);
+            })
         }
     };
 }
 
-export function toPackageReport(entry: MutablePackageReport): PackageReport {
-    const inputs = buildInputs(entry);
-    const outputs = buildOutputs(entry);
-    return pickBy(
-        {
-            workspaceSnapshot: entry.workspaceSnapshot,
-            packageSnapshot: entry.packageSnapshot,
-            decisions: entry.decisions,
-            timings: entry.timings,
-            inputs,
-            outputs,
-            publication: entry.publication,
-            eliminatedSourceFiles: entry.eliminatedSourceFiles,
-            failure: entry.failure
-        },
-        isDefined
-    );
+export function toPackageReport(entry: PackageReport): PackageReport {
+    return pickBy({
+        workspaceSnapshot: entry.workspaceSnapshot,
+        packageSnapshot: entry.packageSnapshot,
+        decisions: entry.decisions,
+        timings: entry.timings,
+        inputs: entry.inputs,
+        outputs: buildOutputs(entry),
+        publication: entry.publication,
+        eliminatedSourceFiles: entry.eliminatedSourceFiles,
+        failure: entry.failure
+    }, isDefined);
 }
