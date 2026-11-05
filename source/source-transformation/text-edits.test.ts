@@ -11,6 +11,22 @@ suite('atom-translator', function () {
         assert.strictEqual(translateGeneratedOffset(source.indexOf('🍎'), transformed.atoms), source.indexOf('🍎'));
     });
 
+    test('maps retained text between successive edits and after the final edit', function () {
+        const original = 'alpha middle omega tail';
+        const transformed = applySourceTextEdits(original, [
+            { start: 0, end: 5, content: 'a' },
+            { start: 13, end: 18, content: 'z' }
+        ]);
+
+        assert.strictEqual(transformed.transformedCode, 'a middle z tail');
+        for (const retained of [ 'middle', 'tail' ]) {
+            assert.strictEqual(
+                translateGeneratedOffset(original.indexOf(retained), transformed.atoms),
+                transformed.transformedCode.indexOf(retained)
+            );
+        }
+    });
+
     test('uses ranges from an existing AST without mutating its text or surrounding formatting', function () {
         const original = 'import { value } from "./value.js";\nexport const result = value;\n';
         const source = createProject({ withFiles: [ { filePath: 'input.js', content: original } ] })
