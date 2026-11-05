@@ -67,30 +67,6 @@ export type BuildReport = {
     };
 };
 
-type Required<T> = NonNullable<T>;
-type Inputs = Required<PackageReport['inputs']>;
-
-export type MutablePackageReport = {
-    readonly workspaceSnapshot?: WorkspaceSnapshot;
-    readonly packageSnapshot?: WorkspaceSnapshot;
-    readonly roots?: Inputs['roots'];
-    readonly siblingVersions?: Inputs['siblingVersions'];
-    readonly sourceFileCount?: Inputs['sourceFileCount'];
-    readonly effectiveConfiguration?: RedactedConfiguration;
-    readonly decisions: {
-        readonly dependencyScan?: Required<PackageReport['decisions']['dependencyScan']>;
-        readonly deadCodeElimination?: Required<PackageReport['decisions']['deadCodeElimination']>;
-        readonly linker?: Required<PackageReport['decisions']['linker']>;
-        readonly version?: Required<PackageReport['decisions']['version']>;
-        readonly packageManifest?: Required<PackageReport['decisions']['packageManifest']>;
-    };
-    readonly outputs?: Required<PackageReport['outputs']>;
-    readonly publication?: Required<PackageReport['publication']>;
-    readonly eliminatedSourceFiles?: PackageReport['eliminatedSourceFiles'];
-    readonly timings: Readonly<Record<string, number>>;
-    readonly failure?: Required<PackageReport['failure']>;
-};
-
-export function createEmptyMutablePackageReport(): MutablePackageReport {
+export function createEmptyPackageReport(): PackageReport {
     return { decisions: {}, timings: {} };
 }

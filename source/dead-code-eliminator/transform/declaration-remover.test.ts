@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import type { PositionAtom } from '../../source-transformation/text-edits.ts';
 import { applyRemovalPlan } from './declaration-remover.ts';
-import type { PositionAtom } from './atom-translator.ts';
 
 type TransformResult = {
     readonly text: string;

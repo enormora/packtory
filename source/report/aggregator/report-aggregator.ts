@@ -1,10 +1,10 @@
-import type { ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
+import type { ProgressBroadcastProvider } from '../../progress/progress-broadcaster.ts';
 import { toPackageReport } from './package-report-materialization.ts';
-import { registerSubscribers, type AggregatorState } from './report-event-handlers.ts';
+import { createReportEventHandlers, type AggregatorState } from './report-event-handlers.ts';
 import type { BuildReport, PackageReport } from './report-types.ts';
 
 export type ReportAggregator = {
-    readonly unsubscribe: () => void;
+    readonly provider: ProgressBroadcastProvider;
     readonly build: () => BuildReport;
 };
 
@@ -22,17 +22,12 @@ function materialize(state: AggregatorState): BuildReport {
     };
 }
 
-export function createReportAggregator(consumer: ProgressBroadcastConsumer): ReportAggregator {
-    const disposers: (() => void)[] = [];
-    const state: AggregatorState = { packages: new Map(), disposers };
-    registerSubscribers(state, consumer);
+export function createReportAggregator(): ReportAggregator {
+    const state: AggregatorState = { packages: new Map() };
+    const provider = createReportEventHandlers(state);
     const memo: BuildReport[] = [];
     return {
-        unsubscribe() {
-            for (const dispose of state.disposers) {
-                dispose();
-            }
-        },
+        provider,
         build() {
             const [ cached ] = memo;
             if (cached !== undefined) {

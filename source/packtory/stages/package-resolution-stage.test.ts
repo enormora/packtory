@@ -253,6 +253,7 @@ suite('package-resolution-stage', function () {
         const realBroadcaster = createProgressBroadcaster();
         let emitCount = 0;
         const trackingBroadcaster = {
+            observe: realBroadcaster.observe,
             consumer: realBroadcaster.consumer,
             provider: {
                 emit(eventName: string, payload: unknown) {

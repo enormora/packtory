@@ -213,7 +213,7 @@ flowchart LR
 
 ### How the rewrite actually happens
 
-We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)`. This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports , the basename of the original specifier is preserved in case the consumer relies on it.
+We do _not_ do regex on the source. The linker obtains import literal ranges from the existing ts-morph AST, resolves each specifier with `ts.resolveModuleName`, and applies matched replacements through the shared source-transformation module. This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports , the basename of the original specifier is preserved in case the consumer relies on it.
 
 ### Why the order matters
 
@@ -376,7 +376,9 @@ recomposeSourceMap(originalMap, textTransform):
     return JSON with re-encoded mappings
 ```
 
-The text transform map is derived from the original and transformed code after all declaration removals, import repairs, and module marker insertions. Its atoms describe unchanged byte ranges: `(originalStart, originalEnd, newStart)`.
+Linking and dead-code elimination share the `source-transformation` module. Import replacements use offsets from the existing AST; `magic-string` applies the edits without parsing the source again. Declaration removal retains ts-morph's formatting behavior and derives edits from the before/after text. Both paths record unchanged character ranges: `(originalStart, originalEnd, newStart)`.
+
+`@jridgewell/trace-mapping` re-encodes the translated mappings. Only surviving mappings from the input map are retained, including their original names and source metadata.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
 
@@ -421,6 +423,10 @@ The rationale: a published package whose `dependencies` point at a `workspace:*`
 In _manual_ versioning, the configured version is used verbatim. In _automatic_ mode, packtory decides for itself whether to bump.
 
 Publish preparation reuses a single current-version lookup for version selection and version-provider callbacks. Confirmed current-head publications skip that lookup. Artifact comparisons, exact target verification, and publish recovery perform independent registry reads.
+
+Publication, diff, release analysis, and release planning share the preparation stage. Publication waits for every package to prepare successfully before publishing. The other operations project prepared package results and preserve successful projections when preparation or projection partially fails. Preparation failures retain precedence over projection failures.
+
+Each reported operation owns its report collector through an asynchronous scope. Stage observations feed that collector directly; public progress listeners continue to receive events independently. Report collection ends when the operation settles, including on failure. Reports remain lazy and memoized.
 
 ### The algorithm
 

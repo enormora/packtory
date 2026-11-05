@@ -71,7 +71,7 @@ export const toReleaseAnalysisOutcome = createReleaseOutcomeAdapter();
 export const createTestProgressBroadcaster: () => ProgressBroadcaster = createProgressBroadcaster;
 export type TestProgressBroadcaster = ProgressBroadcaster;
 
-export type SpyingBroadcaster = {
+export type SpyingBroadcaster = ProgressBroadcaster & {
     readonly provider: ProgressBroadcastProvider;
     readonly consumer: ProgressBroadcaster['consumer'];
     readonly emitSpy: SinonSpy;
@@ -87,5 +87,5 @@ export function createSpyingBroadcaster(): SpyingBroadcaster {
         },
         hasSubscribers: broadcaster.provider.hasSubscribers
     };
-    return { provider, consumer: broadcaster.consumer, emitSpy };
+    return { ...broadcaster, provider, emitSpy };
 }

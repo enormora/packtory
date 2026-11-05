@@ -1,12 +1,12 @@
 import type { SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { PositionAtom, TextTransformMap } from '../source-transformation/text-edits.ts';
 import type { SideEffectClassifier } from './side-effect-classifier.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { buildModuleAnalysis } from './liveness/module-analysis.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
-import type { PositionAtom, TextTransformMap } from './transform/atom-translator.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
 
 export type AnalysisContext = {

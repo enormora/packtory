@@ -1,4 +1,4 @@
-import { createWorklist, type Worklist } from '../common/worklist.ts';
+import { createWorklist } from '../common/worklist.ts';
 
 type GraphNodeIdentifier = number | string;
 
@@ -18,10 +18,6 @@ type GraphEdge<TIdentifier extends GraphNodeIdentifier> = {
 };
 
 type Visitor<TIdentifier extends GraphNodeIdentifier, TData> = (node: Readonly<GraphNode<TIdentifier, TData>>) => void;
-
-function attemptSlots(length: number): readonly unknown[] {
-    return Array.from({ length });
-}
 
 export type DirectedGraph<TIdentifier extends GraphNodeIdentifier, TData> = {
     addNode: (identifier: TIdentifier, data: TData) => void;
@@ -104,87 +100,38 @@ function countEdges<TIdentifier extends GraphNodeIdentifier, TData>(
     }, 0);
 }
 
-type BreadthFirstSearchStep<TIdentifier extends GraphNodeIdentifier, TData> = {
-    readonly head: GraphNode<TIdentifier, TData> | undefined;
-    readonly visited: ReadonlySet<TIdentifier>;
-};
-
-type BreadthFirstSearchNodeVisit<TIdentifier extends GraphNodeIdentifier, TData> = {
-    readonly head: GraphNode<TIdentifier, TData>;
-    readonly nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>;
-    readonly pendingNodes: Worklist<GraphNode<TIdentifier, TData>>;
-    readonly visited: ReadonlySet<TIdentifier>;
-    readonly visitor: Visitor<TIdentifier, TData>;
-};
-type BreadthFirstSearchState<TIdentifier extends GraphNodeIdentifier, TData> = {
-    readonly head: GraphNode<TIdentifier, TData> | undefined;
-    readonly pendingNodes: Worklist<GraphNode<TIdentifier, TData>>;
-    readonly visited: ReadonlySet<TIdentifier>;
-};
-
-function scheduleAdjacentNodes<TIdentifier extends GraphNodeIdentifier, TData>(
-    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
-    head: GraphNode<TIdentifier, TData>,
-    pendingNodes: Worklist<GraphNode<TIdentifier, TData>>
-): void {
-    for (const identifier of head.adjacentNodeIdentifiers) {
-        pendingNodes.schedule(getNode(nodes, identifier));
-    }
-}
-
-function visitBreadthFirstSearchNode<TIdentifier extends GraphNodeIdentifier, TData>(
-    visit: BreadthFirstSearchNodeVisit<TIdentifier, TData>
-): BreadthFirstSearchStep<TIdentifier, TData> {
-    if (visit.visited.has(visit.head.identifier)) {
-        return { head: visit.pendingNodes.takeNext(), visited: visit.visited };
-    }
-
-    visit.visitor(visit.head);
-    scheduleAdjacentNodes(visit.nodes, visit.head, visit.pendingNodes);
-    return {
-        head: visit.pendingNodes.takeNext(),
-        visited: new Set([ ...visit.visited, visit.head.identifier ])
-    };
-}
-
 function visitGraphBreadthFirstSearch<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
     startIdentifier: TIdentifier,
     visitor: Visitor<TIdentifier, TData>
 ): void {
     const pendingNodes = createWorklist<GraphNode<TIdentifier, TData>>([]);
-    const traversalSlots = attemptSlots(nodes.size + countEdges(nodes) + 1);
-    let state: BreadthFirstSearchState<TIdentifier, TData> = {
-        head: getNode(nodes, startIdentifier),
-        pendingNodes,
-        visited: new Set()
-    };
+    const maximumAttempts = nodes.size + countEdges(nodes) + 1;
+    const visited = new Set<TIdentifier>();
+    let head: GraphNode<TIdentifier, TData> | undefined = getNode(nodes, startIdentifier);
 
-    traversalSlots.forEach(function () {
-        if (state.head === undefined) {
-            return;
+    for (let attempt = 0; head !== undefined && attempt < maximumAttempts; attempt += 1) {
+        if (!visited.has(head.identifier)) {
+            visitor(head);
+            pendingNodes.scheduleAll(
+                head.adjacentNodeIdentifiers.values().map(function (identifier) {
+                    return getNode(nodes, identifier);
+                })
+            );
+            visited.add(head.identifier);
         }
-
-        const nextStep: BreadthFirstSearchStep<TIdentifier, TData> = visitBreadthFirstSearchNode<TIdentifier, TData>({
-            nodes,
-            head: state.head,
-            pendingNodes: state.pendingNodes,
-            visited: state.visited,
-            visitor
-        });
-        state = { ...state, head: nextStep.head, visited: nextStep.visited };
-    });
+        head = pendingNodes.takeNext();
+    }
 }
 
 function collectCurrentGeneration<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
-    alreadyDiscovered: ReadonlySet<TIdentifier>,
     incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>
 ): readonly TIdentifier[] {
     const currentGeneration: TIdentifier[] = [];
 
     for (const node of nodes.values()) {
-        if (!alreadyDiscovered.has(node.identifier) && incomingEdgesPerNode.get(node.identifier) === 0) {
+        if (incomingEdgesPerNode.get(node.identifier) === 0) {
             currentGeneration.push(node.identifier);
         }
     }
@@ -204,7 +151,7 @@ function getIncomingEdgesPerNode<TIdentifier extends GraphNodeIdentifier, TData>
     return incomingEdgesPerNode;
 }
 
-function decreaseIncomingEdgesPerNodeForAdjacentNodes<TIdentifier extends GraphNodeIdentifier, TData>(
+function consumeTopologicalGeneration<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
     incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>,
     identifiers: readonly TIdentifier[]
@@ -213,6 +160,7 @@ function decreaseIncomingEdgesPerNodeForAdjacentNodes<TIdentifier extends GraphN
 
     for (const identifier of identifiers) {
         const node = getNode(nodes, identifier);
+        newIncomingEdgesPerNode.delete(identifier);
 
         for (const adjacentNodeIdentifier of node.adjacentNodeIdentifiers) {
             const degree = Number(newIncomingEdgesPerNode.get(adjacentNodeIdentifier));
@@ -221,14 +169,6 @@ function decreaseIncomingEdgesPerNodeForAdjacentNodes<TIdentifier extends GraphN
     }
 
     return newIncomingEdgesPerNode;
-}
-
-function assertAcyclic<TIdentifier extends GraphNodeIdentifier, TData>(
-    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
-): void {
-    if (detectGraphCycles(nodes).length > 0) {
-        throw new Error('Failed to determine topological generations, current graph is cyclic');
-    }
 }
 
 function disconnectExistingEdge<TIdentifier extends GraphNodeIdentifier, TData>(
@@ -250,67 +190,33 @@ function disconnectExistingEdge<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes.set(toNode.identifier, { ...toNode, incomingEdges: toNode.incomingEdges - 1 });
 }
 
-function updateTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
-    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
-    incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>,
-    currentGeneration: readonly TIdentifier[]
-): Map<TIdentifier, number> {
-    return decreaseIncomingEdgesPerNodeForAdjacentNodes(nodes, incomingEdgesPerNode, Array.from(currentGeneration));
-}
-
-type TopologicalDiscovery<TIdentifier extends GraphNodeIdentifier> = {
-    readonly alreadyDiscovered: ReadonlySet<TIdentifier>;
-    readonly generations: readonly (readonly TIdentifier[])[];
-    readonly incomingEdgesPerNode: ReadonlyMap<TIdentifier, number>;
-};
-
-function createTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
-    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
-): TopologicalDiscovery<TIdentifier> {
-    return {
-        alreadyDiscovered: new Set(),
-        generations: [],
-        incomingEdgesPerNode: getIncomingEdgesPerNode(nodes)
-    };
-}
-
-function advanceTopologicalDiscovery<TIdentifier extends GraphNodeIdentifier, TData>(
-    nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>,
-    discovery: TopologicalDiscovery<TIdentifier>
-): TopologicalDiscovery<TIdentifier> {
-    if (discovery.alreadyDiscovered.size === nodes.size) {
-        return discovery;
-    }
-
-    const currentGeneration = collectCurrentGeneration(
-        nodes,
-        discovery.alreadyDiscovered,
-        discovery.incomingEdgesPerNode
-    );
-    return {
-        alreadyDiscovered: new Set([ ...discovery.alreadyDiscovered, ...currentGeneration ]),
-        generations: [ ...discovery.generations, Array.from(currentGeneration) ],
-        incomingEdgesPerNode: updateTopologicalDiscovery(nodes, discovery.incomingEdgesPerNode, currentGeneration)
-    };
-}
-
 function collectTopologicalGenerationsFromAcyclicGraph<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
 ): readonly (readonly TIdentifier[])[] {
-    return attemptSlots(nodes.size)
-        .reduce<TopologicalDiscovery<TIdentifier>>(
-            function (discovery) {
-                return advanceTopologicalDiscovery(nodes, discovery);
-            },
-            createTopologicalDiscovery(nodes)
-        )
-        .generations;
+    const generations: (readonly TIdentifier[])[] = [];
+    let incomingEdgesPerNode = getIncomingEdgesPerNode(nodes);
+
+    nodes.forEach(function collectNextGeneration() {
+        if (incomingEdgesPerNode.size === 0) {
+            return;
+        }
+        const currentGeneration = collectCurrentGeneration(nodes, incomingEdgesPerNode);
+        generations.push(currentGeneration);
+        incomingEdgesPerNode = consumeTopologicalGeneration(
+            nodes,
+            incomingEdgesPerNode,
+            currentGeneration
+        );
+    });
+    return generations;
 }
 
 function collectTopologicalGenerations<TIdentifier extends GraphNodeIdentifier, TData>(
     nodes: ReadonlyMap<TIdentifier, GraphNode<TIdentifier, TData>>
 ): readonly (readonly TIdentifier[])[] {
-    assertAcyclic(nodes);
+    if (detectGraphCycles(nodes).length > 0) {
+        throw new Error('Failed to determine topological generations, current graph is cyclic');
+    }
     return collectTopologicalGenerationsFromAcyclicGraph(nodes);
 }
 

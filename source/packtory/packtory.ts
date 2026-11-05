@@ -181,7 +181,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
 }
 
 type Reporting<TReport> = {
-    readonly dispose: () => void;
+    readonly run: <T>(operation: () => Promise<T> | T) => Promise<T>;
     readonly getReport: () => TReport;
 };
 
@@ -261,11 +261,9 @@ async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
     operation: ReportedOperationArguments<TValidated, TResult, TReport, TOutcome>
 ): Promise<TOutcome> {
     const reporting = operation.attachReporting();
-    try {
-        return await createReportedOutcome(operation, reporting.getReport);
-    } finally {
-        reporting.dispose();
-    }
+    return reporting.run(async function () {
+        return createReportedOutcome(operation, reporting.getReport);
+    });
 }
 
 async function inspectPackageTreeWithReport(input: InspectPackageTreeInput): Promise<PackageTreeOutcome> {
@@ -401,17 +399,15 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
 
     async function inspectPackageTreePublic(configuration: unknown, packageName: string): Promise<PackageTreeOutcome> {
         const reporting = attachAggregator(dependencies.progressBroadcaster);
-        try {
-            return await inspectPackageTreeWithReport({
+        return reporting.run(async function () {
+            return inspectPackageTreeWithReport({
                 configuration,
                 inspectPackageTreeValidated,
                 packageName,
                 reporting,
                 resolveAndLinkAllValidated
             });
-        } finally {
-            reporting.dispose();
-        }
+        });
     }
 
     async function diffAgainstLatestPublishedPublic(configuration: unknown): Promise<ReleaseDiffAllOutcome> {

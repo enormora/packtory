@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { WorkspaceSnapshot } from '../report/inspectors/inspect-workspace.ts';
 import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
 
@@ -163,7 +164,7 @@ type PackageFailedPayload = {
     readonly message: string;
 };
 
-type Events = {
+export type Events = {
     readonly packageCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
     readonly workspaceCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
     readonly scheduled: ScheduledEventPayload;
@@ -229,6 +230,7 @@ export type PublicProgressBroadcastConsumer = {
 };
 
 export type ProgressBroadcaster = {
+    readonly observe: <T>(observer: ProgressBroadcastProvider, operation: () => Promise<T> | T) => Promise<T>;
     readonly provider: ProgressBroadcastProvider;
     readonly consumer: ProgressBroadcastConsumer;
 };
@@ -260,16 +262,36 @@ function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<
 
 export function createProgressBroadcaster(): ProgressBroadcaster {
     const listeners = createListenerRegistry();
+    const observations = new AsyncLocalStorage<ProgressBroadcastProvider>();
 
     return {
+        async observe(observer, operation) {
+            let active = true;
+            const scopedObserver: ProgressBroadcastProvider = {
+                emit(eventName, payload) {
+                    if (active) {
+                        observer.emit(eventName, payload);
+                    }
+                },
+                hasSubscribers(eventName) {
+                    return active && observer.hasSubscribers(eventName);
+                }
+            };
+            try {
+                return await observations.run(scopedObserver, operation);
+            } finally {
+                active = false;
+            }
+        },
         provider: {
             emit(eventName, payload) {
                 listeners[eventName].forEach(function (listener) {
                     listener(payload);
                 });
+                observations.getStore()?.emit(eventName, payload);
             },
             hasSubscribers(eventName) {
-                return listeners[eventName].size > 0;
+                return listeners[eventName].size > 0 || observations.getStore()?.hasSubscribers(eventName) === true;
             }
         },
         consumer: {

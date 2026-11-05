@@ -6,22 +6,22 @@ import type { BuildReport } from '../report/aggregator/report-types.ts';
 
 export type ReportAttachment = {
     readonly getReport: () => BuildReport | undefined;
-    readonly dispose: () => void;
+    readonly run: <T>(operation: () => Promise<T> | T) => Promise<T>;
 };
 
 export type RequiredReportAttachment = {
     readonly getReport: () => BuildReport;
-    readonly dispose: () => void;
+    readonly run: <T>(operation: () => Promise<T> | T) => Promise<T>;
 };
 
 export function attachAggregator(progressBroadcaster: ProgressBroadcaster): RequiredReportAttachment {
-    const aggregator = createReportAggregator(progressBroadcaster.consumer);
+    const aggregator = createReportAggregator();
     return {
         getReport() {
             return aggregator.build();
         },
-        dispose() {
-            aggregator.unsubscribe();
+        async run(operation) {
+            return progressBroadcaster.observe(aggregator.provider, operation);
         }
     };
 }
@@ -45,13 +45,13 @@ export function maybeAttachAggregator(
     progressBroadcaster: ProgressBroadcaster,
     collectReport: boolean | undefined
 ): ReportAttachment {
-    const aggregator = collectReport === true ? createReportAggregator(progressBroadcaster.consumer) : undefined;
+    const aggregator = collectReport === true ? createReportAggregator() : undefined;
     return {
         getReport() {
             return aggregator?.build();
         },
-        dispose() {
-            aggregator?.unsubscribe();
+        async run(operation) {
+            return aggregator === undefined ? operation() : progressBroadcaster.observe(aggregator.provider, operation);
         }
     };
 }

@@ -69,6 +69,9 @@ type ReleasePackageProcessorOperations = Pick<PackageProcessor, ReleasePackagePr
 const noPublicationOutcome = { type: 'none' } as const;
 
 const releaseProgressBroadcaster: ProgressBroadcaster = {
+    async observe(_observer, operation) {
+        return operation();
+    },
     consumer: {
         off() {
             return undefined;
