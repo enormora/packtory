@@ -196,7 +196,10 @@ function collectTopologicalGenerationsFromAcyclicGraph<TIdentifier extends Graph
     const generations: (readonly TIdentifier[])[] = [];
     let incomingEdgesPerNode = getIncomingEdgesPerNode(nodes);
 
-    for (let generation = 0; generation < nodes.size && incomingEdgesPerNode.size > 0; generation += 1) {
+    nodes.forEach(function collectNextGeneration() {
+        if (incomingEdgesPerNode.size === 0) {
+            return;
+        }
         const currentGeneration = collectCurrentGeneration(nodes, incomingEdgesPerNode);
         generations.push(currentGeneration);
         incomingEdgesPerNode = consumeTopologicalGeneration(
@@ -204,7 +207,7 @@ function collectTopologicalGenerationsFromAcyclicGraph<TIdentifier extends Graph
             incomingEdgesPerNode,
             currentGeneration
         );
-    }
+    });
     return generations;
 }
 

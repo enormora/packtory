@@ -255,6 +255,7 @@ suite('graph topology and traversal', function () {
             const visited: number[] = [];
 
             graph.visitBreadthFirstSearch(0, function (node) {
+                assert.ok(visited.length < 4, 'Traversal exceeded its original attempt limit');
                 visited.push(node.identifier);
                 graph.addNode(node.identifier + 2, undefined);
                 graph.connect({ from: node.identifier + 1, to: node.identifier + 2 });
