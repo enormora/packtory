@@ -55,7 +55,7 @@
         "proxy-agent": "8.0.2",
         "proxy-from-env": "2.1.0",
         "remeda": "2.58.0",
-        "semver": "7.8.5",
+        "semver": "7.8.6",
         "spdx-expression-parse": "5.0.0",
         "ssri": "14.0.0",
         "tar-stream": "3.2.2",
