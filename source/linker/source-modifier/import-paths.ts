@@ -1,6 +1,9 @@
 import type { Project, SourceFile } from 'ts-morph';
-import { buildLineIndex } from '../../dead-code-eliminator/transform/line-index.ts';
-import type { PositionAtom, SourceMapTransform } from '../../dead-code-eliminator/transform/atom-translator.ts';
+import {
+    applySourceTextEdits,
+    toSourceMapTransform,
+    type SourceMapTransform
+} from '../../source-transformation/text-edits.ts';
 import { getModuleReferenceLiterals } from '../../dependency-scanner/source-file-references.ts';
 import { resolveTypescriptModuleFilePath } from '../../dependency-scanner/typescript-module-resolution.ts';
 import type { ImportPathReplacement } from '../replacement-lookup.ts';
@@ -57,41 +60,18 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
 }
 
 function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): ImportPathReplacementResult {
-    let content = '';
-    let originalOffset = 0;
-    const atoms: PositionAtom[] = [];
-
-    function appendEdit(edit: LiteralEdit): void {
-        const newStart = content.length;
-        content += sourceContent.slice(originalOffset, edit.start) + edit.reference.emittedSpecifier;
-        atoms.push({ originalStart: originalOffset, originalEnd: edit.start, newStart });
-        originalOffset = edit.end;
-    }
-
-    function appendTail(): void {
-        const tailStart = content.length;
-        content += sourceContent.slice(originalOffset);
-        atoms.push({
-            originalStart: originalOffset,
-            originalEnd: sourceContent.length,
-            newStart: tailStart
-        });
-    }
-
-    for (const edit of edits) {
-        appendEdit(edit);
-    }
-    appendTail();
+    const transform = applySourceTextEdits(
+        sourceContent,
+        edits.map(function (edit) {
+            return { start: edit.start, end: edit.end, content: edit.reference.emittedSpecifier };
+        })
+    );
     return {
-        content,
+        content: transform.transformedCode,
         dependencyReferences: edits.map(function (edit) {
             return edit.reference;
         }),
-        sourceMapTransform: {
-            originalLineIndex: buildLineIndex(sourceContent),
-            transformedLineIndex: buildLineIndex(content),
-            atoms
-        }
+        sourceMapTransform: toSourceMapTransform(transform)
     };
 }
 

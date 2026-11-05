@@ -1,7 +1,7 @@
+import { toSourceMapTransform, type SourceMapTransform } from '../source-transformation/text-edits.ts';
+import { recomposeSourceMap } from '../source-transformation/source-map.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
 import type { AnalyzedResourceOutput } from './code-file-analyzer.ts';
-import { toSourceMapTransform, type SourceMapTransform } from './transform/atom-translator.ts';
-import { recomposeSourceMap } from './transform/source-map-composer.ts';
 
 export function buildMapPathTransformIndex(
     outputs: readonly AnalyzedResourceOutput[],

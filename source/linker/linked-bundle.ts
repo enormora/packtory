@@ -1,5 +1,5 @@
 import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
-import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
+import type { SourceMapTransform } from '../source-transformation/text-edits.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { PackageSurface } from '../package-surface/surface.ts';
 import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';

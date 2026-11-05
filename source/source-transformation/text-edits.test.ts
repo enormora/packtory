@@ -1,8 +1,39 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { translateGeneratedOffset, type PositionAtom } from './atom-translator.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
+import { applySourceTextEdits, translateGeneratedOffset, type PositionAtom } from './text-edits.ts';
 
 suite('atom-translator', function () {
+    test('keeps text and source positions unchanged when there are no edits', function () {
+        const source = 'const title = "🍎";\n';
+        const transformed = applySourceTextEdits(source, []);
+        assert.strictEqual(transformed.transformedCode, source);
+        assert.strictEqual(translateGeneratedOffset(source.indexOf('🍎'), transformed.atoms), source.indexOf('🍎'));
+    });
+
+    test('uses ranges from an existing AST without mutating its text or surrounding formatting', function () {
+        const original = 'import { value } from "./value.js";\nexport const result = value;\n';
+        const source = createProject({ withFiles: [ { filePath: 'input.js', content: original } ] })
+            .getSourceFileOrThrow('input.js');
+        const declaration = source.getImportDeclarations()[0] ?? assert.fail('expected the import declaration');
+        const literal = declaration.getModuleSpecifier();
+        const transformed = applySourceTextEdits(original, [ {
+            start: literal.getStart() + 1,
+            end: literal.getEnd() - 1,
+            content: 'another-package/value.js'
+        } ]);
+        assert.strictEqual(
+            transformed.transformedCode,
+            'import { value } from "another-package/value.js";\nexport const result = value;\n'
+        );
+        assert.strictEqual(source.getFullText(), original);
+        assert.strictEqual(
+            translateGeneratedOffset(original.indexOf('export'), transformed.atoms),
+            transformed.transformedCode.indexOf('export')
+        );
+        assert.strictEqual(translateGeneratedOffset(literal.getStart() + 1, transformed.atoms), undefined);
+    });
+
     test('translateGeneratedOffset shifts the offset by the atom delta when the offset is inside an atom', function () {
         const atoms: readonly PositionAtom[] = [ { originalStart: 10, originalEnd: 20, newStart: 3 } ];
         assert.strictEqual(translateGeneratedOffset(15, atoms), 8);

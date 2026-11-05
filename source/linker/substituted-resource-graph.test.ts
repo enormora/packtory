@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { buildLineIndex } from '../dead-code-eliminator/transform/line-index.ts';
-import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
+import { buildLineIndex } from '../source-transformation/line-index.ts';
+import type { SourceMapTransform } from '../source-transformation/text-edits.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import { createSubstitutedResourceGraph } from './substituted-resource-graph.ts';
 

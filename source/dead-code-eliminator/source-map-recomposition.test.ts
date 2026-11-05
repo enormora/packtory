@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { buildTextTransformMap, toSourceMapTransform } from '../source-transformation/text-edits.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
 import type { AnalyzedResourceOutput } from './code-file-analyzer.ts';
-import { buildTextTransformMap, toSourceMapTransform } from './transform/atom-translator.ts';
 import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-map-recomposition.ts';
 
 type TransformRecord = AnalyzedResourceOutput['transforms'][number];

@@ -1,5 +1,5 @@
 import type { Except } from 'type-fest';
-import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
+import type { SourceMapTransform } from '../source-transformation/text-edits.ts';
 import {
     mergeExternalDependencyReference,
     type DependencySpecifierReference,

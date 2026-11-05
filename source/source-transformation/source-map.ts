@@ -6,7 +6,7 @@ import {
     type EachMapping,
     type SourceMapSegment
 } from '@jridgewell/trace-mapping';
-import { translateGeneratedOffset, type SourceMapTransform } from './atom-translator.ts';
+import { translateGeneratedOffset, type SourceMapTransform } from './text-edits.ts';
 import { lineColumnToOffset, offsetToLineColumn, type LineColumn } from './line-index.ts';
 
 type SourceMapMappings = readonly (readonly SourceMapSegment[])[];
@@ -14,11 +14,6 @@ type SourceMapMappings = readonly (readonly SourceMapSegment[])[];
 type TranslationResult = {
     readonly mappings: SourceMapMappings;
     readonly sawMapping: boolean;
-};
-
-type SourceMapSegmentStore = {
-    readonly append: (lineIndex: number, segment: SourceMapSegment) => void;
-    readonly toMappings: () => SourceMapMappings;
 };
 
 function tryParseTraceMap(originalMap: string): TraceMap | null {
@@ -43,30 +38,11 @@ function namedSegment(
     return [ generated.column, sourceIndex, originalLine, mapping.originalColumn, nameIndex ];
 }
 
-function createSourceMapSegmentStore(): SourceMapSegmentStore {
-    const mappings: SourceMapSegment[][] = [];
-    return {
-        append(lineIndex: number, segment: SourceMapSegment): void {
-            const line = mappings[lineIndex];
-            if (line === undefined) {
-                mappings[lineIndex] = [ segment ];
-            } else {
-                line.push(segment);
-            }
-        },
-        toMappings(): SourceMapMappings {
-            return Array.from({ length: mappings.length }, function (_ignoredValue, index) {
-                return mappings[index] ?? [];
-            });
-        }
-    };
-}
-
 function translatedMappings(
     traceMap: TraceMap,
     transform: SourceMapTransform
 ): TranslationResult {
-    const mappings = createSourceMapSegmentStore();
+    const mappings: SourceMapSegment[][] = [];
     let sawMapping = false;
     eachMapping(traceMap, function (mapping) {
         sawMapping = true;
@@ -79,11 +55,18 @@ function translatedMappings(
             const newOffset = translateGeneratedOffset(oldOffset, transform.atoms);
             if (newOffset !== undefined) {
                 const generated = offsetToLineColumn(transform.transformedLineIndex, newOffset);
-                mappings.append(generated.line - 1, namedSegment(generated, traceMap, mapping));
+                const line = mappings[generated.line - 1] ?? [];
+                line.push(namedSegment(generated, traceMap, mapping));
+                mappings[generated.line - 1] = line;
             }
         }
     });
-    return { mappings: mappings.toMappings(), sawMapping };
+    return {
+        mappings: Array.from({ length: mappings.length }, function (_value, index) {
+            return mappings[index] ?? [];
+        }),
+        sawMapping
+    };
 }
 
 function recomposeWithTransform(originalMap: string, transform: SourceMapTransform): string {
