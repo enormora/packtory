@@ -1,6 +1,7 @@
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
+    type ExportDeclaration,
     type Identifier,
     type ImportDeclaration,
     type ImportSpecifier,
@@ -135,6 +136,31 @@ function symbolTargets(
     ];
 }
 
+function reExportTargets(
+    declaration: ExportDeclaration,
+    declarationIndex: DeclarationNodeIndex,
+    visited: ReadonlySet<ExportDeclaration>
+): readonly string[] {
+    if (!declaration.isNamespaceExport() || visited.has(declaration)) {
+        return [];
+    }
+    const sourceFile = declaration.getModuleSpecifierSourceFile();
+    if (sourceFile === undefined) {
+        return [];
+    }
+    const nextVisited = new Set([ ...visited, declaration ]);
+    return [
+        ...sourceFile.getExportSymbols().flatMap(function (symbol) {
+            return symbol.getName() !== 'default' || declaration.getNamespaceExport() !== undefined
+                ? symbolTargets(symbol, declarationIndex)
+                : [];
+        }),
+        ...sourceFile.getExportDeclarations().flatMap(function (nested) {
+            return reExportTargets(nested, declarationIndex, nextVisited);
+        })
+    ];
+}
+
 function namespaceExportTargets(
     symbol: SymbolReference,
     declarationIndex: DeclarationNodeIndex
@@ -190,6 +216,9 @@ export function collectIdentifierTargets(
     declarationIndex: DeclarationNodeIndex
 ): Set<string> {
     return new Set([
+        ...TypeScriptMorphNode.isExportDeclaration(rootNode)
+            ? reExportTargets(rootNode, declarationIndex, new Set())
+            : [],
         ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
             return identifierTargets(identifier, declarationIndex);
         }),
