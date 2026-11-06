@@ -249,6 +249,8 @@ Three kinds of seeds are added to a set $S$:
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
 3. **Cross-bundle seeds** , bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 
+Public star reexports retain exported bindings through transitive barrels and cycles. Conflicting bindings are retained on both paths so ambiguous names stay ambiguous. Bare stars exclude defaults; namespace reexports include them.
+
 ### Step 3 , Breadth-first closure
 
 Reachability is then a plain breadth-first closure over the binding graph:

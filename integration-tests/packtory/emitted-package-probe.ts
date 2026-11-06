@@ -89,6 +89,22 @@ export async function importEmittedPackageEntry(
     }
 }
 
+export async function observeEmittedPackageExports(
+    analyzedBundle: AnalyzedBundle,
+    targetFilePath: string
+): Promise<unknown> {
+    const packageFolder = await writeAnalyzedPackage(analyzedBundle);
+    try {
+        const address = pathToFileAddress(path.join(packageFolder, targetFilePath)).href;
+        return await runNodeProbe(
+            `const module = await import(${JSON.stringify(address)}); console.log(JSON.stringify(module));`,
+            3000
+        );
+    } finally {
+        await rm(packageFolder, { recursive: true, force: true });
+    }
+}
+
 export async function importEmittedPackageEntryWithProjectDependencies(
     analyzedBundle: AnalyzedBundle,
     targetFilePath: string
