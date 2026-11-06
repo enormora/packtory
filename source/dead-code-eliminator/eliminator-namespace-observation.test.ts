@@ -1,9 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
+import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 
 const dependency = [
@@ -22,20 +20,7 @@ type EmittedModules = {
 };
 
 async function eliminate(content: string, dependencyContent: string): Promise<EmittedModules> {
-    const [ result ] = await createTestEliminator().eliminate(inputs(bundleForCodeFile({
-        name: 'package',
-        inputFilePath: '/source/index.js',
-        targetFilePath: 'index.js',
-        content,
-        extraResources: [ {
-            ...bundleResource('/source/dep.js', { content: dependencyContent, targetFilePath: 'dep.js' }),
-            isSubstituted: false
-        } ]
-    })));
-    assertDefined(result);
-    const emitted = new Map(result.contents.map(function (resource) {
-        return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];
-    }));
+    const emitted = await eliminateCodeModules(content, { 'dep.js': dependencyContent });
     const entry = emitted.get('index.js');
     const emittedDependency = emitted.get('dep.js');
     assertDefined(entry);

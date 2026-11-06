@@ -263,6 +263,7 @@ The neighbour relation is computed by walking every `Identifier` inside the bind
 
 - **Shadowing works correctly**: an inner `const foo = 1` shadows an outer `foo`, and the compiler tells us so. Naïve text matching would get this wrong.
 - **Import aliases follow through**: `import { x as y }` is tracked back to the original export.
+- **Dynamic imports preserve namespaces**: reachable local literal `import()` calls retain all target exports, including defaults and reexports. Unreachable calls do not retain exports. Module evaluation remains lazy.
 - **Namespace observations preserve exports**: using a namespace as a value, including enumeration or passing it to another function, retains its exports. Direct property reads such as `namespace.value` retain only the referenced exports.
 
 Implementation: `breadthFirstClosure`.

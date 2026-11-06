@@ -1,6 +1,7 @@
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
+    type CallExpression,
     type ExportDeclaration,
     type Identifier,
     type ImportDeclaration,
@@ -32,10 +33,10 @@ function declarationPathTargets(
 }
 
 function importerTargetFilePath(
-    importDeclaration: ImportDeclaration,
+    node: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): string | undefined {
-    const inputFilePath = importDeclaration.getSourceFile().getFilePath();
+    const inputFilePath = node.getSourceFile().getFilePath();
     return declarationIndex.targetFilePathByInputFilePath.get(inputFilePath);
 }
 
@@ -43,15 +44,15 @@ function isRelativeImport(importDeclaration: ImportDeclaration): boolean {
     return importDeclaration.getModuleSpecifierValue().startsWith('.');
 }
 
-function resolvedImportReference(
-    importDeclaration: ImportDeclaration,
+function resolvedModuleReference(
+    node: TypeScriptMorphNode,
+    specifier: string,
     declarationIndex: DeclarationNodeIndex
 ): ArtifactModuleReference | undefined {
-    const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
+    const importerPath = importerTargetFilePath(node, declarationIndex);
     if (importerPath === undefined) {
         return undefined;
     }
-    const specifier = importDeclaration.getModuleSpecifierValue();
     return declarationIndex.moduleReferencesByTargetFilePath.get(importerPath)?.find(function (reference) {
         return reference.emittedSpecifier === specifier;
     });
@@ -68,7 +69,11 @@ function relativeImportTargetPath(
     declarationIndex: DeclarationNodeIndex
 ): string | undefined {
     const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
-    const reference = resolvedImportReference(importDeclaration, declarationIndex);
+    const reference = resolvedModuleReference(
+        importDeclaration,
+        importDeclaration.getModuleSpecifierValue(),
+        declarationIndex
+    );
     if (reference === undefined) {
         if (importerPath !== undefined) {
             throw missingReferenceError(importDeclaration, importerPath);
@@ -211,6 +216,34 @@ function shorthandPropertyTargets(
     return targets;
 }
 
+function dynamicImportTargets(
+    call: CallExpression,
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) {
+        return [];
+    }
+    const [ argument ] = call.getArguments();
+    if (!TypeScriptMorphNode.isStringLiteral(argument)) {
+        return [];
+    }
+    const reference = resolvedModuleReference(call, argument.getLiteralValue(), declarationIndex);
+    if (reference?.type !== 'local-code') {
+        return [];
+    }
+    const sourceFile = call.getProject().getSourceFiles().find(function (candidate) {
+        return declarationIndex.targetFilePathByInputFilePath.get(candidate.getFilePath()) === reference.targetFilePath;
+    });
+    return sourceFile === undefined ? [] : [
+        ...sourceFile.getExportSymbols().flatMap(function (symbol) {
+            return symbolTargets(symbol, declarationIndex);
+        }),
+        ...sourceFile.getExportDeclarations().flatMap(function (declaration) {
+            return reExportTargets(declaration, declarationIndex, new Set());
+        })
+    ];
+}
+
 export function collectIdentifierTargets(
     rootNode: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
@@ -222,6 +255,9 @@ export function collectIdentifierTargets(
         ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
             return identifierTargets(identifier, declarationIndex);
         }),
-        ...shorthandPropertyTargets(rootNode, declarationIndex)
+        ...shorthandPropertyTargets(rootNode, declarationIndex),
+        ...rootNode.getDescendantsOfKind(SyntaxKind.CallExpression).flatMap(function (call) {
+            return dynamicImportTargets(call, declarationIndex);
+        })
     ]);
 }

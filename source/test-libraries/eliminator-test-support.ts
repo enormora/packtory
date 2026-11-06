@@ -1,6 +1,7 @@
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import type { AnalyzedBundle, EliminationInput } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { assertDefined } from './deep-subset-assertion.ts';
+import { createTestEliminator } from './eliminator-fixtures.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
 
 export function inputs(
@@ -131,4 +132,26 @@ export function consumerBundleWith(content: string): LinkedBundle {
         targetFilePath: 'index.ts',
         content
     });
+}
+
+export async function eliminateCodeModules(
+    content: string,
+    modules: Readonly<Record<string, string>>
+): Promise<ReadonlyMap<string, string>> {
+    const [ result ] = await createTestEliminator().eliminate(inputs(bundleForCodeFile({
+        name: 'package',
+        inputFilePath: '/source/index.js',
+        targetFilePath: 'index.js',
+        content,
+        extraResources: Object.entries(modules).map(function ([ targetFilePath, moduleContent ]) {
+            return {
+                ...bundleResource(`/source/${targetFilePath}`, { content: moduleContent, targetFilePath }),
+                isSubstituted: false
+            };
+        })
+    })));
+    assertDefined(result);
+    return new Map(result.contents.map(function (resource) {
+        return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];
+    }));
 }
