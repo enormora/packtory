@@ -49,7 +49,9 @@ async function runNodeProbe(script: string, timeoutMilliseconds: number): Promis
 }
 
 function importScript(entryAddress: string): string {
-    return `const module = await import(${JSON.stringify(entryAddress)}); console.log(JSON.stringify(module.api()));`;
+    return `const module = await import(${
+        JSON.stringify(entryAddress)
+    }); console.log(JSON.stringify(await module.api()));`;
 }
 
 function importOnlyScript(entryAddress: string): string {
