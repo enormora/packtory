@@ -183,6 +183,19 @@ suite('dead-code-elimination', function () {
         assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './package/index.js' ]);
     });
 
+    test('preserves unused destructuring defaults and their dependencies in emitted packages', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-defaults');
+        const configuration = await singlePackageConfiguration(fixturePath);
+        const packages = expectOk(await resolveAndLinkAll(configuration));
+        const resolvedPackage = findPackage(packages, 'package');
+
+        assert.deepStrictEqual(
+            await runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'package/index.js'),
+            { value: 42, events: [ 'missing', 'undefined', 'nested', 'inner', 'get', 'default' ] }
+        );
+        assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './package/index.js' ]);
+    });
+
     test('preserves a binding in package-producer that package-consumer imports across bundles', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-cross-bundle');
         const configuration = await consumerProducerConfiguration(fixturePath);

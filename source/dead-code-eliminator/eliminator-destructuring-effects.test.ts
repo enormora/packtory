@@ -35,6 +35,83 @@ async function observe(content: string): Promise<unknown> {
 suite('eliminator destructuring effects', function () {
     const cases = [
         {
+            name: 'a default for a missing property',
+            declarations: [ 'const { x = events.push("default") } = {};' ],
+            events: [ 'default' ],
+            error: null
+        },
+        {
+            name: 'a default for an explicitly undefined property',
+            declarations: [ 'const { x = events.push("default") } = { x: undefined };' ],
+            events: [ 'default' ],
+            error: null
+        },
+        {
+            name: 'a bypassed default for a defined property',
+            declarations: [ 'const { x = events.push("default") } = { x: 0 };' ],
+            events: [],
+            error: null
+        },
+        {
+            name: 'a bypassed default for a null property',
+            declarations: [ 'const { x = events.push("default") } = { x: null };' ],
+            events: [],
+            error: null
+        },
+        {
+            name: 'nested defaults and their referenced dependencies',
+            declarations: [
+                'function fallback() { events.push("outer"); return {}; }',
+                'const { nested: { x = events.push("inner") } = fallback() } = {};'
+            ],
+            events: [ 'outer', 'inner' ],
+            error: null
+        },
+        {
+            name: 'a throwing default',
+            declarations: [
+                'function fallback() { events.push("default"); throw new Error("default failed"); }',
+                'const { x = fallback() } = {};'
+            ],
+            events: [ 'default' ],
+            error: 'default failed'
+        },
+        {
+            name: 'a bypassed throwing default',
+            declarations: [
+                'function fallback() { throw new Error("default failed"); }',
+                'const { x = fallback() } = { x: false };'
+            ],
+            events: [],
+            error: null
+        },
+        {
+            name: 'array defaults for holes and undefined elements',
+            declarations: [ 'const [ x = events.push("hole"), y = events.push("undefined") ] = [, undefined];' ],
+            events: [ 'hole', 'undefined' ],
+            error: null
+        },
+        {
+            name: 'a bypassed array default',
+            declarations: [ 'const [ x = events.push("default") ] = [0];' ],
+            events: [],
+            error: null
+        },
+        {
+            name: 'a getter bypassing a default',
+            declarations: [
+                'const { x = events.push("default") } = { get x() { events.push("get"); return 0; } };'
+            ],
+            events: [ 'get' ],
+            error: null
+        },
+        {
+            name: 'a default next to an unused declarator',
+            declarations: [ 'const dead = 1, { x = events.push("default") } = {};' ],
+            events: [ 'default' ],
+            error: null
+        },
+        {
             name: 'a getter with side effects through a receiver binding',
             declarations: [
                 'const object = { get x() { events.push("get"); return 3; } };',
