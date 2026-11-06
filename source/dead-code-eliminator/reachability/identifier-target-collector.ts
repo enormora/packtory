@@ -135,6 +135,35 @@ function symbolTargets(
     ];
 }
 
+function namespaceExportTargets(
+    symbol: SymbolReference,
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    if (!symbol.getDeclarations().some(TypeScriptMorphNode.isNamespaceImport)) {
+        return [];
+    }
+    return symbol.getAliasedSymbolOrThrow().getExports().flatMap(function (exported) {
+        return symbolTargets(exported, declarationIndex);
+    });
+}
+
+function observesNamespace(identifier: Identifier): boolean {
+    const parent = identifier.getParent();
+    return !TypeScriptMorphNode.isNamespaceImport(parent) &&
+        !TypeScriptMorphNode.isPropertyAccessExpression(parent);
+}
+
+function identifierTargets(identifier: Identifier, declarationIndex: DeclarationNodeIndex): readonly string[] {
+    const parent = identifier.getParent();
+    const symbol = TypeScriptMorphNode.isExportSpecifier(parent)
+        ? parent.getLocalTargetSymbol() ?? identifier.getSymbol()
+        : identifier.getSymbol();
+    return symbol === undefined ? [] : [
+        ...symbolTargets(symbol, declarationIndex),
+        ...observesNamespace(identifier) ? namespaceExportTargets(symbol, declarationIndex) : []
+    ];
+}
+
 function shorthandPropertyTargets(
     rootNode: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
@@ -147,7 +176,10 @@ function shorthandPropertyTargets(
     ) {
         const valueSymbol = shorthand.getValueSymbol();
         if (valueSymbol !== undefined) {
-            targets.push(...symbolTargets(valueSymbol, declarationIndex));
+            targets.push(
+                ...symbolTargets(valueSymbol, declarationIndex),
+                ...namespaceExportTargets(valueSymbol, declarationIndex)
+            );
         }
     }
     return targets;
@@ -157,17 +189,10 @@ export function collectIdentifierTargets(
     rootNode: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): Set<string> {
-    const targets = new Set<string>();
-    for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
-        const symbol = identifier.getSymbol();
-        if (symbol !== undefined) {
-            for (const target of symbolTargets(symbol, declarationIndex)) {
-                targets.add(target);
-            }
-        }
-    }
-    for (const target of shorthandPropertyTargets(rootNode, declarationIndex)) {
-        targets.add(target);
-    }
-    return targets;
+    return new Set([
+        ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
+            return identifierTargets(identifier, declarationIndex);
+        }),
+        ...shorthandPropertyTargets(rootNode, declarationIndex)
+    ]);
 }

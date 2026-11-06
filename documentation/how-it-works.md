@@ -257,10 +257,11 @@ $$
 R = \mathrm{closure}(S, \mathrm{neighbors}) \quad \text{where} \quad \mathrm{neighbors}(b) = \{ b' \mid b' \text{ is referenced inside the body of } b \}
 $$
 
-The neighbour relation is computed by walking every `Identifier` inside the binding's declaration node and resolving its `Symbol` via the TypeScript compiler. Two consequences:
+The neighbour relation is computed by walking every `Identifier` inside the binding's declaration node and resolving its `Symbol` via the TypeScript compiler. Three consequences:
 
 - **Shadowing works correctly**: an inner `const foo = 1` shadows an outer `foo`, and the compiler tells us so. Naïve text matching would get this wrong.
 - **Import aliases follow through**: `import { x as y }` is tracked back to the original export.
+- **Namespace observations preserve exports**: using a namespace as a value, including enumeration or passing it to another function, retains its exports. Direct property reads such as `namespace.value` retain only the referenced exports.
 
 Implementation: `breadthFirstClosure`.
 
