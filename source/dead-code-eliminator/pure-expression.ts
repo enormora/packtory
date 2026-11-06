@@ -11,6 +11,7 @@ import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
+    classExpressionFact,
     expressionFactIsPure,
     expressionFactOrigin,
     identifierReadFact,
@@ -342,6 +343,9 @@ function newExpressionFact(
 }
 
 function literalStructurePurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
+    if (kind === SyntaxKind.ClassExpression) {
+        return classExpressionFact;
+    }
     if (kind === SyntaxKind.TemplateExpression) {
         return templateExpressionFact;
     }

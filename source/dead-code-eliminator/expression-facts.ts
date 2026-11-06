@@ -9,6 +9,7 @@ import {
     type VariableDeclaration
 } from 'ts-morph';
 import type { PurityContext } from './purity-context.ts';
+import { hasClassImpurity } from './class-purity.ts';
 import {
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
@@ -44,6 +45,12 @@ export function purityCheckerFor(factFor: ExpressionFactResolver): ExpressionPur
     return function (candidate) {
         return expressionFactIsPure(factFor(candidate));
     };
+}
+
+export function classExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
+    return hasClassImpurity(expression.asKindOrThrow(SyntaxKind.ClassExpression), purityCheckerFor(factFor))
+        ? unknownFact
+        : pureValueFact;
 }
 
 export function pureObjectWithOrigin(origin: ImportedExpressionOrigin): ExpressionFact {

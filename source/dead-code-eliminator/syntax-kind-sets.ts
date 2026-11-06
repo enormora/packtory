@@ -14,8 +14,7 @@ export const pureLeafKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
     SyntaxKind.RegularExpressionLiteral,
     SyntaxKind.NoSubstitutionTemplateLiteral,
     SyntaxKind.FunctionExpression,
-    SyntaxKind.ArrowFunction,
-    SyntaxKind.ClassExpression
+    SyntaxKind.ArrowFunction
 );
 
 export const allowedPrefixUnaryOperators: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
