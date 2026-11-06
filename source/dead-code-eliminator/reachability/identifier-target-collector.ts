@@ -9,6 +9,7 @@ import {
     type ShorthandPropertyAssignment
 } from 'ts-morph';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
+import { unwrapExpression } from '../expression-unwrapping.ts';
 
 export type DeclarationNodeIndex = {
     readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
@@ -216,6 +217,26 @@ function shorthandPropertyTargets(
     return targets;
 }
 
+function directEvalTargets(
+    call: CallExpression,
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    const expression = unwrapExpression(call.getExpression());
+    if (
+        !TypeScriptMorphNode.isIdentifier(expression) || expression.getText() !== 'eval' || call.hasQuestionDotToken()
+    ) {
+        return [];
+    }
+    const sourceFile = call.getSourceFile();
+    return [
+        ...Array.from(declarationIndex.identifiersByFileAndName.get(sourceFile.getFilePath())?.values() ?? []).flat(),
+        ...sourceFile.getImportDeclarations().flatMap(function (declaration) {
+            const symbol = declaration.getNamespaceImport()?.getSymbol();
+            return symbol === undefined ? [] : namespaceExportTargets(symbol, declarationIndex);
+        })
+    ];
+}
+
 function dynamicImportTargets(
     call: CallExpression,
     declarationIndex: DeclarationNodeIndex
@@ -257,7 +278,7 @@ export function collectIdentifierTargets(
         }),
         ...shorthandPropertyTargets(rootNode, declarationIndex),
         ...rootNode.getDescendantsOfKind(SyntaxKind.CallExpression).flatMap(function (call) {
-            return dynamicImportTargets(call, declarationIndex);
+            return [ ...dynamicImportTargets(call, declarationIndex), ...directEvalTargets(call, declarationIndex) ];
         })
     ]);
 }

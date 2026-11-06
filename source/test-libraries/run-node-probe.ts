@@ -32,3 +32,15 @@ export async function runNodeProbe(script: string, options: RunNodeProbeOptions 
         );
     });
 }
+
+export async function observeModuleExpression(content: string, expression: string): Promise<unknown> {
+    const address = `data:text/javascript;base64,${Buffer.from(content).toString('base64')}`;
+    return runNodeProbe(`
+        try {
+            const module = await import(${JSON.stringify(address)});
+            console.log(JSON.stringify({ value: ${expression} }));
+        } catch (error) {
+            console.log(JSON.stringify({ error: error.name }));
+        }
+    `);
+}

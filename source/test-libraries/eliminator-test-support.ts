@@ -155,3 +155,10 @@ export async function eliminateCodeModules(
         return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];
     }));
 }
+
+export async function eliminateEntryModule(content: string): Promise<string> {
+    const modules = await eliminateCodeModules(content, {});
+    const emitted = modules.get('index.js');
+    assertDefined(emitted);
+    return emitted;
+}
