@@ -25,9 +25,10 @@ suite('syntax-kind-sets', function () {
         }
     });
 
-    test('pureLeafKinds does not classify object or array literals as pure leaves', function () {
+    test('pureLeafKinds does not classify object, array, or class expressions as pure leaves', function () {
         assert.strictEqual(pureLeafKinds.has(SyntaxKind.ObjectLiteralExpression), false);
         assert.strictEqual(pureLeafKinds.has(SyntaxKind.ArrayLiteralExpression), false);
+        assert.strictEqual(pureLeafKinds.has(SyntaxKind.ClassExpression), false);
     });
 
     test('allowedPrefixUnaryOperators only permits arithmetic and boolean prefixes', function () {

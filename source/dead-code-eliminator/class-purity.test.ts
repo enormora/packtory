@@ -14,6 +14,38 @@ function classDeclaration(content: string): ClassDeclaration {
 const isPure = createExpressionPurityChecker(undefined, resolveRuntimeModule);
 
 suite('class-purity', function () {
+    suite('heritage', function () {
+        for (
+            const heritage of [
+                '3',
+                'true',
+                '"base"',
+                'undefined',
+                '{}',
+                '() => {}',
+                'async function () {}',
+                'function* () {}',
+                'async function* () {}',
+                'class extends 3 {}',
+                'class { static { throw new Error(); } }'
+            ]
+        ) {
+            test(`hasClassImpurity preserves uncertain or invalid heritage ${heritage}`, function () {
+                const declaration = classDeclaration(`class Unused extends (${heritage}) {}`);
+
+                assert.strictEqual(hasClassImpurity(declaration, isPure), true);
+            });
+        }
+
+        for (const heritage of [ 'null', '(null as null)', 'function () {}', 'class {}', 'class extends null {}' ]) {
+            test(`hasClassImpurity permits proven safe heritage ${heritage}`, function () {
+                const declaration = classDeclaration(`class Unused extends (${heritage}) {}`);
+
+                assert.strictEqual(hasClassImpurity(declaration, isPure), false);
+            });
+        }
+    });
+
     test('hasClassImpurity returns false for a class with only methods and unannotated members', function () {
         const declaration = classDeclaration('class Foo { method() { return 1; } }');
 
