@@ -327,6 +327,7 @@ Soundness policy:
 - Dynamic import literals and `import.meta.resolve()` keep dependency metadata when they survive. Dead literals disappear with removed code. Unsupported `import.meta.resolve()` shapes fail during scanning.
 - Package `exports`, package `imports`, and conditional exports use the shared TypeScript module resolver before dead code elimination. dead code elimination consumes resolved artifact references and does not re-resolve emitted local paths.
 - Class static blocks, top-level await, control flow, unknown statements, calls, property reads, element access, computed keys, and getters are effectful unless a narrower proof exists.
+- Object literals with computed names remain live unless both key evaluation and conversion to a property key are proven harmless. Primitive literals, their constant aliases, and pure built-in `Symbol` calls are removable; unknown key values retain possible coercion effects and exceptions.
 - Side-effect-only imports and side-effecting files preserve runtime evaluation. Dead specifier imports become bare imports, and files reached by surviving bare imports are retained.
 - Declaration companions and source maps with missing physical sources do not decide runtime liveness. Runtime liveness is based on emitted artifact targets, and missing runtime targets fail invariants.
 

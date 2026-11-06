@@ -4,12 +4,12 @@ import {
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
+    type Identifier,
     type ObjectLiteralExpression,
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
-import { expressionFactIsPure, type ExpressionFactResolver } from './expression-facts.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { resolveImportedExpressionPropertyPath, type ImportedExpressionOrigin } from './imported-expression-origin.ts';
 
@@ -20,6 +20,50 @@ function objectPropertyInitializer(expression: ObjectLiteralExpression, property
 
 function primitiveKeyExpression(expression: Expression | undefined): boolean {
     return TypeScriptMorphNode.isStringLiteral(unwrapExpression(expression));
+}
+
+function symbolKeyIsPure(expression: Expression | undefined): boolean {
+    if (!TypeScriptMorphNode.isCallExpression(expression)) {
+        return false;
+    }
+    const target = expression.getExpression();
+    return TypeScriptMorphNode.isIdentifier(target) && target.getText() === 'Symbol' &&
+        target.getSymbol() === undefined && expression.getArguments().every(TypeScriptMorphNode.isStringLiteral);
+}
+
+function primitiveKeyLiteral(expression: Expression | undefined): boolean {
+    return expression !== undefined && [
+        SyntaxKind.StringLiteral,
+        SyntaxKind.NumericLiteral,
+        SyntaxKind.BigIntLiteral,
+        SyntaxKind.TrueKeyword,
+        SyntaxKind.FalseKeyword,
+        SyntaxKind.NullKeyword,
+        SyntaxKind.NoSubstitutionTemplateLiteral
+    ]
+        .includes(expression.getKind());
+}
+
+function constantKeyInitializer(expression: Identifier): Expression | undefined {
+    const declaration = expression.getSymbol()?.getValueDeclaration();
+    if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
+        return undefined;
+    }
+    const initializedConstant =
+        declaration.getVariableStatement()?.getDeclarationKind() === VariableDeclarationKind.Const &&
+        Math.sign(expression.getStart() - declaration.getEnd()) === 1;
+    return initializedConstant ? declaration.getInitializer() : undefined;
+}
+
+function localExpressionIsPrimitiveKey(expression: Expression | undefined): boolean {
+    const unwrapped = unwrapExpression(expression);
+    if (!TypeScriptMorphNode.isIdentifier(unwrapped)) {
+        return primitiveKeyLiteral(unwrapped) || symbolKeyIsPure(unwrapped);
+    }
+    if (unwrapped.getText() === 'undefined' && unwrapped.getSymbolOrThrow().getDeclarations().length === 0) {
+        return true;
+    }
+    return localExpressionIsPrimitiveKey(constantKeyInitializer(unwrapped));
 }
 
 function expressionMemberIsPrimitiveKey(expression: Expression | undefined, propertyName: string): boolean {
@@ -63,11 +107,8 @@ function importedExpressionIsPrimitiveKey(expression: Expression, resolveModule:
 
 export function computedPropertyNameIsPure(
     expression: Expression,
-    factFor: ExpressionFactResolver,
     resolveModule: RuntimeModuleResolver
 ): boolean {
-    if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(expression))) {
-        return importedExpressionIsPrimitiveKey(expression, resolveModule);
-    }
-    return expressionFactIsPure(factFor(expression)) || importedExpressionIsPrimitiveKey(expression, resolveModule);
+    return localExpressionIsPrimitiveKey(expression) ||
+        importedExpressionIsPrimitiveKey(expression, resolveModule);
 }

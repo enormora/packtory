@@ -83,7 +83,7 @@ function propertyAssignmentCreationIsPure(
     const computedNameExpression = computedPropertyNameExpression(property);
     if (
         computedNameExpression !== undefined &&
-        !computedPropertyNameIsPure(computedNameExpression, factFor, context.resolveRuntimeModule)
+        !computedPropertyNameIsPure(computedNameExpression, context.resolveRuntimeModule)
     ) {
         return false;
     }
