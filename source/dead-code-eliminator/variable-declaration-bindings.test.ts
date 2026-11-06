@@ -51,14 +51,22 @@ suite('variable-declaration-bindings', function () {
     });
 
     test('variableDeclarationSurvives returns true when any declared name is in the surviving set', function () {
-        const declarator = declaratorFor('const [a, b] = [1, 2];');
+        const declarator = declaratorFor('const b = 1;');
 
         assert.strictEqual(variableDeclarationSurvives(declarator, new Set([ 'b' ])), true);
     });
 
     test('variableDeclarationSurvives returns false when no declared name is in the surviving set', function () {
-        const declarator = declaratorFor('const [a, b] = [1, 2];');
+        const declarator = declaratorFor('const b = 1;');
 
         assert.strictEqual(variableDeclarationSurvives(declarator, new Set([ 'c' ])), false);
     });
+
+    for (
+        const content of [ 'const { a } = source;', 'const [a] = source;', 'const {} = source;', 'const [] = source;' ]
+    ) {
+        test(`variableDeclarationSurvives retains binding effects in ${content}`, function () {
+            assert.strictEqual(variableDeclarationSurvives(declaratorFor(content), new Set()), true);
+        });
+    }
 });

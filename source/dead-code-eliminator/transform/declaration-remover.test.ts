@@ -64,10 +64,10 @@ suite('declaration-remover', function () {
             assert.strictEqual(mutated, false);
         });
 
-        test('removes a whole destructuring declarator when no bound identifier survives', function () {
+        test('keeps destructuring effects when no bound identifier survives', function () {
             const { text, mutated } = transform('export const { a, b } = value;', new Set<string>());
-            assert.strictEqual(text.includes('{ a, b }'), false);
-            assert.strictEqual(mutated, true);
+            assert.strictEqual(text, 'export const { a, b } = value;');
+            assert.strictEqual(mutated, false);
         });
 
         test('returns false when nothing needs to change', function () {
