@@ -1,4 +1,5 @@
 import {
+    Node as TypeScriptMorphNode,
     SyntaxKind,
     type ClassDeclaration,
     type EnumDeclaration,
@@ -70,6 +71,9 @@ function classifyVariableStatement(
     isPure: ExpressionPurityChecker
 ): string | undefined {
     for (const declarator of statement.getDeclarations()) {
+        if (!TypeScriptMorphNode.isIdentifier(declarator.getNameNode())) {
+            return 'variable binding pattern';
+        }
         const initializer = declarator.getInitializer();
         if (initializer !== undefined && !isPure(initializer)) {
             return 'variable initializer';

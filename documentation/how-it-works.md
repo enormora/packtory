@@ -315,6 +315,7 @@ The classifier is what makes the difference between a file packtory will tree-sh
 - A class declaration with decorators, static blocks, or impure static initializers.
 - A control-flow statement (`if`, `for`, `while`, `try`, `switch`, …).
 - A variable declarator whose initializer contains a call or property access (so `const x = 1 + 2` is pure; `const x = compute()` is not).
+- An object or array binding pattern. Destructuring can invoke getters, defaults, computed keys, or iterators, and can throw even when no names are bound. Packtory conservatively retains these declarations and their dependencies because binding evaluation is not yet proven pure and nonthrowing. Creating an unused object with getters remains removable when its creation is pure.
 - A bare import of a `.css` file (e.g. `import './styles.css';`). CSS is the one asset format on a standards track (Import Attributes / CSS module type), so it gets explicit handling; other formats like `.scss`, `.less`, or images are bundler-only conventions and packtory makes no attempt to recognise them.
 - Any statement kind the classifier doesn't recognise (fail-closed).
 

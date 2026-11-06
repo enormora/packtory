@@ -37,18 +37,36 @@ suite('statement-classifiers', function () {
         assert.strictEqual(classifier?.(statement, isPure), 'expression statement');
     });
 
-    test('statementClassifiers maps VariableStatement to a classifier that flags impure initializers', function () {
-        const classifier = statementClassifierFor(SyntaxKind.VariableStatement);
-        const statement = firstStatementOfKind('const x = Math.random();', SyntaxKind.VariableStatement);
+    suite('variable declarations', function () {
+        test('statementClassifiers maps VariableStatement to a classifier that flags impure initializers', function () {
+            const classifier = statementClassifierFor(SyntaxKind.VariableStatement);
+            const statement = firstStatementOfKind('const x = Math.random();', SyntaxKind.VariableStatement);
 
-        assert.strictEqual(classifier?.(statement, isPure), 'variable initializer');
-    });
+            assert.strictEqual(classifier?.(statement, isPure), 'variable initializer');
+        });
 
-    test('statementClassifiers maps VariableStatement to a classifier that returns undefined for pure initializers', function () {
-        const classifier = statementClassifierFor(SyntaxKind.VariableStatement);
-        const statement = firstStatementOfKind('const x = 1;', SyntaxKind.VariableStatement);
+        test('statementClassifiers maps VariableStatement to a classifier that returns undefined for pure initializers', function () {
+            const classifier = statementClassifierFor(SyntaxKind.VariableStatement);
+            const statement = firstStatementOfKind('const x = 1;', SyntaxKind.VariableStatement);
 
-        assert.strictEqual(classifier?.(statement, isPure), undefined);
+            assert.strictEqual(classifier?.(statement, isPure), undefined);
+        });
+
+        for (
+            const content of [
+                'const { x } = { get x() { return 1; } };',
+                'const [x] = [1];',
+                'const {} = null;',
+                'const [] = null;'
+            ]
+        ) {
+            test(`statementClassifiers flags binding evaluation in ${content}`, function () {
+                const classifier = statementClassifierFor(SyntaxKind.VariableStatement);
+                const statement = firstStatementOfKind(content, SyntaxKind.VariableStatement);
+
+                assert.strictEqual(classifier?.(statement, isPure), 'variable binding pattern');
+            });
+        }
     });
 
     test('statementClassifiers maps ClassDeclaration to a classifier that flags decorated classes', function () {

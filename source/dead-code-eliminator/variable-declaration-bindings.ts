@@ -34,17 +34,12 @@ export function collectVariableDeclarationBindings(
     return collectBindingsFromNameNode(declarator.getNameNode(), declarator, declarator);
 }
 
-function namesBoundByVariableDeclaration(declarator: VariableDeclaration): readonly string[] {
-    return collectVariableDeclarationBindings(declarator).map(function (binding) {
-        return binding.name;
-    });
-}
-
 export function variableDeclarationSurvives(
     declarator: VariableDeclaration,
     survivingNames: ReadonlySet<string>
 ): boolean {
-    return namesBoundByVariableDeclaration(declarator).some(function (name) {
-        return survivingNames.has(name);
-    });
+    if (!TypeScriptMorphNode.isIdentifier(declarator.getNameNode())) {
+        return true;
+    }
+    return survivingNames.has(declarator.getName());
 }
