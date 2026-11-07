@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    formatTerminalErrorTrace,
+    formatTerminalFailure,
+    formatTerminalFailureTrace,
     formatTerminalErrorBullet,
     formatTerminalErrorTraceBullet
 } from './terminal-error-chain.ts';
@@ -16,6 +17,17 @@ function createCauseChain(errorCount: number): Error {
 }
 
 suite('terminal-error-chain', function () {
+    suite('failure normalization', function () {
+        test('formats failures thrown as primitive values', function () {
+            assert.strictEqual(formatTerminalFailure('failed'), 'failed');
+            assert.strictEqual(formatTerminalFailure(null), 'null');
+        });
+
+        test('includes a stack trace for failures thrown as primitive values', function () {
+            assert.match(formatTerminalFailureTrace('failed'), /^failed\n {2}Stack trace: Error: failed\n {8}at /u);
+        });
+    });
+
     suite('formatting', function () {
         test('formats a plain error message', function () {
             assert.strictEqual(formatTerminalErrorBullet(new Error('failed')), '- failed');
@@ -82,7 +94,7 @@ suite('terminal-error-chain', function () {
         });
 
         test('formats non-bulleted stack traces without a prefix', function () {
-            const message = formatTerminalErrorTrace(new Error('failed'));
+            const message = formatTerminalFailureTrace(new Error('failed'));
 
             assert.match(message, /^failed\n {2}Stack trace: Error: failed/u);
         });

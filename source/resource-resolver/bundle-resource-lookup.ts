@@ -15,17 +15,6 @@ function requireFileDescriptionBySourcePath(
     return matchingResource.fileDescription;
 }
 
-function resolveDeclarationFileResource(
-    declarationFilePath: string | undefined,
-    contents: readonly BundleResource[]
-): TransferableFileDescription | undefined {
-    return contents
-        .find(function (resource) {
-            return resource.fileDescription.inputFilePath === declarationFilePath;
-        })
-        ?.fileDescription;
-}
-
 export function buildResolvedRoots(
     normalized: ResolvedRootsAndSurface,
     contents: readonly BundleResource[]
@@ -36,7 +25,6 @@ export function buildResolvedRoots(
                 if (root.json !== undefined) {
                     return [ identifier, { json: requireFileDescriptionBySourcePath(root.json, contents) } ];
                 }
-                const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
                 if (root.javaScript === undefined) {
                     return [ identifier, {
                         declarationFile: requireFileDescriptionBySourcePath(root.declarationFile, contents)
@@ -44,7 +32,11 @@ export function buildResolvedRoots(
                 }
                 return [ identifier, {
                     javaScript: requireFileDescriptionBySourcePath(root.javaScript, contents),
-                    declarationFile
+                    declarationFile: contents
+                        .find(function (resource) {
+                            return resource.fileDescription.inputFilePath === root.declarationFile;
+                        })
+                        ?.fileDescription
                 } ];
             }
         )

@@ -9,7 +9,7 @@ import {
     type Symbol as MorphSymbol,
     ts as typescript
 } from 'ts-morph';
-import { errorMessage } from '../../common/error-message.ts';
+import { errorMessage } from '../../common/error-normalization.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import {
     executableTargetsFromExecutableField,

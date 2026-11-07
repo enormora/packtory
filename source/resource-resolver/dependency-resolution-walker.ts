@@ -14,7 +14,7 @@ type DependencyResolutionDependencies = {
 
 type DeclarationScanTracker = {
     readonly has: (filePath: string) => boolean;
-    readonly record: (filePath: string) => void;
+    readonly add: (filePath: string) => unknown;
 };
 type RootResolutionContext = {
     readonly dependencies: DependencyResolutionDependencies;
@@ -39,7 +39,7 @@ async function scanDeclarationGraph(
         return emptyDependencyFiles();
     }
     pendingEntryFiles.forEach(function (entryFile) {
-        scannedDeclarationFiles.record(entryFile);
+        scannedDeclarationFiles.add(entryFile);
     });
 
     const declarationDependencyGraph = await dependencies.dependencyScanner.scanEntries(
@@ -54,18 +54,6 @@ async function scanDeclarationGraph(
     return pendingEntryFiles.reduce(function (result, entryFile) {
         return mergeDependencyFiles(result, declarationDependencyGraph.flatten(entryFile));
     }, emptyDependencyFiles());
-}
-
-function createDeclarationScanTracker(): DeclarationScanTracker {
-    const scannedDeclarationFiles = new Set<string>();
-    return {
-        has(filePath) {
-            return scannedDeclarationFiles.has(filePath);
-        },
-        record(filePath) {
-            scannedDeclarationFiles.add(filePath);
-        }
-    };
 }
 
 async function resolveRuntimeDependencies(
@@ -98,28 +86,17 @@ async function resolveRuntimeDependencies(
     return javaScriptDependencyGraph.flatten(root.javaScript);
 }
 
-async function resolveRootDeclarationDependencies(
-    context: RootResolutionContext,
-    root: ResolvedRootsAndSurface['roots'][string]
-): Promise<DependencyFiles> {
-    const entryFiles: string[] = [];
-    if (root.declarationFile !== undefined) {
-        entryFiles.push(root.declarationFile);
-    }
-    return scanDeclarationGraph(
-        context.dependencies,
-        context.options,
-        entryFiles,
-        context.scannedDeclarationFiles
-    );
-}
-
 async function resolveDependenciesForRoot(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
     const javaScriptDependencies = await resolveRuntimeDependencies(context, root);
-    const declarationDependencies = await resolveRootDeclarationDependencies(context, root);
+    const declarationDependencies = await scanDeclarationGraph(
+        context.dependencies,
+        context.options,
+        root.declarationFile === undefined ? [] : [ root.declarationFile ],
+        context.scannedDeclarationFiles
+    );
     return mergeDependencyFiles(javaScriptDependencies, declarationDependencies);
 }
 
@@ -133,7 +110,7 @@ export async function resolveDependenciesForAllRoots(
     const context: RootResolutionContext = {
         dependencies,
         options,
-        scannedDeclarationFiles: createDeclarationScanTracker()
+        scannedDeclarationFiles: new Set<string>()
     };
     let dependencyFiles = emptyDependencyFiles();
 

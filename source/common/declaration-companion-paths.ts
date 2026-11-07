@@ -24,9 +24,5 @@ export function declarationCompanionCandidates(filePath: string): readonly strin
 }
 
 export function isDeclarationCompanionFilePath(filePath: string): boolean {
-    return declarationCompanionRules.some(function (rule) {
-        return rule.declarationExtensions.some(function (declarationExtension) {
-            return filePath.endsWith(declarationExtension);
-        });
-    });
+    return /\.d\.[cm]?ts$/u.test(filePath);
 }

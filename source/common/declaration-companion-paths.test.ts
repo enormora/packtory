@@ -24,5 +24,13 @@ suite('declaration-companion-paths', function () {
         assert.strictEqual(isDeclarationCompanionFilePath('/source/index.d.mts'), true);
         assert.strictEqual(isDeclarationCompanionFilePath('/source/index.d.cts'), true);
         assert.strictEqual(isDeclarationCompanionFilePath('/source/index.js'), false);
+        for (const filePath of [ 'indexXd.ts', 'index.dXts', 'index.d.ts.json', 'index.d.xts' ]) {
+            assert.strictEqual(isDeclarationCompanionFilePath(filePath), false, filePath);
+        }
+    });
+
+    test('rejects repeated module suffixes', function () {
+        const repeatedModuleMarker = 'm'.repeat(2);
+        assert.strictEqual(isDeclarationCompanionFilePath(`index.d.${repeatedModuleMarker}ts`), false);
     });
 });

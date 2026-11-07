@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { ensureError, isErrorLike, isRecord } from './error-shape-helpers.ts';
+import { isErrorLike, isRecord } from './error-shape-helpers.ts';
 
 suite('error-shape-helpers', function () {
     test('isRecord returns true for object values', function () {
@@ -23,16 +23,5 @@ suite('error-shape-helpers', function () {
         assert.strictEqual(isErrorLike({}), false);
         assert.strictEqual(isErrorLike({ message: 42 }), false);
         assert.strictEqual(isErrorLike(null), false);
-    });
-
-    test('ensureError returns the value unchanged when it is already an Error instance', function () {
-        const original = new Error('boom');
-        assert.strictEqual(ensureError(original), original);
-    });
-
-    test('ensureError wraps non-Error values via String coercion', function () {
-        const wrapped = ensureError('plain string');
-        assert.ok(wrapped instanceof Error);
-        assert.strictEqual(wrapped.message, 'plain string');
     });
 });

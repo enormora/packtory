@@ -26,7 +26,7 @@ import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pull-request-github-client.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
-import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
+import { formatTerminalFailure, formatTerminalFailureTrace } from './terminal-error-chain.ts';
 
 type ReleasePullRequestGitHubClientContext = {
     readonly applicationProgrammingInterfaceBaseAddress: string;
@@ -80,18 +80,6 @@ const packCommandName = 'pack';
 const treeCommandName = 'tree';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
-function toError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function formatUnexpectedError(error: unknown): string {
-    return formatTerminalError(toError(error));
-}
-
-function formatUnexpectedTrace(error: unknown): string {
-    return formatTerminalErrorTrace(toError(error));
-}
-
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
 ): CommandLineInterfaceRunner {
@@ -430,7 +418,7 @@ export function createCommandLineInterfaceRunner(
             try {
                 return await runPreparedCommand(preparedProgramArguments, logParseMessage);
             } catch (error: unknown) {
-                const formatError = traceEnabled ? formatUnexpectedTrace : formatUnexpectedError;
+                const formatError = traceEnabled ? formatTerminalFailureTrace : formatTerminalFailure;
                 log(formatError(error));
                 return 1;
             }

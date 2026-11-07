@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import { mapToObj as mapToObject } from 'remeda';
-import { errorMessage as checkPackageIssue } from '../common/error-message.ts';
+import { errorMessage as checkPackageIssue } from '../common/error-normalization.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
 import type { PacktoryConfigurationWithoutRegistry } from '../configuration/configuration.ts';
 import type { ConfigurationWithGraph } from '../configuration/validation.ts';

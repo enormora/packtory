@@ -1,3 +1,5 @@
+import { ensureError } from '../../common/error-normalization.ts';
+
 const indent = '  ';
 const maximumCauseDepth = 100;
 
@@ -129,11 +131,11 @@ function formatErrorTrace(error: Error, firstLinePrefix: string): string {
         .join('\n');
 }
 
-export function formatTerminalError(error: Error): string {
+function formatTerminalError(error: Error): string {
     return formatErrorChain(error, '');
 }
 
-export function formatTerminalErrorTrace(error: Error): string {
+function formatTerminalErrorTrace(error: Error): string {
     return formatErrorTrace(error, '');
 }
 
@@ -143,4 +145,12 @@ export function formatTerminalErrorBullet(error: Error): string {
 
 export function formatTerminalErrorTraceBullet(error: Error): string {
     return formatErrorTrace(error, '- ');
+}
+
+export function formatTerminalFailure(error: unknown): string {
+    return formatTerminalError(ensureError(error));
+}
+
+export function formatTerminalFailureTrace(error: unknown): string {
+    return formatTerminalErrorTrace(ensureError(error));
 }

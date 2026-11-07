@@ -1,5 +1,5 @@
 import ssri from 'ssri';
-import { errorMessage } from '../../common/error-message.ts';
+import { errorMessage } from '../../common/error-normalization.ts';
 
 export type TarballIntegrity = {
     readonly integrity: string | undefined;

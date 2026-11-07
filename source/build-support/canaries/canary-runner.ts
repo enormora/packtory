@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
-import { errorMessage } from '../../common/error-message.ts';
+import { errorMessage } from '../../common/error-normalization.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
 import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';

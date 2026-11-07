@@ -1,4 +1,4 @@
-import { errorMessage } from '../common/error-message.ts';
+import { errorMessage } from '../common/error-normalization.ts';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { CreateProject } from '../dead-code-eliminator/load-bundle.ts';
