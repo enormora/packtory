@@ -30,7 +30,9 @@ async function resolveFixturePackage(fixturePath: string, hasDeclarationCompanio
         assert.fail(JSON.stringify(outcome.result.error));
     }
     const [ resolvedPackage ] = outcome.result.value;
-    assert.ok(resolvedPackage !== undefined);
+    if (resolvedPackage === undefined) {
+        assert.fail('Expected the resolved package');
+    }
     return resolvedPackage;
 }
 
