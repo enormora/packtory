@@ -9,8 +9,6 @@ import {
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 suite('dead code elimination generated semantics', function () {
-    this.timeout(30_000);
-
     for (const scenario of Object.keys(deadCodeEliminationSemanticScenarios) as DeadCodeEliminationSemanticScenario[]) {
         for (const declarations of [ false, true ]) {
             test(`preserves ${scenario}, declarations ${String(declarations)}`, async function () {

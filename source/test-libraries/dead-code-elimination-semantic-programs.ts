@@ -49,8 +49,7 @@ export const deadCodeEliminationSemanticScenarios = {
         'const before = feature.value; feature.increment();',
         'return [Object.keys(feature).sort(), before, feature.value]; }'
     ]
-        .join(' ')
-        .replaceAll('${eventLog}', eventLog),
+        .join(' '),
     'named-export': 'export { value as publicValue } from "./feature.js";',
     'star-export': 'export * from "./feature.js";',
     'transitive-export': 'export * from "./barrel.js";',

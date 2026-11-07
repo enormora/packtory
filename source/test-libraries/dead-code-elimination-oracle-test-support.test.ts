@@ -28,8 +28,6 @@ const api = 'export function api() { return 42; }';
 const event = 'globalThis.__packtoryDeadCodeEliminationEvents.push("effect");';
 
 suite('dead code elimination semantic oracle', function () {
-    this.timeout(30_000);
-
     const differences = [
         [ 'public export loss', `${api} export const unused = 1;`, api ],
         [ 'public value changes', `${api} export const extra = 1;`, `${api} export const extra = 2;` ],

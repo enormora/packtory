@@ -92,8 +92,6 @@ async function assertMetamorphicEquivalent(input: GeneratedDeadCodeEliminationMe
 }
 
 suite('dead code elimination metamorphic equivalence', function () {
-    this.timeout(60_000);
-
     test('preserves behavior for a declaration companion runtime chain regression', async function () {
         await assertMetamorphicEquivalent(generatedDeclarationCompanionMetamorphicRegression());
     });

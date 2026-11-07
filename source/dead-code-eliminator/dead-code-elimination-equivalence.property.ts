@@ -32,8 +32,6 @@ async function assertEquivalent(program: GeneratedDeadCodeEliminationProgram): P
 }
 
 suite('dead code elimination equivalence', function () {
-    this.timeout(60_000);
-
     suite('core module graphs', function () {
         for (const kind of deadCodeEliminationCoreCaseKinds) {
             for (let run = 0; run < coreRunsPerCaseKind; run += 1) {
