@@ -1,8 +1,10 @@
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
+import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead-code-elimination-generated-programs.ts';
 import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 import {
     deadCodeEliminationSemanticArbitrary,
+    deadCodeEliminationSemanticProgram,
     deadCodeEliminationSemanticScenarios,
     type DeadCodeEliminationSemanticScenario
 } from '../test-libraries/dead-code-elimination-semantic-programs.ts';
@@ -23,7 +25,19 @@ suite('dead code elimination generated semantics', function () {
                             });
                         }
                     ),
-                    { numRuns: 3, seed: 20_261_107 }
+                    {
+                        numRuns: 5,
+                        seed: 20_261_107,
+                        examples: [ false, true ].map(function (singleLine): [GeneratedDeadCodeEliminationProgram] {
+                            return [ deadCodeEliminationSemanticProgram({
+                                scenario,
+                                value: 7,
+                                declarations,
+                                singleLine,
+                                sourceSkew: false
+                            }) ];
+                        })
+                    }
                 );
             });
         }

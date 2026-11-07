@@ -37,27 +37,20 @@ suite('dead code elimination semantic regressions', function () {
     });
 
     for (const scenario of Object.keys(deadCodeEliminationSemanticScenarios) as DeadCodeEliminationSemanticScenario[]) {
-        for (const declarations of [ false, true ]) {
-            for (const singleLine of [ false, true ]) {
-                test(
-                    `preserves ${scenario}, declarations ${String(declarations)}, single line ${String(singleLine)}`,
-                    async function () {
-                        const program = deadCodeEliminationSemanticProgram({
-                            scenario,
-                            value: 7,
-                            declarations,
-                            singleLine,
-                            sourceSkew: false
-                        });
-                        await assertDeadCodeEliminationEquivalent({
-                            name: program.name,
-                            entry: program.entry,
-                            eliminationInputs: inputs(program.bundle)
-                        });
-                    }
-                );
-            }
-        }
+        test(`preserves ${scenario}`, async function () {
+            const program = deadCodeEliminationSemanticProgram({
+                scenario,
+                value: 7,
+                declarations: false,
+                singleLine: false,
+                sourceSkew: false
+            });
+            await assertDeadCodeEliminationEquivalent({
+                name: program.name,
+                entry: program.entry,
+                eliminationInputs: inputs(program.bundle)
+            });
+        });
     }
 
     for (const singleLine of [ false, true ]) {
