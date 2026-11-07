@@ -47,10 +47,18 @@ jobs:
 
     mutation-testing:
         runs-on: ubuntu-latest
-        name: Mutation testing
+        name: Mutation testing (${{ matrix.shard }})
         timeout-minutes: 60
         permissions:
             contents: read # required for actions/checkout to read the workflow source
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - shard: a-m
+                      exclusion: "!source/**/[!a-m]*.ts"
+                    - shard: a-m-complement
+                      exclusion: "!source/**/[a-m]*.ts"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -63,7 +71,35 @@ jobs:
             - name: Install dependencies
               run: npm clean-install --ignore-scripts
             - name: Run mutation tests
-              run: npx just test-mutation
+              env:
+                  MUTATION_EXCLUSION: ${{ matrix.exclusion }}
+              run: |
+                  node --experimental-strip-types --input-type=module <<'NODE'
+                  import fileSystem from 'node:fs';
+                  import { createFileManager } from './source/file-manager/file-manager.ts';
+                  const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+                  const configuration = JSON.parse(await fileManager.readFile('stryker.config.json'));
+                  const exclusion = process.env.MUTATION_EXCLUSION;
+                  if (typeof exclusion !== 'string') {
+                      throw new Error('Missing mutation shard exclusion');
+                  }
+                  await fileManager.writeFile('target/stryker-shard.json', JSON.stringify({
+                      ...configuration,
+                      mutate: [ ...configuration.mutate, exclusion ]
+                  }));
+                  NODE
+                  npx just test-mutation target/stryker-shard.json
+
+    mutation-result:
+        runs-on: ubuntu-latest
+        name: Mutation testing
+        needs: mutation-testing
+        if: always()
+        steps:
+            - name: Require all mutation shards
+              env:
+                  MUTATION_RESULT: ${{ needs['mutation-testing'].result }}
+              run: test "$MUTATION_RESULT" = success
 
     benchmarks:
         runs-on: ubuntu-latest

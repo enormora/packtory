@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
-import { TraceMap, eachMapping } from '@jridgewell/trace-mapping';
+import { TraceMap, eachMapping, decodedMappings, originalPositionFor } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
 import { buildTextTransformMap, toSourceMapTransform, type PositionAtom } from './text-edits.ts';
 import { recomposeSourceMap as recomposeSourceMapWithTransform } from './source-map.ts';
@@ -317,6 +317,15 @@ suite('source-map-composer', function () {
             });
             const parsed = JSON.parse(result) as { readonly sourceRoot?: string; };
             assert.strictEqual(parsed.sourceRoot, 'source');
+            const trace = new TraceMap(result);
+            assert.deepStrictEqual(decodedMappings(trace), [ [], [ [ 0, 0, 1, 0 ] ] ]);
+            assert.deepStrictEqual(trace.sourcesContent, [ originalCode ]);
+            assert.deepStrictEqual(originalPositionFor(trace, { line: 2, column: 0 }), {
+                source: 'source/index.ts',
+                line: 2,
+                column: 0,
+                name: null
+            });
         });
 
         test('recomposeSourceMap omits the file field for an input map that explicitly has null file', function () {

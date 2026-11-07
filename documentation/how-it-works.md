@@ -388,6 +388,41 @@ Linking and dead-code elimination share the `source-transformation` module. Impo
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
 
+### Correctness tests
+
+DCE semantic tests run original and emitted modules in separate Node processes with
+three-second timeouts. Each configured runtime root is observed independently:
+sorted export names, exported values, evaluation effects, console output, and
+exception classes. The selected public function is called explicitly; live exports
+are observed again afterward. A missing selected export fails the probe.
+
+Bounded semantic generators cover destructuring, defaults, iterators, key coercion,
+class heritage and initialization, namespaces, dynamic imports, reexports, and eval.
+They vary small integers, source paths, layout, and declaration companions while
+keeping module graphs and scope valid during shrinking. Unit regressions retain
+every scenario independently of random sampling. Property tests also run every
+declaration/layout combination as an explicit example. Fast-check failures include
+the seed, shrink path, parameters, source listing, and elimination trace.
+
+Metamorphic tests compare both inputs, each input with its own optimized output,
+and both optimized outputs. Output invariants and idempotence are additional checks.
+Declaration consumers are checked separately with positive and negative TypeScript
+examples. Source-map properties check decoded indices, traced positions, names, and
+embedded sources through successive edits without physical authored files.
+
+Mutation CI uses complementary source-file ranges to keep each job within its
+runtime limit. Both shards share the base Stryker settings; `Mutation testing`
+requires both shards to pass.
+
+These observations cover bounded programs, not arbitrary JavaScript equivalence.
+Object snapshots preserve enumerable string properties and object identity; generated
+consumer actions explicitly exercise namespace escape, getters, and live bindings.
+Uncalled functions, arbitrary symbols, prototypes, and external asynchronous activity
+need dedicated scenarios. Modules cannot legally shadow the `eval` binding; tests
+cover shadowed lexical lookups inside direct eval instead. Soundness generators do
+not supply trusted-purity metadata; intentionally false purity claims belong to the
+external-purity tests.
+
 ## 7. Stage: Checks
 
 After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules. Most rules inspect the analyzed bundles directly; `typeScriptIntegrity` additionally materializes the generated `package.json` in memory and audits the emitted package surface. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:

@@ -42,8 +42,8 @@ test-unit-property:
 test-types:
     tstyche
 
-test-mutation:
-    stryker run
+test-mutation *ARGS:
+    stryker run {{ARGS}}
     node --experimental-strip-types --enable-source-maps ./source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts
 
 test-mutation-incremental *ARGS:
