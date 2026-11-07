@@ -399,8 +399,9 @@ are observed again afterward. A missing selected export fails the probe.
 Bounded semantic generators cover destructuring, defaults, iterators, key coercion,
 class heritage and initialization, namespaces, dynamic imports, reexports, and eval.
 They vary small integers, source paths, layout, and declaration companions while
-keeping module graphs and scope valid during shrinking. Deterministic regressions
-retain every scenario independently of random sampling. Fast-check failures include
+keeping module graphs and scope valid during shrinking. Unit regressions retain
+every scenario independently of random sampling. Property tests also run every
+declaration/layout combination as an explicit example. Fast-check failures include
 the seed, shrink path, parameters, source listing, and elimination trace.
 
 Metamorphic tests compare both inputs, each input with its own optimized output,
@@ -408,6 +409,10 @@ and both optimized outputs. Output invariants and idempotence are additional che
 Declaration consumers are checked separately with positive and negative TypeScript
 examples. Source-map properties check decoded indices, traced positions, names, and
 embedded sources through successive edits without physical authored files.
+
+Mutation CI uses complementary source-file ranges to keep each job within its
+runtime limit. Both shards share the base Stryker settings; `Mutation testing`
+requires both shards to pass.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.
 Object snapshots preserve enumerable string properties and object identity; generated
