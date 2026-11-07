@@ -59,7 +59,7 @@ type MutableDirectory<T> = {
 type PathEntry<T> = {
     readonly item: T;
     readonly path: string;
-    readonly remainingPath: string;
+    readonly parts: readonly [string, ...readonly string[]];
 };
 
 type DirectoryChild<T> = {
@@ -80,19 +80,17 @@ function isDirectoryChild<T>(child: TreeChild<T>): child is DirectoryChild<T> {
 function toPathEntries<T>(items: readonly T[], getPath: (item: T) => string): readonly PathEntry<T>[] {
     return items.map(function (item) {
         const itemPath = getPath(item);
-        return { item, path: itemPath, remainingPath: itemPath };
+        const parts = itemPath.split('/');
+        return { item, path: itemPath, parts: [ parts.slice(0, 1).join(''), ...parts.slice(1) ] };
     });
 }
 
 function toNestedDirectoryEntry<T>(entry: PathEntry<T>): readonly [string, PathEntry<T>] | undefined {
-    const separator = entry.remainingPath.indexOf('/');
-    if (separator === -1) {
+    const [ name, nextPart, ...remainingParts ] = entry.parts;
+    if (nextPart === undefined) {
         return undefined;
     }
-    return [ entry.remainingPath.slice(0, separator), {
-        ...entry,
-        remainingPath: entry.remainingPath.slice(separator + 1)
-    } ];
+    return [ name, { ...entry, parts: [ nextPart, ...remainingParts ] } ];
 }
 
 function toDirectoryGroups<T>(entries: readonly PathEntry<T>[]): readonly MutableDirectory<T>[] {
@@ -128,7 +126,7 @@ function toDirectoryChildren<T>(
 
 function toFileChildren<T>(entries: readonly PathEntry<T>[], depth: number): readonly TreeChild<T>[] {
     return entries.flatMap(function (entry) {
-        if (entry.remainingPath.includes('/')) {
+        if (entry.parts.length > 1) {
             return [];
         }
         const node: PathTreeFileNode<T> = {
