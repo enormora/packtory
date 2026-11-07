@@ -52,6 +52,8 @@ export function buildModuleAnalysis(input: ModuleAnalysisInput): ModuleAnalysis 
         }),
         effects: input.sourceFile === undefined
             ? []
-            : input.classifySideEffects(input.sourceFile, input.deadCodeElimination)
+            : input.classifySideEffects(input.sourceFile, input.deadCodeElimination).map(function (effect) {
+                return { line: effect.statement.getStartLineNumber(), kind: effect.kind };
+            })
     };
 }
