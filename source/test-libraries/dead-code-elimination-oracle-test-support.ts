@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import fileSystem from 'node:fs';
 import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL as pathToFileAddress } from 'node:url';
 import type {
     AnalyzedBundle,
     AnalyzedBundleResource,
@@ -14,7 +13,7 @@ import {
     collectDeadCodeEliminationTrace,
     createTestEliminator
 } from './eliminator-fixtures.ts';
-import { runNodeProbe } from './run-node-probe.ts';
+import { runDeadCodeEliminationProbe } from './dead-code-elimination-probe.ts';
 
 export type DeadCodeEliminationOracleEntry = {
     readonly bundleName: string;
@@ -38,12 +37,13 @@ export type DeadCodeEliminationBehaviorComparison = {
 };
 
 type DeadCodeEliminationProbeResult = {
-    readonly value: unknown;
-    readonly events: readonly unknown[];
+    readonly missingExport: boolean;
+    readonly observation: unknown;
 };
 
 type WritableBundle = {
     readonly name: string;
+    readonly roots: AnalyzedBundle['roots'];
     readonly contents: readonly {
         readonly fileDescription: {
             readonly targetFilePath: string;
@@ -62,10 +62,16 @@ type RootFileDescription = AnalyzedBundle['roots'][string];
 type RootTransferableFileDescription = RootFileDescription['javaScript'];
 type SecondPassBundle = EliminationInput['bundle'];
 
-type WrittenComparisonPackages = {
-    readonly left: string;
-    readonly right: string;
+type DeadCodeEliminationBehaviorInput = {
+    readonly name: string;
+    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly bundles: readonly WritableBundle[];
 };
+
+type DeadCodeEliminationBehaviorObservation = readonly {
+    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly result: DeadCodeEliminationProbeResult;
+}[];
 
 const packageManifestContent = '{"type":"module"}\n';
 
@@ -147,36 +153,25 @@ async function writePackage(caseName: string, bundles: readonly WritableBundle[]
     return packageFolder;
 }
 
-function probeScript(entryAddress: string, exportName: string): string {
-    return [
-        'globalThis.__packtoryDeadCodeEliminationEvents = [];',
-        `const module = await import(${JSON.stringify(entryAddress)});`,
-        `const exported = module[${JSON.stringify(exportName)}];`,
-        'const value = typeof exported === "function" ? await exported() : exported;',
-        'console.log(JSON.stringify({ value, events: globalThis.__packtoryDeadCodeEliminationEvents }));'
-    ]
-        .join('\n');
-}
-
 async function runPackageProbe(
     packageFolder: string,
-    entry: DeadCodeEliminationOracleEntry
+    entry: DeadCodeEliminationOracleEntry,
+    invokeExport: boolean
 ): Promise<DeadCodeEliminationProbeResult> {
-    const entryAddress = pathToFileAddress(
-        path.join(packageFolder, 'node_modules', entry.bundleName, entry.targetFilePath)
-    )
-        .href;
-    const result = await runNodeProbe(probeScript(entryAddress, entry.exportName));
+    const entryPath = path.join(packageFolder, 'node_modules', entry.bundleName, entry.targetFilePath);
+    const result = await runDeadCodeEliminationProbe(entryPath, entry.exportName, invokeExport);
 
     assert.deepStrictEqual(
         Object.keys(result as Record<string, unknown>).toSorted(function (left, right) {
             return left.localeCompare(right);
         }),
-        [ 'events', 'value' ],
+        [ 'missingExport', 'observation' ],
         'dead code elimination oracle probe returned an unexpected shape'
     );
 
-    return result as DeadCodeEliminationProbeResult;
+    const observation = result as DeadCodeEliminationProbeResult;
+    assert.strictEqual(observation.missingExport, false, `missing selected export ${entry.exportName}`);
+    return observation;
 }
 
 function originalBundles(input: DeadCodeEliminationOracleCase): readonly WritableBundle[] {
@@ -211,41 +206,45 @@ async function removePackageFolder(packageFolder: string): Promise<void> {
     await fileSystem.promises.rm(packageFolder, { recursive: true, force: true });
 }
 
-async function withWrittenComparisonPackages<T>(
-    caseName: string,
-    left: readonly WritableBundle[],
-    right: readonly WritableBundle[],
-    action: (packages: WrittenComparisonPackages) => Promise<T>
-): Promise<T> {
-    const leftPackageFolder = await writePackage(caseName, left);
-    try {
-        const rightPackageFolder = await writePackage(caseName, right);
-        try {
-            return await action({ left: leftPackageFolder, right: rightPackageFolder });
-        } finally {
-            await removePackageFolder(rightPackageFolder);
-        }
-    } finally {
-        await removePackageFolder(leftPackageFolder);
-    }
+function observedEntries(input: DeadCodeEliminationBehaviorInput): readonly DeadCodeEliminationOracleEntry[] {
+    const roots = input.bundles.flatMap(function (bundle) {
+        return Object.values(bundle.roots).map(function (root) {
+            return {
+                bundleName: bundle.name,
+                targetFilePath: root.javaScript.targetFilePath,
+                exportName: input.entry.exportName
+            };
+        });
+    });
+    const otherRoots = roots.filter(function (entry) {
+        return entry.bundleName !== input.entry.bundleName || entry.targetFilePath !== input.entry.targetFilePath;
+    });
+    return [ input.entry, ...otherRoots ];
 }
 
-async function comparePackageBehavior(
-    input: DeadCodeEliminationBehaviorComparison,
-    packages: WrittenComparisonPackages
-): Promise<void> {
-    const leftResult = await runPackageProbe(packages.left, input.entry);
-    const rightResult = await runPackageProbe(packages.right, input.entry);
-    assert.deepStrictEqual(
-        rightResult,
-        leftResult,
-        `${
-            entryContext(
-                input.name,
-                input.entry
-            )
-        } changed observable behavior from ${input.leftName} to ${input.rightName}`
-    );
+async function observeWrittenPackage(
+    input: DeadCodeEliminationBehaviorInput,
+    packageFolder: string
+): Promise<DeadCodeEliminationBehaviorObservation> {
+    const observations = [];
+    for (const entry of observedEntries(input)) {
+        verifyEntryBundle(input.name, entry, input.bundles, 'observed');
+        const invokeExport = entry.bundleName === input.entry.bundleName &&
+            entry.targetFilePath === input.entry.targetFilePath;
+        observations.push({ entry, result: await runPackageProbe(packageFolder, entry, invokeExport) });
+    }
+    return observations;
+}
+
+export async function observeDeadCodeEliminationBehavior(
+    input: DeadCodeEliminationBehaviorInput
+): Promise<DeadCodeEliminationBehaviorObservation> {
+    const packageFolder = await writePackage(input.name, input.bundles);
+    try {
+        return await observeWrittenPackage(input, packageFolder);
+    } finally {
+        await removePackageFolder(packageFolder);
+    }
 }
 
 export async function assertDeadCodeEliminationBehaviorEquivalent(
@@ -253,9 +252,37 @@ export async function assertDeadCodeEliminationBehaviorEquivalent(
 ): Promise<void> {
     verifyEntryBundle(input.name, input.entry, input.leftBundles, input.leftName);
     verifyEntryBundle(input.name, input.entry, input.rightBundles, input.rightName);
-    await withWrittenComparisonPackages(input.name, input.leftBundles, input.rightBundles, async function (packages) {
-        await comparePackageBehavior(input, packages);
+    const left = await observeDeadCodeEliminationBehavior({
+        name: input.name,
+        entry: input.entry,
+        bundles: input.leftBundles
     });
+    const right = await observeDeadCodeEliminationBehavior({
+        name: input.name,
+        entry: input.entry,
+        bundles: input.rightBundles
+    });
+    assert.deepStrictEqual(
+        right.map(function (observation) {
+            return observation.entry;
+        }),
+        left.map(function (observation) {
+            return observation.entry;
+        }),
+        'changed observable runtime roots'
+    );
+    for (const [ index, observation ] of left.entries()) {
+        assert.deepStrictEqual(
+            right[index]?.result,
+            observation.result,
+            `${
+                entryContext(
+                    input.name,
+                    observation.entry
+                )
+            } changed observable behavior from ${input.leftName} to ${input.rightName}`
+        );
+    }
 }
 
 async function eliminateDeadCodeForOracle(

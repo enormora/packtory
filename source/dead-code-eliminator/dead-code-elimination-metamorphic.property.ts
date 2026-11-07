@@ -1,7 +1,8 @@
+import assert from 'node:assert';
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import {
-    assertDeadCodeEliminationBehaviorEquivalent,
+    observeDeadCodeEliminationBehavior,
     assertDeadCodeEliminationIdempotent,
     eliminateDeadCodeAndAssertAllOutputValid
 } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
@@ -48,36 +49,42 @@ async function assertIdempotenceWhenNeeded(input: GeneratedDeadCodeEliminationMe
     }
 }
 
+type ProgramBehavior = {
+    readonly original: Awaited<ReturnType<typeof observeDeadCodeEliminationBehavior>>;
+    readonly eliminated: Awaited<ReturnType<typeof observeDeadCodeEliminationBehavior>>;
+};
+
+async function observeProgramBehavior(
+    program: GeneratedDeadCodeEliminationMetamorphicCase['original']
+): Promise<ProgramBehavior> {
+    const original = await observeDeadCodeEliminationBehavior({
+        name: program.name,
+        entry: program.entry,
+        bundles: program.bundles
+    });
+    const eliminated = await eliminateDeadCodeAndAssertAllOutputValid({
+        name: program.name,
+        entry: program.entry,
+        eliminationInputs: inputs(...program.bundles)
+    });
+    return {
+        original,
+        eliminated: await observeDeadCodeEliminationBehavior({
+            name: program.name,
+            entry: program.entry,
+            bundles: eliminated
+        })
+    };
+}
+
 async function assertMetamorphicEquivalent(input: GeneratedDeadCodeEliminationMetamorphicCase): Promise<void> {
     try {
-        await assertDeadCodeEliminationBehaviorEquivalent({
-            name: input.name,
-            entry: input.original.entry,
-            leftName: 'original input',
-            leftBundles: input.original.bundles,
-            rightName: 'transformed input',
-            rightBundles: input.transformed.bundles
-        });
-
-        const originalEliminated = await eliminateDeadCodeAndAssertAllOutputValid({
-            name: `${input.name} original`,
-            entry: input.original.entry,
-            eliminationInputs: inputs(...input.original.bundles)
-        });
-        const transformedEliminated = await eliminateDeadCodeAndAssertAllOutputValid({
-            name: `${input.name} transformed`,
-            entry: input.transformed.entry,
-            eliminationInputs: inputs(...input.transformed.bundles)
-        });
-
-        await assertDeadCodeEliminationBehaviorEquivalent({
-            name: input.name,
-            entry: input.original.entry,
-            leftName: 'eliminated original input',
-            leftBundles: originalEliminated,
-            rightName: 'eliminated transformed input',
-            rightBundles: transformedEliminated
-        });
+        const original = await observeProgramBehavior(input.original);
+        const transformed = await observeProgramBehavior(input.transformed);
+        assert.deepStrictEqual(transformed.original, original.original, 'metamorphic inputs differ');
+        assert.deepStrictEqual(original.eliminated, original.original, 'original input changed after DCE');
+        assert.deepStrictEqual(transformed.eliminated, transformed.original, 'transformed input changed after DCE');
+        assert.deepStrictEqual(transformed.eliminated, original.eliminated, 'optimized outputs differ');
         await assertIdempotenceWhenNeeded(input);
     } catch (error: unknown) {
         throw formatCaseFailure(input, error);
@@ -85,6 +92,8 @@ async function assertMetamorphicEquivalent(input: GeneratedDeadCodeEliminationMe
 }
 
 suite('dead code elimination metamorphic equivalence', function () {
+    this.timeout(60_000);
+
     test('preserves behavior for a declaration companion runtime chain regression', async function () {
         await assertMetamorphicEquivalent(generatedDeclarationCompanionMetamorphicRegression());
     });

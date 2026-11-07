@@ -74,6 +74,8 @@ async function assertRegressionShape(program: GeneratedDeadCodeEliminationProgra
 }
 
 suite('dead code elimination source and target skew', function () {
+    this.timeout(30_000);
+
     test('preserves behavior for a deterministic source and target skew regression', async function () {
         const program = deadCodeEliminationSourceTargetSkewRegression();
         try {
