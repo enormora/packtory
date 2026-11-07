@@ -540,6 +540,8 @@ Files whose top-level statements are impure are left fully intact. The static si
 
 dead code elimination is conservative by design. Unknown top-level code is treated as effectful, unknown imports preserve the affected code or fail an integrity check, and resolver uncertainty is never used as a reason to remove code. More removal requires either a static proof in packtory's analysis or an explicit trust setting such as `pureImports`, `pureConstructors`, or a pure annotation.
 
+A reachable direct `eval(...)` call retains all module bindings and imported namespace exports because its source can reference names that never appear as identifiers. This also applies to parenthesized and potentially shadowed `eval` calls. Indirect calls such as `(0, eval)(...)` and `eval?.(...)` do not retain module bindings. Unreachable functions containing eval remain removable.
+
 ### Free side-effect features
 
 The same static analysis also drives, regardless of any `checks` configuration:

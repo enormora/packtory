@@ -1,27 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
-import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
-
-async function eliminate(content: string): Promise<string> {
-    const modules = await eliminateCodeModules(content, {});
-    const emitted = modules.get('index.js');
-    assertDefined(emitted);
-    return emitted;
-}
-
-async function observe(content: string): Promise<unknown> {
-    const address = `data:text/javascript;base64,${Buffer.from(content).toString('base64')}`;
-    return runNodeProbe(`
-        try {
-            const module = await import(${JSON.stringify(address)});
-            console.log(JSON.stringify({ value: module.value }));
-        } catch (error) {
-            console.log(JSON.stringify({ error: error.name }));
-        }
-    `);
-}
+import { eliminateEntryModule } from '../test-libraries/eliminator-test-support.ts';
+import { observeModuleExpression } from '../test-libraries/run-node-probe.ts';
 
 suite('eliminator class heritage', function () {
     const invalidHeritage = [
@@ -41,8 +21,11 @@ suite('eliminator class heritage', function () {
             test(`preserves TypeError for ${prefix} extends ${heritage}`, async function () {
                 const content = `${prefix} extends (${heritage}) {}; export const value = 42;`;
 
-                assert.deepStrictEqual(await observe(content), { error: 'TypeError' });
-                assert.deepStrictEqual(await observe(await eliminate(content)), { error: 'TypeError' });
+                assert.deepStrictEqual(await observeModuleExpression(content, 'module.value'), { error: 'TypeError' });
+                assert.deepStrictEqual(
+                    await observeModuleExpression(await eliminateEntryModule(content), 'module.value'),
+                    { error: 'TypeError' }
+                );
             });
         }
     }
@@ -51,11 +34,11 @@ suite('eliminator class heritage', function () {
         for (const prefix of [ 'class Unused', 'const unused = class' ]) {
             test(`removes ${prefix} with proven safe heritage ${heritage}`, async function () {
                 const content = `${prefix} extends (${heritage}) {}; export const value = 42;`;
-                const emitted = await eliminate(content);
+                const emitted = await eliminateEntryModule(content);
 
                 assert.strictEqual(emitted.includes('class'), false);
-                assert.deepStrictEqual(await observe(content), { value: 42 });
-                assert.deepStrictEqual(await observe(emitted), { value: 42 });
+                assert.deepStrictEqual(await observeModuleExpression(content, 'module.value'), { value: 42 });
+                assert.deepStrictEqual(await observeModuleExpression(emitted, 'module.value'), { value: 42 });
             });
         }
     }
@@ -74,10 +57,13 @@ suite('eliminator class heritage', function () {
     ) {
         test(`preserves class definition errors in ${declaration}`, async function () {
             const content = `${declaration}; export const value = 42;`;
-            const original = await observe(content);
+            const original = await observeModuleExpression(content, 'module.value');
 
             assert.notDeepStrictEqual(original, { value: 42 });
-            assert.deepStrictEqual(await observe(await eliminate(content)), original);
+            assert.deepStrictEqual(
+                await observeModuleExpression(await eliminateEntryModule(content), 'module.value'),
+                original
+            );
         });
     }
 });
