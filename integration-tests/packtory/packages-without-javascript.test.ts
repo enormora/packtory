@@ -182,4 +182,47 @@ suite('packages without JavaScript', function () {
             );
         })
     );
+
+    test(
+        'links JSON sibling exports without embedding their source files',
+        checkWithRegistry(async function (registryDetails) {
+            const sharedName = '@example/shared-json';
+            const consumerName = '@example/json-consumer';
+            assertPublishSucceeded(
+                await publishFixturePackages({
+                    fixturePath: getFixturePath('json-export-consumer'),
+                    registryDetails,
+                    packages: [
+                        { name: sharedName, roots: { main: { json: 'settings.json' } } },
+                        {
+                            name: consumerName,
+                            roots: { main: { javaScript: 'index.js' } },
+                            bundleDependencies: [ sharedName ]
+                        }
+                    ],
+                    commonPackageSettings: { deadCodeElimination: { enabled: true } }
+                })
+            );
+            const published = await fetchPublishedPackage(consumerName, registryDetails);
+            assert.partialDeepStrictEqual(published.manifest, { dependencies: { [sharedName]: '0.0.1' } });
+            assert.match(
+                getPublishedFile(published, 'package/index.js').content,
+                /from ['"]@example\/shared-json['"] with/u
+            );
+            assert.deepStrictEqual(
+                published
+                    .files
+                    .map(function (file) {
+                        return file.filePath;
+                    })
+                    .toSorted(function (left, right) {
+                        return left.localeCompare(right);
+                    }),
+                [
+                    'package/index.js',
+                    'package/package.json'
+                ]
+            );
+        })
+    );
 });
