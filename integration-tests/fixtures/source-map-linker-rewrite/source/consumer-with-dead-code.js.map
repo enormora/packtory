@@ -1,0 +1,1 @@
+{"version":3,"file":"consumer-with-dead-code.js","sourceRoot":"/authored","sources":["consumer.ts"],"sourcesContent":["import { dep } from './provider.js';\nconst dead = 1;\nexport const value = dep;\n"],"names":["value"],"mappings":"AAAA;AACA;AACA,aAAaA"}
