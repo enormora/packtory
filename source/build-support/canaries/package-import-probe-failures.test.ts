@@ -38,7 +38,7 @@ suite('package-import-probe-failures', function () {
     test('terminates an import probe that hangs without output', async function () {
         await withTemporaryNodeModules(async function (nodeModulesFolder) {
             await writePackage(nodeModulesFolder, 'runtime', { exports: './index.js', type: 'module' }, {
-                'index.js': 'setInterval(() => {}, 1000);'
+                'index.js': 'await new Promise(function () { setInterval(function () {}, 1000); });'
             });
             const probe = createNodeImportProbe(100);
             await assert.rejects(
