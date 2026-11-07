@@ -1,9 +1,8 @@
 import {
-    eachMapping,
+    decodedMappings,
     encodedMappings,
     presortedDecodedMap,
     TraceMap,
-    type EachMapping,
     type SourceMapSegment
 } from '@jridgewell/trace-mapping';
 import { translateGeneratedOffset, type SourceMapTransform } from './text-edits.ts';
@@ -24,18 +23,15 @@ function tryParseTraceMap(originalMap: string): TraceMap | null {
     }
 }
 
-function namedSegment(
+function translatedSegment(
     generated: LineColumn,
-    traceMap: TraceMap,
-    mapping: Extract<EachMapping, { readonly originalLine: number; }>
+    segment: Exclude<SourceMapSegment, readonly [number]>
 ): SourceMapSegment {
-    const sourceIndex = traceMap.sources.indexOf(mapping.source);
-    const originalLine = mapping.originalLine - 1;
-    if (mapping.name === null) {
-        return [ generated.column, sourceIndex, originalLine, mapping.originalColumn ];
+    const [ , sourceIndex, originalLine, originalColumn, nameIndex ] = segment;
+    if (nameIndex === undefined) {
+        return [ generated.column, sourceIndex, originalLine, originalColumn ];
     }
-    const nameIndex = traceMap.names.indexOf(mapping.name);
-    return [ generated.column, sourceIndex, originalLine, mapping.originalColumn, nameIndex ];
+    return [ generated.column, sourceIndex, originalLine, originalColumn, nameIndex ];
 }
 
 function translatedMappings(
@@ -44,22 +40,23 @@ function translatedMappings(
 ): TranslationResult {
     const mappings: SourceMapSegment[][] = [];
     let sawMapping = false;
-    eachMapping(traceMap, function (mapping) {
-        sawMapping = true;
-        if (mapping.source !== null) {
-            const oldOffset = lineColumnToOffset(
-                transform.originalLineIndex,
-                mapping.generatedLine,
-                mapping.generatedColumn
+    decodedMappings(traceMap).forEach(function (segments, lineIndex) {
+        segments.forEach(function (segment) {
+            sawMapping = true;
+            if (segment.length === 1) {
+                return;
+            }
+            const newOffset = translateGeneratedOffset(
+                lineColumnToOffset(transform.originalLineIndex, lineIndex + 1, segment[0]),
+                transform.atoms
             );
-            const newOffset = translateGeneratedOffset(oldOffset, transform.atoms);
             if (newOffset !== undefined) {
                 const generated = offsetToLineColumn(transform.transformedLineIndex, newOffset);
                 const line = mappings[generated.line - 1] ?? [];
-                line.push(namedSegment(generated, traceMap, mapping));
+                line.push(translatedSegment(generated, segment));
                 mappings[generated.line - 1] = line;
             }
-        }
+        });
     });
     return {
         mappings: Array.from({ length: mappings.length }, function (_value, index) {

@@ -384,7 +384,7 @@ recomposeSourceMap(originalMap, textTransform):
 
 Linking and dead-code elimination share the `source-transformation` module. Import replacements use offsets from the existing AST; `magic-string` applies the edits without parsing the source again. Declaration removal retains ts-morph's formatting behavior and derives edits from the before/after text. Both paths record unchanged character ranges: `(originalStart, originalEnd, newStart)`.
 
-`@jridgewell/trace-mapping` re-encodes the translated mappings. Only surviving mappings from the input map are retained, including their original names and source metadata.
+`@jridgewell/trace-mapping` re-encodes the translated mappings. Only surviving mappings from the input map are retained, including their original source and name indices. Source paths, `sourceRoot`, and embedded source content are preserved without requiring authored files on disk.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
 
