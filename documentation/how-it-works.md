@@ -273,13 +273,13 @@ Implementation: `breadthFirstClosure`.
 For every file, the analyzer computes:
 
 ```text
-shouldTransform  = transformationsEnabled ∧ fileHasNoSideEffects
+shouldTransform  = transformationsEnabled
 survivingNames   = shouldTransform ? reachable ∩ fileBindings : fileBindings
 ```
 
-If a file has any impure top-level statement, **packtory keeps the file as-is**. Removing declarations from a file that runs side effects could change those side effects' meaning, so the conservative choice is to leave it alone.
+Impure top-level statements seed reachability along with the bindings they reference. Unrelated dead declarations can still be removed, including declarations on the same source line. Line numbers identify effects in diagnostics, not reachability.
 
-For pure files, the declaration remover walks top-level statements and removes dead declarations via ts-morph. Combined declarations are split so each declarator can be removed independently. The same pass repairs stale import declarations: dead default, namespace, named, and aliased import bindings are removed; runtime imports with no surviving specifiers become bare imports; type-only imports with no surviving specifiers are removed. If removing the last type-only import would turn a module into a script, `export {};` is inserted.
+The declaration remover walks top-level statements and removes dead declarations via ts-morph. Combined declarations are split so each declarator can be removed independently. The same pass repairs stale import declarations: dead default, namespace, named, and aliased import bindings are removed; runtime imports with no surviving specifiers become bare imports; type-only imports with no surviving specifiers are removed. If removing the last type-only import would turn a module into a script, `export {};` is inserted.
 
 ### 6.4 Cross-bundle seeding
 

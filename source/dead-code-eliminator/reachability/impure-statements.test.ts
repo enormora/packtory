@@ -22,6 +22,29 @@ suite('impure-statements', function () {
         assert.deepStrictEqual(impureLinesFor('console.log("hi");'), [ 1 ]);
     });
 
+    test('collectImpureStatements selects exact statements sharing a line', function () {
+        const project = createProject({
+            withFiles: [ {
+                filePath: '/source.ts',
+                content: [
+                    'import "./effect.js";',
+                    'const before = 1;',
+                    'console.log("first");',
+                    'const between = 2;',
+                    'console.log("second");',
+                    'const after = 3;'
+                ].join(' ')
+            } ]
+        });
+        const sourceFile = project.getSourceFileOrThrow('/source.ts');
+        const statements = sourceFile.getStatements();
+
+        assert.deepStrictEqual(
+            collectImpureStatements(sourceFile, undefined, classifySideEffects),
+            [ statements[2], statements[4] ]
+        );
+    });
+
     test('collectImpureStatements excludes import declarations even when classified as side-effecting', function () {
         const project = createProject({
             withFiles: [ { filePath: '/source.ts', content: 'import "./side-effect.ts";\nconsole.log("hi");' } ]

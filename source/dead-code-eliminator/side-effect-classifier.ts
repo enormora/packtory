@@ -6,10 +6,14 @@ import {
     createRuntimeModuleResolver,
     type RuntimeModuleOrigin
 } from './runtime-module-resolution.ts';
-import type { SideEffectStatement } from './analyzed-bundle.ts';
 import { booleanValue, factsAfterStatement, type BooleanFacts } from './liveness/boolean-facts.ts';
 import { statementClassifierFor } from './statement-classifiers.ts';
 import { describeControlFlowStatementKind, pureDeclarationKinds } from './syntax-kind-sets.ts';
+
+type ClassifiedSideEffect = {
+    readonly statement: Statement;
+    readonly kind: string;
+};
 
 function isStaticallyUnreachableIfStatement(statement: Statement, facts: BooleanFacts): boolean {
     return TypeScriptMorphNode.isIfStatement(statement) &&
@@ -47,13 +51,13 @@ function classifyTopLevelStatement(
 function classifyPreparedSideEffects(
     sourceFile: Readonly<SourceFile>,
     isPure: ExpressionPurityChecker
-): readonly SideEffectStatement[] {
-    const results: SideEffectStatement[] = [];
+): readonly ClassifiedSideEffect[] {
+    const results: ClassifiedSideEffect[] = [];
     let facts: BooleanFacts = new Map();
     for (const statement of sourceFile.getStatements()) {
         const kind = classifyTopLevelStatement(statement, isPure, facts);
         if (kind !== undefined) {
-            results.push({ line: statement.getStartLineNumber(), kind });
+            results.push({ statement, kind });
         }
         facts = factsAfterStatement(statement, facts);
     }
@@ -63,7 +67,7 @@ function classifyPreparedSideEffects(
 export type SideEffectClassifier = (
     sourceFile: Readonly<SourceFile>,
     settings: DeadCodeEliminationSettings | undefined
-) => readonly SideEffectStatement[];
+) => readonly ClassifiedSideEffect[];
 
 export function createSideEffectClassifier(files: readonly RuntimeModuleOrigin[]): SideEffectClassifier {
     const resolveModule = createRuntimeModuleResolver(files);
