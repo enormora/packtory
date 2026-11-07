@@ -128,7 +128,7 @@
         },
         "mocha": {
             "diff": "8.0.3",
-            "serialize-javascript": "7.1.2"
+            "serialize-javascript": "7.1.3"
         },
         "typed-rest-client": {
             "qs": "6.16.0"
