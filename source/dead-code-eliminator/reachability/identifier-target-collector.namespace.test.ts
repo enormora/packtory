@@ -6,6 +6,25 @@ import { buildDeclarationNodeIndex } from './binding-identifier.ts';
 import { collectIdentifierTargets } from './identifier-target-collector.ts';
 
 suite('identifier-target-collector namespace', function () {
+    for (const clause of [ 'ns', '{ default as ns }' ]) {
+        test(`retains the default export assignment imported through ${clause}`, function () {
+            const files = multiFileBindingsFor([
+                {
+                    filePath: '/source/index.js',
+                    content: `import ${clause} from "./barrel.js"; export const value = ns.used;`
+                },
+                { filePath: '/source/barrel.js', content: 'import * as ns from "./dep.js"; export default ns;' },
+                { filePath: '/source/dep.js', content: 'export const used = 42; export const unused = 9;' }
+            ]);
+            const [ entry ] = files;
+            assertDefined(entry);
+            const index = buildDeclarationNodeIndex(files);
+
+            const declaration = entry.sourceFile.getVariableDeclarationOrThrow('value');
+            assert.ok(collectIdentifierTargets(declaration, index).has('/source/barrel.js::default'));
+        });
+    }
+
     for (
         const scenario of [
             { expression: 'ns.value', exports: [ 'value' ] },
