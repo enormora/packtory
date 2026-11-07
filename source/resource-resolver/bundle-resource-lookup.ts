@@ -30,18 +30,23 @@ export function buildResolvedRoots(
     normalized: ResolvedRootsAndSurface,
     contents: readonly BundleResource[]
 ): ResolvedBundle['roots'] {
-    const resolvedRoots: Record<
-        string,
-        {
-            readonly javaScript: TransferableFileDescription;
-            readonly declarationFile: TransferableFileDescription | undefined;
-        }
-    > = {};
-    for (const [ rootIdentifier, root ] of Object.entries(normalized.roots)) {
-        const javaScriptResource = requireFileDescriptionBySourcePath(root.javaScript, contents);
-        const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
-        resolvedRoots[rootIdentifier] = { javaScript: javaScriptResource, declarationFile };
-    }
-
-    return resolvedRoots;
+    return Object.fromEntries(
+        Object.entries(normalized.roots).map(
+            function ([ identifier, root ]): readonly [string, ResolvedBundle['roots'][string]] {
+                if (root.json !== undefined) {
+                    return [ identifier, { json: requireFileDescriptionBySourcePath(root.json, contents) } ];
+                }
+                const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
+                if (root.javaScript === undefined) {
+                    return [ identifier, {
+                        declarationFile: requireFileDescriptionBySourcePath(root.declarationFile, contents)
+                    } ];
+                }
+                return [ identifier, {
+                    javaScript: requireFileDescriptionBySourcePath(root.javaScript, contents),
+                    declarationFile
+                } ];
+            }
+        )
+    );
 }

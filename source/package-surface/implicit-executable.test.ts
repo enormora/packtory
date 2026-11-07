@@ -9,6 +9,26 @@ import {
 import { buildImplicitExecutableField } from './implicit-executable.ts';
 
 suite('implicit-bin', function () {
+    test('does not turn JSON or declaration-only roots into executables', function () {
+        assert.strictEqual(
+            buildImplicitExecutableField({
+                name: 'data',
+                roots: {
+                    json: {
+                        json: {
+                            inputFilePath: '/config.json',
+                            targetFilePath: 'config.json',
+                            content: '{}',
+                            isExecutable: true
+                        }
+                    },
+                    types: { declarationFile: { inputFilePath: '/index.d.ts', targetFilePath: 'index.d.ts' } }
+                }
+            }),
+            undefined
+        );
+    });
+
     test('returns undefined when no roots are executable shebang scripts', function () {
         const result = buildImplicitExecutableField({ name: 'package-a', roots: { main: plainRoot('index.js') } });
 

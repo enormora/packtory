@@ -13,7 +13,7 @@ import {
 function targetFileDescription(
     inputFilePath: string,
     targetFilePath: string
-): BundleSubstitutionSource['roots'][string]['javaScript'] {
+): NonNullable<BundleSubstitutionSource['roots'][string]['javaScript']> {
     return {
         inputFilePath,
         targetFilePath,
@@ -257,6 +257,22 @@ suite('replacement-lookup', function () {
     });
 
     suite('substitution promotion records', function () {
+        test('maps JSON files from file-only dependencies and peers to their package subpaths', function () {
+            const bundle = linkedBundle({
+                name: 'configs',
+                roots: {},
+                surface: { mode: 'files' },
+                contents: [ analyzedBundleResource('/source/base.json', { targetFilePath: 'presets/base.json' }) ]
+            });
+            for (const result of dependencyAndPeerReplacements(bundle, '/source/base.json')) {
+                assert.deepStrictEqual(result.importPathReplacements.get('/source/base.json'), {
+                    packageName: 'configs',
+                    emittedSpecifier: 'configs/presets/base.json'
+                });
+                assert.deepStrictEqual(result.bundleDependencies, [ 'configs' ]);
+            }
+        });
+
         test('dependency lookup maps declaration companions to the JavaScript package subpath', function () {
             const bundle = linkedBundle({
                 name: 'package-b',

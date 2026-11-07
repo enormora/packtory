@@ -77,6 +77,18 @@ export function createTypeScriptIntegrityRule(
         declarationMode: DeclarationMode
     ): Promise<readonly string[]> {
         const { name } = bundle;
+        const hasJavaScript = Object.values(bundle.roots).some(function (root) {
+            return root.javaScript !== undefined;
+        });
+        if (!hasJavaScript) {
+            const hasDeclarations = Object.values(bundle.roots).some(function (root) {
+                return root.declarationFile !== undefined;
+            });
+            if (hasDeclarations) {
+                return summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages);
+            }
+            return [];
+        }
         if (isExecutableOnlyPackage(bundle)) {
             return hasExecutableDeclarations(bundle)
                 ? summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)

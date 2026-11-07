@@ -1,0 +1,4 @@
+{
+    "type": "object",
+    "properties": { "strict": { "type": "boolean" } }
+}

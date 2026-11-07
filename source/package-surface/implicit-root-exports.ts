@@ -1,3 +1,4 @@
+import { rootEntryFile } from '../common/package-root.ts';
 import { buildExportEntry, type BundleLike, type ExportEntry, type ImplicitSurface } from './package-shape.ts';
 import { getRoot } from './root-registry.ts';
 
@@ -13,7 +14,7 @@ export function buildImplicitRootExports(
 
     for (const [ rootIdentifier, root ] of Object.entries(bundle.roots)) {
         if (rootIdentifier !== surface.defaultModuleRoot) {
-            rootExports[`./${root.javaScript.targetFilePath}`] = buildExportEntry(root);
+            rootExports[`./${rootEntryFile(root).targetFilePath}`] = buildExportEntry(root);
         }
     }
 

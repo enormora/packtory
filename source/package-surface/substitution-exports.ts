@@ -1,4 +1,5 @@
 import { isDefined, pickBy } from 'remeda';
+import { rootEntryFile } from '../common/package-root.ts';
 import {
     declarationCompanionCandidates,
     isDeclarationCompanionFilePath
@@ -22,7 +23,7 @@ function collectRootInputFilePaths(bundle: SubstitutionBundle): ReadonlySet<stri
     const rootInputFilePaths = new Set<string>();
 
     for (const root of Object.values(bundle.roots)) {
-        rootInputFilePaths.add(root.javaScript.inputFilePath);
+        rootInputFilePaths.add(rootEntryFile(root).inputFilePath);
     }
 
     return rootInputFilePaths;

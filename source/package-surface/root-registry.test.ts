@@ -1,9 +1,47 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { plainRoot, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
-import { getEntryRootIdentifiers, getRoot } from './root-registry.ts';
+import { getEntryRootIdentifiers, getEntryRootTargetFilePaths, getRoot } from './root-registry.ts';
 
 suite('root-registry', function () {
+    test('entry paths include JSON and declaration-only roots', function () {
+        assert.deepStrictEqual(
+            getEntryRootTargetFilePaths({
+                name: 'data',
+                roots: {
+                    data: {
+                        json: {
+                            inputFilePath: '/source/data.json',
+                            targetFilePath: 'data.json',
+                            content: '{}',
+                            isExecutable: false
+                        }
+                    },
+                    types: { declarationFile: { inputFilePath: '/source/index.d.ts', targetFilePath: 'index.d.ts' } }
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'data' }
+            }),
+            [ 'data.json', 'index.d.ts' ]
+        );
+    });
+
+    test('entry paths reject unknown roots referenced by an explicit surface', function () {
+        assert.throws(function () {
+            return getEntryRootTargetFilePaths({
+                name: 'data',
+                roots: {},
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: { modules: [ { root: 'missing', export: '.' } ] }
+                }
+            });
+        }, { message: 'Bundle "data" is missing root "missing" referenced by its entry surface' });
+    });
+
+    test('file-only packages have no code entry roots', function () {
+        assert.deepStrictEqual(getEntryRootIdentifiers({ roots: {}, surface: { mode: 'files' } }), new Set());
+    });
+
     test('getRoot returns the root for a known id', function () {
         const root = rootWithSource('/source/index.js', 'index.js');
 

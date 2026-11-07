@@ -1,4 +1,5 @@
 import { Result } from 'true-myth';
+import { rootEntryFile } from '../../common/package-root.ts';
 import { validateConfiguration as validatePacktoryConfiguration } from '../../configuration/validation.ts';
 import type { ConfigurationLoader } from '../configuration-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
@@ -39,8 +40,10 @@ function formatRootEntries(roots: CommandLineInterfacePacktoryConfiguration['pac
         Object
             .entries(roots)
             .map(function ([ name, root ]) {
-                const declarationFile = root.declarationFile === undefined ? '' : `, d.ts: ${root.declarationFile}`;
-                return `${name}: ${root.javaScript}${declarationFile}`;
+                const declarationFile = root.javaScript !== undefined && root.declarationFile !== undefined
+                    ? `, d.ts: ${root.declarationFile}`
+                    : '';
+                return `${name}: ${rootEntryFile(root)}${declarationFile}`;
             })
             .join('; ')
     );

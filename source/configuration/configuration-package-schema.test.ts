@@ -13,6 +13,29 @@ import { packtoryConfigurationWithoutRegistrySchema } from './packtory-configura
 const minimalRegistrylessPackage = packageConfiguration({ roots: { main: { javaScript: 'index.js' } } });
 
 suite('config package schema', function () {
+    test(
+        'accepts JSON-only packages with an empty root map',
+        checkValidationSuccess({
+            schema: packtoryConfigurationWithoutRegistrySchema,
+            data: {
+                packages: [ packageConfiguration({
+                    roots: {},
+                    additionalFiles: [
+                        { inputFilePath: 'tsconfig.json', targetFilePath: 'tsconfig.json' }
+                    ]
+                }) ]
+            },
+            expectedData: {
+                packages: [ packageConfiguration({
+                    roots: {},
+                    additionalFiles: [
+                        { inputFilePath: 'tsconfig.json', targetFilePath: 'tsconfig.json' }
+                    ]
+                }) ]
+            }
+        })
+    );
+
     suite('package field validation failures', function () {
         test(
             'validation fails when name is missing in a package',

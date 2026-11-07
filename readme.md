@@ -304,19 +304,55 @@ The configuration for `packtory` is an object with the following properties:
 
     - **`roots`** (Required, Object):
         - A map of root ids to source files, e.g. `{ main: { javaScript: 'file.js', declarationFile: 'file.d.ts' } }`.
-        - `js` is required. `declarationFile` is optional.
-        - Roots seed scanning, linking, and dead-code analysis. They are internal build anchors, not automatically the full published API.
+        - A root can contain `javaScript` with an optional `declarationFile`, `json` pointing to a `.json` file, or only `declarationFile` pointing to a `.d.ts`, `.d.mts`, or `.d.cts` file.
+        - JSON roots emit direct file exports. Declaration-only roots emit `types` exports without a runtime target, and their transitive declaration imports are included.
+        - These roots can be combined within a package, including packages without any JavaScript.
+        - Use `roots: {}` for JSON-only or other file-only packages, with their contents listed in `additionalFiles`. Each file is exported at its target path, with no JavaScript entry point.
+        - JavaScript and declaration roots seed dependency scanning. JSON roots are copied unchanged; references such as `extends` or `$ref` do not infer dependencies. Roots are internal build anchors, not automatically the full published API.
         - On bin-only packages, `declarationFile` can describe package-level types for TypeScript annotations such as `import("package").Type`; it does not make the bin a runtime module API.
+
+        ```javascript
+        {
+            name: '@example/tsconfigs',
+            roots: {},
+            additionalFiles: [
+                { inputFilePath: 'tsconfig.json', targetFilePath: 'tsconfig.json' },
+                { inputFilePath: 'node.json', targetFilePath: 'presets/node.json' },
+                { inputFilePath: 'readme.md', targetFilePath: 'readme.md' }
+            ]
+        }
+        ```
+
+        Consumers can extend `@example/tsconfigs/tsconfig.json` or `@example/tsconfigs/presets/node.json`. Files are copied unchanged; list every referenced local JSON file as a root or in `additionalFiles`. File-only packages use the same versioning and publishing settings as code packages. The main manifest still requires `"type": "module"`.
 
     - **`defaultModuleRoot`** (Optional in single-root packages, required in implicit multi-root packages):
         - Selects which root becomes the package root export `"."` when `packageInterface` is not configured.
 
     - **`packageInterface`** (Optional, Object):
         - Switches packtory into explicit package-surface mode.
-        - `modules` declares the published module exports with `{ root, export }`.
+        - `modules` declares the published JavaScript, JSON, or declaration-only exports with `{ root, export }`.
         - `executables` declares published executables with `{ root, name }`.
         - Packages with `executables` and no `modules` are supported as bin-only packages. If their bin root has a `declarationFile`, packtory emits a type-only `"."` export.
         - If omitted, packtory derives `exports` implicitly from roots and cross-package substitution needs.
+
+        For a package containing types and JSON without JavaScript:
+
+        ```javascript
+        {
+            name: '@example/settings',
+            roots: {
+                types: { declarationFile: 'index.d.ts' },
+                schema: { json: 'schema.json' }
+            },
+            packageInterface: {
+                modules: [
+                    { root: 'types', export: '.' },
+                    { root: 'schema', export: './schema.json' }
+                ]
+            },
+            additionalFiles: [ { inputFilePath: 'readme.md', targetFilePath: 'readme.md' } ]
+        }
+        ```
 
     - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
         - If `true`, the bundler will look for and include source map files in the final package.

@@ -130,6 +130,55 @@ function optionsForRoots(roots: ResourceResolveOptions['roots']): ResourceResolv
 }
 
 suite('dependency-resolution-walker', function () {
+    test('retains JSON roots without scanning them as code', async function () {
+        const { scanner, calls } = trackingScanner();
+        const result = await resolveDependenciesForAllRoots(
+            { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
+            optionsForRoots({ config: { json: '/source/config.json' } }),
+            []
+        );
+        assert.deepStrictEqual(result, {
+            externalDependencies: new Map(),
+            localFiles: [ {
+                filePath: '/source/config.json',
+                directDependencies: new Set(),
+                moduleReferences: []
+            } ]
+        });
+        assert.deepStrictEqual(calls, []);
+    });
+
+    test('rejects code files presented as JSON roots through the direct API', async function () {
+        const { scanner } = trackingScanner();
+        await assert.rejects(
+            resolveDependenciesForAllRoots(
+                { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
+                optionsForRoots({ config: { json: '/source/code.js' } }),
+                []
+            ),
+            { message: 'JSON roots must use the .json extension' }
+        );
+    });
+
+    test('scans declaration-only roots and their transitive dependencies', async function () {
+        const { scanner, calls } = scannerWithGraphs([ [
+            '/source/index.d.ts',
+            graphWithFiles('/source/index.d.ts', [ '/source/settings.d.ts' ])
+        ] ]);
+        const result = await resolveDependenciesForAllRoots(
+            { dependencyScanner: scanner, fileManager: alwaysUnreadable() },
+            optionsForRoots({ types: { declarationFile: '/source/index.d.ts' } }),
+            []
+        );
+        assert.deepStrictEqual(calls, [ { entries: [ '/source/index.d.ts' ], resolveDeclarationFiles: true } ]);
+        assert.deepStrictEqual(
+            result.localFiles.map(function (file) {
+                return file.filePath;
+            }),
+            [ '/source/index.d.ts', '/source/settings.d.ts' ]
+        );
+    });
+
     test('resolveDependenciesForAllRoots scans every root js entry once', async function () {
         const { scanner, calls } = trackingScanner();
         await resolveDependenciesForAllRoots(

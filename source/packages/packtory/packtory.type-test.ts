@@ -366,9 +366,16 @@ describe('PacktoryConfiguration - exposed structure', function () {
         expect<PackageConfiguration['roots']>().type.toBe<Readonly<Record<string, Root>>>();
     });
 
-    test('Root requires a js path and allows an optional declarationFile', function () {
-        expect<Root['javaScript']>().type.toBe<string>();
+    test('Root supports JavaScript, JSON, and declaration-only entry points', function () {
+        expect<Root['javaScript']>().type.toBe<string | undefined>();
         expect<Root['declarationFile']>().type.toBe<string | undefined>();
+        expect<Root['json']>().type.toBe<string | undefined>();
+        expect<Root>().type.toBeAssignableFrom<{ readonly javaScript: string; readonly declarationFile: string; }>();
+        expect<Root>().type.toBeAssignableFrom<{ readonly json: string; }>();
+        expect<Root>().type.toBeAssignableFrom<{ readonly declarationFile: string; }>();
+        expect<Root>().type.not.toBeAssignableFrom<Record<string, never>>();
+        expect<Root>().type.not.toBeAssignableFrom<{ readonly javaScript: string; readonly json: string; }>();
+        expect<Root>().type.not.toBeAssignableFrom<{ readonly declarationFile: string; readonly json: string; }>();
     });
 
     test('checks.noDuplicatedFiles is toggled at the top level via `enabled`', function () {

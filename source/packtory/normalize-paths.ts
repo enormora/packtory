@@ -11,17 +11,17 @@ function ensureAbsolutePath(filePath: string, folder: string): string {
 }
 
 export function normalizeRoot(root: Root, sourceFolder: string): Root {
-    const { javaScript, declarationFile } = root;
-
-    if (declarationFile !== undefined) {
-        return {
-            javaScript: ensureAbsolutePath(javaScript, sourceFolder),
-            declarationFile: ensureAbsolutePath(declarationFile, sourceFolder)
-        };
+    if (root.json !== undefined) {
+        return { json: ensureAbsolutePath(root.json, sourceFolder) };
     }
-
+    if (root.javaScript === undefined) {
+        return { declarationFile: ensureAbsolutePath(root.declarationFile, sourceFolder) };
+    }
     return {
-        javaScript: ensureAbsolutePath(javaScript, sourceFolder)
+        javaScript: ensureAbsolutePath(root.javaScript, sourceFolder),
+        ...root.declarationFile === undefined ? {} : {
+            declarationFile: ensureAbsolutePath(root.declarationFile, sourceFolder)
+        }
     };
 }
 

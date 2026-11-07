@@ -28,6 +28,13 @@ const commandLineInterfaceRoot: RootFileDescription = {
 };
 
 suite('representative-root', function () {
+    test('file-only packages have no representative code root', function () {
+        assert.strictEqual(
+            resolveRepresentativeRoot({ name: 'configs', roots: {}, surface: { mode: 'files' } }),
+            undefined
+        );
+    });
+
     test('resolveRepresentativeRoot returns the implicit defaultModuleRoot for an implicit surface', function () {
         assert.deepStrictEqual(
             resolveRepresentativeRoot({

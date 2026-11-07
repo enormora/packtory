@@ -101,16 +101,21 @@ function registerValidationTests(): void {
         assert.deepStrictEqual(result.roots, { main: { javaScript: 'the-source/the-entry-file' } });
     });
 
-    test('throws when a package has no roots after config lookup', function () {
-        runMapConfigurationExpectingError(
-            {
-                name: 'foo',
-                sourcesFolder: 'the-source',
-                roots: {},
-                mainPackageManifest: { type: 'module' }
-            } as unknown as PackageConfiguration,
-            'Package "foo" must define at least one root'
-        );
+    test('maps a file-only package without inventing a module root', function () {
+        const result = runMapConfiguration({
+            name: 'foo',
+            sourcesFolder: 'the-source',
+            roots: {},
+            mainPackageManifest: { type: 'module' },
+            additionalFiles: [ { inputFilePath: 'tsconfig.json', targetFilePath: 'tsconfig.json' } ]
+        });
+        assert.partialDeepStrictEqual(result, {
+            roots: {},
+            surface: { mode: 'files' },
+            additionalFiles: [
+                { inputFilePath: 'the-source/tsconfig.json', targetFilePath: 'tsconfig.json' }
+            ]
+        });
     });
 }
 

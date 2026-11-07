@@ -1,8 +1,7 @@
-import { mapValues } from 'remeda';
 import type { Result } from 'true-myth';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import type { ValidConfigurationWithoutRegistryResult } from '../../configuration/validation.ts';
-import { resolveRootsAndSurface } from '../../resource-resolver/resource-resolve-options.ts';
+import { reportResolvedInputs } from '../../report/resolution-reporting.ts';
 import { withFailureCapture } from '../../report/decorators.ts';
 import { configurationToResolveAndLinkOptions, type ResolveAndLinkOptions } from '../map-configuration.ts';
 import type { PackageProcessor } from '../package-processor.ts';
@@ -34,24 +33,6 @@ function createResolveOptions(
         configuration.packtoryConfiguration,
         existing
     );
-}
-
-function emitInputsResolved(
-    dependencies: Pick<PackageResolutionDependencies, 'progressBroadcaster'>,
-    options: ResolveAndLinkOptions
-): void {
-    if (!dependencies.progressBroadcaster.provider.hasSubscribers('inputsResolved')) {
-        return;
-    }
-    const normalizedInputs = resolveRootsAndSurface(options);
-    dependencies.progressBroadcaster.provider.emit('inputsResolved', {
-        packageName: options.name,
-        roots: mapValues(normalizedInputs.roots, function (root) {
-            return root.javaScript;
-        }),
-        sourceFileCount: 0,
-        siblingVersions: {}
-    });
 }
 
 function collectPromotedSourcePathsByPackageName(
@@ -95,7 +76,7 @@ async function resolvePackagesWithPromotions(
         configuration,
         createOptions(context) {
             const options = createResolveOptions(context.packageName, context.existing, context.configuration);
-            emitInputsResolved(dependencies, options);
+            reportResolvedInputs(dependencies.progressBroadcaster.provider, options);
             return options;
         },
         execute: withFailureCapture(

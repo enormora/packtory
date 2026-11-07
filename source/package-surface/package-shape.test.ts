@@ -7,6 +7,29 @@ const baseRoot: RootFileDescription = {
 };
 
 suite('package-shape', function () {
+    test('buildExportEntry emits direct JSON exports and type-only declaration exports', function () {
+        assert.strictEqual(
+            buildExportEntry({
+                json: {
+                    inputFilePath: '/source/config.json',
+                    targetFilePath: 'config.json',
+                    content: '{}',
+                    isExecutable: false
+                }
+            }),
+            './config.json'
+        );
+        assert.deepStrictEqual(
+            buildExportEntry({
+                declarationFile: {
+                    inputFilePath: '/source/index.d.ts',
+                    targetFilePath: 'index.d.ts'
+                }
+            }),
+            { types: './index.d.ts' }
+        );
+    });
+
     test('toImportTarget prepends "./" to relative target file paths', function () {
         assert.strictEqual(toImportTarget('index.js'), './index.js');
         assert.strictEqual(toImportTarget('nested/lib.js'), './nested/lib.js');

@@ -1,4 +1,5 @@
 import type { Project } from 'ts-morph';
+import type { PackageRoot } from '../common/package-root.ts';
 import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { PackageSurface } from '../package-surface/surface.ts';
@@ -59,10 +60,7 @@ export type ResolvedContent = BundleResource & {
     readonly project?: Project | undefined;
 };
 
-export type RootFileDescription = {
-    readonly javaScript: TransferableFileDescription;
-    readonly declarationFile?: TransferableFileDescription | undefined;
-};
+export type RootFileDescription = PackageRoot<TransferableFileDescription>;
 
 export type ResolvedBundle = {
     readonly contents: readonly ResolvedContent[];
@@ -73,8 +71,8 @@ export type ResolvedBundle = {
     readonly externalDependencies: ExternalDependencies;
 };
 
-export function rootHasDeclarationFile(
-    root: RootFileDescription
-): root is RootFileDescription & { readonly declarationFile: TransferableFileDescription; } {
+export function rootHasDeclarationFile<TFile>(
+    root: PackageRoot<TFile>
+): root is PackageRoot<TFile> & { readonly declarationFile: TFile; } {
     return root.declarationFile !== undefined;
 }

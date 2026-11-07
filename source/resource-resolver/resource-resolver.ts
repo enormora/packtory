@@ -10,7 +10,7 @@ import { declarationCompanionCandidates } from '../common/declaration-companion-
 import { combineAllBundleFiles } from './content.ts';
 import { buildResolvedRoots } from './bundle-resource-lookup.ts';
 import { resolveDependenciesForAllRoots } from './dependency-resolution-walker.ts';
-import type { ResolvedBundle, ResolvedContent } from './resolved-bundle.ts';
+import { rootHasDeclarationFile, type ResolvedBundle, type ResolvedContent } from './resolved-bundle.ts';
 import { resolveRootsAndSurface, type ResourceResolveOptions } from './resource-resolve-options.ts';
 
 export type ResourceResolverDependencies = {
@@ -44,9 +44,7 @@ function serializeVirtualManifest(mainPackageManifest: ResourceResolveOptions['m
 
 function hasDeclarationRoots(options: ResourceResolveOptions): boolean {
     const normalized = resolveRootsAndSurface(options);
-    return Object.values(normalized.roots).some(function (root) {
-        return root.declarationFile !== undefined;
-    });
+    return Object.values(normalized.roots).some(rootHasDeclarationFile);
 }
 
 async function findReadableDeclarationCompanion(

@@ -68,10 +68,26 @@ function createDeclarationScanTracker(): DeclarationScanTracker {
     };
 }
 
-async function resolveJavaScriptDependencies(
+async function resolveRuntimeDependencies(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
+    if (root.json !== undefined) {
+        if (!root.json.endsWith('.json')) {
+            throw new Error('JSON roots must use the .json extension');
+        }
+        return {
+            externalDependencies: new Map(),
+            localFiles: [ {
+                filePath: root.json,
+                directDependencies: new Set(),
+                moduleReferences: []
+            } ]
+        };
+    }
+    if (root.javaScript === undefined) {
+        return emptyDependencyFiles();
+    }
     const { dependencies, options } = context;
     const { sourcesFolder, includeSourceMapFiles, mainPackageManifest } = options;
     const javaScriptDependencyGraph = await dependencies.dependencyScanner.scan(root.javaScript, sourcesFolder, {
@@ -102,7 +118,7 @@ async function resolveDependenciesForRoot(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
-    const javaScriptDependencies = await resolveJavaScriptDependencies(context, root);
+    const javaScriptDependencies = await resolveRuntimeDependencies(context, root);
     const declarationDependencies = await resolveRootDeclarationDependencies(context, root);
     return mergeDependencyFiles(javaScriptDependencies, declarationDependencies);
 }

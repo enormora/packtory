@@ -153,13 +153,16 @@ function validateDuplicateRootJavaScriptTargets(packageConfiguration: PackageCon
     const issues: string[] = [];
     const javaScriptPaths = new Map<string, string>();
 
-    for (const [ rootIdentifier, root ] of Object.entries(packageConfiguration.roots)) {
-        const previous = javaScriptPaths.get(root.javaScript);
+    const javaScriptRoots = Object.entries(packageConfiguration.roots).flatMap(function ([ identifier, root ]) {
+        return root.javaScript === undefined ? [] : [ [ identifier, root.javaScript ] as const ];
+    });
+    for (const [ rootIdentifier, javaScript ] of javaScriptRoots) {
+        const previous = javaScriptPaths.get(javaScript);
         if (previous === undefined) {
-            javaScriptPaths.set(root.javaScript, rootIdentifier);
+            javaScriptPaths.set(javaScript, rootIdentifier);
         } else {
             issues.push(
-                `Package "${packageName}" maps both root "${previous}" and "${rootIdentifier}" to "${root.javaScript}"`
+                `Package "${packageName}" maps both root "${previous}" and "${rootIdentifier}" to "${javaScript}"`
             );
         }
     }

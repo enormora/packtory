@@ -32,6 +32,23 @@ function assertImplicitDuplicateMappings(index: PublicModuleIndex): void {
 }
 
 suite('package-surface-index', function () {
+    test('file-only packages have no representative root and index their file subpaths', function () {
+        const bundle = {
+            name: 'configs',
+            roots: {},
+            surface: { mode: 'files' } as const,
+            contents: [ content('/source/base.json', 'presets/base.json') ]
+        };
+        assert.deepStrictEqual(summarizePackageSurface(bundle), {
+            publicRootIdentifiers: new Set(),
+            representativeRootIdentifier: undefined
+        });
+        assert.deepStrictEqual(indexPublicModules(bundle), {
+            inputFilePathBySpecifier: new Map([ [ 'configs/presets/base.json', '/source/base.json' ] ]),
+            specifierByInputFilePath: new Map([ [ '/source/base.json', 'configs/presets/base.json' ] ])
+        });
+    });
+
     suite('summary', function () {
         test('summarizePackageSurface returns every implicit root and the default representative root', function () {
             const summary = summarizePackageSurface({

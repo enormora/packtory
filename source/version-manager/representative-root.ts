@@ -4,8 +4,11 @@ import type { RootFileDescription } from '../resource-resolver/resolved-bundle.t
 
 type RepresentativeRootBundle = Pick<AnalyzedBundle, 'name' | 'roots' | 'surface'>;
 
-export function resolveRepresentativeRoot(bundle: RepresentativeRootBundle): RootFileDescription {
+export function resolveRepresentativeRoot(bundle: RepresentativeRootBundle): RootFileDescription | undefined {
     const { representativeRootIdentifier } = summarizePackageSurface(bundle);
+    if (representativeRootIdentifier === undefined) {
+        return undefined;
+    }
     const root = bundle.roots[representativeRootIdentifier];
     if (root === undefined) {
         throw new Error(`Package "${bundle.name}" references unknown root "${representativeRootIdentifier}"`);
