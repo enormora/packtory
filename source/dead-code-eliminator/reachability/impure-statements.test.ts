@@ -27,7 +27,7 @@ suite('impure-statements', function () {
             withFiles: [ {
                 filePath: '/source.ts',
                 content: [
-                    'import "./effect.js";',
+                    'import "./effect.css";',
                     'const before = 1;',
                     'console.log("first");',
                     'const between = 2;',
@@ -48,7 +48,7 @@ suite('impure-statements', function () {
 
     test('collectImpureStatements excludes import declarations even when classified as side-effecting', function () {
         const project = createProject({
-            withFiles: [ { filePath: '/source.ts', content: 'import "./side-effect.ts";\nconsole.log("hi");' } ]
+            withFiles: [ { filePath: '/source.ts', content: 'import "./side-effect.css";\nconsole.log("hi");' } ]
         });
         const sourceFile = project.getSourceFileOrThrow('/source.ts');
 
