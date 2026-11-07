@@ -7,11 +7,11 @@ export function collectImpureStatements(
     deadCodeElimination: DeadCodeEliminationSettings | undefined,
     classifySideEffects: SideEffectClassifier
 ): readonly Statement[] {
-    const impureLines = new Set<number>();
-    for (const statement of classifySideEffects(sourceFile, deadCodeElimination)) {
-        impureLines.add(statement.line);
-    }
-    return sourceFile.getStatements().filter(function (statement) {
-        return impureLines.has(statement.getStartLineNumber()) && !TypeScriptMorphNode.isImportDeclaration(statement);
-    });
+    return classifySideEffects(sourceFile, deadCodeElimination)
+        .map(function (effect) {
+            return effect.statement;
+        })
+        .filter(function (statement) {
+            return !TypeScriptMorphNode.isImportDeclaration(statement);
+        });
 }
