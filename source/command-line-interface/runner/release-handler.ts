@@ -1,7 +1,7 @@
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { printPublishFailure } from './failure-printing.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
-import { collectGitHubReleaseNotes, missingGitHubReleaseNotes } from './github-release-notes.ts';
+import { collectGitHubReleaseNotes } from './github-release-notes.ts';
 import { parseGitHubRepositoryParts } from './github-repository.ts';
 import {
     generateRequiredChangelog,
@@ -262,17 +262,17 @@ async function createGitHubReleases(
     targets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
     const changelog = await generateRequiredChangelog(dependencies, planned.configuration, planned.packages);
-    const releaseNotesByPackageName = await collectGitHubReleaseNotes(
+    const releases = await collectGitHubReleaseNotes(
         dependencies,
         changelog.configuration,
         targets,
         changelog.changelog
     );
-    for (const target of targets) {
+    for (const { target, body } of releases) {
         await client.createReleaseIfMissing({
             tagName: target.tagName,
             name: target.tagName,
-            body: releaseNotesByPackageName.get(target.name) ?? missingGitHubReleaseNotes(target)
+            body
         });
     }
 }

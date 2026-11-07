@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
-import type { RuntimeExportTarget } from '../../packtory/published-artifact-smoke-gate.ts';
+import type { RuntimeExportTarget } from '../../packtory/published-artifact-smoke-probe.ts';
 
 type PackageTypeSurfaceInput = {
     readonly exports: unknown;

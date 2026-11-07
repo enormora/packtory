@@ -1,4 +1,4 @@
-import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-package-types.ts';
+import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-package.ts';
 import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
 import { escapeHypertextMarkupLanguage } from './hypertext-markup-language-escaping.ts';
 

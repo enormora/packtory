@@ -20,8 +20,11 @@ type CrossBundleSeedReasons = readonly [
 ];
 export type CrossBundleSeedReason = CrossBundleSeedReasons[number];
 
-type PruneKinds = readonly ['paired-map-of-pruned-resource', 'unreachable-resource'];
-export type PruneKind = PruneKinds[number];
+export const pruneKinds = {
+    pairedMapOfPrunedResource: 'paired-map-of-pruned-resource',
+    unreachableResource: 'unreachable-resource'
+} as const;
+export type PruneKind = (typeof pruneKinds)[keyof typeof pruneKinds];
 
 type BindingRemovedTraceEvent = {
     readonly type: 'binding-removed';

@@ -7,6 +7,7 @@ export type IndexedBundle = {
 };
 
 export type ResolvedTarget = {
+    readonly moduleSpecifier: string;
     readonly bundleName: string;
     readonly targetFilePath: string;
     readonly indexedBundle: IndexedBundle;

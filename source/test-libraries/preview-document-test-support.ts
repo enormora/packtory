@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { Result } from 'true-myth';
-import type { PreviewPackage } from '../report/preview/preview-package-types.ts';
+import type { PreviewPackage } from '../report/preview/preview-package.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';

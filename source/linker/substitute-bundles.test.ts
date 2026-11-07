@@ -519,4 +519,18 @@ suite('substitute-bundles', function () {
             directDependencies: new Set()
         });
     });
+
+    test('collects type import requirements for declarations outside the runtime graph', function () {
+        const content = 'import type { Options } from "./options.js"; export const value = 1;';
+        const project = createProject({
+            withFiles: [
+                { filePath: '/entry.js', content },
+                { filePath: '/options.d.ts', content: 'export interface Options { value: string; }' }
+            ]
+        });
+        const inputGraph = buildInputGraph([ { source: '/entry.js', content, project } ]);
+        const result = substituteDependencies(inputGraph, [], []).flatten([ '/entry.js' ]);
+        assert.strictEqual(result.contents[0]?.fileDescription.content, content);
+        assert.deepStrictEqual(result.contents[0].directDependencies, new Set());
+    });
 });

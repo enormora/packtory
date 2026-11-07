@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { collectReleaseOutputFiles } from './release-output-files.ts';
+import { collectReleaseOutputFiles, toPreparedReleaseFile } from './release-output-files.ts';
 
 suite('release-output-files', function () {
     test('returns no files when changelog outputs are not configured', function () {
@@ -53,6 +53,16 @@ suite('release-output-files', function () {
                 }
             }),
             [ 'source/package-a/CHANGELOG.md', 'source/package-b/CHANGELOG.md' ]
+        );
+    });
+
+    test('prepares release files relative to a directory with a trailing separator', function () {
+        assert.deepStrictEqual(
+            toPreparedReleaseFile('/repo/', { filePath: '/repo/CHANGELOG.md', content: 'release' }),
+            {
+                path: 'CHANGELOG.md',
+                contentBase64: Buffer.from('release').toString('base64')
+            }
         );
     });
 });

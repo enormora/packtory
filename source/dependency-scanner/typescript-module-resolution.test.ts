@@ -488,4 +488,24 @@ suite('typescript module resolution', function () {
             '/project/builder.js'
         );
     });
+
+    test('does not resolve invalid runtime export condition arrays', function () {
+        assert.strictEqual(
+            resolvedRuntimePath('schema-lib/mini', [ {
+                filePath: '/project/node_modules/schema-lib/package.json',
+                content: '{"type":"module","exports":{"./mini":[null,{}]}}'
+            } ]),
+            undefined
+        );
+    });
+
+    test('does not apply root string exports to subpaths', function () {
+        assert.strictEqual(
+            resolvedRuntimePath('schema-lib/mini', [ {
+                filePath: '/project/node_modules/schema-lib/package.json',
+                content: '{"type":"module","exports":"./index.js"}'
+            } ]),
+            undefined
+        );
+    });
 });

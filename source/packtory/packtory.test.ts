@@ -69,7 +69,8 @@ suite('packtory', function () {
                             bundleDependencies: [ 'dependency' ]
                         }
                     ]
-                })
+                }),
+                { collectReport: true }
             );
 
             const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');

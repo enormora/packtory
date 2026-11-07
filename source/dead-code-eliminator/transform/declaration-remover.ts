@@ -1,7 +1,6 @@
 import type { SourceFile } from 'ts-morph';
 import { buildTextTransformMap, type PositionAtom } from '../../source-transformation/text-edits.ts';
-import { processStatement, repairImportDeclarations } from './declaration-removal.ts';
-import type { RemovalPlan } from './declaration-removal-plan.ts';
+import { processStatement, repairImportDeclarations, type RemovalPlan } from './declaration-removal.ts';
 
 export type RemovalResult = {
     readonly mutated: boolean;

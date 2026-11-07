@@ -1,4 +1,4 @@
-import type { PreviewPackage } from '../preview/preview-package-types.ts';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import { renderWorkspaceComparison } from './workspace-package-renderer.ts';
 import { renderPackageDiffs } from './diff-renderer.ts';
 import { renderDiagnostics, renderFailureBanner } from './diagnostics-renderer.ts';

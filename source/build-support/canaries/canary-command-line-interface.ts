@@ -1,3 +1,4 @@
+import { errorMessage } from '../../common/error-message.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { CanaryRunResult } from './canary-runner.ts';
 import { formatCanarySummary, warningAnnotationMessages } from './canary-summary.ts';
@@ -68,7 +69,7 @@ export async function runCanaryCommandLineInterface(
         await reportCanary(argumentValues, dependencies);
         return 0;
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         dependencies.standardOutputWrite(`::warning::${escapeAnnotation(message)}\n`);
         dependencies.standardErrorWrite(`${message}\n`);
         return 1;

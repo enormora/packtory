@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-package-types.ts';
+import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-package.ts';
 import { renderPackageDiffs } from './diff-renderer.ts';
 
 function changedArtifact(path: string, overrides: Partial<ChangedPreviewArtifact> = {}): ChangedPreviewArtifact {

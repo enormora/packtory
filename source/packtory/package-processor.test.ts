@@ -14,7 +14,7 @@ import {
     getCallArguments
 } from '../test-libraries/package-processor-test-support.ts';
 import type { PackageProcessor } from './package-processor.ts';
-import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
+import type { DetermineVersionAndPublishOptions } from './package-publication.ts';
 
 type TransformationInput = {
     readonly transformationsEnabled: boolean;

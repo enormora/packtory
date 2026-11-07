@@ -119,4 +119,22 @@ suite('registry transport', function () {
         assert.deepStrictEqual(await transport.javaScriptObjectNotation('/at-limit', {}), {});
         await assert.rejects(transport.javaScriptObjectNotation('/over-limit', {}), /Registry metadata exceeds/u);
     });
+
+    test('aborts and clears the deadline when opening a request throws synchronously', async function () {
+        const clock = createFakeClock();
+        const signals: AbortSignal[] = [];
+        await assert.rejects(
+            withRegistryTransport({ clock, resolveProxy }, {}, function (options) {
+                assert.ok(options.signal instanceof AbortSignal);
+                signals.push(options.signal);
+                throw new Error('opening failed');
+            }),
+            /opening failed/u
+        );
+        assert.strictEqual(signals[0]?.aborted, true);
+        clock.tick(300_000);
+        const reason: unknown = signals[0].reason;
+        assert.ok(reason instanceof Error);
+        assert.strictEqual(reason.message, 'opening failed');
+    });
 });

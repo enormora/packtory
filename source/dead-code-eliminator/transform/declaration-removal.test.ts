@@ -2,8 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { firstStatement, withSource } from '../../test-libraries/transform-test-support.ts';
-import { processStatement } from './declaration-removal.ts';
-import type { RemovalPlan } from './declaration-removal-plan.ts';
+import { processStatement, type RemovalPlan } from './declaration-removal.ts';
 
 function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
     return {

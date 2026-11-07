@@ -1,12 +1,13 @@
 import path from 'node:path';
-import { execFile as executeFile } from 'node:child_process';
+import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
+import { errorMessage } from '../../common/error-message.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
 import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';
 import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
 import {
     inspectPackageApplicationProgrammingInterfaces,
-    runNodeImportProbe
+    createNodeImportProbe
 } from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
@@ -19,7 +20,7 @@ type TemporaryFolderCreator = (prefix: string) => Promise<string>;
 type FolderRemover = (folderPath: string) => Promise<void>;
 type ShellCommandFailure = {
     readonly command: string;
-    readonly error: Error;
+    readonly error: ExecuteFileException;
     readonly standardError: string;
     readonly standardOutput: string;
     readonly timeoutMilliseconds: number;
@@ -61,11 +62,9 @@ type PacktoryRunResult = {
     readonly resolvedReference: string;
 };
 
+const importProbeTimeoutMilliseconds = 10_000;
 const packOutputFolderName = 'packtory-canary-packages';
 const millisecondsPerSecond = 1000;
-const secondsPerMinute = 60;
-const shellCommandTimeoutMinutes = 15;
-const shellCommandTimeoutMilliseconds = shellCommandTimeoutMinutes * secondsPerMinute * millisecondsPerSecond;
 
 function shellScript(content: string): string {
     return `#!/usr/bin/env sh\n${content}\n`;
@@ -73,10 +72,6 @@ function shellScript(content: string): string {
 
 function shellQuote(value: string): string {
     return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }
 
 function packtoryExecutablePath(cloneFolder: string): string {
@@ -201,7 +196,7 @@ async function packGeneratedPackages(
     );
 }
 
-async function runPacktoryInClone(
+async function inspectCanaryClone(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
     clone: PreparedClone
@@ -219,7 +214,7 @@ async function runPacktoryInClone(
                 fileManager: dependencies.fileManager,
                 nodeModulesFolder: clone.nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
-                runImportProbe: runNodeImportProbe
+                runImportProbe: createNodeImportProbe(importProbeTimeoutMilliseconds)
             }),
             resolvedReference: clone.resolvedReference
         };
@@ -229,12 +224,22 @@ async function runPacktoryInClone(
             failed: true,
             resolvedReference: clone.resolvedReference
         };
+    }
+}
+
+async function runPacktoryInClone(
+    dependencies: CanaryRunnerDependencies,
+    canary: Canary,
+    clone: PreparedClone
+): Promise<PacktoryRunResult> {
+    try {
+        return await inspectCanaryClone(dependencies, canary, clone);
     } finally {
         await dependencies.removeFolder(clone.cloneFolder);
     }
 }
 
-function failureIssues(
+function compareRuns(
     baseline: PacktoryRunResult,
     candidate: PacktoryRunResult,
     publishCommand: string
@@ -270,21 +275,6 @@ function failureIssues(
                 .join('\n')
         } ];
     }
-    return [];
-}
-
-function compareRuns(
-    baseline: PacktoryRunResult,
-    candidate: PacktoryRunResult,
-    publishCommand: string
-): readonly CanaryIssue[] {
-    const failures = failureIssues(baseline, candidate, publishCommand);
-    if (failures.length > 0) {
-        return failures;
-    }
-    if (baseline.failed || candidate.failed) {
-        return failures;
-    }
     return compareCanaryApplicationProgrammingInterfaces(baseline.inspection, candidate.inspection).issues;
 }
 
@@ -312,13 +302,9 @@ export async function runSelectedCanary(
     return await runCanary(selectCanary(manifest, name), dependencies);
 }
 
-function shellCommandErrorProperty(error: Error, property: string): unknown {
-    return Object.getOwnPropertyDescriptor(error, property)?.value;
-}
-
 function shellCommandErrorMessage(input: ShellCommandFailure): string {
-    const signal = shellCommandErrorProperty(input.error, 'signal');
-    const killed = shellCommandErrorProperty(input.error, 'killed');
+    const { signal } = input.error;
+    const { killed } = input.error;
     const timeout = input.timeoutMilliseconds < millisecondsPerSecond
         ? `${input.timeoutMilliseconds} ms`
         : `${Math.round(input.timeoutMilliseconds / millisecondsPerSecond)} seconds`;
@@ -362,9 +348,8 @@ async function runShellCommandWithTimeout(
     });
 }
 
-export async function runShellCommand(
-    command: string,
-    cwd: string
-): Promise<CommandResult> {
-    return await runShellCommandWithTimeout(command, cwd, shellCommandTimeoutMilliseconds);
+export function createShellCommandRunner(timeoutMilliseconds: number): CommandRunner {
+    return async function (command, cwd) {
+        return runShellCommandWithTimeout(command, cwd, timeoutMilliseconds);
+    };
 }

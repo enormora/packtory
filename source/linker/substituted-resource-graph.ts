@@ -28,7 +28,7 @@ type FlattenCollectors = {
         filePath: string,
         data: SubstitutedResourceGraphNodeData,
         directDependencies: ReadonlySet<string>,
-        targetFilePathByInputFilePath: ReadonlyMap<string, string>
+        targetFilePathFor: (inputFilePath: string) => string
     ) => void;
     readonly contents: readonly LinkedBundleResource[];
     readonly linkedBundleDependencies: ReadonlyMap<string, ExternalDependency>;
@@ -89,12 +89,10 @@ function collectExternalDependencies(
 
 function directDependencyTargetPaths(
     directDependencies: ReadonlySet<string>,
-    targetFilePathByInputFilePath: ReadonlyMap<string, string>
+    targetFilePathFor: (inputFilePath: string) => string
 ): ReadonlySet<string> {
     return new Set(
-        Array.from(directDependencies, function (inputFilePath) {
-            return targetFilePathByInputFilePath.get(inputFilePath) ?? inputFilePath;
-        })
+        Array.from(directDependencies, targetFilePathFor)
     );
 }
 
@@ -120,7 +118,7 @@ function createFlattenCollectors(): FlattenCollectors {
         filePath: string,
         data: SubstitutedResourceGraphNodeData,
         directDependencies: ReadonlySet<string>,
-        targetFilePathByInputFilePath: ReadonlyMap<string, string>
+        targetFilePathFor: (inputFilePath: string) => string
     ): void {
         if (visited.has(filePath)) {
             return;
@@ -129,7 +127,7 @@ function createFlattenCollectors(): FlattenCollectors {
         visited.add(filePath);
         contents.push({
             fileDescription: data.fileDescription,
-            directDependencies: directDependencyTargetPaths(directDependencies, targetFilePathByInputFilePath),
+            directDependencies: directDependencyTargetPaths(directDependencies, targetFilePathFor),
             moduleReferences: data.moduleReferences,
             isSubstituted: data.isSubstituted,
             isExplicitlyIncluded: data.isExplicitlyIncluded,
@@ -169,20 +167,13 @@ function createFlattenCollectors(): FlattenCollectors {
 
 export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
     const graph = createDirectedGraph<string, SubstitutedResourceGraphNodeData>();
-    const nodeDataByFilePath = new Map<string, SubstitutedResourceGraphNodeData>();
-
-    function targetFilePathByInputFilePath(): ReadonlyMap<string, string> {
-        return new Map(
-            Array.from(nodeDataByFilePath, function ([ filePath, data ]) {
-                return [ filePath, data.fileDescription.targetFilePath ];
-            })
-        );
+    function targetFilePathFor(inputFilePath: string): string {
+        return graph.getNodeData(inputFilePath).fileDescription.targetFilePath;
     }
 
     return {
         add(filePath, data) {
             graph.addNode(filePath, data);
-            nodeDataByFilePath.set(filePath, data);
         },
 
         isKnown: graph.hasNode,
@@ -200,21 +191,18 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 sourceMapTransformsByTargetPath,
                 externalDependencies
             } = createFlattenCollectors();
-            const targetPaths = targetFilePathByInputFilePath();
 
             for (const rootFilePath of rootFilePaths) {
                 graph.visitBreadthFirstSearch(rootFilePath, function (node) {
-                    collect(node.identifier, node.data, node.adjacentNodeIdentifiers, targetPaths);
+                    collect(node.identifier, node.data, node.adjacentNodeIdentifiers, targetFilePathFor);
                 });
             }
 
-            const includedNodes = Array.from(nodeDataByFilePath).filter(function ([ , data ]) {
-                return data.isExplicitlyIncluded;
+            graph.traverse(function (node) {
+                if (node.data.isExplicitlyIncluded) {
+                    collect(node.identifier, node.data, node.adjacentNodeIdentifiers, targetFilePathFor);
+                }
             });
-            for (const [ filePath, data ] of includedNodes) {
-                const directDependencies = graph.getAdjacentIdentifiers(filePath);
-                collect(filePath, data, directDependencies, targetPaths);
-            }
 
             return {
                 contents,

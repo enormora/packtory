@@ -1,4 +1,5 @@
 import ssri from 'ssri';
+import { errorMessage } from '../../common/error-message.ts';
 
 export type TarballIntegrity = {
     readonly integrity: string | undefined;
@@ -11,7 +12,7 @@ function assertIntegrityMetadataMatches(tarball: Buffer, integrity: string): voi
     try {
         ssri.checkData(tarball, integrity, { strict: true, error: true });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         throw new Error(`Downloaded tarball failed dist.integrity verification: ${message}`, { cause: error });
     }
 }
@@ -24,7 +25,7 @@ function assertShasumMetadataMatches(tarball: Buffer, shasum: string): void {
     try {
         ssri.checkData(tarball, ssri.fromHex(shasum, 'sha1'), { error: true });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         throw new Error(`Downloaded tarball failed dist.shasum verification: ${message}`, { cause: error });
     }
 }

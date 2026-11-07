@@ -1,7 +1,12 @@
 {
     "all": true,
-    "extension": [".ts", ".js"],
-    "src": ["source"],
+    "extension": [
+        ".ts",
+        ".js"
+    ],
+    "src": [
+        "source"
+    ],
     "exclude": [
         "source/**/*.test.ts",
         "source/**/*.property.ts",
@@ -13,11 +18,14 @@
         "target/**"
     ],
     "check-coverage": true,
-    "lines": 98,
-    "functions": 98,
-    "statements": 98,
-    "branches": 98,
-    "reporter": ["lcov", "text-summary"],
+    "lines": 100,
+    "functions": 100,
+    "statements": 100,
+    "branches": 100,
+    "reporter": [
+        "lcov",
+        "text-summary"
+    ],
     "report-dir": "./target/coverage",
     "temp-directory": "./target/c8_output"
 }

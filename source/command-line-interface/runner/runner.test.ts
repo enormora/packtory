@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import { rejectWithNonError } from '../../test-libraries/non-error-failures.ts';
 import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
 import { createPackageReleaseDiff, textModifiedFileFactory } from '../../test-libraries/release-diff-fixtures.ts';
 import {
@@ -348,5 +349,14 @@ suite('runner command routing', function () {
             assert.match(help, /Prints why package\.json sideEffects is false, listed, or omitted\./u);
             assert.match(help, /<package>/u);
         });
+    });
+
+    test('formats unexpected non-Error command rejections', async function () {
+        const buildAndPublishAll = fake(async function () {
+            return rejectWithNonError('unexpected rejection');
+        });
+        const result = await runWithBuildAndLog(buildAndPublishAll, [ 'foo', 'bar', 'publish', '--no-dry-run' ]);
+        assert.strictEqual(result.exitCode, 1);
+        assert.strictEqual(result.log.firstCall.args[0], 'unexpected rejection');
     });
 });

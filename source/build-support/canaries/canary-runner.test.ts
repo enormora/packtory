@@ -3,12 +3,15 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { suite, test } from 'mocha';
+import { rejectWithNonError } from '../../test-libraries/non-error-failures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
+    createShellCommandRunner,
     runSelectedCanary,
-    runShellCommand,
     type CanaryRunnerDependencies
 } from './canary-runner.ts';
+
+const runShellCommand = createShellCommandRunner(900_000);
 
 type CommandCall = {
     readonly command: string;
@@ -250,5 +253,48 @@ suite('canary-runner', function () {
             },
             { kind: 'warning', message: 'source run passed while the npm baseline failed' }
         ]);
+    });
+
+    test('reports command output when shell execution fails', async function () {
+        await withTemporaryShellPackage(async function (folderPath) {
+            await assert.rejects(
+                runShellCommand('printf out; printf err >&2; exit 7', folderPath),
+                /out\nerr\nCommand failed/u
+            );
+        });
+    });
+
+    for (const timeoutMilliseconds of [ 100, 1100 ]) {
+        test(`reports shell timeouts after ${timeoutMilliseconds} milliseconds`, async function () {
+            await withTemporaryShellPackage(async function (folderPath) {
+                const runCommand = createShellCommandRunner(timeoutMilliseconds);
+                const duration = timeoutMilliseconds < 1000 ? '100 ms' : '1 seconds';
+                await assert.rejects(runCommand('exec sleep 5', folderPath), {
+                    message: `Command timed out after ${duration}: exec sleep 5`
+                });
+            });
+        });
+    }
+
+    test('reports non-Error failures from downstream commands', async function () {
+        const dependencies = createRunnerDependencies('publish-dry-run', new Set());
+        const result = await runSelectedCanary('canaries.json', 'sample', {
+            ...dependencies,
+            async runCommand(command, cwd) {
+                if (command === 'publish-dry-run') {
+                    return rejectWithNonError('downstream failed');
+                }
+                return dependencies.runCommand(command, cwd);
+            }
+        });
+        assert.deepStrictEqual(
+            result.issues.map(function (issue) {
+                return issue.message;
+            }),
+            [
+                'npm baseline failed while running "publish-dry-run":\ndownstream failed',
+                'source run also failed while running "publish-dry-run":\ndownstream failed'
+            ]
+        );
     });
 });

@@ -179,6 +179,7 @@ suite('substitute-bundles module references', function () {
             getTopologicalGenerations: unexpectedGraphCall,
             reverse: unexpectedGraphCall,
             getAdjacentIdentifiers: unexpectedGraphCall,
+            getNodeData: unexpectedGraphCall,
             traverse(visitor) {
                 const node = {
                     identifier: '/entry.js',

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { PreviewPackage } from '../preview/preview-package-types.ts';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import { renderEliminatedFiles } from './eliminated-files-renderer.ts';
 
 function previewPackage(

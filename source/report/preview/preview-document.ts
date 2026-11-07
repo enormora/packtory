@@ -2,8 +2,8 @@ import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
 import type { ArtifactBadge, ArtifactStatus } from '../../progress/progress-broadcaster.ts';
 import type { BuildReport } from '../aggregator/report-types.ts';
-import type { PreviewPackage } from './preview-package-types.ts';
-import { buildPreviewPackage } from './preview-package.ts';
+import { type PreviewPackage, buildPreviewPackage } from './preview-package.ts';
+
 import { buildBundleArtifactIndex } from './bundle-artifact-index.ts';
 import {
     getIssues,

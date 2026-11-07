@@ -5,13 +5,13 @@ import {
     type SourceFile,
     type Statement
 } from 'ts-morph';
+import type { DeadCodeEliminationTrace } from '../trace.ts';
 import { isDeclarationCodeTargetPath } from '../liveness/runtime-code.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import {
     collectVariableDeclarationBindings,
     variableDeclarationSurvives
 } from '../variable-declaration-bindings.ts';
-import type { RemovalPlan } from './declaration-removal-plan.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
 function recordBindingRemoved(plan: RemovalPlan, name: string): void {
@@ -218,3 +218,11 @@ export function repairImportDeclarations(sourceFile: SourceFile, plan: RemovalPl
     preserveModuleStatus(sourceFile, wasModule);
     return sourceFile.getFullText() !== originalText;
 }
+
+export type RemovalPlan = {
+    readonly bundleName: string;
+    readonly inputFilePath: string;
+    readonly targetFilePath: string;
+    readonly survivingNames: ReadonlySet<string>;
+    readonly trace: DeadCodeEliminationTrace;
+};

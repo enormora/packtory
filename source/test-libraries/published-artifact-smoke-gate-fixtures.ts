@@ -1,14 +1,15 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { fake, type SinonSpy } from 'sinon';
+import type {
+    PublishedArtifactSmokeGateDependencies,
+    SmokeProbeInput
+} from '../packtory/published-artifact-smoke-probe.ts';
 import { collectArtifactContents } from '../artifacts/content-collection.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
-import type { FileDescription } from '../file-manager/file-description.ts';
 import {
     createPublishedArtifactSmokeGate,
-    type PublishedArtifactSmokeGate,
-    type PublishedArtifactSmokeGateDependencies,
-    type SmokeProbeInput
+    type PublishedArtifactSmokeGate
 } from '../packtory/published-artifact-smoke-gate.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createProject } from './typescript-project.ts';
@@ -36,13 +37,13 @@ type PackageManifestOverrides = {
 
 export const temporaryFolderPath = path.join('/repo', 'target', 'packtory-smoke');
 
-function collectContents(
-    sourcePackage: Parameters<PublishedArtifactSmokeGateDependencies['collectContents']>[0],
-    prefix: string | undefined,
-    extraFiles: readonly FileDescription[] = []
-): readonly FileDescription[] {
+const collectContents: PublishedArtifactSmokeGateDependencies['collectContents'] = function (
+    sourcePackage,
+    prefix,
+    extraFiles = []
+) {
     return collectArtifactContents(sourcePackage, prefix, extraFiles);
-}
+};
 
 export function createContext(
     overrides: Partial<PublishedArtifactSmokeGateDependencies> = {}

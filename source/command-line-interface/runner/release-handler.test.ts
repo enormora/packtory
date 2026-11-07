@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { rejectWithNonError } from '../../test-libraries/non-error-failures.ts';
 import type { ReleasePlanPackage } from '../../packtory/packtory.ts';
 import {
     assertAnnotatedTagCreated,
@@ -319,5 +320,21 @@ suite('release-handler', function () {
                 { owner: 'owner', repository: 'repo', token: 'github-token' }
             ]);
         });
+    });
+
+    test('formats non-Error failures during release actions', async function () {
+        const dependencies = createDependencies({
+            flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
+            packages: [ releasePackage({
+                changed: false,
+                currentGitHead: 'current-head',
+                latestRegistryMetadata: { gitHead: 'current-head', publishedAt: undefined, version: '1.0.1' }
+            }) ],
+            readPackageInformation: fake(async function () {
+                return rejectWithNonError('repository failed');
+            })
+        });
+        assert.strictEqual(await runReleaseHandler(dependencies), 1);
+        assert.strictEqual(dependencies.log.firstCall.args[0], 'repository failed');
     });
 });

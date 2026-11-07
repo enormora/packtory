@@ -7,6 +7,10 @@ import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
+import type {
+    PublishedArtifactSmokeGateDependencies,
+    SmokeProbeInput
+} from '../packtory/published-artifact-smoke-probe.ts';
 import { createWorkspaceInspector } from '../report/inspectors/inspect-workspace.ts';
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
@@ -31,9 +35,7 @@ import { createFileManager, type FileManager } from '../file-manager/file-manage
 import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 import {
-    createPublishedArtifactSmokeGate,
-    type PublishedArtifactSmokeGateDependencies,
-    type SmokeProbeInput
+    createPublishedArtifactSmokeGate
 } from '../packtory/published-artifact-smoke-gate.ts';
 import type { VersionSourceResolver } from '../packtory/map-configuration.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';

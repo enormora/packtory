@@ -10,7 +10,7 @@ import {
     type ReleasePlanRegistryMetadata
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
-import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-release-state.ts';
+import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './package-publication.ts';
 import {
     attributeSelectedChangelogSourceFiles,
     attributeChangelogSourceFiles,

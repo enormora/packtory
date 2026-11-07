@@ -16,7 +16,7 @@ export type ReleaseNotesTarget = {
     readonly version: string;
 };
 
-export function missingGitHubReleaseNotes(target: ReleaseNotesTarget): never {
+function missingGitHubReleaseNotes(target: ReleaseNotesTarget): never {
     throw new Error(`GitHub release notes for "${target.tagName}" could not be generated`);
 }
 
@@ -105,15 +105,14 @@ export async function collectGitHubReleaseNotes(
     configuration: ChangelogConfiguration,
     targets: readonly ReleaseNotesTarget[],
     changelog: GeneratedChangelog
-): Promise<ReadonlyMap<string, string>> {
-    const releaseNotesByPackageName = new Map(changelog.packageMarkdownByName);
+): Promise<readonly { readonly target: ReleaseNotesTarget; readonly body: string; }[]> {
+    const releases: { readonly target: ReleaseNotesTarget; readonly body: string; }[] = [];
     for (const target of targets) {
-        if (!hasReleaseNotes(releaseNotesByPackageName.get(target.name))) {
-            releaseNotesByPackageName.set(
-                target.name,
-                await recoverMissingReleaseNotes(dependencies, configuration, target)
-            );
-        }
+        const generated = changelog.packageMarkdownByName.get(target.name);
+        const body = hasReleaseNotes(generated)
+            ? generated
+            : await recoverMissingReleaseNotes(dependencies, configuration, target);
+        releases.push({ target, body });
     }
-    return releaseNotesByPackageName;
+    return releases;
 }

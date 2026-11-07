@@ -3,7 +3,7 @@ import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.t
 import type { ConfigurationWithGraph } from '../configuration/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { PackageConfiguration } from '../configuration/configuration.ts';
-import type { PublishedReleaseStatus } from './published-release-state.ts';
+import type { PublishedReleaseStatus } from './package-publication.ts';
 
 export type PartialError<TResult> = {
     readonly succeeded: readonly TResult[];

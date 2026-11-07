@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import {
     createPreviewPackageFixture,
     createPreviewDocumentFixture,
@@ -14,31 +15,37 @@ import { renderTerminalPreview } from './terminal-preview-renderer.ts';
 const visible = createArtifactEntryFixture({ path: 'visible.js', status: 'changed' });
 const hidden = createArtifactEntryFixture({ path: 'hidden.js', status: 'unchanged' });
 const manifest = createArtifactEntryFixture({ kind: 'manifest', status: 'generated' });
-const previewPackage = createPreviewPackageFixture({
-    tree: buildArtifactTree([ manifest, visible, hidden ]),
-    sourceTree: buildArtifactTree([ visible, hidden ]),
-    comparisonRows: [
-        { label: 'dep', before: '^1', after: '^2' },
-        { label: 'same', before: '^1', after: '^1' },
-        { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
-    ]
-});
+function workspacePackage(): PreviewPackage {
+    return createPreviewPackageFixture({
+        tree: buildArtifactTree([ manifest, visible, hidden ]),
+        sourceTree: buildArtifactTree([ visible, hidden ]),
+        comparisonRows: [
+            { label: 'dep', before: '^1', after: '^2' },
+            { label: 'same', before: '^1', after: '^1' },
+            { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
+        ]
+    });
+}
+
 const colors = createColors(false);
 
 suite('terminal workspace contract', function () {
     test('reports exact artifact counts and failure details', function () {
-        assert.strictEqual(renderPackageSummary(previewPackage), 'package-a: 1 transformed, 1 generated, 1 removed');
         assert.strictEqual(
-            renderPackageSummary({ ...previewPackage, failure: { stage: 'build', message: 'boom' } }),
+            renderPackageSummary(workspacePackage()),
+            'package-a: 1 transformed, 1 generated, 1 removed'
+        );
+        assert.strictEqual(
+            renderPackageSummary({ ...workspacePackage(), failure: { stage: 'build', message: 'boom' } }),
             'package-a: 1 transformed, 1 generated, 1 removed; failure build: boom'
         );
     });
 
     test('renders selected changes with source rows and comparison rows separated by newlines', function () {
         assert.strictEqual(
-            renderWorkspacePackage(previewPackage, false, colors),
+            renderWorkspacePackage(workspacePackage(), false, colors),
             [
-                renderPackage({ ...previewPackage, tree: buildArtifactTree([ manifest, visible ]) }, colors),
+                renderPackage({ ...workspacePackage(), tree: buildArtifactTree([ manifest, visible ]) }, colors),
                 '1 unchanged output files hidden',
                 'Workspace sources',
                 '  • visible.js (source, 20 B) [changed]',
@@ -53,9 +60,9 @@ suite('terminal workspace contract', function () {
 
     test('includes unchanged sources and comparisons when requested', function () {
         assert.strictEqual(
-            renderWorkspacePackage(previewPackage, true, colors),
+            renderWorkspacePackage(workspacePackage(), true, colors),
             [
-                renderPackage(previewPackage, colors),
+                renderPackage(workspacePackage(), colors),
                 '0 unchanged output files hidden',
                 'Workspace sources',
                 '  • hidden.js (source, 20 B) [unchanged]',
@@ -78,7 +85,7 @@ suite('terminal workspace contract', function () {
             2
         );
         const output = renderTerminalPreview(
-            createPreviewDocumentFixture({ selectedPackage: 'package-a', packages: [ previewPackage ] }),
+            createPreviewDocumentFixture({ selectedPackage: 'package-a', packages: [ workspacePackage() ] }),
             { color: false }
         );
         assert.ok(output.includes('Workspace sources'));

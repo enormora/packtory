@@ -1,4 +1,4 @@
-import type { PreviewPackage } from '../preview/preview-package-types.ts';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import { escapeHypertextMarkupLanguage } from './hypertext-markup-language-escaping.ts';
 import { formatBytes } from './hypertext-markup-language-primitives.ts';
 

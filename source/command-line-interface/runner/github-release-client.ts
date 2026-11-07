@@ -61,7 +61,7 @@ function readStringProperty(value: unknown, property: string): string | undefine
 
 function readCreatedTagHash(response: unknown): string {
     const data = readProperty(response, 'data');
-    const hash = readStringProperty(data ?? response, 'sha');
+    const hash = readStringProperty(data, 'sha');
     if (hash !== undefined) {
         return hash;
     }
