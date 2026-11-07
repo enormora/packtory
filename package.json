@@ -120,7 +120,7 @@
             "deepmerge-ts": "8.0.2"
         },
         "get-uri": {
-            "basic-ftp": "6.2.3"
+            "basic-ftp": "6.2.5"
         },
         "glob": "14.0.3",
         "micromark-extension-math": {
