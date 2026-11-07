@@ -25,7 +25,7 @@ export const deadCodeEliminationSemanticScenarios = {
     'throwing-coercion': `const object = { [{ toString() { ${throwingEffect} } }]: VALUE };`,
     'valid-heritage': 'class Unused extends (class {}) {}',
     'null-heritage': 'class Unused extends null {}',
-    'invalid-heritage': `class Unused extends VALUE { static { ${effect} } }`,
+    'invalid-heritage': `class Unused extends (VALUE) { static { ${effect} } }`,
     'nonconstructible-heritage': 'class Unused extends (() => VALUE) {}',
     'invalid-prototype': 'function Base() {} Base.prototype = 1; class Unused extends Base {}',
     'static-initialization': `class Unused { static { ${effect} } }`,

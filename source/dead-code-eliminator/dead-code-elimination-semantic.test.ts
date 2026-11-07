@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationEquivalent,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertAllOutputValid,
+    observeDeadCodeEliminationBehavior
 } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 import {
     deadCodeEliminationSemanticProgram,
@@ -12,6 +13,29 @@ import {
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 
 suite('dead code elimination semantic regressions', function () {
+    test('negative class heritage reaches a runtime TypeError', async function () {
+        const program = deadCodeEliminationSemanticProgram({
+            scenario: 'invalid-heritage',
+            value: -1,
+            declarations: false,
+            singleLine: false,
+            sourceSkew: false
+        });
+        const original = await observeDeadCodeEliminationBehavior({
+            name: program.name,
+            entry: program.entry,
+            bundles: [ program.bundle ]
+        });
+        assert.partialDeepStrictEqual(original, [ {
+            result: { observation: { error: { phase: 'evaluation', type: 'object', name: 'TypeError' } } }
+        } ]);
+        await assertDeadCodeEliminationEquivalent({
+            name: program.name,
+            entry: program.entry,
+            eliminationInputs: inputs(program.bundle)
+        });
+    });
+
     for (const scenario of Object.keys(deadCodeEliminationSemanticScenarios) as DeadCodeEliminationSemanticScenario[]) {
         for (const declarations of [ false, true ]) {
             for (const singleLine of [ false, true ]) {
