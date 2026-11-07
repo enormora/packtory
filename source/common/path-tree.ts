@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { isDefined } from 'remeda';
 import { packageManifestFilePath } from './package-layout.ts';
 
 export const pathTreeNodeType = {
@@ -59,7 +58,7 @@ type MutableDirectory<T> = {
 type PathEntry<T> = {
     readonly item: T;
     readonly path: string;
-    readonly parts: readonly [string, ...readonly string[]];
+    readonly parts: readonly string[];
 };
 
 type DirectoryChild<T> = {
@@ -80,23 +79,24 @@ function isDirectoryChild<T>(child: TreeChild<T>): child is DirectoryChild<T> {
 function toPathEntries<T>(items: readonly T[], getPath: (item: T) => string): readonly PathEntry<T>[] {
     return items.map(function (item) {
         const itemPath = getPath(item);
-        const parts = itemPath.split('/');
-        return { item, path: itemPath, parts: [ parts.slice(0, 1).join(''), ...parts.slice(1) ] };
+        return { item, path: itemPath, parts: itemPath.split('/') };
     });
 }
 
-function toNestedDirectoryEntry<T>(entry: PathEntry<T>): readonly [string, PathEntry<T>] | undefined {
-    const [ name, nextPart, ...remainingParts ] = entry.parts;
-    if (nextPart === undefined) {
-        return undefined;
+function toNestedDirectoryEntries<T>(entry: PathEntry<T>): readonly (readonly [string, PathEntry<T>])[] {
+    const [ , ...remainingParts ] = entry.parts;
+    if (remainingParts.length === 0) {
+        return [];
     }
-    return [ name, { ...entry, parts: [ nextPart, ...remainingParts ] } ];
+    return entry.parts.slice(0, 1).map(function (name): readonly [string, PathEntry<T>] {
+        return [ name, { ...entry, parts: remainingParts } ];
+    });
 }
 
 function toDirectoryGroups<T>(entries: readonly PathEntry<T>[]): readonly MutableDirectory<T>[] {
     const groups = new Map<string, PathEntry<T>[]>();
 
-    const nestedEntries = entries.map(toNestedDirectoryEntry).filter(isDefined);
+    const nestedEntries = entries.flatMap(toNestedDirectoryEntries);
     for (const [ name, groupedEntry ] of nestedEntries) {
         const groupedEntries = groups.get(name) ?? [];
         groupedEntries.push(groupedEntry);
