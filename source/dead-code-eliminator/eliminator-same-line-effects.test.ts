@@ -38,7 +38,8 @@ suite('eliminator same-line effects', function () {
 
     for (const [ format, content ] of Object.entries(variants)) {
         test(`removes unrelated declarations and preserves effects in ${format} source`, async function () {
-            const emitted = (await eliminateCodeModules(content, {})).get('index.js');
+            const modules = await eliminateCodeModules(content, {});
+            const emitted = modules.get('index.js');
             assertDefined(emitted);
 
             for (const name of [ 'before', 'between', 'after' ]) {

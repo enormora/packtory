@@ -33,7 +33,8 @@ suite('impure-statements', function () {
                     'const between = 2;',
                     'console.log("second");',
                     'const after = 3;'
-                ].join(' ')
+                ]
+                    .join(' ')
             } ]
         });
         const sourceFile = project.getSourceFileOrThrow('/source.ts');
