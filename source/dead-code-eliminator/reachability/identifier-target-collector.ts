@@ -4,6 +4,7 @@ import {
     type CallExpression,
     type ExportDeclaration,
     type Identifier,
+    type ImportClause,
     type ImportDeclaration,
     type ImportSpecifier,
     type ShorthandPropertyAssignment
@@ -92,8 +93,8 @@ function targetsByFileAndName(
     return filePath === undefined ? [] : identifiersByFileAndName.get(filePath)?.get(name) ?? [];
 }
 
-function relativeImportSpecifierTargets(
-    declaration: ImportSpecifier,
+function relativeImportBindingTargets(
+    declaration: ImportClause | ImportSpecifier,
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
     const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
@@ -104,18 +105,18 @@ function relativeImportSpecifierTargets(
     return targetsByFileAndName(
         declarationIndex.identifiersByTargetFileAndName,
         relativeImportTargetPath(importDeclaration, declarationIndex),
-        declaration.getName()
+        TypeScriptMorphNode.isImportClause(declaration) ? 'default' : declaration.getName()
     );
 }
 
-function importSpecifierTargets(
+function importBindingTargets(
     declaration: TypeScriptMorphNode,
     declarationIndex: DeclarationNodeIndex
 ): readonly string[] {
-    if (!TypeScriptMorphNode.isImportSpecifier(declaration)) {
+    if (!TypeScriptMorphNode.isImportSpecifier(declaration) && !TypeScriptMorphNode.isImportClause(declaration)) {
         return [];
     }
-    return relativeImportSpecifierTargets(declaration, declarationIndex);
+    return relativeImportBindingTargets(declaration, declarationIndex);
 }
 
 function declarationTargets(
@@ -126,7 +127,7 @@ function declarationTargets(
         return [
             ...declarationIndex.identifiersByNode.get(declaration) ?? [],
             ...declarationPathTargets(declaration, declarationIndex),
-            ...importSpecifierTargets(declaration, declarationIndex)
+            ...importBindingTargets(declaration, declarationIndex)
         ];
     });
 }
