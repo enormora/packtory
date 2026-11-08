@@ -1,6 +1,7 @@
 import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
 import { extract, type Header as TarEntryHeaders } from 'tar-stream';
+import { ensureError } from '../common/error-normalization.ts';
 
 export type TarEntry = {
     readonly header: TarEntryHeaders;
@@ -35,10 +36,6 @@ function defaultExtractTarLimits(): ExtractTarLimits {
         maximumEntryPathLength: 4096,
         maximumExtractedBytes: 1_073_741_824
     };
-}
-
-function toError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
 }
 
 type TarStreamChunk = {
@@ -123,7 +120,7 @@ async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>, limits: 
 async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
     return await new Promise<never>(function (_resolve, reject) {
         stream.once('error', function (error: unknown) {
-            reject(toError(error));
+            reject(ensureError(error));
         });
     });
 }
@@ -174,6 +171,6 @@ export async function extractTarEntries(
     try {
         return await raceExtractionOutcomes({ extractStream, gunzip, source, tarEntries }, limits);
     } catch (error: unknown) {
-        throw toError(error);
+        throw ensureError(error);
     }
 }

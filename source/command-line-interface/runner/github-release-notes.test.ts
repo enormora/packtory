@@ -55,7 +55,7 @@ suite('github-release-notes', function () {
                 generatedChangelog(new Map([ [ 'package-a', '## package-a 1.0.1\n\n* Generated' ] ]))
             );
 
-            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Generated');
+            assert.strictEqual(notes[0]?.body, '## package-a 1.0.1\n\n* Generated');
             assert.strictEqual(readFile.callCount, 0);
         });
     });
@@ -73,7 +73,7 @@ suite('github-release-notes', function () {
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(notes[0]?.body, '## package-a 1.0.1\n\n* Recovered');
             assert.strictEqual(readFile.firstCall.args[0], '/repo/packages/package-a/CHANGELOG.md');
         });
 
@@ -87,7 +87,7 @@ suite('github-release-notes', function () {
                 generatedChangelog(new Map([ [ 'package-a', ' '.repeat(3) ] ]))
             );
 
-            assert.strictEqual(notes.get('package-a'), '## 1.0.1 (2026-06-13)\n\n* Recovered');
+            assert.strictEqual(notes[0]?.body, '## 1.0.1 (2026-06-13)\n\n* Recovered');
         });
 
         test('recovers release notes from the matching explicit package changelog path', async function () {
@@ -100,7 +100,7 @@ suite('github-release-notes', function () {
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('package-a'), '## package-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(notes[0]?.body, '## package-a 1.0.1\n\n* Recovered');
             assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/package-a.md');
         });
 
@@ -114,7 +114,7 @@ suite('github-release-notes', function () {
                 generatedChangelog(new Map())
             );
 
-            assert.strictEqual(notes.get('package-b'), '## package-b 1.0.1\n\n* Recovered');
+            assert.strictEqual(notes[0]?.body, '## package-b 1.0.1\n\n* Recovered');
             assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/package-b.md');
         });
     });

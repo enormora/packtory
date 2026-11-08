@@ -59,7 +59,7 @@ type PackageWriter = {
 };
 
 type RootFileDescription = AnalyzedBundle['roots'][string];
-type RootTransferableFileDescription = RootFileDescription['javaScript'];
+type RootTransferableFileDescription = NonNullable<RootFileDescription['javaScript']>;
 type SecondPassBundle = EliminationInput['bundle'];
 
 type DeadCodeEliminationBehaviorInput = {
@@ -208,12 +208,15 @@ async function removePackageFolder(packageFolder: string): Promise<void> {
 
 function observedEntries(input: DeadCodeEliminationBehaviorInput): readonly DeadCodeEliminationOracleEntry[] {
     const roots = input.bundles.flatMap(function (bundle) {
-        return Object.values(bundle.roots).map(function (root) {
-            return {
+        return Object.values(bundle.roots).flatMap(function (root) {
+            if (root.javaScript === undefined) {
+                return [];
+            }
+            return [ {
                 bundleName: bundle.name,
                 targetFilePath: root.javaScript.targetFilePath,
                 exportName: input.entry.exportName
-            };
+            } ];
         });
     });
     const otherRoots = roots.filter(function (entry) {
@@ -387,6 +390,12 @@ function refreshFileDescription(
 }
 
 function refreshRoot(bundle: AnalyzedBundle, root: RootFileDescription): RootFileDescription {
+    if (root.json !== undefined) {
+        return { json: refreshFileDescription(bundle, root.json) };
+    }
+    if (root.javaScript === undefined) {
+        return { declarationFile: refreshFileDescription(bundle, root.declarationFile) };
+    }
     if (root.declarationFile === undefined) {
         return { javaScript: refreshFileDescription(bundle, root.javaScript) };
     }

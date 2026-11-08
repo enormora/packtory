@@ -15,11 +15,11 @@ suite('schema-contracts', function () {
 
             console.log(JSON.stringify({
                 additionalFileShape: Object.keys(additionalFileDescriptionSchema._zod.def.innerType.def.shape),
-                rootShape: Object.keys(rootSchema._zod.def.innerType.def.shape),
+                rootShapes: rootSchema._zod.def.innerType.def.options.map(schema => Object.keys(schema.def.shape)),
                 registrySettingsShape: Object.keys(registrySettingsSchema._zod.def.innerType.def.shape),
                 mainPackageManifestShape: Object.keys(mainPackageManifestSchema._zod.def.innerType.def.shape),
                 additionalFileCatchallType: additionalFileDescriptionSchema._zod.def.innerType.def.catchall.type,
-                rootCatchallType: rootSchema._zod.def.innerType.def.catchall.type,
+                rootCatchallTypes: rootSchema._zod.def.innerType.def.options.map(schema => schema.def.catchall.type),
                 registrySettingsCatchallType: registrySettingsSchema._zod.def.innerType.def.catchall.type
             }));
         `,
@@ -28,11 +28,11 @@ suite('schema-contracts', function () {
 
         assert.deepStrictEqual(result, {
             additionalFileShape: [ 'inputFilePath', 'targetFilePath' ],
-            rootShape: [ 'javaScript', 'declarationFile' ],
+            rootShapes: [ [ 'javaScript', 'declarationFile' ], [ 'json' ], [ 'declarationFile' ] ],
             registrySettingsShape: [ 'registryAddress', 'authentication' ],
             mainPackageManifestShape: [ 'type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports' ],
             additionalFileCatchallType: 'never',
-            rootCatchallType: 'never',
+            rootCatchallTypes: [ 'never', 'never', 'never' ],
             registrySettingsCatchallType: 'never'
         });
     });
@@ -288,7 +288,7 @@ suite('schema-contracts', function () {
                     javaScript: 'index.js',
                     declarationFile: 'index.d.ts'
                 }).success,
-                missingRootJavaScriptSuccess: safeParse(rootSchema, {
+                declarationOnlyRootSuccess: safeParse(rootSchema, {
                     declarationFile: 'index.d.ts'
                 }).success,
                 extraRootPropertySuccess: safeParse(rootSchema, {
@@ -332,7 +332,7 @@ suite('schema-contracts', function () {
             validAdditionalFileSuccess: true,
             missingAdditionalFileSourceSuccess: false,
             validRootSuccess: true,
-            missingRootJavaScriptSuccess: false,
+            declarationOnlyRootSuccess: true,
             extraRootPropertySuccess: false,
             validRegistrySuccess: true,
             missingRegistryTokenSuccess: true,

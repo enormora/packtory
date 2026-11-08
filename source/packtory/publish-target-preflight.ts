@@ -2,12 +2,13 @@ import { isDefined, pickBy } from 'remeda';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { BuildAndPublishOptions } from './map-configuration.ts';
-import type {
-    BuildAndPublishResult,
-    DetermineVersionAndPublishOptions
-} from './package-processor-publish-result.ts';
-import type { PublishDependencies } from './package-processor-publish-dependencies.ts';
-import { publishedReleaseStatus, wasAlreadyPublished } from './published-release-state.ts';
+import {
+    type BuildAndPublishResult,
+    type DetermineVersionAndPublishOptions,
+    type PublishDependencies,
+    publishedReleaseStatus,
+    wasAlreadyPublished
+} from './package-publication.ts';
 
 type PublishedTargetCheckResult = Awaited<ReturnType<BundleEmitter['verifyBundlePublishTarget']>>;
 

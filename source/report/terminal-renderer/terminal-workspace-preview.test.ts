@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import {
     createPreviewDocumentFixture,
     createPreviewPackageFixture,
@@ -9,26 +10,28 @@ import { buildArtifactTree } from '../preview/artifact-tree-builder.ts';
 import { renderTerminalPreview } from './terminal-preview-renderer.ts';
 
 suite('terminal workspace preview', function () {
-    const tree = buildArtifactTree([
-        createArtifactEntryFixture({ path: 'visible.js', status: 'changed' }),
-        createArtifactEntryFixture({ path: 'hidden.js', status: 'unchanged' })
-    ]);
-    const previewPackage = createPreviewPackageFixture({
-        sourceTree: tree,
-        tree,
-        comparisonRows: [
-            { label: 'dep', before: '^1', after: '^2' },
-            { label: 'same', before: '^1', after: '^1' },
-            { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
-        ]
-    });
+    function workspacePackage(): PreviewPackage {
+        const tree = buildArtifactTree([
+            createArtifactEntryFixture({ path: 'visible.js', status: 'changed' }),
+            createArtifactEntryFixture({ path: 'hidden.js', status: 'unchanged' })
+        ]);
+        return createPreviewPackageFixture({
+            sourceTree: tree,
+            tree,
+            comparisonRows: [
+                { label: 'dep', before: '^1', after: '^2' },
+                { label: 'same', before: '^1', after: '^1' },
+                { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
+            ]
+        });
+    }
 
     test('lists summaries and keeps failures visible without package detail', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({
                 allFiles: false,
                 packages: [
-                    previewPackage,
+                    workspacePackage(),
                     createPreviewPackageFixture({ name: 'failed', failure: { stage: 'build', message: 'boom' } })
                 ]
             }),
@@ -46,7 +49,7 @@ suite('terminal workspace preview', function () {
             createPreviewDocumentFixture({
                 selectedPackage: 'package-a',
                 allFiles: false,
-                packages: [ previewPackage ]
+                packages: [ workspacePackage() ]
             }),
             { color: false }
         );
@@ -64,7 +67,7 @@ suite('terminal workspace preview', function () {
             createPreviewDocumentFixture({
                 selectedPackage: 'package-a',
                 allFiles: true,
-                packages: [ previewPackage ]
+                packages: [ workspacePackage() ]
             }),
             { color: false }
         );

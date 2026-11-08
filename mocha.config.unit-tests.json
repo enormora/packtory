@@ -1,14 +1,21 @@
 {
     "diff": true,
     "forbid-pending": true,
-    "extension": ["ts"],
-    "spec": ["./source/**/*.test.ts"],
+    "extension": [
+        "ts"
+    ],
+    "spec": [
+        "./source/**/*.test.ts"
+    ],
     "exclude": [],
     "jobs": 1,
-    "parallel": false,
+    "parallel": true,
     "reporter": "dot",
     "slow": 75,
     "timeout": 10000,
     "ui": "tdd",
-    "node-option": ["experimental-strip-types", "enable-source-maps"]
+    "node-option": [
+        "experimental-strip-types",
+        "enable-source-maps"
+    ]
 }

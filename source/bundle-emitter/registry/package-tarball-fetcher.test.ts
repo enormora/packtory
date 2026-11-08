@@ -99,4 +99,38 @@ suite('package-tarball-fetcher', function () {
         );
         assert.strictEqual(fetchImplementation.callCount, 0);
     });
+
+    test('follows redirects whose response has no body', async function () {
+        const addresses: Parameters<typeof fetch>[0][] = [];
+        const bytes = await fetchTarballForTest(
+            async function (address) {
+                addresses.push(address);
+                return addresses.length === 1
+                    ? new Response(null, { status: 302, headers: { location: './redirected.tgz' } })
+                    : new Response(registryTarballBytes);
+            },
+            tarballAddress,
+            emptyTarballIntegrity,
+            settings
+        );
+        assert.deepStrictEqual(bytes, registryTarballBytes);
+        assert.deepStrictEqual(addresses, [ tarballAddress, 'https://registry.npmjs.org/package-a/-/redirected.tgz' ]);
+    });
+
+    test('cancels a redirect response body before following it', async function () {
+        const redirect = new Response('redirecting', { status: 302, headers: { location: './redirected.tgz' } });
+        let requests = 0;
+        const bytes = await fetchTarballForTest(
+            async function () {
+                requests += 1;
+                return requests === 1 ? redirect : new Response(registryTarballBytes);
+            },
+            tarballAddress,
+            emptyTarballIntegrity,
+            settings
+        );
+        assert.deepStrictEqual(bytes, registryTarballBytes);
+        assert.strictEqual(redirect.body?.locked, false);
+        assert.strictEqual(redirect.bodyUsed, true);
+    });
 });

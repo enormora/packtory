@@ -6,11 +6,29 @@ import { rootSchema } from './root.ts';
 
 suite('root', function () {
     suite('root schema shape', function () {
+        test('accepts JSON and declaration-only roots', function () {
+            assert.strictEqual(safeParse(rootSchema, { json: 'config.json' }).success, true);
+            for (const extension of [ '.d.ts', '.d.mts', '.d.cts' ]) {
+                assert.strictEqual(safeParse(rootSchema, { declarationFile: `index${extension}` }).success, true);
+            }
+        });
+
+        test('rejects ambiguous roots and non-JSON assets declared as JSON', function () {
+            const invalidRoots = [
+                { json: 'code.js' },
+                { javaScript: 'code.js', json: 'data.json' },
+                { declarationFile: 'index.d.ts', json: 'data.json' }
+            ];
+            for (const root of invalidRoots) {
+                assert.strictEqual(safeParse(rootSchema, root).success, false);
+            }
+        });
+
         test('schema accepts a root with js only', function () {
             assert.strictEqual(safeParse(rootSchema, { javaScript: 'foo' }).success, true);
         });
 
-        test('schema rejects a root without js', function () {
+        test('schema rejects a declaration-only root without a declaration extension', function () {
             assert.strictEqual(safeParse(rootSchema, { declarationFile: 'bar' }).success, false);
         });
 
@@ -47,7 +65,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: 'foo',
-                expectedMessages: [ 'expected object, but got string' ]
+                expectedMessages: [ 'invalid value: expected object, but got string' ]
             })
         );
 
@@ -56,7 +74,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: {},
-                expectedMessages: [ 'at javaScript: missing property' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 
@@ -74,7 +92,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { declarationFile: null, javaScript: 'foo' },
-                expectedMessages: [ 'at declarationFile: expected string, but got null' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
     });
@@ -94,7 +112,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { declarationFile: 42, javaScript: 'foo' },
-                expectedMessages: [ 'at declarationFile: expected string, but got number' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 
@@ -103,7 +121,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { declarationFile: '', javaScript: 'foo' },
-                expectedMessages: [ 'at declarationFile: string must contain at least 1 character' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 
@@ -112,7 +130,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { javaScript: 42 },
-                expectedMessages: [ 'at javaScript: expected string, but got number' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 
@@ -121,7 +139,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { javaScript: undefined },
-                expectedMessages: [ 'at javaScript: expected string, but got undefined' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 
@@ -130,7 +148,7 @@ suite('root', function () {
             checkValidationFailure({
                 schema: rootSchema,
                 data: { javaScript: null },
-                expectedMessages: [ 'at javaScript: expected string, but got null' ]
+                expectedMessages: [ 'invalid value doesn’t match expected union' ]
             })
         );
 

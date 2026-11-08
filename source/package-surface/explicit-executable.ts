@@ -9,8 +9,12 @@ function isShebangContent(content: string): boolean {
     return content.startsWith('#!');
 }
 
-function validateShebangRoot(bundleName: string, entryName: string, root: RootFileDescription): RootFileDescription {
-    if (!isShebangContent(root.javaScript.content)) {
+function validateShebangRoot(
+    bundleName: string,
+    entryName: string,
+    root: RootFileDescription
+): RootFileDescription & { readonly javaScript: NonNullable<RootFileDescription['javaScript']>; } {
+    if (root.javaScript === undefined || !isShebangContent(root.javaScript.content)) {
         throw new Error(`Package "${bundleName}" bin "${entryName}" must point to a root with a shebang`);
     }
     return root;

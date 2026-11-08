@@ -49,6 +49,15 @@ function createExternalDependency(
     };
 }
 
+function mergeDependency(dependencyA: ExternalDependency, dependencyB: ExternalDependency): ExternalDependency {
+    const references = uniqueReferences([ ...dependencyA.references ?? [], ...dependencyB.references ?? [] ]);
+    return {
+        name: dependencyA.name,
+        referencedFrom: unique([ ...dependencyA.referencedFrom, ...dependencyB.referencedFrom ]),
+        ...references === undefined ? {} : { references }
+    };
+}
+
 export function mergeExternalDependencies(
     dependenciesA: ExternalDependencies,
     dependenciesB: ExternalDependencies
@@ -61,15 +70,7 @@ export function mergeExternalDependencies(
         if (dependencyA === undefined) {
             mergedDependencies.set(dependencyB.name, dependencyB);
         } else {
-            const references = uniqueReferences([
-                ...dependencyA.references ?? [],
-                ...dependencyB.references ?? []
-            ]);
-            mergedDependencies.set(dependencyA.name, {
-                name: dependencyA.name,
-                referencedFrom: unique([ ...dependencyA.referencedFrom, ...dependencyB.referencedFrom ]),
-                ...references === undefined ? {} : { references }
-            });
+            mergedDependencies.set(dependencyA.name, mergeDependency(dependencyA, dependencyB));
         }
     }
 
@@ -85,9 +86,5 @@ export function mergeExternalDependencyReference(
     if (existingDependency === undefined) {
         return dependency;
     }
-    return mergeExternalDependencies(
-        new Map([ [ existingDependency.name, existingDependency ] ]),
-        new Map([ [ dependency.name, dependency ] ])
-    )
-        .get(dependency.name) ?? dependency;
+    return mergeDependency(existingDependency, dependency);
 }

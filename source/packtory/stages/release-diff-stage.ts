@@ -15,7 +15,7 @@ import {
     type ReleaseVersionFields
 } from '../../report/release-diff/release-version-transition.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
-import { publishedReleaseArtifactsOf, wasAlreadyPublished } from '../published-release-state.ts';
+import { publishedReleaseArtifactsOf, wasAlreadyPublished } from '../package-publication.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
 
 export type ReleaseDiffStageDependencies = {

@@ -62,7 +62,7 @@ type CreatePublishConfigurationInput = {
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
     readonly mainPackageManifestOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageManifest']>>;
 };
-type PublishFixturePackagesInput = {
+export type PublishFixturePackagesInput = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;
     readonly packages?: PackageConfigurationList;

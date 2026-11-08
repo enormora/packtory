@@ -144,6 +144,70 @@ function moduleAndExecutableBundle(name: string): CheckBundle {
 }
 
 suite('type-script-integrity', function () {
+    suite('packages without JavaScript', function () {
+        test('accepts file-only packages without requiring module declarations', async function () {
+            const analyzePackageResolution = fake.rejects(new Error('must not analyze a file-only package'));
+            const summarizeDeclarationIntegrity = fake.throws(new Error('must not check declarations'));
+            const source = checkBundle('configs', [ 'base.json' ]);
+            const bundles: readonly CheckBundle[] = [
+                { ...source, roots: {}, surface: { mode: 'files' } },
+                {
+                    ...source,
+                    roots: {
+                        main: {
+                            json: {
+                                inputFilePath: '/source/base.json',
+                                targetFilePath: 'base.json',
+                                content: '{}',
+                                isExecutable: false
+                            }
+                        }
+                    },
+                    surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+                }
+            ];
+            for (const bundle of bundles) {
+                assert.deepStrictEqual(
+                    await runRuleForBundles(
+                        ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
+                        [ bundle ],
+                        publishedPackagesFor('configs')
+                    ),
+                    []
+                );
+            }
+            assert.strictEqual(analyzePackageResolution.callCount, 0);
+            assert.strictEqual(summarizeDeclarationIntegrity.callCount, 0);
+        });
+
+        test('checks declarations in packages with no runtime code', async function () {
+            const analyzePackageResolution = fake.rejects(new Error('must not require runtime code'));
+            const summarizeDeclarationIntegrity = fake.returns([ 'invalid declaration' ]);
+            const source = checkBundle('types', [ 'index.d.ts' ]);
+            const declaredBundle: CheckBundle = {
+                ...source,
+                roots: {
+                    main: {
+                        declarationFile: {
+                            inputFilePath: '/source/index.d.ts',
+                            targetFilePath: 'index.d.ts',
+                            content: 'export {};',
+                            isExecutable: false
+                        }
+                    }
+                }
+            };
+            assert.deepStrictEqual(
+                await runRuleForBundles(ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }), [
+                    declaredBundle
+                ], publishedPackagesFor('types')),
+                [ 'invalid declaration' ]
+            );
+            assert.strictEqual(analyzePackageResolution.callCount, 0);
+            assert.strictEqual(summarizeDeclarationIntegrity.callCount, 1);
+        });
+    });
+
     suite('configuration', function () {
         test('exposes the rule name and its schemas', function () {
             const rule = ruleFor();

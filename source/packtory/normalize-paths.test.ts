@@ -3,6 +3,15 @@ import { suite, test } from 'mocha';
 import { normalizeAdditionalFile, normalizeRoot } from './normalize-paths.ts';
 
 suite('normalize-paths', function () {
+    test('normalizes JSON and declaration-only root paths', function () {
+        assert.deepStrictEqual(normalizeRoot({ json: 'presets/base.json' }, '/source'), {
+            json: '/source/presets/base.json'
+        });
+        assert.deepStrictEqual(normalizeRoot({ declarationFile: 'index.d.ts' }, '/source'), {
+            declarationFile: '/source/index.d.ts'
+        });
+    });
+
     test('normalizeRoot leaves absolute js paths unchanged', function () {
         assert.deepStrictEqual(normalizeRoot({ javaScript: '/abs/index.js' }, '/source'), {
             javaScript: '/abs/index.js'

@@ -4,20 +4,21 @@ import type { PublishedPackageWithManifest } from '../published-package/publishe
 import type { BuildAndPublishOptions } from './map-configuration.ts';
 import { createVersionProviderContext } from './options/version-provider-context.ts';
 import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
-import type { PublishDependencies } from './package-processor-publish-dependencies.ts';
-import type {
-    AnalyzedBundle,
-    BuildAndPublishResult,
-    CurrentHeadPublishedVersion,
-    CurrentVersion,
-    DetermineVersionAndPublishOptions,
-    ExtraFiles,
-    PreviousReleaseArtifacts,
-    SiblingPackage,
-    VersionedBundleWithManifest
-} from './package-processor-publish-result.ts';
+import {
+    type PublishDependencies,
+    type AnalyzedBundle,
+    type BuildAndPublishResult,
+    type CurrentHeadPublishedVersion,
+    type CurrentVersion,
+    type DetermineVersionAndPublishOptions,
+    type ExtraFiles,
+    type PreviousReleaseArtifacts,
+    type SiblingPackage,
+    type VersionedBundleWithManifest,
+    publishedReleaseStatus,
+    wasAlreadyPublished
+} from './package-publication.ts';
 import { verifyPublishTarget } from './publish-target-preflight.ts';
-import { publishedReleaseStatus, wasAlreadyPublished } from './published-release-state.ts';
 
 type PublishedCheckResult = Awaited<ReturnType<PublishDependencies['bundleEmitter']['checkBundleAlreadyPublished']>>;
 type MainPackageTypeField = { readonly type?: string | undefined; };
@@ -469,9 +470,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         if (finalizedWithoutBump !== undefined) {
             return finalizedWithoutBump;
         }
-        const newVersionedBundle = usesVersionProvider(options.buildOptions.versioning)
-            ? buildContext.versionedBundle
-            : await bumpVersion(buildContext, options.buildOptions);
+        const newVersionedBundle = await bumpVersion(buildContext, options.buildOptions);
         const extraFiles = await generateExtraFiles(dependencies, newVersionedBundle, options.buildOptions);
         return {
             bundle: newVersionedBundle,

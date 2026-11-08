@@ -12,7 +12,7 @@ import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-
 import { indexPublicModules, rootInputFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
 import { getRoot } from '../package-surface/root-registry.ts';
-import { toPackageSpecifier } from '../package-surface/specifier-syntax.ts';
+import { toPackageSpecifier, toRootPackageSpecifier } from '../package-surface/specifier-syntax.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 
 export type ImportPathReplacement = {
@@ -311,7 +311,7 @@ function getImplicitPublicModuleSpecifierForSourcePath(
     }
 
     for (const root of Object.values(bundle.roots)) {
-        const candidate = toPackageSpecifier(bundle.name, `./${root.javaScript.targetFilePath}`);
+        const candidate = toRootPackageSpecifier(bundle.name, root);
         if (publicModuleCanSatisfyRequest(rootInputFilePaths(root), lookup, request)) {
             specifiers.push(candidate);
         }
@@ -325,6 +325,9 @@ function getExistingPublicModuleSpecifierForSourcePath(
     request: ImportPathReplacementRequest
 ): string | undefined {
     const { surface } = bundle;
+    if (surface.mode === 'files') {
+        return getPublicModuleSpecifierForSourcePath(bundle, request.inputFilePath);
+    }
     if (surface.mode === 'implicit') {
         return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, request);
     }

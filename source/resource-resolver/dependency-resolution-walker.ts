@@ -14,7 +14,7 @@ type DependencyResolutionDependencies = {
 
 type DeclarationScanTracker = {
     readonly has: (filePath: string) => boolean;
-    readonly record: (filePath: string) => void;
+    readonly add: (filePath: string) => unknown;
 };
 type RootResolutionContext = {
     readonly dependencies: DependencyResolutionDependencies;
@@ -39,7 +39,7 @@ async function scanDeclarationGraph(
         return emptyDependencyFiles();
     }
     pendingEntryFiles.forEach(function (entryFile) {
-        scannedDeclarationFiles.record(entryFile);
+        scannedDeclarationFiles.add(entryFile);
     });
 
     const declarationDependencyGraph = await dependencies.dependencyScanner.scanEntries(
@@ -56,22 +56,26 @@ async function scanDeclarationGraph(
     }, emptyDependencyFiles());
 }
 
-function createDeclarationScanTracker(): DeclarationScanTracker {
-    const scannedDeclarationFiles = new Set<string>();
-    return {
-        has(filePath) {
-            return scannedDeclarationFiles.has(filePath);
-        },
-        record(filePath) {
-            scannedDeclarationFiles.add(filePath);
-        }
-    };
-}
-
-async function resolveJavaScriptDependencies(
+async function resolveRuntimeDependencies(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
+    if (root.json !== undefined) {
+        if (!root.json.endsWith('.json')) {
+            throw new Error('JSON roots must use the .json extension');
+        }
+        return {
+            externalDependencies: new Map(),
+            localFiles: [ {
+                filePath: root.json,
+                directDependencies: new Set(),
+                moduleReferences: []
+            } ]
+        };
+    }
+    if (root.javaScript === undefined) {
+        return emptyDependencyFiles();
+    }
     const { dependencies, options } = context;
     const { sourcesFolder, includeSourceMapFiles, mainPackageManifest } = options;
     const javaScriptDependencyGraph = await dependencies.dependencyScanner.scan(root.javaScript, sourcesFolder, {
@@ -82,28 +86,17 @@ async function resolveJavaScriptDependencies(
     return javaScriptDependencyGraph.flatten(root.javaScript);
 }
 
-async function resolveRootDeclarationDependencies(
-    context: RootResolutionContext,
-    root: ResolvedRootsAndSurface['roots'][string]
-): Promise<DependencyFiles> {
-    const entryFiles: string[] = [];
-    if (root.declarationFile !== undefined) {
-        entryFiles.push(root.declarationFile);
-    }
-    return scanDeclarationGraph(
-        context.dependencies,
-        context.options,
-        entryFiles,
-        context.scannedDeclarationFiles
-    );
-}
-
 async function resolveDependenciesForRoot(
     context: RootResolutionContext,
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
-    const javaScriptDependencies = await resolveJavaScriptDependencies(context, root);
-    const declarationDependencies = await resolveRootDeclarationDependencies(context, root);
+    const javaScriptDependencies = await resolveRuntimeDependencies(context, root);
+    const declarationDependencies = await scanDeclarationGraph(
+        context.dependencies,
+        context.options,
+        root.declarationFile === undefined ? [] : [ root.declarationFile ],
+        context.scannedDeclarationFiles
+    );
     return mergeDependencyFiles(javaScriptDependencies, declarationDependencies);
 }
 
@@ -117,7 +110,7 @@ export async function resolveDependenciesForAllRoots(
     const context: RootResolutionContext = {
         dependencies,
         options,
-        scannedDeclarationFiles: createDeclarationScanTracker()
+        scannedDeclarationFiles: new Set<string>()
     };
     let dependencyFiles = emptyDependencyFiles();
 

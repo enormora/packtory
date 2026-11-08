@@ -558,4 +558,13 @@ suite('graph', function () {
             assert.deepStrictEqual(graph.reverse().getTopologicalGenerations(), [ [ 'b' ], [ 'a' ] ]);
         });
     });
+
+    test('retrieves the current node data and rejects unknown nodes', function () {
+        const graph = createDirectedGraph<string, string>();
+        graph.addNode('entry', 'data');
+        assert.strictEqual(graph.getNodeData('entry'), 'data');
+        assert.throws(function () {
+            graph.getNodeData('missing');
+        }, /Node with id "missing" does not exist/u);
+    });
 });

@@ -250,4 +250,24 @@ suite('published artifact smoke gate dependency staging', function () {
         ]);
         assert.strictEqual(context.createTemporaryFolder.callCount, 0);
     });
+
+    test('falls back to the repository dependency location when it disappears after preflight', async function () {
+        let reads = 0;
+        const context = createContext({
+            fileManager: {
+                async checkReadability() {
+                    reads += 1;
+                    return { isReadable: reads === 1 };
+                },
+                setExecutable: fake.resolves(undefined),
+                writeFile: fake.resolves(undefined)
+            }
+        });
+        await verify(context.gate, withPackageManifest(bundle(), { dependencies: { external: '^1.0.0' } }));
+        assert.deepStrictEqual(context.linkDirectory.firstCall.args, [
+            path.join('/repo', 'node_modules', 'external'),
+            path.join(temporaryFolderPath, 'node_modules', 'external'),
+            'dir'
+        ]);
+    });
 });

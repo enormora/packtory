@@ -18,7 +18,7 @@ import {
 } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName } from './github-repository.ts';
 import { printReleasePlanFailure, collectReleasePlanPackages } from './release-plan-result-printing.ts';
-import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
+import { formatTerminalFailure, formatTerminalFailureTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -38,18 +38,6 @@ export type ChangelogHandlerDependencies = {
     readonly trace: boolean;
     readonly workingDirectory: string;
 };
-
-function toError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function formatChangelogHandlerError(error: unknown): string {
-    return formatTerminalError(toError(error));
-}
-
-function formatChangelogHandlerTrace(error: unknown): string {
-    return formatTerminalErrorTrace(toError(error));
-}
 
 function readGitHubToken(
     dependencies: Pick<ChangelogHandlerDependencies, 'readEnvironmentVariable'>
@@ -125,7 +113,7 @@ export async function runChangelogHandler(dependencies: ChangelogHandlerDependen
     try {
         return stopSpinnersAndReturn(dependencies, await runChangelog(dependencies));
     } catch (error: unknown) {
-        const formatError = dependencies.trace ? formatChangelogHandlerTrace : formatChangelogHandlerError;
+        const formatError = dependencies.trace ? formatTerminalFailureTrace : formatTerminalFailure;
         dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }

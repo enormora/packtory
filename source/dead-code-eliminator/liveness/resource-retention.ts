@@ -1,13 +1,13 @@
+import { rootFiles } from '../../common/package-root.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../analyzed-bundle.ts';
-import type { DeadCodeEliminationTrace, PruneKind } from '../trace.ts';
+import { pruneKinds, type DeadCodeEliminationTrace, type PruneKind } from '../trace.ts';
 import { isDeclarationCodeTargetPath, isRuntimeCodeTargetPath } from './runtime-code.ts';
 
 function rootTargetFilePaths(bundle: Pick<AnalyzedBundle, 'roots'>): ReadonlySet<string> {
     const paths = new Set<string>();
     for (const root of Object.values(bundle.roots)) {
-        paths.add(root.javaScript.targetFilePath);
-        if (root.declarationFile !== undefined) {
-            paths.add(root.declarationFile.targetFilePath);
+        for (const file of rootFiles(root)) {
+            paths.add(file.targetFilePath);
         }
     }
     return paths;
@@ -109,8 +109,8 @@ export function pruneContents(
             !prunedMapTargets.has(resource.fileDescription.targetFilePath);
         if (!keep && trace !== undefined) {
             const pruneKind: PruneKind = retained.has(resource.fileDescription.targetFilePath)
-                ? 'paired-map-of-pruned-resource'
-                : 'unreachable-resource';
+                ? pruneKinds.pairedMapOfPrunedResource
+                : pruneKinds.unreachableResource;
             trace.collector.record({
                 type: 'file-pruned',
                 bundleName: bundle.name,

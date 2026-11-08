@@ -13,7 +13,7 @@ import type {
     BuildAndPublishResult,
     PackageProcessor
 } from './package-processor.ts';
-import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
+import type { DetermineVersionAndPublishOptions } from './package-publication.ts';
 
 type ConfirmedPublishScenario = {
     readonly checkBundleAlreadyPublished: SinonSpy;

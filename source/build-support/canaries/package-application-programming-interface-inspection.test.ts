@@ -1,87 +1,24 @@
 import assert from 'node:assert';
-import fileSystem from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir as temporaryDirectory } from 'node:os';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import path from 'node:path';
 import { suite, test } from 'mocha';
-import { createFileManager } from '../../file-manager/file-manager.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
+    fileManager,
+    withTemporaryNodeModules,
+    writePackage,
+    writeScopedPackage,
+    assertPresent
+} from '../../test-libraries/canary-package-fixtures.ts';
+import {
     inspectPackageApplicationProgrammingInterfaces,
-    runNodeImportProbe
+    createNodeImportProbe
 } from './package-application-programming-interface-inspection.ts';
 
 type ImportProbeCall = {
     readonly cwd: string;
     readonly specifier: string;
 };
-
-const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
-
-async function writePackageFile(packageFolder: string, filePath: string, content: string): Promise<void> {
-    const targetPath = path.join(packageFolder, filePath);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, content);
-}
-
-async function withTemporaryNodeModules<T>(action: (nodeModulesFolder: string) => Promise<T>): Promise<T> {
-    const root = await mkdtemp(path.join(temporaryDirectory(), 'packtory-canary-package-api-'));
-    try {
-        const nodeModulesFolder = path.join(root, 'node_modules');
-        await mkdir(nodeModulesFolder, { recursive: true });
-        await writePackageFile(root, 'runtime-types/node/index.d.ts', '');
-        return await action(nodeModulesFolder);
-    } finally {
-        await rm(root, { recursive: true, force: true });
-    }
-}
-
-async function writePackageAt(
-    packageFolder: string,
-    packageName: string,
-    manifest: Readonly<Record<string, unknown>>,
-    files: Readonly<Record<string, string>>
-): Promise<void> {
-    await mkdir(packageFolder, { recursive: true });
-    await writePackageFile(packageFolder, 'package.json', JSON.stringify({ name: packageName, ...manifest }));
-    await Promise.all(
-        Object.entries(files).map(async function ([ filePath, content ]) {
-            await writePackageFile(packageFolder, filePath, content);
-        })
-    );
-}
-
-async function writePackage(
-    nodeModulesFolder: string,
-    packageName: string,
-    manifest: Readonly<Record<string, unknown>>,
-    files: Readonly<Record<string, string>>
-): Promise<void> {
-    await writePackageAt(path.join(nodeModulesFolder, packageName), packageName, manifest, files);
-}
-
-async function writeScopedPackage(
-    nodeModulesFolder: string,
-    packageName: string,
-    manifest: Readonly<Record<string, unknown>>,
-    files: Readonly<Record<string, string>>
-): Promise<void> {
-    const [ scopeName, localName ] = packageName.split('/', 2);
-    if (scopeName === undefined || localName === undefined) {
-        throw new Error(`Package "${packageName}" is not scoped`);
-    }
-    await writePackageAt(path.join(nodeModulesFolder, scopeName, localName), packageName, manifest, files);
-}
-
-function assertPresent<T>(value: T | undefined): T {
-    if (value === undefined) {
-        throw new assert.AssertionError({
-            message: 'Expected value to be present'
-        });
-    }
-    return value;
-}
 
 function packageManifest(): Readonly<Record<string, unknown>> {
     return {
@@ -137,9 +74,13 @@ function assertInspectablePackageNames(
     );
 }
 
+const runNodeImportProbe = createNodeImportProbe(10_000);
+
 suite('package-api-inspection', function () {
     function assertSamplePackage(
-        samplePackage: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>['packages'][number]
+        samplePackage: Awaited<
+            ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>
+        >['packages'][number]
     ): void {
         const rootExport = assertPresent(samplePackage.publicExports[0]);
         const featureExport = assertPresent(samplePackage.publicExports[1]);
@@ -216,7 +157,10 @@ suite('package-api-inspection', function () {
             });
 
             const inspectedPackage = assertPresent(result.packages[0]);
-            assert.strictEqual(assertPresent(inspectedPackage.publicExports[0]).runtimeImportError, 'import failed');
+            assert.strictEqual(
+                assertPresent(inspectedPackage.publicExports[0]).runtimeImportError,
+                'import failed'
+            );
             assert.match(inspectedPackage.typeDiagnostics.join('\n'), /TS2304: Cannot find name 'MissingType'/u);
         });
     });
@@ -261,7 +205,9 @@ suite('package-api-inspection', function () {
             });
             const inspected = assertPresent(result.packages[0]);
             assert.deepStrictEqual(inspected.typeDiagnostics, []);
-            assert.deepStrictEqual(assertPresent(inspected.publicExports[0]).runtimeExportNames, [ 'configuration' ]);
+            assert.deepStrictEqual(assertPresent(inspected.publicExports[0]).runtimeExportNames, [
+                'configuration'
+            ]);
         });
     });
 

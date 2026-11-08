@@ -3,7 +3,9 @@ import path from 'node:path';
 import { tmpdir as temporaryDirectory } from 'node:os';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import { runCanaryCommandLineInterface } from './canary-command-line-interface.ts';
-import { runSelectedCanary, runShellCommand } from './canary-runner.ts';
+import { runSelectedCanary, createShellCommandRunner } from './canary-runner.ts';
+
+const shellCommandTimeoutMilliseconds = 900_000;
 
 const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
 
@@ -19,7 +21,7 @@ process.exitCode = await runCanaryCommandLineInterface(process.argv, {
                 await fileSystem.promises.rm(folderPath, { recursive: true, force: true });
             },
             repositoryFolder: process.cwd(),
-            runCommand: runShellCommand
+            runCommand: createShellCommandRunner(shellCommandTimeoutMilliseconds)
         });
     },
     standardErrorWrite(message) {

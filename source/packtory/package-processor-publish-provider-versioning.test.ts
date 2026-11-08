@@ -10,7 +10,7 @@ import {
 } from '../test-libraries/package-processor-test-support.ts';
 import type { BuildAndPublishOptions } from './map-configuration.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
-import type { DetermineVersionAndPublishOptions } from './package-processor-publish-result.ts';
+import type { DetermineVersionAndPublishOptions } from './package-publication.ts';
 
 type VersionedBundleInput = { readonly version: string; };
 type VersionedBundleBuilder = {
@@ -123,5 +123,22 @@ suite('package-processor publish provider versioning', function () {
             [ 1, expectedCurrentVersionLookup ]
         );
         assert.partialDeepStrictEqual(provideVersion.firstCall.args, [ { currentVersion: undefined } ]);
+    });
+
+    test('publishes the supplied initial version without applying an automatic bump', async function () {
+        const { addVersion, versions } = versionedBundleBuilder();
+        const provideVersion = fake.returns('2.0.0');
+        const { processor } = createProcessor({
+            determineCurrentVersion: fake.resolves(Maybe.nothing()),
+            addVersion,
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: false,
+                previousReleaseArtifacts: Maybe.nothing()
+            })
+        });
+        const result = await processor.tryBuildAndPublish(tryBuildOptions({ automatic: false, provideVersion }));
+        assert.partialDeepStrictEqual(result, { bundle: { version: '2.0.0' }, status: 'initial-version' });
+        assert.deepStrictEqual(versions, [ '2.0.0' ]);
+        assert.strictEqual(provideVersion.callCount, 1);
     });
 });

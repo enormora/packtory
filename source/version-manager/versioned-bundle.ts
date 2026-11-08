@@ -39,8 +39,8 @@ export function buildVersionedBundle(options: BuildVersionedBundleOptions): Vers
     const exportsField = buildExportsField(bundle, options.substitutionPublicModuleSourcePaths ?? new Set<string>());
     const executableField = buildExecutableField(bundle);
     const representativeRoot = resolveRepresentativeRoot(bundle);
-    const mainFile = representativeRoot.javaScript;
-    const typesMainFile = representativeRoot.declarationFile;
+    const mainFile = representativeRoot?.javaScript;
+    const typesMainFile = representativeRoot?.declarationFile;
 
     return {
         name: bundle.name,

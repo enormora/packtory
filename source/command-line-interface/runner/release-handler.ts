@@ -1,7 +1,7 @@
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { printPublishFailure } from './failure-printing.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
-import { collectGitHubReleaseNotes, missingGitHubReleaseNotes } from './github-release-notes.ts';
+import { collectGitHubReleaseNotes } from './github-release-notes.ts';
 import { parseGitHubRepositoryParts } from './github-repository.ts';
 import {
     generateRequiredChangelog,
@@ -9,7 +9,7 @@ import {
     type PlannedRelease,
     type ReleasePreparationDependencies
 } from './release-preparation.ts';
-import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
+import { formatTerminalFailure, formatTerminalFailureTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -50,18 +50,6 @@ export type ReleaseHandlerDependencies = ReleasePreparationDependencies & {
 };
 
 const releaseCompletedMessage = 'Release completed.';
-
-function toError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function formatReleaseHandlerError(error: unknown): string {
-    return formatTerminalError(toError(error));
-}
-
-function formatReleaseHandlerTrace(error: unknown): string {
-    return formatTerminalErrorTrace(toError(error));
-}
 
 function hasAction(flags: ReleaseFlags): boolean {
     return flags.publish || flags.tag || flags.push || flags.githubRelease;
@@ -262,17 +250,17 @@ async function createGitHubReleases(
     targets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
     const changelog = await generateRequiredChangelog(dependencies, planned.configuration, planned.packages);
-    const releaseNotesByPackageName = await collectGitHubReleaseNotes(
+    const releases = await collectGitHubReleaseNotes(
         dependencies,
         changelog.configuration,
         targets,
         changelog.changelog
     );
-    for (const target of targets) {
+    for (const { target, body } of releases) {
         await client.createReleaseIfMissing({
             tagName: target.tagName,
             name: target.tagName,
-            body: releaseNotesByPackageName.get(target.name) ?? missingGitHubReleaseNotes(target)
+            body
         });
     }
 }
@@ -353,7 +341,7 @@ export async function runReleaseHandler(dependencies: ReleaseHandlerDependencies
     try {
         return stopSpinnersAndReturn(dependencies, await runRelease(dependencies));
     } catch (error: unknown) {
-        const formatError = dependencies.trace ? formatReleaseHandlerTrace : formatReleaseHandlerError;
+        const formatError = dependencies.trace ? formatTerminalFailureTrace : formatTerminalFailure;
         dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }

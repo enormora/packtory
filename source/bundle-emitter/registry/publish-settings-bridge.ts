@@ -1,6 +1,6 @@
 import type { PublishSettings } from '../../configuration/publish-settings.ts';
 import { matchAutomaticModeError } from '../publish-error/auto-mode-error-matching.ts';
-import { ensureError } from '../publish-error/error-shape-helpers.ts';
+import { ensureError } from '../../common/error-normalization.ts';
 import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts';
 
 type PublishProvenanceOptions = { readonly provenance: true; } | { readonly provenanceFile: string; };

@@ -10,7 +10,7 @@ export type ExplicitPackageSurface = {
     readonly packageInterface: PackageInterface;
 };
 
-export type PackageSurface = ExplicitPackageSurface | ImplicitPackageSurface;
+export type PackageSurface = ExplicitPackageSurface | ImplicitPackageSurface | { readonly mode: 'files'; };
 
 export function implicitPackageSurface(defaultModuleRoot: string): ImplicitPackageSurface {
     return {

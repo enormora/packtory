@@ -1,8 +1,19 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { toPackageSpecifier } from './specifier-syntax.ts';
+import { toPackageSpecifier, toRootPackageSpecifier } from './specifier-syntax.ts';
 
 suite('specifier-syntax', function () {
+    test('builds package subpaths for JSON and declaration-only roots', function () {
+        assert.strictEqual(
+            toRootPackageSpecifier('data', { json: { targetFilePath: 'config.json' } }),
+            'data/config.json'
+        );
+        assert.strictEqual(
+            toRootPackageSpecifier('data', { declarationFile: { targetFilePath: 'types.d.ts' } }),
+            'data/types.d.ts'
+        );
+    });
+
     test('toPackageSpecifier returns the bare package name for the "." export key', function () {
         assert.strictEqual(toPackageSpecifier('package-a', '.'), 'package-a');
     });

@@ -55,11 +55,16 @@ export async function withRegistryTransport<T>(
     const timeout = dependencies.clock.setTimeout(function () {
         controller.abort(new Error(`Registry request exceeded ${requestTimeoutMilliseconds} ms`));
     }, requestTimeoutMilliseconds);
+    async function requestWithAbortOnFailure(): Promise<T> {
+        try {
+            return await request({ ...options, agent, signal: controller.signal });
+        } catch (error) {
+            controller.abort(error);
+            throw error;
+        }
+    }
     try {
-        return await request({ ...options, agent, signal: controller.signal });
-    } catch (error) {
-        controller.abort(error);
-        throw error;
+        return await requestWithAbortOnFailure();
     } finally {
         dependencies.clock.clearTimeout(timeout);
         agent.destroy();

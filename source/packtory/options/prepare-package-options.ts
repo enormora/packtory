@@ -8,7 +8,6 @@ import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-
 import type { ResourceResolveOptions } from '../../resource-resolver/resource-resolve-options.ts';
 import { normalizeRoot } from '../normalize-paths.ts';
 import { resolveBundleDependencies } from './bundle-dependency-resolution.ts';
-import { getRequiredArrayValue, mapRequiredArrayValue } from './required-value-helpers.ts';
 import {
     buildAdditionalPackageManifestAttributes,
     resolveAdditionalFiles,
@@ -66,17 +65,11 @@ function buildSharedOptions<TBundle extends { readonly name: string; }>(
     const sourcesFolder = resolveSourcesFolder(packageConfiguration, packtoryConfiguration);
     const mainPackageManifest = resolveMainPackageManifest(packageConfiguration, packtoryConfiguration);
     const bundleDependencies = resolveBundleDependencies(packageConfiguration, existingBundles);
-    const normalizedRootEntries = getRequiredArrayValue(
-        Object.entries(packageConfiguration.roots).map(function ([ rootIdentifier, root ]) {
-            return [ rootIdentifier, normalizeRoot(root, sourcesFolder) ] as const;
-        }),
-        `Package "${packageConfiguration.name}" must define at least one root`
-    );
-
-    const roots = Object.fromEntries(normalizedRootEntries) as ResourceResolveOptions['roots'];
-    const rootIdentifiers = mapRequiredArrayValue(normalizedRootEntries, function ([ rootIdentifier ]) {
-        return rootIdentifier;
+    const normalizedRootEntries = Object.entries(packageConfiguration.roots).map(function ([ rootIdentifier, root ]) {
+        return [ rootIdentifier, normalizeRoot(root, sourcesFolder) ] as const;
     });
+    const roots = Object.fromEntries(normalizedRootEntries);
+    const rootIdentifiers = Object.keys(roots);
     const surface = resolveSurface(rootIdentifiers, packageConfiguration);
 
     return {

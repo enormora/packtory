@@ -19,6 +19,10 @@ const implicitCommandLineInterfaceBundle: SurfaceBundleLike = {
 };
 
 suite('bin-field', function () {
+    test('file-only packages have no executable', function () {
+        assert.strictEqual(buildExecutableField({ name: 'configs', roots: {}, surface: { mode: 'files' } }), undefined);
+    });
+
     test('buildExecutableField dispatches to the explicit bin builder for an explicit surface', function () {
         assert.deepStrictEqual(buildExecutableField(explicitCommandLineInterfaceBundle), {
             'package-a-cli': './cli.js'

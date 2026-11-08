@@ -3,7 +3,7 @@ import {
     type ResolveAndBuildDependencies,
     type ResolveAndBuildOperations
 } from './package-processor-build.ts';
-import type { PublishDependencies } from './package-processor-publish-dependencies.ts';
+import type { PublishDependencies } from './package-publication.ts';
 import { createPublishOperations, type PublishOperations } from './package-processor-publish.ts';
 
 export type BuildAndPublishResult = Awaited<ReturnType<PublishOperations['tryBuildAndPublish']>>;

@@ -30,6 +30,7 @@ export type DirectedGraph<TIdentifier extends GraphNodeIdentifier, TData> = {
     isCyclic: () => boolean;
     getTopologicalGenerations: () => readonly (readonly TIdentifier[])[];
     reverse: () => DirectedGraph<TIdentifier, TData>;
+    getNodeData: (identifier: TIdentifier) => TData;
     getAdjacentIdentifiers: (identifier: TIdentifier) => ReadonlySet<TIdentifier>;
     traverse: (visitor: Visitor<TIdentifier, TData>) => void;
 };
@@ -232,6 +233,9 @@ export function createDirectedGraph<TIdentifier extends GraphNodeIdentifier, TDa
                 throw new Error(`Node with id "${identifier}" already exists`);
             }
             nodes.set(identifier, { identifier, data, adjacentNodeIdentifiers: new Set(), incomingEdges: 0 });
+        },
+        getNodeData(identifier) {
+            return getNode(nodes, identifier).data;
         },
         connect(edge) {
             const fromNode = getNode(nodes, edge.from);

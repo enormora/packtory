@@ -12,6 +12,30 @@ function assertExportsEntryExists(exportsField: unknown, exportPath: string): vo
 }
 
 suite('export-map', function () {
+    test('file-only packages export each file directly without a JavaScript entry point', function () {
+        const bundle = {
+            name: 'configs',
+            roots: {},
+            surface: { mode: 'files' } as const,
+            contents: [
+                { fileDescription: { inputFilePath: '/source/base.json', targetFilePath: 'tsconfig.json' } },
+                { fileDescription: { inputFilePath: '/source/node.json', targetFilePath: 'presets/node.json' } },
+                { fileDescription: { inputFilePath: '/source/readme.md', targetFilePath: 'readme.md' } }
+            ]
+        };
+        assert.deepStrictEqual(buildExportsField(bundle, new Set()), {
+            './tsconfig.json': './tsconfig.json',
+            './presets/node.json': './presets/node.json',
+            './readme.md': './readme.md'
+        });
+        assert.deepStrictEqual(buildExportsField({ ...bundle, exportPackageManifest: true }, new Set()), {
+            './tsconfig.json': './tsconfig.json',
+            './presets/node.json': './presets/node.json',
+            './readme.md': './readme.md',
+            './package.json': './package.json'
+        });
+    });
+
     test('buildExportsField uses the explicit-mode builder when the bundle surface is explicit', function () {
         const bundle = linkedBundle({
             surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })

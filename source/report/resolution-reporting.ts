@@ -1,3 +1,6 @@
+import { mapValues } from 'remeda';
+import { rootEntryFile } from '../common/package-root.ts';
+import { resolveRootsAndSurface, type ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
@@ -28,4 +31,17 @@ export function reportLinkedBundle(provider: ProgressBroadcastProvider, bundle: 
     if (provider.hasSubscribers('linkingCompleted')) {
         provider.emit('linkingCompleted', { packageName: bundle.name, rewrites: inspectLinkerRewrites(bundle) });
     }
+}
+
+export function reportResolvedInputs(provider: ProgressBroadcastProvider, options: ResourceResolveOptions): void {
+    if (!provider.hasSubscribers('inputsResolved')) {
+        return;
+    }
+    const normalized = resolveRootsAndSurface(options);
+    provider.emit('inputsResolved', {
+        packageName: options.name,
+        roots: mapValues(normalized.roots, rootEntryFile),
+        sourceFileCount: 0,
+        siblingVersions: {}
+    });
 }

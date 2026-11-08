@@ -4,8 +4,8 @@ import type { CanaryRunResult } from './canary-runner.ts';
 const issueTitleLimit = 200;
 const escapeCode = 0x1B;
 const leftBracketCode = 0x5B;
-const terminalControlFinalByteStart = 0x40;
-const terminalControlFinalByteEnd = 0x7E;
+const terminalControlFinalByteStart = '@';
+const terminalControlFinalByteEnd = '~';
 const terminalControlSequencePrefixLength = 2;
 
 function issueCount(issues: readonly CanaryIssue[], kind: CanaryIssue['kind']): number {
@@ -16,15 +16,13 @@ function issueCount(issues: readonly CanaryIssue[], kind: CanaryIssue['kind']): 
         .length;
 }
 
-function isTerminalControlFinalByte(code: number): boolean {
+function isTerminalControlFinalByte(code: string): boolean {
     return code >= terminalControlFinalByteStart && code <= terminalControlFinalByteEnd;
 }
 
 function terminalControlSequenceEndExclusive(value: string, startIndex: number): number {
     const finalOffset = Array.from(value.slice(startIndex + terminalControlSequencePrefixLength)).findIndex(
-        function (character) {
-            return isTerminalControlFinalByte(character.codePointAt(0) ?? 0);
-        }
+        isTerminalControlFinalByte
     );
     return finalOffset === -1
         ? value.length

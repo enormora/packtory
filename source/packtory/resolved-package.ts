@@ -1,13 +1,15 @@
 import { Result } from 'true-myth';
 import { mapToObj as mapToObject } from 'remeda';
+import { errorMessage as checkPackageIssue } from '../common/error-normalization.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
 import type { PacktoryConfigurationWithoutRegistry } from '../configuration/configuration.ts';
 import type { ConfigurationWithGraph } from '../configuration/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
-import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { ResolveAndLinkOptions } from './map-configuration.ts';
+
+type PublishedPackageWithManifest = ReturnType<VersionManager['addVersion']>;
 
 export type ResolvedPackage = {
     readonly name: string;
@@ -102,10 +104,6 @@ function maybeBuildPublishedPackagesForChecks(
             return resolvedPackage.analyzedBundle;
         }))
     );
-}
-
-function checkPackageIssue(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }
 
 function tryBuildPublishedPackagesForChecks(

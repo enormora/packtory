@@ -308,22 +308,27 @@ async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput):
     }
 }
 
+async function cancelActiveWorkflowRuns(input: WaitForDispatchedWorkflowRunInput): Promise<readonly number[]> {
+    return input.client.cancelActiveDispatchedWorkflowRuns({
+        branch: input.configuration.branch,
+        workflowFile: input.continuousIntegrationConfiguration.workflowFile
+    });
+}
+
 async function waitForActiveDispatchedWorkflowRunsToCancel(input: WaitForDispatchedWorkflowRunInput): Promise<void> {
+    let activeRunIdentifiers = await cancelActiveWorkflowRuns(input);
     for (const attempt of createRetryAttempts(staleWorkflowRunCancellationAttempts)) {
-        const activeRunIdentifiers = await input.client.cancelActiveDispatchedWorkflowRuns({
-            branch: input.configuration.branch,
-            workflowFile: input.continuousIntegrationConfiguration.workflowFile
-        });
+        if (attempt > 0) {
+            await input.sleep(workflowPollIntervalMilliseconds);
+            activeRunIdentifiers = await cancelActiveWorkflowRuns(input);
+        }
         if (activeRunIdentifiers.length === 0) {
             return;
         }
-        if (isLastAttempt(attempt, staleWorkflowRunCancellationAttempts)) {
-            throw new Error(
-                `Active release workflow runs did not cancel: ${formatObservedRunIdentifiers(activeRunIdentifiers)}`
-            );
-        }
-        await input.sleep(workflowPollIntervalMilliseconds);
     }
+    throw new Error(
+        `Active release workflow runs did not cancel: ${formatObservedRunIdentifiers(activeRunIdentifiers)}`
+    );
 }
 
 function nextActionRequiredPullRequestRunCleanReads(
@@ -359,22 +364,23 @@ async function deleteActionRequiredPullRequestRuns(
 async function waitForActionRequiredPullRequestRunsToDelete(
     input: RunConfiguredGitHubActionsContinuousIntegrationInput
 ): Promise<void> {
+    let deletedRunIdentifiers = await deleteActionRequiredPullRequestRuns(input);
     let cleanReads = 0;
     for (const attempt of createRetryAttempts(actionRequiredPullRequestRunCleanupAttempts)) {
-        const deletedRunIdentifiers = await deleteActionRequiredPullRequestRuns(input);
+        if (attempt > 0) {
+            await input.sleep(workflowPollIntervalMilliseconds);
+            deletedRunIdentifiers = await deleteActionRequiredPullRequestRuns(input);
+        }
         cleanReads = nextActionRequiredPullRequestRunCleanReads(cleanReads, deletedRunIdentifiers);
         if (cleanReads === actionRequiredPullRequestRunCleanReads) {
             return;
         }
-        if (isLastAttempt(attempt, actionRequiredPullRequestRunCleanupAttempts)) {
-            throw new Error(
-                `Action-required pull request workflow runs did not delete: ${
-                    formatObservedRunIdentifiers(deletedRunIdentifiers)
-                }`
-            );
-        }
-        await input.sleep(workflowPollIntervalMilliseconds);
     }
+    throw new Error(
+        `Action-required pull request workflow runs did not delete: ${
+            formatObservedRunIdentifiers(deletedRunIdentifiers)
+        }`
+    );
 }
 
 async function waitForConfiguredActionRequiredPullRequestRunCleanup(

@@ -1,4 +1,5 @@
 import { Result } from 'true-myth';
+import { ensureError } from '../common/error-normalization.ts';
 import type { ValidConfigurationResult } from '../configuration/validation.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { ResolveAndLinkFailure } from './packtory-results.ts';
@@ -40,7 +41,7 @@ async function projectPackages<T>(
         try {
             succeeded.push(await projectPackage(entry));
         } catch (error: unknown) {
-            failures.push(error instanceof Error ? error : new Error(String(error)));
+            failures.push(ensureError(error));
         }
     }
     return failures.length === 0 ? Result.ok(succeeded) : Result.err({ failures, succeeded });

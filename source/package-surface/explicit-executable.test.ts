@@ -10,6 +10,34 @@ const commandLineInterfaceExecutable: ExplicitSurface = {
 };
 
 suite('explicit-bin', function () {
+    test('rejects JSON and declaration-only roots as executable targets', function () {
+        for (
+            const root of [
+                {
+                    json: {
+                        inputFilePath: '/config.json',
+                        targetFilePath: 'config.json',
+                        content: '{}',
+                        isExecutable: true
+                    }
+                },
+                { declarationFile: { inputFilePath: '/index.d.ts', targetFilePath: 'index.d.ts' } }
+            ]
+        ) {
+            assert.throws(
+                function () {
+                    return buildExplicitExecutableField(
+                        { name: 'data', roots: { commandLineInterface: root } },
+                        commandLineInterfaceExecutable
+                    );
+                },
+                {
+                    message: 'Package "data" bin "package-a" must point to a root with a shebang'
+                }
+            );
+        }
+    });
+
     test('returns undefined when the explicit surface declares no executables', function () {
         const modulesOnly: ExplicitSurface = {
             mode: 'explicit',

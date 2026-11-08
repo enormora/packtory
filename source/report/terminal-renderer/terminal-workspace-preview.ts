@@ -1,4 +1,4 @@
-import type { PreviewPackage } from '../preview/preview-package-types.ts';
+import type { PreviewPackage } from '../preview/preview-package.ts';
 import { hiddenArtifactCount, visibleArtifactTree } from '../preview/artifact-visibility.ts';
 import { renderArtifactNode } from './terminal-artifact-renderer.ts';
 import { renderPackage } from './terminal-package-renderer.ts';

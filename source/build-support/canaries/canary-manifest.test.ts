@@ -53,4 +53,19 @@ suite('canary-manifest', function () {
             /Canary "missing" is not declared/u
         );
     });
+
+    test('sorts duplicate names in validation errors', async function () {
+        const entries = [ 'zebra', 'alpha', 'zebra', 'alpha' ].map(function (name) {
+            return { ...validManifest[0], name };
+        });
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [ { value: JSON.stringify(entries) } ]
+        });
+        await assert.rejects(readCanaryManifest('canaries.json', fileManager), /Duplicate canary names: alpha, zebra/u);
+    });
+
+    test('rejects malformed manifest entries', async function () {
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '[{}]' } ] });
+        await assert.rejects(readCanaryManifest('canaries.json', fileManager), /name/u);
+    });
 });

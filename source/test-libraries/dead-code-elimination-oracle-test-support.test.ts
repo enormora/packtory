@@ -112,4 +112,29 @@ suite('dead code elimination semantic oracle', function () {
             /secondary\.js#api changed observable behavior/u
         );
     });
+
+    test('observes JavaScript roots alongside JSON and declaration-only roots', async function () {
+        const code = bundle(api);
+        const json = bundleResource('/source/settings.json', { content: '{"value":1}' });
+        const types = bundleResource('/source/settings.d.ts', {
+            content: 'export interface Settings { value: number; }'
+        });
+        const mixed = {
+            ...code,
+            roots: {
+                ...code.roots,
+                settings: { json: json.fileDescription },
+                types: { declarationFile: types.fileDescription }
+            },
+            contents: [ ...code.contents, json, types ]
+        };
+        await assertDeadCodeEliminationBehaviorEquivalent({
+            name: 'mixed roots',
+            entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'api' },
+            leftName: 'original',
+            leftBundles: [ mixed ],
+            rightName: 'changed',
+            rightBundles: [ mixed ]
+        });
+    });
 });

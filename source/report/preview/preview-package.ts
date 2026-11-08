@@ -1,7 +1,8 @@
+import type { EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
 import type { PackageReport } from '../aggregator/report-types.ts';
-import type { ChangedPreviewArtifact, PreviewPackage, PreviewArtifactCounts } from './preview-package-types.ts';
+import type { ComparisonRow } from './workspace-import-comparison.ts';
 import { buildDiffForArtifact } from './artifact-diff-builder.ts';
-import { buildArtifactTree, type PreviewArtifact } from './artifact-tree-builder.ts';
+import { buildArtifactTree, type PreviewArtifact, type PreviewArtifactNode } from './artifact-tree-builder.ts';
 import type { BundleArtifactIndex } from './bundle-artifact-index.ts';
 import { buildVersionTransition, hasMeaningfulChanges } from './preview-document-state.ts';
 import { buildWorkspaceComparison } from './workspace-comparison.ts';
@@ -81,3 +82,27 @@ export async function buildPreviewPackage(
         ...comparison
     };
 }
+
+export type ChangedPreviewArtifact = PreviewArtifact & {
+    readonly diff: NonNullable<PreviewArtifact['diff']>;
+};
+
+type PreviewArtifactCounts = {
+    readonly emitted: number;
+    readonly changed: number;
+};
+
+export type PreviewPackage = {
+    readonly name: string;
+    readonly versionTransition?: string | undefined;
+    readonly hasChanges: boolean;
+    readonly openByDefault: boolean;
+    readonly tree: readonly PreviewArtifactNode[];
+    readonly changedArtifacts: readonly ChangedPreviewArtifact[];
+    readonly artifactCounts: PreviewArtifactCounts;
+    readonly eliminatedSourceFiles: readonly EliminatedSourceFile[];
+    readonly failure?: PackageReport['failure'];
+    readonly diagnostics: PackageReport;
+    readonly sourceTree?: readonly PreviewArtifactNode[] | undefined;
+    readonly comparisonRows?: readonly ComparisonRow[] | undefined;
+};

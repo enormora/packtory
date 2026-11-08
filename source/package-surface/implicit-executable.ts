@@ -13,7 +13,8 @@ function unscopedPackageName(packageName: string): string {
 
 function findExecutableShebangRoot(bundle: ImplicitExecutableBundle): RootFileDescription | undefined {
     const executableShebangRoots = Object.values(bundle.roots).filter(function (root) {
-        return root.javaScript.isExecutable && isShebangContent(root.javaScript.content);
+        return root.javaScript !== undefined && root.javaScript.isExecutable &&
+            isShebangContent(root.javaScript.content);
     });
 
     if (executableShebangRoots.length > 1) {
@@ -27,7 +28,7 @@ function findExecutableShebangRoot(bundle: ImplicitExecutableBundle): RootFileDe
 
 export function buildImplicitExecutableField(bundle: ImplicitExecutableBundle): PackageManifest['bin'] | undefined {
     const root = findExecutableShebangRoot(bundle);
-    if (root === undefined) {
+    if (root?.javaScript === undefined) {
         return undefined;
     }
 

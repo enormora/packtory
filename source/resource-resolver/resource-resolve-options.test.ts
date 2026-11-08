@@ -59,12 +59,10 @@ suite('resource-resolve-options', function () {
         });
     });
 
-    test('resolveRootsAndSurface() throws when roots are empty', function () {
-        assert.throws(function () {
-            resolveRootsAndSurface({
-                ...baseOptions(),
-                roots: {}
-            });
-        }, /^Error: Package "package-a" must define at least one root$/u);
+    test('resolveRootsAndSurface() supports packages without code roots', function () {
+        assert.deepStrictEqual(resolveRootsAndSurface({ ...baseOptions(), roots: {} }), {
+            roots: {},
+            surface: { mode: 'files' }
+        });
     });
 });

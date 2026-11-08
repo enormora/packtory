@@ -11,7 +11,7 @@ import { type ImportPathReplacementRequest, createPathReplacementLookup } from '
 function rootFile(
     inputFilePath: string,
     targetFilePath: string
-): BundleSubstitutionSource['roots'][string]['javaScript'] {
+): NonNullable<BundleSubstitutionSource['roots'][string]['javaScript']> {
     return {
         content: '',
         isExecutable: false,

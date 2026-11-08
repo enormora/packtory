@@ -24,7 +24,7 @@ import {
     type ReleasePullRequestPolicyConfiguration,
     type ReleasePullRequestPolicyInput
 } from './release-pull-request-policy.ts';
-import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
+import { formatTerminalFailure, formatTerminalFailureTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
@@ -107,18 +107,6 @@ type GitHubRepository = GitHubRepositoryNameParts & {
 };
 
 const defaultGitHubApplicationProgrammingInterfaceBaseAddress = 'https://api.github.com';
-
-function toError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
-}
-
-function formatHandlerError(error: unknown): string {
-    return formatTerminalError(toError(error));
-}
-
-function formatHandlerTrace(error: unknown): string {
-    return formatTerminalErrorTrace(toError(error));
-}
 
 function readGitHubToken(
     dependencies: Pick<ReleasePullRequestHandlerDependencies, 'readEnvironmentVariable'>
@@ -526,7 +514,7 @@ export async function runReleasePullRequestHandler(
     try {
         return stopSpinnersAndReturn(dependencies, await runReleasePullRequestCommand(dependencies));
     } catch (error: unknown) {
-        const formatError = dependencies.trace ? formatHandlerTrace : formatHandlerError;
+        const formatError = dependencies.trace ? formatTerminalFailureTrace : formatTerminalFailure;
         dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }

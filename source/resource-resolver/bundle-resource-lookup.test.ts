@@ -7,6 +7,18 @@ const javaScriptResource = bundleResource('/source/index.ts', { targetFilePath: 
 const declarationResource = bundleResource('/source/index.d.ts', { targetFilePath: 'index.d.ts' });
 
 suite('bundle-resource-lookup', function () {
+    test('resolves JSON and declaration-only roots without JavaScript resources', function () {
+        const jsonResource = bundleResource('/source/config.json', { targetFilePath: 'config.json' });
+        const result = buildResolvedRoots({
+            roots: { types: { declarationFile: '/source/index.d.ts' }, config: { json: '/source/config.json' } },
+            surface: { mode: 'implicit', defaultModuleRoot: 'types' }
+        }, [ declarationResource, jsonResource ]);
+        assert.deepStrictEqual(result, {
+            types: { declarationFile: declarationResource.fileDescription },
+            config: { json: jsonResource.fileDescription }
+        });
+    });
+
     test('buildResolvedRoots returns one entry per declared root', function () {
         const normalized = {
             roots: {

@@ -227,4 +227,12 @@ suite('canary-comparison', function () {
             }
         ]);
     });
+
+    test('reports packages removed from the candidate', function () {
+        const result = compareCanaryApplicationProgrammingInterfaces(inspection({}), { packages: [] });
+        assert.deepStrictEqual(result.issues, [ {
+            kind: 'regression',
+            message: 'Package "package" exists in the npm baseline but is missing from source'
+        } ]);
+    });
 });

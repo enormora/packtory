@@ -62,7 +62,7 @@ function recordCrossBundleSeed(input: CrossBundleSeedInput): SeedMap {
             sourceBundleName: context.sourceBundleName,
             inputFilePath: context.inputFilePath,
             line: statement.getStartLineNumber(),
-            moduleSpecifier: statement.getModuleSpecifierValue() ?? context.inputFilePath,
+            moduleSpecifier: target.moduleSpecifier,
             reason
         });
     }
@@ -167,7 +167,12 @@ function crossBundleTarget(statement: SeedStatement, context: WalkContext): Reso
     if (!indexedBundle.bindingsByFilePath.has(reference.targetFilePath)) {
         return undefined;
     }
-    return { bundleName: reference.packageName, targetFilePath: reference.targetFilePath, indexedBundle };
+    return {
+        bundleName: reference.packageName,
+        targetFilePath: reference.targetFilePath,
+        indexedBundle,
+        moduleSpecifier: reference.emittedSpecifier
+    };
 }
 
 function processImportDeclaration(importDeclaration: ImportDeclaration, context: WalkContext): SeedMap {

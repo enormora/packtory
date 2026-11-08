@@ -1,6 +1,15 @@
 import path from 'node:path';
 import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
-import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts as typescript } from 'ts-morph';
+import {
+    ModuleKind,
+    ModuleResolutionKind,
+    Project,
+    ScriptTarget,
+    Node as MorphNode,
+    type Symbol as MorphSymbol,
+    ts as typescript
+} from 'ts-morph';
+import { errorMessage } from '../../common/error-normalization.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import {
     executableTargetsFromExecutableField,
@@ -62,7 +71,6 @@ type Manifest = {
 };
 
 const successfulImport = '';
-const importProbeTimeoutMilliseconds = 10_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype;
@@ -133,42 +141,36 @@ function compareStrings(left: string, right: string): number {
     return left.localeCompare(right);
 }
 
-function symbolHasNamespaceDeclaration(symbol: Readonly<typescript.Symbol>): boolean {
-    return symbol.getDeclarations()?.some(typescript.isModuleDeclaration) === true;
+function isTypeDeclaration(declaration: MorphNode): boolean {
+    return MorphNode.isClassDeclaration(declaration) || MorphNode.isEnumDeclaration(declaration) ||
+        MorphNode.isInterfaceDeclaration(declaration) || MorphNode.isTypeAliasDeclaration(declaration);
 }
 
-function symbolHasTypeDeclaration(symbol: Readonly<typescript.Symbol>): boolean {
-    return symbol.getDeclarations()?.some(function (declaration) {
-        return typescript.isClassDeclaration(declaration) ||
-            typescript.isEnumDeclaration(declaration) ||
-            typescript.isInterfaceDeclaration(declaration) ||
-            typescript.isTypeAliasDeclaration(declaration);
-    }) === true;
-}
-
-function symbolHasValueDeclaration(symbol: Readonly<typescript.Symbol>): boolean {
-    return symbol.getDeclarations()?.some(function (declaration) {
-        return typescript.isClassDeclaration(declaration) ||
-            typescript.isEnumDeclaration(declaration) ||
-            typescript.isFunctionDeclaration(declaration) ||
-            typescript.isModuleDeclaration(declaration) ||
-            typescript.isVariableDeclaration(declaration);
-    }) === true;
+function isValueDeclaration(declaration: MorphNode): boolean {
+    return MorphNode.isClassDeclaration(declaration) || MorphNode.isEnumDeclaration(declaration) ||
+        MorphNode.isFunctionDeclaration(declaration) || MorphNode.isModuleDeclaration(declaration) ||
+        MorphNode.isVariableDeclaration(declaration);
 }
 
 function appendSymbolName(
-    symbol: Readonly<typescript.Symbol>,
+    symbol: Readonly<MorphSymbol>,
     names: TypeExportNames,
     name: string
 ): TypeExportNames {
     return {
-        namespace: symbolHasNamespaceDeclaration(symbol) ? [ ...names.namespace, name ] : names.namespace,
-        type: symbolHasTypeDeclaration(symbol) ? [ ...names.type, name ] : names.type,
-        value: symbolHasValueDeclaration(symbol) ? [ ...names.value, name ] : names.value
+        namespace: symbol.getDeclarations().some(MorphNode.isModuleDeclaration)
+            ? [ ...names.namespace, name ]
+            : names.namespace,
+        type: symbol.getDeclarations().some(isTypeDeclaration)
+            ? [ ...names.type, name ]
+            : names.type,
+        value: symbol.getDeclarations().some(isValueDeclaration)
+            ? [ ...names.value, name ]
+            : names.value
     };
 }
 
-function typeExportNames(symbols: readonly typescript.Symbol[]): TypeExportNames {
+function typeExportNames(symbols: readonly MorphSymbol[]): TypeExportNames {
     const names = symbols.reduce<TypeExportNames>(function (collected, symbol) {
         return appendSymbolName(symbol, collected, symbol.getName());
     }, { namespace: [], type: [], value: [] });
@@ -238,15 +240,11 @@ function createTypeProject(cwd: string, specifiers: readonly string[], nodeTypeD
 
 function moduleSymbolExports(project: Project, specifier: string): TypeExportNames {
     const sourceFile = project.getSourceFileOrThrow('packtory-canary-type-probe.mts');
-    const declaration = sourceFile.getImportDeclarations().find(function (candidate) {
-        return candidate.getModuleSpecifierValue() === specifier;
-    });
-    const symbol = declaration === undefined
-        ? undefined
-        : project.getTypeChecker().compilerObject.getSymbolAtLocation(declaration.getModuleSpecifier().compilerNode);
+    const declaration = sourceFile.getImportDeclarationOrThrow(specifier);
+    const symbol = declaration.getModuleSpecifier().getSymbol();
     return symbol === undefined
         ? { namespace: [], type: [], value: [] }
-        : typeExportNames(project.getTypeChecker().compilerObject.getExportsOfModule(symbol));
+        : typeExportNames(project.getTypeChecker().getExportsOfModule(symbol));
 }
 
 function inspectTypes(cwd: string, specifiers: readonly string[], nodeTypeDefinitionsFolder: string): TypeInspection {
@@ -277,7 +275,7 @@ async function runtimeNamesForTarget(
     try {
         return { error: successfulImport, names: await input.runImportProbe(input.nodeModulesFolder, specifier) };
     } catch (error: unknown) {
-        return { error: error instanceof Error ? error.message : String(error), names: [] };
+        return { error: errorMessage(error), names: [] };
     }
 }
 
@@ -340,7 +338,11 @@ export async function inspectPackageApplicationProgrammingInterfaces(
     return { packages };
 }
 
-export async function runNodeImportProbe(cwd: string, specifier: string): Promise<readonly string[]> {
+async function runImportProbeWithTimeout(
+    cwd: string,
+    specifier: string,
+    timeoutMilliseconds: number
+): Promise<readonly string[]> {
     const script = `
         try {
             const module = await import(${JSON.stringify(specifier)});
@@ -354,7 +356,7 @@ export async function runNodeImportProbe(cwd: string, specifier: string): Promis
         executeFile(
             process.execPath,
             [ '--enable-source-maps', '--input-type=module', '-e', script ],
-            { cwd, encoding: 'utf8', timeout: importProbeTimeoutMilliseconds },
+            { cwd, encoding: 'utf8', timeout: timeoutMilliseconds },
             function (error, standardOutput, standardError) {
                 if (error !== null) {
                     reject(
@@ -363,7 +365,7 @@ export async function runNodeImportProbe(cwd: string, specifier: string): Promis
                                 error,
                                 standardOutput,
                                 standardError,
-                                importProbeTimeoutMilliseconds
+                                timeoutMilliseconds
                             )
                         )
                     );
@@ -372,9 +374,15 @@ export async function runNodeImportProbe(cwd: string, specifier: string): Promis
                 try {
                     resolve(parseImportProbeOutput(standardOutput));
                 } catch (parseError: unknown) {
-                    reject(parseError instanceof Error ? parseError : new Error(String(parseError)));
+                    reject(new Error(errorMessage(parseError), { cause: parseError }));
                 }
             }
         );
     });
+}
+
+export function createNodeImportProbe(timeoutMilliseconds: number): InspectPackagesInput['runImportProbe'] {
+    return async function (cwd, specifier) {
+        return runImportProbeWithTimeout(cwd, specifier, timeoutMilliseconds);
+    };
 }

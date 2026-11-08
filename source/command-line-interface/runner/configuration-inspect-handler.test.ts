@@ -209,6 +209,35 @@ function assertInspectSucceedsWithMatch(result: InspectResult, pattern: RegExp):
 }
 
 suite('config-inspect-handler', function () {
+    test('prints JSON and declaration-only entry paths without duplicate declaration labels', async function () {
+        const result = await inspectConfiguration({
+            registrySettings: registrySettingsFactory.build(),
+            commonPackageSettings: commonPackageSettingsFactory.build(),
+            packages: [
+                { name: 'configs', roots: { main: { json: 'tsconfig.json' } } },
+                { name: 'types', roots: { main: { declarationFile: 'index.d.ts' } } }
+            ]
+        });
+        assert.partialDeepStrictEqual(result, {
+            exitCode: 0,
+            message: [
+                '✔ Config is valid',
+                'Packages: 2 package(s)',
+                '- configs',
+                '  sourcesFolder: dist',
+                '  roots: main: tsconfig.json',
+                '  bundleDependencies: none',
+                '  bundlePeerDependencies: none',
+                '- types',
+                '  sourcesFolder: dist',
+                '  roots: main: index.d.ts',
+                '  bundleDependencies: none',
+                '  bundlePeerDependencies: none'
+            ]
+                .join('\n')
+        });
+    });
+
     test('prints a compact package summary for a valid config', async function () {
         const result = await inspectConfiguration(validConfigurationFactory.build());
 

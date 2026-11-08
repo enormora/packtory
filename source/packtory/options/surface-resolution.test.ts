@@ -9,6 +9,10 @@ const packageConfiguration: (overrides: Partial<PackageConfiguration>) => Packag
     packageConfigurationFixture;
 
 suite('surface-resolution', function () {
+    test('resolveSurface returns a file surface when there are no roots', function () {
+        assert.deepStrictEqual(resolveSurface([], packageConfiguration({ roots: {} })), { mode: 'files' });
+    });
+
     test('resolveSurface returns an implicit surface using the only root when there is a single root', function () {
         const surface = resolveSurface([ 'main' ], packageConfiguration({}));
 

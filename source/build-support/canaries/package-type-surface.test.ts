@@ -88,4 +88,21 @@ suite('package-type-surface', function () {
         });
         assert.deepStrictEqual(result, [ 'package/typed' ]);
     });
+
+    test('does not apply root type conditions to subpath targets', async function () {
+        const result = await typedExportSpecifiers({
+            name: 'package',
+            packageFolder: '/artifact/node_modules/package',
+            types: undefined,
+            exports: { types: './index.d.ts', import: './index.js' },
+            targets: [ { specifier: 'package/subpath', targetFilePath: 'subpath.js' } ],
+            fileManager: createFakeFileManager({
+                simulatedCheckReadabilityResponses: [
+                    { value: { isReadable: false } },
+                    { value: { isReadable: false } }
+                ]
+            })
+        });
+        assert.deepStrictEqual(result, []);
+    });
 });

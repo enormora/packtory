@@ -7,7 +7,7 @@ import type {
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { prepareRelease, type ResolveReleasePackages } from './prepared-release.ts';
-import { wasAlreadyPublished } from './published-release-state.ts';
+import { wasAlreadyPublished } from './package-publication.ts';
 import { classifyPackageRelease, summarizeReleaseAnalysis } from './release-analysis.ts';
 import type { PublishStageDependencies } from './stages/publish-stage.ts';
 

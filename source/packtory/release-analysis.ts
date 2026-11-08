@@ -13,7 +13,7 @@ import {
     type PackageReleaseAnalysisClassification,
     type ReleaseAnalysis
 } from './packtory-results.ts';
-import { publishedReleaseStatus } from './published-release-state.ts';
+import { publishedReleaseStatus } from './package-publication.ts';
 
 type PackageReleaseAnalysisWithPublishedDate = PackageReleaseAnalysis & { readonly latestPublishedAt: Date; };
 

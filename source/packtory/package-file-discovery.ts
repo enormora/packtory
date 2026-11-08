@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { isDefined } from 'remeda';
+import { rootFiles } from '../common/package-root.ts';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
@@ -48,9 +49,9 @@ function sourcePath(resource: Resource, repositoryFolder: string): string | unde
 function discoverySeeds(bundle: LinkedBundle, repositoryFolder: string): ReadonlyMap<string, DiscoveryPath> {
     const roots = new Set(
         Object.values(bundle.roots).flatMap(function (root) {
-            return root.declarationFile === undefined
-                ? [ root.javaScript.targetFilePath ]
-                : [ root.javaScript.targetFilePath, root.declarationFile.targetFilePath ];
+            return rootFiles(root).map(function (file) {
+                return file.targetFilePath;
+            });
         })
     );
     const seeds = bundle.contents.filter(function (resource) {

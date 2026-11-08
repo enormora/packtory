@@ -19,6 +19,18 @@ function configurations(...packages: readonly PackageConfiguration[]): PackageCo
 }
 
 suite('root-config-validation', function () {
+    test('accepts distinct JSON and declaration-only roots without treating them as duplicate JavaScript paths', function () {
+        assert.deepStrictEqual(
+            validatePackageSurfaceRules(configurations(packageConfiguration({
+                roots: { config: { json: 'config.json' }, types: { declarationFile: 'index.d.ts' } },
+                packageInterface: {
+                    modules: [ { root: 'config', export: './config.json' }, { root: 'types', export: '.' } ]
+                }
+            }))),
+            []
+        );
+    });
+
     test('validatePackageSurfaceRules returns no issues for a single-root implicit package', function () {
         assert.deepStrictEqual(validatePackageSurfaceRules(configurations(packageConfiguration({}))), []);
     });

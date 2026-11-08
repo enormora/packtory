@@ -22,15 +22,12 @@ export type ResolvedRootsAndSurface = {
 };
 
 export function resolveRootsAndSurface(options: ResourceResolveOptions): ResolvedRootsAndSurface {
-    const rootEntries = Object.entries(options.roots);
-    const [ firstRootEntry ] = rootEntries;
-    if (firstRootEntry === undefined) {
-        throw new Error(`Package "${options.name}" must define at least one root`);
-    }
-
-    const [ firstRootIdentifier ] = firstRootEntry;
+    const [ firstRootIdentifier ] = Object.keys(options.roots);
+    const defaultSurface: PackageSurface = firstRootIdentifier === undefined
+        ? { mode: 'files' }
+        : implicitPackageSurface(firstRootIdentifier);
     return {
         roots: options.roots,
-        surface: options.surface ?? implicitPackageSurface(firstRootIdentifier)
+        surface: options.surface ?? defaultSurface
     };
 }

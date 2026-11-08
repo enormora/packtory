@@ -62,6 +62,22 @@ function assertCommandLineInterfaceMainFile(result: VersionedBundle): void {
 }
 
 suite('versioned-bundle', function () {
+    test('buildVersionedBundle() preserves JSON content without a main or types file', function () {
+        const contents = [ analyzedBundleResource('/source/base.json', { targetFilePath: 'base.json' }) ];
+        const result = buildVersionedBundle(buildOptions({
+            bundle: createAnalyzedBundle({ roots: {}, surface: { mode: 'files' }, contents })
+        }));
+        assert.partialDeepStrictEqual(result, {
+            mainFile: undefined,
+            exportsField: { './base.json': './base.json' },
+            contents,
+            dependencies: {},
+            peerDependencies: {}
+        });
+        assert.strictEqual(Object.hasOwn(result, 'typesMainFile'), false);
+        assert.strictEqual(Object.hasOwn(result, 'executableField'), false);
+    });
+
     test('buildVersionedBundle() uses the representative root as the main and types files', function () {
         const result = buildVersionedBundle(buildOptions({ additionalPackageManifestAttributes: { custom: true } }));
 

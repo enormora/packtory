@@ -156,4 +156,15 @@ suite('package-tree-handler', function () {
 
         assert.strictEqual(stopAll.callCount, 2);
     });
+
+    test('prints partial failure messages without stack traces by default', async function () {
+        const { dependencies, log } = setup({
+            result: Result.err({
+                type: 'partial',
+                error: { succeeded: [], failures: [ new Error('resolve failed') ] }
+            })
+        });
+        assert.strictEqual(await runPackageTreeHandler(dependencies), 1);
+        assert.strictEqual(log.firstCall.args[0], 'Packtory tree [Dry run]\nPackage failures\n- resolve failed');
+    });
 });

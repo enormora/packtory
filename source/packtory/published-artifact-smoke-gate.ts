@@ -8,22 +8,15 @@ import { isRuntimeCodeTargetPath } from '../dead-code-eliminator/liveness/runtim
 import {
     collectDeadCodeEliminationOutputIssues
 } from '../dead-code-eliminator/invariants/output-invariants.ts';
-import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import type { CreateProject } from '../dead-code-eliminator/load-bundle.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 
-type LinkDirectoryType = 'dir' | 'junction';
-
-export type SmokeProbeInput = {
-    readonly cwd: string;
-    readonly specifier: string;
-    readonly packageName: string;
-    readonly targetFilePath: string;
-    readonly timeoutMilliseconds: number;
-};
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import {
+    collectProbeIssues,
+    type PublishedArtifactSmokeGateDependencies,
+    type RuntimeExportTarget
+} from './published-artifact-smoke-probe.ts';
 
 type PublishedArtifactSmokeGateInput = {
     readonly analyzedBundle: AnalyzedBundle;
@@ -36,23 +29,6 @@ export type PublishedArtifactSmokeGate = {
     readonly verify: (input: PublishedArtifactSmokeGateInput) => Promise<void>;
 };
 
-export type PublishedArtifactSmokeGateDependencies = {
-    readonly createProject: CreateProject;
-    readonly collectContents: ArtifactsBuilder['collectContents'];
-    readonly fileManager: Pick<FileManager, 'checkReadability' | 'setExecutable' | 'writeFile'>;
-    readonly createTemporaryFolder: (prefix: string) => Promise<string>;
-    readonly removeFolder: (folderPath: string) => Promise<void>;
-    readonly linkDirectory: (sourcePath: string, targetPath: string, type: LinkDirectoryType) => Promise<void>;
-    readonly runImportProbe: (input: SmokeProbeInput) => Promise<void>;
-    readonly dependencyLinkType: LinkDirectoryType;
-    readonly repositoryFolder: string;
-};
-
-export type RuntimeExportTarget = {
-    readonly specifier: string;
-    readonly targetFilePath: string;
-};
-
 export type ExecutableTarget = {
     readonly name: string;
     readonly targetFilePath: string;
@@ -62,8 +38,6 @@ type SmokeTargets = {
     readonly runtimeExports: readonly RuntimeExportTarget[];
     readonly executables: readonly ExecutableTarget[];
 };
-
-const importProbeTimeoutMilliseconds = 10_000;
 
 type StagedPackage = {
     readonly bundle: PublishedPackageWithManifest;
@@ -368,39 +342,6 @@ async function linkInstalledDependencies(
     }
 }
 
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
-
-async function collectProbeIssues(
-    dependencies: PublishedArtifactSmokeGateDependencies,
-    packageName: string,
-    temporaryFolder: string,
-    targets: readonly RuntimeExportTarget[]
-): Promise<readonly string[]> {
-    const issues: string[] = [];
-    for (const target of targets) {
-        try {
-            await dependencies.runImportProbe({
-                cwd: temporaryFolder,
-                specifier: target.specifier,
-                packageName,
-                targetFilePath: target.targetFilePath,
-                timeoutMilliseconds: importProbeTimeoutMilliseconds
-            });
-        } catch (error: unknown) {
-            issues.push(
-                [
-                    `Package "${packageName}" export "${target.specifier}" target`,
-                    `"${target.targetFilePath}" failed import: ${errorMessage(error)}`
-                ]
-                    .join(' ')
-            );
-        }
-    }
-    return issues;
-}
-
 function formatSmokeGateIssues(packageName: string, issues: readonly string[]): string {
     return `Package "${packageName}" published artifact smoke check failed:\n${
         issues
@@ -471,7 +412,7 @@ async function writeStagedPackages(
 
 function collectInvariantIssues(
     input: PublishedArtifactSmokeGateInput,
-    createProject: CreateProject
+    createProject: PublishedArtifactSmokeGateDependencies['createProject']
 ): readonly string[] {
     return collectDeadCodeEliminationOutputIssues([ input.analyzedBundle ], createProject).map(function (issue) {
         return `Dead code elimination output invariant failed: ${issue}`;

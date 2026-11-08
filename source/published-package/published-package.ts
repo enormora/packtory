@@ -30,7 +30,7 @@ export type PublishedPackage = {
     readonly exportsField: PublishedPackageExportsField;
     readonly executableField?: PackageManifest['bin'] | undefined;
     readonly additionalAttributes: AdditionalPackageManifestAttributes;
-    readonly mainFile: FileDescription | TransferableFileDescription;
+    readonly mainFile: FileDescription | TransferableFileDescription | undefined;
     readonly typesMainFile?: FileDescription | TransferableFileDescription | undefined;
     readonly packageType: 'module';
 };

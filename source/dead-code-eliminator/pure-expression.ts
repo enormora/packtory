@@ -6,11 +6,8 @@ import {
     type NewExpression
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import type { PurityContext } from './purity-context.ts';
-import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
-import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
-import { unwrapExpression } from './expression-unwrapping.ts';
 import {
+    type PurityContext,
     classExpressionFact,
     expressionFactIsPure,
     expressionFactOrigin,
@@ -24,6 +21,9 @@ import {
     type ExpressionFact,
     type ExpressionFactResolver
 } from './expression-facts.ts';
+import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
+import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
+import { unwrapExpression } from './expression-unwrapping.ts';
 import {
     arePureCallArguments,
     originIsTrustedPureImport,

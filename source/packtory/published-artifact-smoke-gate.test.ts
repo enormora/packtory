@@ -13,6 +13,7 @@ import {
     type SmokeGateContext,
     verify
 } from '../test-libraries/published-artifact-smoke-gate-fixtures.ts';
+import { runtimeExportsFromExportsField } from './published-artifact-smoke-gate.ts';
 
 function assertNoSmokeProbe(context: SmokeGateContext): void {
     assert.deepStrictEqual([
@@ -385,5 +386,9 @@ suite('published artifact smoke gate', function () {
                 [ temporaryFolderPath ]
             ]);
         });
+    });
+
+    test('ignores null and numeric runtime export values', function () {
+        assert.deepStrictEqual(runtimeExportsFromExportsField('package-a', { './null': null, './number': 42 }), []);
     });
 });
