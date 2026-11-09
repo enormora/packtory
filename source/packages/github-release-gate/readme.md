@@ -84,6 +84,11 @@ This means:
 
 When run inside GitHub Actions, the tool writes these values to `$GITHUB_OUTPUT`.
 
+The configured CI workflow must exist at `.github/workflows/$CI_WORKFLOW_FILE` and be active.
+Missing, renamed, or disabled workflows cause the command to exit with code `1`, failing the gate step.
+An active workflow with no successful run for the current commit still defers publishing normally.
+The gate needs `actions: read` permission to validate the workflow and inspect its runs.
+
 ## Installation
 
 ```bash
@@ -101,7 +106,7 @@ The package ships a `github-release-gate` executable that writes its decision to
   id: release-gate
   run: npx github-release-gate
   env:
-      CONTINUOUS_INTEGRATION_WORKFLOW_FILE: ci.yml
+      CI_WORKFLOW_FILE: continuous-integration.yml
       DEFAULT_BRANCH: main
       DEPENDENCY_ONLY_MINIMUM_AGE_DAYS: "7"
       GITHUB_TOKEN: ${{ github.token }}
@@ -113,10 +118,10 @@ The package ships a `github-release-gate` executable that writes its decision to
 
 - `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are required.
 - `GITHUB_OUTPUT` is required when used as a GitHub Actions step.
-- `CONTINUOUS_INTEGRATION_WORKFLOW_FILE` defaults to `ci.yml`.
+- `CI_WORKFLOW_FILE` defaults to `continuous-integration.yml`.
 - `CHECKED_OUT_HEAD_HASH`, when set, must match the main HEAD checked by the gate. Pass the checked-out commit to prevent analysis and CI checks from using different commits.
 - `DEFAULT_BRANCH` defaults to `main`.
-- `GITHUB_APPLICATION_PROGRAMMING_INTERFACE_BASE_ADDRESS` defaults to `https://api.github.com`.
+- `GITHUB_API_BASE_URL` defaults to `https://api.github.com`.
 - `DEPENDENCY_ONLY_MINIMUM_AGE_DAYS` defaults to `7`.
 - `QUIET_PERIOD_MINUTES` defaults to `45`.
 - `MAXIMUM_LATENCY_HOURS` defaults to `24`.

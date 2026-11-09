@@ -77,7 +77,6 @@
         "@jridgewell/gen-mapping": "0.3.13",
         "@ls-lint/ls-lint": "2.3.2",
         "@packtory/cli": "0.0.124",
-        "@packtory/github-release-gate": "0.0.85",
         "@stryker-mutator/core": "9.6.1",
         "@stryker-mutator/mocha-runner": "9.6.1",
         "@types/mocha": "10.0.10",
@@ -103,7 +102,8 @@
         "tinybench": "6.2.3",
         "tstyche": "7.2.5",
         "typescript": "6.0.3",
-        "verdaccio": "6.10.6"
+        "verdaccio": "6.10.6",
+        "yaml": "2.9.1"
     },
     "engines": {
         "node": "^24.15.0 || ^26.0.0"
