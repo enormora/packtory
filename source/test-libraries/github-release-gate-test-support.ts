@@ -91,6 +91,9 @@ export function createBaseEnvironment(overrides: FakeEnvironment = {}): FakeEnvi
 
 export function createBaseRoutes(): RouteMap {
     return {
+        '/repos/enormora/packtory/actions/workflows/continuous-integration.yml': {
+            body: { path: '.github/workflows/continuous-integration.yml', state: 'active' }
+        },
         '/repos/enormora/packtory/branches/main': {
             body: { commit: { hash: 'abc123' } }
         },

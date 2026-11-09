@@ -114,6 +114,18 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
         }
     });
 
+    async function requireActiveWorkflow(workflowFile: string): Promise<void> {
+        const workflow = await resolveGitHubResponse(octokit.rest.actions.getWorkflow({
+            ...requestContext,
+            workflow_id: workflowFile
+        }));
+        const expectedPath = `.github/workflows/${workflowFile}`;
+        if (workflow.data.path !== expectedPath || workflow.data.state !== 'active') {
+            const expectation = `Invalid CI workflow ${workflowFile}: expected active ${expectedPath}`;
+            throw new Error(`${expectation}, got ${workflow.data.state} ${workflow.data.path}`);
+        }
+    }
+
     return {
         async getMainBranchHeadHash() {
             const branch = await resolveGitHubResponse<{ readonly data: BranchResponse; }>(
@@ -127,6 +139,7 @@ export function createGitHubReleaseGateApplicationProgrammingInterface(
         },
 
         async getMainContinuousIntegrationRunStatus(continuousIntegrationWorkflowFile, headHash) {
+            await requireActiveWorkflow(continuousIntegrationWorkflowFile);
             const response = await resolveGitHubResponse<{ readonly data: WorkflowRunsResponse; }>(
                 octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
