@@ -10,7 +10,11 @@ export type NamespaceDemandLimits = {
     readonly maximumEvaluations: number;
 };
 
-type DemandJob<Key> = { readonly key: Key; readonly evaluate: () => NamespaceDemand; };
+type DemandJob = {
+    readonly evaluate: () => NamespaceDemand;
+    readonly demand: NamespaceDemand;
+    readonly recordDemand: (demand: NamespaceDemand) => void;
+};
 export type NamespaceDemandSolver<Key> = {
     readonly read: (key: Key, evaluate: () => NamespaceDemand) => NamespaceDemand;
     readonly resolve: (key: Key, evaluate: () => NamespaceDemand) => NamespaceDemand;
@@ -28,36 +32,40 @@ function checkedLimits(limits: NamespaceDemandLimits): NamespaceDemandLimits {
 }
 
 export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits): NamespaceDemandSolver<Key> {
-    let evaluating: DemandJob<Key> | null = null;
+    let evaluating: DemandJob | null = null;
     let exhausted = false;
     let processed = 0;
     const state = {
         limits: checkedLimits(limits),
-        jobs: new Map<Key, DemandJob<Key>>(),
-        values: new Map<DemandJob<Key>, NamespaceDemand>(),
-        dependents: new Map<DemandJob<Key>, Set<DemandJob<Key>>>(),
-        pending: new Set<DemandJob<Key>>(),
+        jobs: new Map<Key, DemandJob>(),
+        dependents: new Map<DemandJob, Set<DemandJob>>(),
+        pending: new Set<DemandJob>(),
         isExhausted(): boolean {
             return exhausted;
         }
     };
 
-    function jobFor(key: Key, evaluate: () => NamespaceDemand): DemandJob<Key> | undefined {
-        const existing = state.jobs.get(key);
-        if (existing !== undefined) {
-            return existing;
-        }
+    function scheduleJob(key: Key, evaluate: () => NamespaceDemand): DemandJob | undefined {
         if (state.jobs.size >= state.limits.maximumQueries) {
             exhausted = true;
             return undefined;
         }
-        const job = { key, evaluate };
+        let demand: NamespaceDemand = noNamespaceProperties;
+        const job: DemandJob = {
+            evaluate,
+            get demand() {
+                return demand;
+            },
+            recordDemand(next) {
+                demand = next;
+            }
+        };
         state.jobs.set(key, job);
         state.pending.add(job);
         return job;
     }
 
-    function dependOn(job: DemandJob<Key>): void {
+    function dependOn(job: DemandJob): void {
         if (evaluating !== null) {
             const dependents = state.dependents.get(job) ?? new Set();
             dependents.add(evaluating);
@@ -69,19 +77,19 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
         if (state.isExhausted()) {
             return allNamespaceProperties;
         }
-        const job = jobFor(key, evaluate);
+        const job = state.jobs.get(key) ?? scheduleJob(key, evaluate);
         if (job === undefined) {
             return allNamespaceProperties;
         }
         dependOn(job);
-        return state.values.get(job) ?? noNamespaceProperties;
+        return job.demand;
     }
 
-    function publish(job: DemandJob<Key>, observation: NamespaceDemand): void {
-        const previous = state.values.get(job) ?? noNamespaceProperties;
+    function publish(job: DemandJob, observation: NamespaceDemand): void {
+        const previous = job.demand;
         const next = mergeNamespaceDemand(previous, observation);
         if (next !== previous) {
-            state.values.set(job, next);
+            job.recordDemand(next);
             const dependents = state.dependents.get(job) ?? [];
             for (const dependent of dependents) {
                 state.pending.add(dependent);
@@ -89,7 +97,7 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
         }
     }
 
-    function evaluateJob(job: DemandJob<Key>): void {
+    function evaluateJob(job: DemandJob): void {
         const previous = evaluating;
         evaluating = job;
         processed += 1;

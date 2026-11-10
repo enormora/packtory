@@ -61,12 +61,17 @@ suite('namespace demand fixed points', function () {
         });
 
         test('settles empty cycles without making all properties live', function () {
+            const visits = new Set<string>();
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluations = {
                 first(): NamespaceDemand {
+                    assert.ok(!visits.has('first'));
+                    visits.add('first');
                     return solver.read('second', evaluations.second);
                 },
                 second(): NamespaceDemand {
+                    assert.ok(!visits.has('second'));
+                    visits.add('second');
                     return solver.read('first', evaluations.first);
                 }
             };
