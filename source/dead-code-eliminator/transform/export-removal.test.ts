@@ -18,26 +18,37 @@ function removeExports(content: string, names: readonly string[], exports: reado
 }
 
 suite('export removal', function () {
-    test('removes dead export aliases while keeping a locally used binding', function () {
-        const output = removeExports('const value=42;export {value as dead,value as live};', [ 'value' ], [ 'live' ]);
-        const source = createProject().createSourceFile('output.js', output);
-        assert.notStrictEqual(source.getVariableDeclaration('value'), undefined);
-        assert.deepStrictEqual(
-            source.getExportSymbols().map(function (symbol) {
-                return symbol.getName();
-            }),
-            [ 'live' ]
-        );
-    });
+    suite('named forwarding', function () {
+        test('removes an unused namespace forwarding export while preserving module evaluation', function () {
+            assert.strictEqual(
+                removeExports('export * as unused from "./library.js";', [], []),
+                'export {} from "./library.js";'
+            );
+        });
 
-    test('decodes quoted export aliases before removing specifiers', function () {
-        const output = removeExports(
-            'const value=42;export {value as "kept-name",value as "dead-name"};',
-            [ 'value' ],
-            [ 'kept-name' ]
-        );
-        assert.ok(output.includes('"kept-name"'));
-        assert.strictEqual(output.includes('dead-name'), false);
+        test('removes dead export aliases while keeping a locally used binding', function () {
+            const output = removeExports('const value=42;export {value as dead,value as live};', [ 'value' ], [
+                'live'
+            ]);
+            const source = createProject().createSourceFile('output.js', output);
+            assert.notStrictEqual(source.getVariableDeclaration('value'), undefined);
+            assert.deepStrictEqual(
+                source.getExportSymbols().map(function (symbol) {
+                    return symbol.getName();
+                }),
+                [ 'live' ]
+            );
+        });
+
+        test('decodes quoted export aliases before removing specifiers', function () {
+            const output = removeExports(
+                'const value=42;export {value as "kept-name",value as "dead-name"};',
+                [ 'value' ],
+                [ 'kept-name' ]
+            );
+            assert.ok(output.includes('"kept-name"'));
+            assert.strictEqual(output.includes('dead-name'), false);
+        });
     });
 
     for (const clause of [ '* as unused', '{unused}' ]) {

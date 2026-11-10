@@ -15,7 +15,7 @@ function removeDefaultDeclaration(statement: ClassDeclaration | FunctionDeclarat
     if (statement.getName() === undefined) {
         statement.remove();
     } else {
-        statement.setIsDefaultExport(false).setIsExported(false);
+        statement.setIsExported(false);
     }
 }
 
@@ -33,7 +33,7 @@ function removeDefaultExport(statement: Statement, plan: RemovalPlan): void {
 function removeUnusedSpecifiers(declaration: ExportDeclaration, surviving: ReadonlySet<string>): void {
     const namespace = declaration.getNamespaceExport();
     if (namespace !== undefined && !surviving.has(namespace.getName())) {
-        declaration.set({ namedExports: [] });
+        namespace.replaceWithText('{}');
         return;
     }
     for (const specifier of declaration.getNamedExports()) {
