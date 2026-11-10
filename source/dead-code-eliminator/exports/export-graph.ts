@@ -1,5 +1,6 @@
 import type { Node as TypeScriptMorphNode, CallExpression, ExportDeclaration, SourceFile } from 'ts-morph';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
+import { bindingValueIsStable } from '../binding-stability.ts';
 import { createModuleGraphAnalysis, type ExportGraphInput } from './module-graph-analysis.ts';
 import { resolveImportedExport } from './module-export-resolver.ts';
 import { dynamicImportDependencies } from './module-export-dependencies.ts';
@@ -20,7 +21,7 @@ export type ExportGraph = {
 };
 
 export function createExportGraph(input: ExportGraphInput): ExportGraph {
-    const analysis = createModuleGraphAnalysis(input);
+    const analysis = createModuleGraphAnalysis(input, bindingValueIsStable);
     const graph = createExportGraphModules(analysis);
     const { index, resolveModule } = analysis;
     const external = new Map<string, readonly string[]>();

@@ -7,7 +7,6 @@ import {
     type FunctionExpression,
     type ArrowFunction
 } from 'ts-morph';
-import { bindingValueIsStable } from '../binding-stability.ts';
 import { constantStatement } from '../evaluation/constant-binding.ts';
 import { declarationOf } from '../evaluation/evaluation-context.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
@@ -17,7 +16,7 @@ import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { resolveNamespaceImport } from './namespace-export-value.ts';
 
 type ReceiverFunction = ArrowFunction | FunctionDeclaration | FunctionExpression;
-type BindingStability = (name: Identifier) => boolean;
+export type BindingStability = (name: Identifier) => boolean;
 
 function bindingFunction(declaration: TypeScriptMorphNode): ReceiverFunction | undefined {
     if (TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
@@ -57,7 +56,7 @@ function receiverBinding(
     return index.binding(namespace, name);
 }
 
-export function createNamespaceReceiverProof(
+export function createNamespaceReceiverAnalysis(
     index: ModuleExportIndex,
     resolveModule: ExportTargetResolver,
     bindingIsStable: BindingStability
@@ -75,11 +74,4 @@ export function createNamespaceReceiverProof(
         }
         return unused;
     };
-}
-
-export function createNamespaceReceiverAnalysis(
-    index: ModuleExportIndex,
-    resolveModule: ExportTargetResolver
-): (receiver: Expression, name: string) => boolean {
-    return createNamespaceReceiverProof(index, resolveModule, bindingValueIsStable);
 }

@@ -5,6 +5,7 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { multiFileBindingsFor } from '../../test-libraries/reachability-test-support.ts';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
+import { bindingValueIsStable } from '../binding-stability.ts';
 import { createModuleGraphAnalysis, type ModuleGraphAnalysis } from './module-graph-analysis.ts';
 import { createExportGraphModules, type ExportGraphModules, type GraphModule } from './export-graph-modules.ts';
 
@@ -22,7 +23,7 @@ function moduleAnalysis(): ModuleGraphAnalysis {
         classifySideEffects,
         settings: undefined,
         observedBindings: undefined
-    });
+    }, bindingValueIsStable);
 }
 
 function moduleFor(graph: ExportGraphModules, name: string): GraphModule {

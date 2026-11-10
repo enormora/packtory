@@ -7,7 +7,7 @@ import { readModuleExportModel, type ModuleExportModel } from './module-export-m
 import { createModuleExportIndex, type ModuleExportIndex } from './module-export-index.ts';
 import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { createNamespaceDemandAnalysis, type NamespaceDemandAnalysis } from './namespace-demand-analysis.ts';
-import { createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
+import { createNamespaceReceiverAnalysis, type BindingStability } from './namespace-receiver-analysis.ts';
 
 export type ExportGraphInput = {
     readonly files: readonly FileBindings[];
@@ -29,7 +29,10 @@ export type ModuleGraphAnalysis = {
     readonly effects: (source: SourceFile) => ReadonlySet<Statement>;
 };
 
-export function createModuleGraphAnalysis(input: ExportGraphInput): ModuleGraphAnalysis {
+export function createModuleGraphAnalysis(
+    input: ExportGraphInput,
+    bindingIsStable: BindingStability
+): ModuleGraphAnalysis {
     const records = new Map(input.files.map(function (file) {
         const source = file.sourceFile.getSourceFile();
         return [ source, {
@@ -68,7 +71,7 @@ export function createModuleGraphAnalysis(input: ExportGraphInput): ModuleGraphA
         records,
         index,
         demand: createNamespaceDemandAnalysis(Array.from(records.keys()), publicFiles, resolveModule, {
-            receiverIsUnobserved: createNamespaceReceiverAnalysis(index, resolveModule),
+            receiverIsUnobserved: createNamespaceReceiverAnalysis(index, resolveModule, bindingIsStable),
             isObserved: observeReachableBindings(input.files, input.observedBindings)
         }),
         resolveModule,

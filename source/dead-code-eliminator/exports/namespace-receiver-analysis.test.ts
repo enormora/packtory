@@ -2,14 +2,15 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
+import { bindingValueIsStable } from '../binding-stability.ts';
 import { createModuleExportIndex } from './module-export-index.ts';
-import { createNamespaceReceiverAnalysis, createNamespaceReceiverProof } from './namespace-receiver-analysis.ts';
+import { createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
 
 function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
     const fixture = createExportModuleFixture(files, []);
     const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
     const access = fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAccessExpression);
-    return createNamespaceReceiverAnalysis(index, fixture.resolveModule)(
+    return createNamespaceReceiverAnalysis(index, fixture.resolveModule, bindingValueIsStable)(
         access.getExpression(),
         access.getName()
     );
@@ -29,7 +30,7 @@ suite('namespace receiver analysis', function () {
                 SyntaxKind.PropertyAccessExpression
             );
             let observations = 0;
-            const receiverIsUnobserved = createNamespaceReceiverProof(index, fixture.resolveModule, function () {
+            const receiverIsUnobserved = createNamespaceReceiverAnalysis(index, fixture.resolveModule, function () {
                 observations += 1;
                 return stable;
             });
