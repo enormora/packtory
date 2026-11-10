@@ -132,6 +132,7 @@ suite('imported-expression-origin', function () {
             const [ path, imports, expected ] of [
                 [ [ 'foo' ], [ 'other', 'foo' ], true ],
                 [ [ 'foo' ], [], false ],
+                [ [ 'lib' ], [ 'lib' ], false ],
                 [ [ { type: 'call-result' } ], [ 'foo' ], false ]
             ] as const
         ) {
