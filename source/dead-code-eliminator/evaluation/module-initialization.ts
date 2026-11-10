@@ -3,7 +3,6 @@ import {
     VariableDeclarationKind,
     type ExportAssignment,
     type Expression,
-    type ImportDeclaration,
     type SourceFile,
     type Statement,
     type VariableDeclaration,
@@ -14,6 +13,7 @@ import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { pureDeclarationKinds } from '../syntax-kind-sets.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
+import { runtimeImportBindings } from './runtime-import-bindings.ts';
 
 type InitializationProof = (expression: Expression) => boolean;
 
@@ -46,23 +46,6 @@ function statementInitializationIsSafe(statement: Statement, limit: number, prov
         return prove(statement.getExpression());
     }
     return pureDeclarationKinds.has(statement.getKind()) || TypeScriptMorphNode.isImportDeclaration(statement);
-}
-
-export function* runtimeImportBindings(declaration: ImportDeclaration): Iterable<TypeScriptMorphNode> {
-    if (declaration.isTypeOnly()) {
-        return;
-    }
-    const defaultBinding = declaration.getDefaultImport();
-    if (defaultBinding !== undefined) {
-        yield defaultBinding.getParentOrThrow();
-    }
-    const namespace = declaration.getNamespaceImport();
-    if (namespace !== undefined) {
-        yield namespace.getParentOrThrow();
-    }
-    yield* declaration.getNamedImports().filter(function (named) {
-        return !named.isTypeOnly();
-    });
 }
 
 function initializedImports(source: SourceFile): ReadonlySet<TypeScriptMorphNode> {

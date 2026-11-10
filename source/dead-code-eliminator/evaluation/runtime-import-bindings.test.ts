@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { runtimeImportBindings } from './module-initialization.ts';
+import { runtimeImportBindings } from './runtime-import-bindings.ts';
 
 suite('runtime import bindings', function () {
     for (
