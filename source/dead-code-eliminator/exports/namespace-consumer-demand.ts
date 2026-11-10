@@ -66,11 +66,10 @@ export function namespaceConsumerDemand(
         .with({ type: 'export' }, function (edge) {
             return exportDemand(edge.declaration, name, context);
         })
-        .with({ type: 'dynamic' }, function (edge) {
+        .otherwise(function (edge) {
             const parent = expressionWithWrappers(edge.call).getParent();
             return TypeScriptMorphNode.isAwaitExpression(parent)
                 ? namespacePropertyDemand(context.expression(parent), name)
                 : allNamespaceProperties;
-        })
-        .exhaustive();
+        });
 }

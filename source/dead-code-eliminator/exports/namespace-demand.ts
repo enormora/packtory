@@ -17,32 +17,29 @@ function mergePropertyDemands(
     operation: DemandMerge,
     complete: DemandCompletion
 ): void {
-    if (left.size === 0 || right.size === 0) {
-        complete(right.size === 0 ? left : right);
+    if (left.size === 0) {
+        complete(right);
         return;
     }
     const result = new Map(left);
     let changed = false;
-    let remaining = right.size;
-    function accept(name: string, demand: NamespaceDemand): void {
-        if (result.get(name) !== demand) {
-            result.set(name, demand);
-            changed = true;
+    const properties = right.entries();
+    function mergeNextProperty(): void {
+        const next = properties.next();
+        if (next.done === true) {
+            complete(changed ? result : left);
+            return;
         }
-        remaining -= 1;
-        if (remaining === 0) {
-            operation.schedule(function () {
-                complete(changed ? result : left);
-            });
-        }
-    }
-    for (const [ name, demand ] of right) {
-        operation.schedule(function () {
-            operation.merge(left.get(name), demand, function (merged) {
-                accept(name, merged);
-            });
+        const [ name, demand ] = next.value;
+        operation.merge(left.get(name), demand, function (merged) {
+            if (result.get(name) !== merged) {
+                result.set(name, merged);
+                changed = true;
+            }
+            operation.schedule(mergeNextProperty);
         });
     }
+    operation.schedule(mergeNextProperty);
 }
 
 function mergeDemandPair(
@@ -51,7 +48,7 @@ function mergeDemandPair(
     operation: DemandMerge,
     complete: DemandCompletion
 ): void {
-    if (left === undefined || left === right) {
+    if (left === undefined) {
         complete(right);
         return;
     }

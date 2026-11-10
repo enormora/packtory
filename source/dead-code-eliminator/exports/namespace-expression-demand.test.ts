@@ -2,8 +2,9 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, type SourceFile } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createSourceEvaluation } from '../evaluation/constant-evaluation.ts';
-import { allNamespaceProperties, namespaceMemberDemand } from './namespace-demand.ts';
+import { allNamespaceProperties, namespaceMemberDemand, noNamespaceProperties } from './namespace-demand.ts';
 import { namespaceExpressionDemand, type NamespaceExpressionContext } from './namespace-expression-demand.ts';
 
 function expressionContext(source: SourceFile): NamespaceExpressionContext {
@@ -27,6 +28,40 @@ function expressionContext(source: SourceFile): NamespaceExpressionContext {
 }
 
 suite('namespace expression boundaries', function () {
+    for (
+        const { content, expected } of [
+            { content: 'consume(ns.used);', expected: namespaceMemberDemand('used', noNamespaceProperties) },
+            {
+                content: [ 'tag`$', '{ns.used}`;' ].join(''),
+                expected: namespaceMemberDemand('used', noNamespaceProperties)
+            },
+            { content: 'object.ns;', expected: allNamespaceProperties },
+            { content: 'object[ns];', expected: allNamespaceProperties },
+            { content: 'const ns=1;', expected: allNamespaceProperties },
+            { content: 'ns;', expected: noNamespaceProperties }
+        ]
+    ) {
+        test(`distinguishes namespace receiver positions for ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', content);
+            const value = source.getDescendantsOfKind(SyntaxKind.Identifier).find(function (identifier) {
+                return identifier.getText() === 'ns';
+            });
+            assertDefined(value);
+            assert.deepStrictEqual(
+                namespaceExpressionDemand(value, {
+                    ...expressionContext(source),
+                    expression() {
+                        return noNamespaceProperties;
+                    },
+                    binding() {
+                        assert.fail('only a namespace initializer transfers binding demand');
+                    }
+                }),
+                expected
+            );
+        });
+    }
+
     for (const content of [ 'const key;ns[key];', 'ns[];' ]) {
         test(`keeps unknown element keys conservative for ${content}`, function () {
             const source = createProject().createSourceFile('input.ts', content);

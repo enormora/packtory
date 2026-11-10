@@ -78,11 +78,10 @@ function accessDemand(
 }
 
 function moduleDemand(
-    expression: Expression,
     parent: TypeScriptMorphNode | undefined,
     context: NamespaceExpressionContext
 ): NamespaceDemand | undefined {
-    if (TypeScriptMorphNode.isExportAssignment(parent) && parent.getExpression() === expression) {
+    if (TypeScriptMorphNode.isExportAssignment(parent)) {
         return context.exported(parent.getSourceFile(), 'default');
     }
     if (TypeScriptMorphNode.isExportSpecifier(parent)) {
@@ -96,7 +95,7 @@ function moduleDemand(
 
 function observedDemand(expression: Expression, context: NamespaceExpressionContext): NamespaceDemand {
     const parent = expression.getParent();
-    const transferred = accessDemand(expression, parent, context) ?? moduleDemand(expression, parent, context);
+    const transferred = accessDemand(expression, parent, context) ?? moduleDemand(parent, context);
     if (transferred !== undefined) {
         return transferred;
     }

@@ -3,18 +3,52 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { createModuleExportIndex } from './module-export-index.ts';
-import { createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
+import { createNamespaceReceiverAnalysis, createNamespaceReceiverProof } from './namespace-receiver-analysis.ts';
 
 function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
     const fixture = createExportModuleFixture(files, []);
     const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
     const access = fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAccessExpression);
-    return createNamespaceReceiverAnalysis(index, fixture.resolveModule)(access.getExpression(), access.getName());
+    return createNamespaceReceiverAnalysis(index, fixture.resolveModule)(
+        access.getExpression(),
+        access.getName()
+    );
 }
 
 const entry = 'import * as ns from "./library.js";export function probe(){return ns.used();}';
 
 suite('namespace receiver analysis', function () {
+    for (const stable of [ true, false ]) {
+        test(`reuses the binding proof when stability is ${stable}`, function () {
+            const fixture = createExportModuleFixture({
+                'index.js': entry,
+                'library.js': 'export function used(){return 42;}'
+            }, []);
+            const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
+            const access = fixture.source('index.js').getFirstDescendantByKindOrThrow(
+                SyntaxKind.PropertyAccessExpression
+            );
+            let observations = 0;
+            const receiverIsUnobserved = createNamespaceReceiverProof(index, fixture.resolveModule, function () {
+                observations += 1;
+                return stable;
+            });
+            assert.strictEqual(receiverIsUnobserved(access.getExpression(), access.getName()), stable);
+            assert.strictEqual(receiverIsUnobserved(access.getExpression(), access.getName()), stable);
+            assert.strictEqual(observations, 1);
+        });
+    }
+
+    test('keeps unnamed default functions conservative', function () {
+        assert.strictEqual(
+            ignoresReceiver({
+                'index.js': 'import * as ns from "./library.js";ns.default();',
+                'library.js': 'export default function(){return 42;}'
+            }),
+            false
+        );
+    });
+
     suite('proven unused receivers', function () {
         for (
             const declaration of [

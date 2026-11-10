@@ -91,7 +91,7 @@ function followExport(search: ExportSearch, context: NamespaceContext): Namespac
 }
 
 function initialSearch(
-    declaration: TypeScriptMorphNode,
+    declaration: TypeScriptMorphNode | undefined,
     models: ReadonlyMap<SourceFile, ModuleExportModel>,
     resolveModule: ExportTargetResolver
 ): NamespaceSearch | undefined {
@@ -137,7 +137,7 @@ function resolveNamespaceSearch(
 }
 
 export function resolveNamespaceImport(
-    declaration: TypeScriptMorphNode,
+    declaration: TypeScriptMorphNode | undefined,
     models: ReadonlyMap<SourceFile, ModuleExportModel>,
     resolveModule: ExportTargetResolver
 ): SourceFile | undefined {

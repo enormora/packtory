@@ -94,9 +94,6 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
     return {
         read,
         resolve(key, evaluate) {
-            if (state.isExhausted()) {
-                return allNamespaceProperties;
-            }
             read(key, evaluate);
             for (const job of state.pending) {
                 if (state.isExhausted() || processed >= limits.maximumEvaluations) {

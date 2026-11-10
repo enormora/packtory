@@ -109,6 +109,56 @@ suite('namespace demand fixed points', function () {
     });
 
     suite('analysis limits', function () {
+        test('keeps exhaustion sticky for already resolved queries and direct reads', function () {
+            const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 8 });
+            assert.strictEqual(
+                solver.resolve('known', function () {
+                    return firstObservation;
+                }),
+                firstObservation
+            );
+            assert.strictEqual(
+                solver.read('overflow', function () {
+                    assert.fail('query budget exhausted');
+                }),
+                allNamespaceProperties
+            );
+            assert.strictEqual(
+                solver.read('known', function () {
+                    return firstObservation;
+                }),
+                allNamespaceProperties
+            );
+            assert.strictEqual(
+                solver.resolve('known', function () {
+                    return firstObservation;
+                }),
+                allNamespaceProperties
+            );
+        });
+
+        test('stops pending evaluations when a dependency exhausts the query budget', function () {
+            const solver = createNamespaceDemandSolver<string>({ maximumQueries: 3, maximumEvaluations: 8 });
+            const evaluations = {
+                overflow(): NamespaceDemand {
+                    assert.fail('query budget exhausted');
+                },
+                first(): NamespaceDemand {
+                    solver.read('overflow', evaluations.overflow);
+                    return firstObservation;
+                },
+                pending(): NamespaceDemand {
+                    assert.fail('exhausted analysis cannot evaluate pending work');
+                },
+                outer(): NamespaceDemand {
+                    solver.read('first', evaluations.first);
+                    solver.read('pending', evaluations.pending);
+                    return noNamespaceProperties;
+                }
+            };
+            assert.strictEqual(solver.resolve('outer', evaluations.outer), allNamespaceProperties);
+        });
+
         test('allows a query at the exact query and evaluation limits', function () {
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 1 });
             const evaluate = function (): NamespaceDemand {
@@ -137,10 +187,14 @@ suite('namespace demand fixed points', function () {
 
         test('falls back globally when a cycle keeps extending a property path', function () {
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 8 });
+            let evaluations = 0;
             const evaluate = function (): NamespaceDemand {
+                evaluations += 1;
+                assert.ok(evaluations <= 8);
                 return namespaceMemberDemand('nested', solver.read('entry', evaluate));
             };
             assert.strictEqual(solver.resolve('entry', evaluate), allNamespaceProperties);
+            assert.strictEqual(solver.read('entry', evaluate), allNamespaceProperties);
             assert.strictEqual(
                 solver.resolve('other', function () {
                     return noNamespaceProperties;
@@ -179,6 +233,12 @@ suite('namespace demand fixed points', function () {
             caught = error;
         }
         assert.strictEqual(caught, failure);
+        assert.strictEqual(
+            solver.read('entry', function () {
+                return firstObservation;
+            }),
+            allNamespaceProperties
+        );
         assert.strictEqual(
             solver.resolve('other', function () {
                 return noNamespaceProperties;

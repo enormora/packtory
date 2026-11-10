@@ -2,6 +2,7 @@ import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
     type Expression,
+    type Identifier,
     type FunctionDeclaration,
     type FunctionExpression,
     type ArrowFunction
@@ -16,6 +17,7 @@ import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { resolveNamespaceImport } from './namespace-export-value.ts';
 
 type ReceiverFunction = ArrowFunction | FunctionDeclaration | FunctionExpression;
+type BindingStability = (name: Identifier) => boolean;
 
 function bindingFunction(declaration: TypeScriptMorphNode): ReceiverFunction | undefined {
     if (TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
@@ -30,18 +32,17 @@ function bindingFunction(declaration: TypeScriptMorphNode): ReceiverFunction | u
         : undefined;
 }
 
-function stableReceiverFunction(declaration: TypeScriptMorphNode): ReceiverFunction | undefined {
+function receiverIsUnused(binding: BindingDescriptor, bindingIsStable: BindingStability): boolean {
+    const declaration = binding.declarationNode;
     const target = bindingFunction(declaration);
-    const name = declaration.getFirstChildByKind(SyntaxKind.Identifier);
-    if (name === undefined || name.getSymbol()?.getDeclarations().length !== 1) {
-        return undefined;
+    if (target === undefined) {
+        return false;
     }
-    return bindingValueIsStable(name) ? target : undefined;
-}
-
-function receiverIsUnused(binding: BindingDescriptor): boolean {
-    const target = stableReceiverFunction(binding.declarationNode);
-    return target?.getBody() !== undefined && target.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
+    const name = TypeScriptMorphNode.isFunctionDeclaration(target)
+        ? target.getNameNode()
+        : declaration.getFirstChildByKindOrThrow(SyntaxKind.Identifier);
+    return name !== undefined && bindingIsStable(name) && target.getBody() !== undefined &&
+        target.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
 }
 
 function receiverBinding(
@@ -52,15 +53,14 @@ function receiverBinding(
 ): BindingDescriptor | undefined {
     const expression = unwrapExpression(receiver);
     const declaration = TypeScriptMorphNode.isIdentifier(expression) ? declarationOf(expression) : undefined;
-    const namespace = declaration === undefined
-        ? undefined
-        : resolveNamespaceImport(declaration, index.models, resolveModule);
-    return namespace === undefined ? undefined : index.binding(namespace, name);
+    const namespace = resolveNamespaceImport(declaration, index.models, resolveModule);
+    return index.binding(namespace, name);
 }
 
-export function createNamespaceReceiverAnalysis(
+export function createNamespaceReceiverProof(
     index: ModuleExportIndex,
-    resolveModule: ExportTargetResolver
+    resolveModule: ExportTargetResolver,
+    bindingIsStable: BindingStability
 ): (receiver: Expression, name: string) => boolean {
     const proven = new Map<TypeScriptMorphNode, boolean>();
     return function (receiver, name) {
@@ -70,9 +70,16 @@ export function createNamespaceReceiverAnalysis(
         }
         let unused = proven.get(binding.declarationNode);
         if (unused === undefined) {
-            unused = receiverIsUnused(binding);
+            unused = receiverIsUnused(binding, bindingIsStable);
             proven.set(binding.declarationNode, unused);
         }
         return unused;
     };
+}
+
+export function createNamespaceReceiverAnalysis(
+    index: ModuleExportIndex,
+    resolveModule: ExportTargetResolver
+): (receiver: Expression, name: string) => boolean {
+    return createNamespaceReceiverProof(index, resolveModule, bindingValueIsStable);
 }
