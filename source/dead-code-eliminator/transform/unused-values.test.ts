@@ -35,13 +35,15 @@ suite('unused uninitialized bindings', function () {
         test(`retains observed ${kind} declarations without an initializer`, function () {
             const content = `${kind} value;export function read(){return value;}`;
             const source = createProject().createSourceFile('input.ts', content);
+            const preparation = createSourcePreparation(source);
             removeUnusedValues(
-                createSourcePreparation(source),
+                preparation,
                 createExpressionPurityChecker(undefined, function () {
                     return undefined;
                 })
             );
             assert.strictEqual(source.getFullText(), content);
+            assert.deepStrictEqual(preparation.transformations, []);
         });
     }
 });
