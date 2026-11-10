@@ -11,6 +11,7 @@ import {
     type Statement,
     type VariableDeclaration
 } from 'ts-morph';
+import { constant } from 'remeda';
 import { resolveRuntimeModule, type RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { bindingShapeIsStable, bindingValueIsStable } from '../binding-stability.ts';
 import { callResultPath, type ImportedExpressionOrigin } from '../imported-expression-origin.ts';
@@ -167,9 +168,7 @@ function variableExportIsStable(declaration: VariableDeclaration): boolean {
         return false;
     }
     return !TypeScriptMorphNode.isObjectLiteralExpression(declaration.getInitializer()) ||
-        bindingShapeIsStable(identifier, function () {
-            return false;
-        });
+        bindingShapeIsStable(identifier, constant(false));
 }
 
 function* variableExportEntries(declaration: VariableDeclaration): Iterable<ExportPurityEntry> {
@@ -238,10 +237,6 @@ function mergeNamedExport(
 ): void {
     const sourceName = namedExport.getName();
     const exportedName = namedExport.getAliasNode()?.getText() ?? sourceName;
-    context.exportPurities.set(
-        [ exportedName ],
-        summary.exports.get(JSON.stringify([ sourceName ]))?.purity ?? 'unknown'
-    );
     mergeNestedNamedExport(context, sourceName, exportedName, summary);
 }
 
