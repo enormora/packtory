@@ -6,6 +6,12 @@ import { resolveRuntimeModule } from './runtime-module-resolution.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 
 suite('imported computed property keys', function () {
+    test('resolves the intrinsic undefined property key', function () {
+        const source = createProject().createSourceFile('index.ts', 'const value={[undefined]:1};');
+        const key = source.getFirstDescendantByKindOrThrow(SyntaxKind.ComputedPropertyName).getExpression();
+        assert.strictEqual(resolveComputedPropertyKey(key, resolveRuntimeModule), 'undefined');
+    });
+
     for (
         const [ declaration, expected ] of [
             [ 'export const key=42;', '42' ],
