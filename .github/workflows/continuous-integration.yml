@@ -55,10 +55,34 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - shard: a-m
-                      exclusion: "!source/**/[!a-m]*.ts"
-                    - shard: a-m-complement
-                      exclusion: "!source/**/[a-m]*.ts"
+                    - shard: a-b
+                      exclusion: "!source/**/[!a-b]*.ts"
+                    - shard: c-d
+                      exclusion: "!source/**/[!c-d]*.ts"
+                    - shard: e-f
+                      exclusion: "!source/**/[!e-f]*.ts"
+                    - shard: g-h
+                      exclusion: "!source/**/[!g-h]*.ts"
+                    - shard: i-k
+                      exclusion: "!source/**/[!i-k]*.ts"
+                    - shard: l
+                      exclusion: "!source/**/[!l]*.ts"
+                    - shard: m
+                      exclusion: "!source/**/[!m]*.ts"
+                    - shard: n
+                      exclusion: "!source/**/[!n]*.ts"
+                    - shard: o
+                      exclusion: "!source/**/[!o]*.ts"
+                    - shard: p
+                      exclusion: "!source/**/[!p]*.ts"
+                    - shard: q-r
+                      exclusion: "!source/**/[!q-r]*.ts"
+                    - shard: s
+                      exclusion: "!source/**/[!s]*.ts"
+                    - shard: t
+                      exclusion: "!source/**/[!t]*.ts"
+                    - shard: u-z-complement
+                      exclusion: "!source/**/[a-t]*.ts"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
