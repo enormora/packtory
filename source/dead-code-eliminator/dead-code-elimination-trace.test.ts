@@ -119,6 +119,27 @@ function tracedConsumerProducerBundles(
 }
 
 suite('dead code elimination trace', function () {
+    test('records removed computations without reporting the retained export as removed', async function () {
+        const bundle = importRepairBundle(
+            'function compute(){return 42;}const unused=compute();export const result=compute();',
+            'index.js'
+        );
+        const events = await tracedEventsFor(bundle);
+        assert.deepStrictEqual(
+            events
+                .filter(function (event) {
+                    return event.type === 'binding-removed';
+                })
+                .map(function (event) {
+                    return event.bindingIdentifier;
+                })
+                .toSorted(function (left, right) {
+                    return left.localeCompare(right);
+                }),
+            [ 'index.js::compute', 'index.js::unused' ]
+        );
+    });
+
     test('createTestEliminator records no trace events', async function () {
         const trace = createDeadCodeEliminationTraceCollector();
 

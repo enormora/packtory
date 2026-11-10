@@ -3,6 +3,7 @@ import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-
 import { assertArtifactModuleReferenceContract } from '../artifact-module-reference-contract.ts';
 import type { DeadCodeEliminationTrace } from '../trace.ts';
 import { createExportGraph, type ExportGraph } from '../exports/export-graph.ts';
+import { createReachabilityTrace } from './reachability-trace.ts';
 import { breadthFirstClosure, type BreadthFirstClosureDependencies } from './breadth-first-closure.ts';
 import {
     buildBindingsByFile,
@@ -42,38 +43,6 @@ const defaultDependencies: BreadthFirstClosureDependencies<string> = {
     },
     neighborAdded: undefined
 };
-
-function tracedDependencies(
-    input: ReachabilityInput,
-    dependencies: BreadthFirstClosureDependencies<string>,
-    graph: ExportGraph,
-    seeds: ReadonlySet<string>
-): BreadthFirstClosureDependencies<string> {
-    const traced = new Set(seeds);
-    return {
-        visitedHas: dependencies.visitedHas,
-        neighborAdded(fromBindingIdentifier, toBindingIdentifier) {
-            if (graph.nodes.has(fromBindingIdentifier)) {
-                return;
-            }
-            traced.add(fromBindingIdentifier);
-            graph.bindingDependencies(toBindingIdentifier).forEach(function (target) {
-                if (traced.has(target)) {
-                    return;
-                }
-                traced.add(target);
-                dependencies.neighborAdded?.(fromBindingIdentifier, target);
-                input.trace?.collector.record({
-                    type: 'edge-added',
-                    bundleName: input.bundleName,
-                    fromBindingIdentifier,
-                    toBindingIdentifier: target,
-                    reason: 'identifier-reference'
-                });
-            });
-        }
-    };
-}
 
 type BindingGraph = {
     readonly declarationIndex: DeclarationNodeIndex;
@@ -148,7 +117,7 @@ function traverseBindings(
         emptyStringSet,
         {
             maximumNodeCount: graph.maximumNodeCount,
-            dependencies: tracedDependencies(input, dependencies, graph.exportGraph, seeds)
+            dependencies: createReachabilityTrace(input, dependencies, graph.exportGraph, seeds)
         }
     );
 }
@@ -161,7 +130,7 @@ function refineReachability(
     externalSeeds: ReadonlySet<string> | undefined,
     dependencies: BreadthFirstClosureDependencies<string>
 ): ReachabilityResult {
-    const observed = externalSeeds === undefined || externalSeeds.size === 0
+    const observed = externalSeeds === undefined
         ? conservative.closure
         : breadthFirstClosure(
             externalSeeds,
