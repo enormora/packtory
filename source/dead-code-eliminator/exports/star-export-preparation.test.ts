@@ -78,6 +78,30 @@ suite('star export preparation', function () {
     });
 
     suite('link failures and unknown schemas', function () {
+        test('normalizes a barrel requested by a valid named forwarding export', function () {
+            const files = normalizedFiles({
+                'index.js': 'export {value} from "./barrel.js";',
+                'barrel.js': 'export * from "./library.js";',
+                'library.js': 'export const value=42;'
+            });
+            assert.strictEqual(files['barrel.js'], 'export {value} from "./library.js";');
+        });
+
+        test('preserves preparations outside the module index', function () {
+            const fixture = createExportModuleFixture({
+                'index.js': 'export * from "./library.js";',
+                'library.js': 'export const value=42;'
+            }, []);
+            const index = createModuleExportIndex([], fixture.resolveModule);
+            const source = fixture.source('index.js');
+            normalizeStarExports([ createSourcePreparation(source) ], index, fixture.resolveModule);
+            assert.strictEqual(source.getFullText(), 'export * from "./library.js";');
+            assert.strictEqual(
+                index.sameExport({ source: undefined, name: 'value' }, { source, name: 'value' }),
+                false
+            );
+        });
+
         for (
             const consumer of [
                 'import {clash} from "./barrel.js";export {};',
@@ -123,6 +147,16 @@ suite('star export preparation', function () {
         for (
             const name of [
                 'plain',
+                'break',
+                'of',
+                '$',
+                '_',
+                'a0',
+                'a\u{200C}',
+                'a\u{200D}',
+                'a\n',
+                '0start',
+                '\u{200C}start',
                 'if',
                 'await',
                 'é',
@@ -150,6 +184,19 @@ suite('star export preparation', function () {
                 assert.strictEqual(declaration?.isNamespaceExport(), false);
                 const [ exported ] = declaration.getNamedExports();
                 assert.strictEqual(exported?.getNameNode().compilerNode.text, name);
+                const quoted = new Set([
+                    'with space',
+                    '',
+                    'dash-name',
+                    'quote"name',
+                    String.raw`\u0061`,
+                    '0',
+                    '[object Object]',
+                    'a\n',
+                    '0start',
+                    '\u{200C}start'
+                ]);
+                assert.strictEqual(exported.getNameNode().getText(), quoted.has(name) ? JSON.stringify(name) : name);
             });
         }
     });

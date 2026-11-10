@@ -1,4 +1,4 @@
-import { SyntaxKind, ScriptTarget, ts, type SourceFile } from 'ts-morph';
+import { SyntaxKind, type SourceFile } from 'ts-morph';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { ExportReference, ModuleExportIndex } from './module-export-index.ts';
@@ -8,7 +8,7 @@ import { resolveImportedExport, type ExportTargetResolver, type ImportedExport }
 type StarExport = ModuleExportModel['stars'][number];
 type StarSelection = {
     readonly index: ModuleExportIndex;
-    readonly source: SourceFile;
+    readonly model: ModuleExportModel;
     readonly resolveModule: ExportTargetResolver;
 };
 
@@ -16,20 +16,22 @@ function isNamedRequest(request: ImportedExport | undefined): request is ExportR
     return request?.name !== undefined;
 }
 
-function moduleRequests(model: ModuleExportModel, resolveModule: ExportTargetResolver): readonly ExportReference[] {
-    const requests = Array
-        .from(model.locals.values(), function (binding) {
-            return resolveImportedExport(binding.declarationNode, resolveModule);
-        })
-        .filter(isNamedRequest);
-    const forwarded = Array.from(model.entries.values()).flatMap(function (entry): readonly ExportReference[] {
-        if (entry.kind !== 'forward') {
-            return [];
+function* moduleRequests(model: ModuleExportModel, resolveModule: ExportTargetResolver): Iterable<ExportReference> {
+    for (const binding of model.locals.values()) {
+        const request = resolveImportedExport(binding.declarationNode, resolveModule);
+        if (isNamedRequest(request)) {
+            yield request;
         }
-        const source = resolveModule(model.source, entry.specifier);
-        return source === undefined ? [] : [ { source, name: entry.name } ];
+    }
+    const forwarded = Array.from(model.entries.values()).filter(function (entry) {
+        return entry.kind === 'forward';
     });
-    return [ ...requests, ...forwarded ];
+    for (const entry of forwarded) {
+        const source = resolveModule(model.source, entry.specifier);
+        if (source !== undefined) {
+            yield { source, name: entry.name };
+        }
+    }
 }
 
 function invalidRequestTargets(index: ModuleExportIndex, resolveModule: ExportTargetResolver): ReadonlySet<SourceFile> {
@@ -46,21 +48,14 @@ function invalidRequestTargets(index: ModuleExportIndex, resolveModule: ExportTa
 }
 
 function exportNameSource(name: string): string {
-    const scanner = ts.createScanner(ScriptTarget.ESNext, true, undefined, name);
-    const token = scanner.scan();
-    const identifier = token === SyntaxKind.Identifier ||
-        token >= SyntaxKind.FirstKeyword && token <= SyntaxKind.LastKeyword;
-    return identifier && scanner.getTokenEnd() === name.length && scanner.getTokenValue() === name
-        ? name
-        : JSON.stringify(name);
+    return /^[$_\p{ID_Start}][$\u{200C}\u{200D}\p{ID_Continue}]*$/u.test(name) ? name : JSON.stringify(name);
 }
 
 function selectedNames(star: StarExport, selection: StarSelection, remaining: ReadonlySet<string>): readonly string[] {
     const specifier = star.declaration.getFirstChildByKindOrThrow(SyntaxKind.StringLiteral).getLiteralValue();
-    const target = selection.resolveModule(selection.source, specifier);
+    const target = selection.resolveModule(selection.model.source, specifier);
     return Array.from(remaining).filter(function (name) {
-        return target !== undefined &&
-            selection.index.sameExport({ source: selection.source, name }, { source: target, name });
+        return selection.index.sameExport({ source: selection.model.source, name }, { source: target, name });
     });
 }
 
@@ -68,14 +63,14 @@ function moduleEdits(
     selection: StarSelection,
     protectedSources: ReadonlySet<SourceFile>
 ): readonly SourceTextEdit[] {
-    const model = selection.index.models.get(selection.source);
-    const names = selection.index.names(selection.source);
-    if (model === undefined || names === undefined || protectedSources.has(selection.source)) {
+    const { model } = selection;
+    const names = selection.index.names(selection.model.source);
+    if (names === undefined || protectedSources.has(selection.model.source)) {
         return [];
     }
     const remaining = new Set(
         Array.from(names).filter(function (name) {
-            return name !== 'default' && !model.entries.has(name);
+            return !model.entries.has(name);
         })
     );
     return model.stars.map(function (star) {
@@ -98,14 +93,15 @@ export function normalizeStarExports(
     resolveModule: ExportTargetResolver
 ): void {
     const protectedSources = invalidRequestTargets(index, resolveModule);
-    const plans = preparations.map(function (preparation) {
-        return {
+    const plans = preparations.flatMap(function (preparation) {
+        const model = index.models.get(preparation.sourceFile);
+        return model === undefined ? [] : [ {
             preparation,
             edits: moduleEdits(
-                { index, source: preparation.sourceFile, resolveModule },
+                { index, model, resolveModule },
                 protectedSources
             )
-        };
+        } ];
     });
     for (const plan of plans) {
         plan.preparation.applyEdits(plan.edits);
