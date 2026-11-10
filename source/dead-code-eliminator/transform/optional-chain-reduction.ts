@@ -18,9 +18,6 @@ type OptionalChain = CallExpression | ElementAccessExpression | NonNullExpressio
 type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 
 function optionalChain(node: TypeScriptMorphNodeType): OptionalChain | undefined {
-    if (!ts.isOptionalChain(node.compilerNode)) {
-        return undefined;
-    }
     return node.asKind(SyntaxKind.CallExpression) ?? node.asKind(SyntaxKind.ElementAccessExpression) ??
         node.asKind(SyntaxKind.NonNullExpression) ?? node.asKind(SyntaxKind.PropertyAccessExpression);
 }
@@ -55,19 +52,13 @@ function reductionFor(node: TypeScriptMorphNodeType, evaluate: PrimitiveEvaluato
 export function reduceOptionalChains(preparation: SourcePreparation): void {
     const { sourceFile } = preparation;
     const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
-    let previousEnd = 0;
-    const edits = sourceFile.getDescendants().flatMap(function (node) {
-        if (node.getStart() < previousEnd) {
-            return [];
-        }
+    const edits: SourceTextEdit[] = [];
+    sourceFile.forEachDescendant(function (node, traversal) {
         const edit = reductionFor(node, evaluate);
-        if (edit === undefined) {
-            return [];
+        if (edit !== undefined) {
+            edits.push(edit);
+            traversal.skip();
         }
-        previousEnd = edit.end;
-        return [ edit ];
     });
-    if (edits.length > 0) {
-        preparation.applyEdits(edits);
-    }
+    preparation.applyEdits(edits);
 }
