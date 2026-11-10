@@ -20,6 +20,20 @@ suite('unused uninitialized bindings', function () {
         assert.strictEqual(source.getFullText(), '(effect());export const value=42;');
     });
 
+    test('drops an unused declarator while retaining an observed sibling', function () {
+        const source = createProject().createSourceFile(
+            'input.ts',
+            'const unused=1, kept=unknown();consume(kept);'
+        );
+        removeUnusedValues(
+            createSourcePreparation(source),
+            createExpressionPurityChecker(undefined, function () {
+                return undefined;
+            })
+        );
+        assert.strictEqual(source.getFullText(), ';const kept=unknown();consume(kept);');
+    });
+
     for (const kind of [ 'let', 'var' ]) {
         test(`removes unused ${kind} declarations without an initializer`, function () {
             const source = createProject().createSourceFile('input.ts', `${kind} unused;export const value=42;`);
