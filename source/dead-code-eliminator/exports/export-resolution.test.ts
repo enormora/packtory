@@ -215,11 +215,24 @@ suite('export resolution', function () {
     });
 
     suite('unknown and namespace exports', function () {
+        test('inherits a previously resolved unknown dependency', function () {
+            const resolver = createExportResolver(
+                new Map([
+                    [
+                        'entry',
+                        moduleExports([ [ 'value', { kind: 'forward', module: 'external', name: 'value' } ] ], [])
+                    ]
+                ])
+            );
+            assert.deepStrictEqual(resolver.resolve('external', 'value'), { kind: 'unknown' });
+            assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
+        });
+
         test('does not expand unknown entries as forwarding requests', function () {
             const resolver = createExportResolver({
                 get(module: string): ModuleExports<string> {
                     assert.strictEqual(module, 'entry');
-                    return moduleExports([ [ 'value', { kind: 'unknown' } ] ], []);
+                    return moduleExports([ [ 'value', null ] ], []);
                 }
             });
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
@@ -233,7 +246,7 @@ suite('export resolution', function () {
         test('does not replace an unknown explicit export with a star export', function () {
             const resolver = createExportResolver(
                 new Map([
-                    [ 'entry', moduleExports([ [ 'value', { kind: 'unknown' } ] ], [ 'shared' ]) ],
+                    [ 'entry', moduleExports([ [ 'value', null ] ], [ 'shared' ]) ],
                     [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
                 ])
             );
@@ -249,6 +262,45 @@ suite('export resolution', function () {
     });
 
     suite('resolution boundaries', function () {
+        test('retains a cached origin when another star dependency is missing', function () {
+            const resolver = createExportResolver(
+                new Map([
+                    [ 'entry', moduleExports([], [ 'known', 'empty' ]) ],
+                    [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
+                    [ 'empty', moduleExports([], []) ]
+                ])
+            );
+            const expected = { kind: 'unique', origin: { module: 'known', name: 'value' } };
+            assert.deepStrictEqual(resolver.resolve('known', 'value'), expected);
+            assert.deepStrictEqual(resolver.resolve('entry', 'value'), expected);
+        });
+
+        test('retains a cached ambiguity after another star supplies an origin', function () {
+            const modules = starModules({ first: binding('first', 'value'), second: binding('second', 'value') });
+            modules.set('wrapper', moduleExports([], [ 'first', 'entry' ]));
+            const resolver = createExportResolver(modules);
+            assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'ambiguous' });
+            assert.deepStrictEqual(resolver.resolve('wrapper', 'value'), { kind: 'ambiguous' });
+        });
+
+        test('expands each module once in a cyclic forwarding graph', function () {
+            const modules = new Map([
+                [ 'first', moduleExports([ [ 'value', { kind: 'forward', module: 'second', name: 'value' } ] ], []) ],
+                [ 'second', moduleExports([ [ 'value', { kind: 'forward', module: 'first', name: 'value' } ] ], []) ]
+            ]);
+            let expansions = 0;
+            const resolver = createExportResolver({
+                get(module: string) {
+                    expansions += 1;
+                    assert.ok(expansions <= 2);
+                    return modules.get(module);
+                }
+            });
+            assert.deepStrictEqual(resolver.resolve('first', 'value'), { kind: 'missing' });
+            assert.deepStrictEqual(resolver.resolve('first', 'value'), { kind: 'missing' });
+            assert.strictEqual(expansions, 2);
+        });
+
         test('keeps ambiguity after encountering a third defining binding', function () {
             const resolver = createExportResolver(starModules({
                 first: binding('first', 'value'),

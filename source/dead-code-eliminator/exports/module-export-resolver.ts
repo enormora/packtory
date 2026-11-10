@@ -50,7 +50,7 @@ function forwardedEntry(module: ExportModule, name: string): ExportEntry<ExportM
 }
 
 function namespaceEntry(module: ExportModule): ExportEntry<ExportModule> {
-    return module === undefined ? { kind: 'unknown' } : { kind: 'origin', origin: { module, name: undefined } };
+    return module === undefined ? null : { kind: 'origin', origin: { module, name: undefined } };
 }
 
 function importedExportName(declaration: ImportBinding): string | undefined {
@@ -96,7 +96,7 @@ function importedEntry(
 ): ExportEntry<ExportModule> {
     const imported = resolveImportedExport(declaration, context.resolveModule);
     if (imported === undefined) {
-        return { kind: 'unknown' };
+        return null;
     }
     if (imported.name === undefined) {
         return match(context.namespaceIdentity)
@@ -114,7 +114,7 @@ function importedEntry(
 function localEntry(context: ExportContext, name: string): ExportEntry<ExportModule> {
     const binding = context.model.locals.get(name);
     if (binding === undefined) {
-        return { kind: 'unknown' };
+        return null;
     }
     const declaration = binding.declarationNode;
     if (

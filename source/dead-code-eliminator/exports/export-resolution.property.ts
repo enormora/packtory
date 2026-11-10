@@ -29,11 +29,11 @@ function entryTerminals(
     entry: ExportEntry<number>,
     visit: (walk: ExportWalk) => TerminalExports
 ): TerminalExports {
+    if (entry === null) {
+        return opaqueTerminals;
+    }
     if (entry.kind === 'origin') {
         return { origins: [ entry.origin ], unknown: false };
-    }
-    if (entry.kind === 'unknown') {
-        return opaqueTerminals;
     }
     return visit({ ...walk, module: entry.module, name: entry.name });
 }
@@ -118,7 +118,7 @@ const entries = fastCheck.oneof(
         module: fastCheck.nat({ max: 7 }),
         name: fastCheck.constantFrom('value', 'default')
     }),
-    fastCheck.constant({ kind: 'unknown' } as const)
+    fastCheck.constant(null)
 );
 
 const moduleGraphs = fastCheck.array(
