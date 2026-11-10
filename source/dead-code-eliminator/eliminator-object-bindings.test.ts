@@ -9,6 +9,11 @@ import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-si
 
 const cases = [
     {
+        name: 'remove-nested-unused-patterns',
+        content: 'const {method:unused}={method(){const {x:ignored}={x:1};}};',
+        removesPattern: true
+    },
+    {
         name: 'preserve-exponent-key-default',
         content: 'const {5e-324:unused=console.log("default")}={5:1};',
         removesPattern: false

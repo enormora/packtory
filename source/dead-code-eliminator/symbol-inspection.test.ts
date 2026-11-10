@@ -24,6 +24,30 @@ function sampleBundle(): LinkedBundle {
 }
 
 suite('symbol inspection', function () {
+    test('omits non-code resources from symbol inspection', async function () {
+        const bundle = bundleForCodeFile({
+            name: 'example',
+            inputFilePath: '/source/index.js',
+            targetFilePath: 'index.js',
+            content: 'export const api=42;',
+            extraResources: [ {
+                ...bundleResource('/source/data.json', {
+                    targetFilePath: 'data.json',
+                    content: '{"answer":42}'
+                }),
+                isSubstituted: false
+            } ]
+        });
+        const [ inspection ] = await createTestEliminator().inspectSymbols(inputs(bundle));
+        assertDefined(inspection);
+        assert.deepStrictEqual(
+            inspection.symbols.map(function (symbol) {
+                return [ symbol.packagePath, symbol.name ];
+            }),
+            [ [ './index.js', 'api' ] ]
+        );
+    });
+
     test('preserves original symbol and effect locations through multiline branch pruning', async function () {
         const trace = createDeadCodeEliminationTraceCollector();
         const bundle = bundleForCodeFile({
@@ -261,27 +285,29 @@ suite('symbol inspection', function () {
         );
     });
 
-    test('rejects a reference without its source retention proof', function () {
-        const collector = createSymbolRetentionCollector();
-        assert.throws(function () {
-            collector.record({
-                type: 'edge-added',
-                bundleName: 'example',
-                fromBindingIdentifier: 'index.js::unknown',
-                toBindingIdentifier: 'index.js::target',
-                reason: 'identifier-reference'
-            });
-        }, { message: 'Missing retention proof for "index.js::unknown" in package "example"' });
-        assert.strictEqual(collector.pathsForPackage('missing').size, 0);
-    });
+    suite('retention tracing', function () {
+        test('rejects a reference without its source retention proof', function () {
+            const collector = createSymbolRetentionCollector();
+            assert.throws(function () {
+                collector.record({
+                    type: 'edge-added',
+                    bundleName: 'example',
+                    fromBindingIdentifier: 'index.js::unknown',
+                    toBindingIdentifier: 'index.js::target',
+                    reason: 'identifier-reference'
+                });
+            }, { message: 'Missing retention proof for "index.js::unknown" in package "example"' });
+            assert.strictEqual(collector.pathsForPackage('missing').size, 0);
+        });
 
-    test('preserves configured trace collection and handles empty inspections', async function () {
-        const trace = createDeadCodeEliminationTraceCollector();
-        const inspected = await createTracedTestEliminator(trace.collector).inspectSymbols(inputs(sampleBundle()));
-        assert.strictEqual(inspected.length, 1);
-        assert.ok(trace.events.some(function (event) {
-            return event.type === 'binding-removed';
-        }));
-        assert.deepStrictEqual(await createTestEliminator().inspectSymbols([]), []);
+        test('preserves configured trace collection and handles empty inspections', async function () {
+            const trace = createDeadCodeEliminationTraceCollector();
+            const inspected = await createTracedTestEliminator(trace.collector).inspectSymbols(inputs(sampleBundle()));
+            assert.strictEqual(inspected.length, 1);
+            assert.ok(trace.events.some(function (event) {
+                return event.type === 'binding-removed';
+            }));
+            assert.deepStrictEqual(await createTestEliminator().inspectSymbols([]), []);
+        });
     });
 });

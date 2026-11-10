@@ -6,6 +6,7 @@ import {
     type NewExpression
 } from 'ts-morph';
 import { match } from 'ts-pattern';
+import { constant } from 'remeda';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from '../class-purity.ts';
@@ -70,8 +71,6 @@ export function createUnusedValueResolver(sourceFile: SourceFile): UnusedValueRe
             .when(TypeScriptMorphNode.isCallExpression, function (call) {
                 return callEffects(call)?.arguments;
             })
-            .otherwise(function () {
-                return undefined;
-            });
+            .otherwise(constant(undefined));
     };
 }

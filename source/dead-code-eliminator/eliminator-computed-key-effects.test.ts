@@ -43,6 +43,14 @@ async function observeModules(modules: ReadonlyMap<string, string>): Promise<unk
 }
 
 suite('eliminator computed key effects', function () {
+    test('removes a directly computed BigInt key', async function () {
+        const content = 'const unused={[9007199254740993n]:1};export const value=42;';
+        const emitted = await eliminate(content);
+        assert.strictEqual(emitted.includes('unused'), false);
+        assert.deepStrictEqual(await observe(content), [ 42 ]);
+        assert.deepStrictEqual(await observe(emitted), [ 42 ]);
+    });
+
     const cases = [
         {
             name: 'toString effects',
