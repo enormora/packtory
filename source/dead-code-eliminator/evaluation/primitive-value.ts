@@ -1,9 +1,9 @@
+import { match } from 'ts-pattern';
+import { constant, isTruthy } from 'remeda';
 import { SyntaxKind, type NumericLiteral } from 'ts-morph';
 
 export type PrimitiveValue = bigint | boolean | number | string | null | undefined;
 export type EvaluatedValue = { readonly value: PrimitiveValue; };
-
-export const isTruthy = Boolean;
 
 export function evaluated(value: PrimitiveValue): EvaluatedValue {
     return { value };
@@ -13,38 +13,43 @@ export function numericLiteralValue(literal: NumericLiteral): number {
     return Number(literal.compilerNode.text);
 }
 
-type NumericOperation = (left: number, right: number) => PrimitiveValue;
-
 const maximumStringLength = 4096;
-const numericOperations: ReadonlyMap<SyntaxKind, NumericOperation> = new Map<SyntaxKind, NumericOperation>([
-    [ SyntaxKind.PlusToken, function (left, right) {
-        return left + right;
-    } ],
-    [ SyntaxKind.MinusToken, function (left, right) {
-        return left - right;
-    } ],
-    [ SyntaxKind.AsteriskToken, function (left, right) {
-        return left * right;
-    } ],
-    [ SyntaxKind.SlashToken, function (left, right) {
-        return left / right;
-    } ],
-    [ SyntaxKind.PercentToken, function (left, right) {
-        return left % right;
-    } ],
-    [ SyntaxKind.LessThanToken, function (left, right) {
-        return left < right;
-    } ],
-    [ SyntaxKind.LessThanEqualsToken, function (left, right) {
-        return left <= right;
-    } ],
-    [ SyntaxKind.GreaterThanToken, function (left, right) {
-        return left > right;
-    } ],
-    [ SyntaxKind.GreaterThanEqualsToken, function (left, right) {
-        return left >= right;
-    } ]
-]);
+function numericArithmetic(operator: SyntaxKind, left: number, right: number): number | undefined {
+    return match(operator)
+        .with(SyntaxKind.PlusToken, function () {
+            return left + right;
+        })
+        .with(SyntaxKind.MinusToken, function () {
+            return left - right;
+        })
+        .with(SyntaxKind.AsteriskToken, function () {
+            return left * right;
+        })
+        .with(SyntaxKind.SlashToken, function () {
+            return left / right;
+        })
+        .with(SyntaxKind.PercentToken, function () {
+            return left % right;
+        })
+        .otherwise(constant(undefined));
+}
+
+function numericComparison(operator: SyntaxKind, left: number, right: number): boolean | undefined {
+    return match(operator)
+        .with(SyntaxKind.LessThanToken, function () {
+            return left < right;
+        })
+        .with(SyntaxKind.LessThanEqualsToken, function () {
+            return left <= right;
+        })
+        .with(SyntaxKind.GreaterThanToken, function () {
+            return left > right;
+        })
+        .with(SyntaxKind.GreaterThanEqualsToken, function () {
+            return left >= right;
+        })
+        .otherwise(constant(undefined));
+}
 
 function stringBinary(operator: SyntaxKind, left: PrimitiveValue, right: PrimitiveValue): EvaluatedValue | undefined {
     if (typeof left !== 'string' || typeof right !== 'string' || operator !== SyntaxKind.PlusToken) {
@@ -59,13 +64,13 @@ export function evaluatePrimitiveBinary(
     right: PrimitiveValue
 ): EvaluatedValue | undefined {
     if (typeof left === 'number' && typeof right === 'number') {
-        const operation = numericOperations.get(operator);
-        return operation === undefined ? undefined : evaluated(operation(left, right));
+        const value = numericArithmetic(operator, left, right) ?? numericComparison(operator, left, right);
+        return value === undefined ? undefined : evaluated(value);
     }
     return stringBinary(operator, left, right);
 }
 
-export function shortCircuitValue(operator: SyntaxKind, left: unknown): boolean | undefined {
+export function shortCircuitValue(operator: SyntaxKind | undefined, left: unknown): boolean | undefined {
     if (operator === SyntaxKind.AmpersandAmpersandToken) {
         return !isTruthy(left);
     }

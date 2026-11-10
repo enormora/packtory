@@ -1,79 +1,66 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Expression } from 'ts-morph';
-import { unwrapExpression } from '../expression-unwrapping.ts';
+import { expressionWithWrappers, unwrapExpression } from '../expression-unwrapping.ts';
 import { expressionIsWriteTarget } from './expression-write.ts';
 
-const wrappers: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.ParenthesizedExpression,
-    SyntaxKind.AsExpression,
-    SyntaxKind.TypeAssertionExpression,
-    SyntaxKind.SatisfiesExpression,
-    SyntaxKind.NonNullExpression
-]);
+function parentReadsValue(parent: TypeScriptMorphNode): boolean {
+    return [
+        SyntaxKind.BinaryExpression,
+        SyntaxKind.ConditionalExpression,
+        SyntaxKind.PrefixUnaryExpression,
+        SyntaxKind.PostfixUnaryExpression,
+        SyntaxKind.ParenthesizedExpression,
+        SyntaxKind.ReturnStatement,
+        SyntaxKind.ThrowStatement,
+        SyntaxKind.ExpressionStatement,
+        SyntaxKind.AwaitExpression,
+        SyntaxKind.YieldExpression,
+        SyntaxKind.VoidExpression,
+        SyntaxKind.TypeOfExpression,
+        SyntaxKind.SpreadElement,
+        SyntaxKind.SpreadAssignment,
+        SyntaxKind.ComputedPropertyName,
+        SyntaxKind.ArrayLiteralExpression
+    ]
+        .includes(parent.getKind());
+}
 
-const valueParents: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.BinaryExpression,
-    SyntaxKind.ConditionalExpression,
-    SyntaxKind.PrefixUnaryExpression,
-    SyntaxKind.PostfixUnaryExpression,
-    SyntaxKind.ParenthesizedExpression,
-    SyntaxKind.ReturnStatement,
-    SyntaxKind.ThrowStatement,
-    SyntaxKind.ExpressionStatement,
-    SyntaxKind.AwaitExpression,
-    SyntaxKind.YieldExpression,
-    SyntaxKind.VoidExpression,
-    SyntaxKind.TypeOfExpression,
-    SyntaxKind.SpreadElement,
-    SyntaxKind.SpreadAssignment,
-    SyntaxKind.ComputedPropertyName,
-    SyntaxKind.ArrayLiteralExpression
-]);
-
-function valueOperands(parent: TypeScriptMorphNode): readonly (TypeScriptMorphNode | undefined)[] {
+function parentUsesAsValue(parent: TypeScriptMorphNode, expression: Expression): boolean {
     if (TypeScriptMorphNode.isArgumented(parent)) {
-        return parent.getArguments();
+        return parent.getArguments().includes(expression);
     }
     if (TypeScriptMorphNode.isInitializerExpressionGetable(parent)) {
-        return [ parent.getInitializer() ];
+        return parent.getInitializer() === expression;
     }
     if (TypeScriptMorphNode.isElementAccessExpression(parent)) {
-        return [ parent.getArgumentExpression() ];
+        return parent.getArgumentExpression() === expression;
     }
     if (TypeScriptMorphNode.isForStatement(parent)) {
-        return [ parent.getInitializer(), parent.getCondition(), parent.getIncrementor() ];
+        return [ parent.getInitializer(), parent.getCondition(), parent.getIncrementor() ].includes(expression);
     }
-    return [];
+    return false;
 }
 
 function valuePosition(expression: Expression): boolean {
     const parent = expression.getParentOrThrow();
     if (TypeScriptMorphNode.isArrowFunction(parent)) {
-        return parent.getBody() === expression;
+        return true;
     }
     const hasExpression = TypeScriptMorphNode.isExpressioned(parent) ||
         TypeScriptMorphNode.isLeftHandSideExpressioned(parent);
-    return valueParents.has(parent.getKind()) ||
+    return parentReadsValue(parent) ||
         hasExpression && parent.getExpression() === expression ||
-        valueOperands(parent).includes(expression);
-}
-
-function referenceParent(expression: Expression): TypeScriptMorphNode {
-    let parent = expression.getParentOrThrow();
-    while (wrappers.has(parent.getKind())) {
-        parent = parent.getParentOrThrow();
-    }
-    return parent;
+        parentUsesAsValue(parent, expression);
 }
 
 function needsReference(expression: Expression): boolean {
-    const parent = referenceParent(expression);
+    const parent = expressionWithWrappers(expression).getParentOrThrow();
     if (TypeScriptMorphNode.isDeleteExpression(parent)) {
         return true;
     }
     if (TypeScriptMorphNode.isCallExpression(parent) || TypeScriptMorphNode.isNewExpression(parent)) {
         return unwrapExpression(parent.getExpression()) === expression;
     }
-    return TypeScriptMorphNode.isTaggedTemplateExpression(parent) && unwrapExpression(parent.getTag()) === expression;
+    return TypeScriptMorphNode.isTaggedTemplateExpression(parent);
 }
 
 export function expressionIsValueRead(expression: Expression): boolean {

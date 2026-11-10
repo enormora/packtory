@@ -1,3 +1,4 @@
+import { isTruthy } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
@@ -16,7 +17,7 @@ import {
     type Completion,
     type EvaluationContext
 } from './evaluation-context.ts';
-import { evaluated, isTruthy } from './primitive-value.ts';
+import { evaluated } from './primitive-value.ts';
 import { resourceBindingIsHarmless } from './resource-binding.ts';
 import { evaluateSwitch } from './switch-evaluation.ts';
 
@@ -180,20 +181,19 @@ function executeExpression(statement: Statement, context: EvaluationContext): Co
 }
 
 type StatementEvaluator = (statement: Statement, context: EvaluationContext) => Completion | undefined;
-const statementEvaluators: ReadonlyMap<SyntaxKind, StatementEvaluator> = new Map([
-    [ SyntaxKind.Block, executeBlock ],
-    [ SyntaxKind.ReturnStatement, executeReturn ],
-    [ SyntaxKind.IfStatement, executeIf ],
-    [ SyntaxKind.SwitchStatement, evaluateSwitch ],
-    [ SyntaxKind.ForStatement, executeLoop ],
-    [ SyntaxKind.WhileStatement, executeLoop ],
-    [ SyntaxKind.DoStatement, executeLoop ],
-    [ SyntaxKind.BreakStatement, executeBreak ],
-    [ SyntaxKind.ContinueStatement, executeContinue ],
-    [ SyntaxKind.VariableStatement, executeVariable ],
-    [ SyntaxKind.ExpressionStatement, executeExpression ]
-]);
-
 export function evaluateStatement(statement: Statement, context: EvaluationContext): Completion | undefined {
-    return context.consume() ? statementEvaluators.get(statement.getKind())?.(statement, context) : undefined;
+    const evaluators: Partial<Record<SyntaxKind, StatementEvaluator>> = {
+        [SyntaxKind.Block]: executeBlock,
+        [SyntaxKind.ReturnStatement]: executeReturn,
+        [SyntaxKind.IfStatement]: executeIf,
+        [SyntaxKind.SwitchStatement]: evaluateSwitch,
+        [SyntaxKind.ForStatement]: executeLoop,
+        [SyntaxKind.WhileStatement]: executeLoop,
+        [SyntaxKind.DoStatement]: executeLoop,
+        [SyntaxKind.BreakStatement]: executeBreak,
+        [SyntaxKind.ContinueStatement]: executeContinue,
+        [SyntaxKind.VariableStatement]: executeVariable,
+        [SyntaxKind.ExpressionStatement]: executeExpression
+    };
+    return context.consume() ? evaluators[statement.getKind()]?.(statement, context) : undefined;
 }

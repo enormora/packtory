@@ -1,7 +1,7 @@
+import { isTruthy } from 'remeda';
 import { SyntaxKind } from 'ts-morph';
 import {
     evaluated,
-    isTruthy,
     evaluatePrimitiveBinary,
     evaluatePrimitiveUnary,
     type EvaluatedValue

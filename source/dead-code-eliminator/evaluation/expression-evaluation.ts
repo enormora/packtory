@@ -1,3 +1,5 @@
+import { match } from 'ts-pattern';
+import { constant, isTruthy } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
@@ -12,7 +14,6 @@ import { bindingReference, type EvaluationContext } from './evaluation-context.t
 import {
     evaluated,
     numericLiteralValue,
-    isTruthy,
     shortCircuitValue,
     type EvaluatedValue
 } from './primitive-value.ts';
@@ -24,18 +25,23 @@ import {
 } from './abstract-value.ts';
 import { evaluateRecordExpression, recordPropertyReference } from './record-evaluation.ts';
 
-const compoundAssignmentOperators: ReadonlyMap<SyntaxKind, SyntaxKind> = new Map([
-    [ SyntaxKind.PlusEqualsToken, SyntaxKind.PlusToken ],
-    [ SyntaxKind.MinusEqualsToken, SyntaxKind.MinusToken ],
-    [ SyntaxKind.AsteriskEqualsToken, SyntaxKind.AsteriskToken ],
-    [ SyntaxKind.SlashEqualsToken, SyntaxKind.SlashToken ],
-    [ SyntaxKind.PercentEqualsToken, SyntaxKind.PercentToken ]
-]);
-const logicalAssignmentOperators: ReadonlyMap<SyntaxKind, SyntaxKind> = new Map([
-    [ SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.AmpersandAmpersandToken ],
-    [ SyntaxKind.BarBarEqualsToken, SyntaxKind.BarBarToken ],
-    [ SyntaxKind.QuestionQuestionEqualsToken, SyntaxKind.QuestionQuestionToken ]
-]);
+function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
+    return match(operator)
+        .with(SyntaxKind.PlusEqualsToken, constant(SyntaxKind.PlusToken))
+        .with(SyntaxKind.MinusEqualsToken, constant(SyntaxKind.MinusToken))
+        .with(SyntaxKind.AsteriskEqualsToken, constant(SyntaxKind.AsteriskToken))
+        .with(SyntaxKind.SlashEqualsToken, constant(SyntaxKind.SlashToken))
+        .with(SyntaxKind.PercentEqualsToken, constant(SyntaxKind.PercentToken))
+        .otherwise(constant(undefined));
+}
+
+function logicalAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
+    return match(operator)
+        .with(SyntaxKind.AmpersandAmpersandEqualsToken, constant(SyntaxKind.AmpersandAmpersandToken))
+        .with(SyntaxKind.BarBarEqualsToken, constant(SyntaxKind.BarBarToken))
+        .with(SyntaxKind.QuestionQuestionEqualsToken, constant(SyntaxKind.QuestionQuestionToken))
+        .otherwise(constant(undefined));
+}
 
 function evaluateReference(expression: Expression, context: EvaluationContext): EvaluationReference | undefined {
     if (!context.consume()) {
@@ -111,7 +117,7 @@ function compoundAssignmentValue(
     reference: EvaluationReference,
     context: EvaluationContext
 ): AbstractValue | undefined {
-    const operator = compoundAssignmentOperators.get(expression.getOperatorToken().getKind());
+    const operator = compoundAssignmentOperator(expression.getOperatorToken().getKind());
     if (operator === undefined) {
         return undefined;
     }
@@ -124,8 +130,8 @@ function compoundAssignmentValue(
 }
 
 function assignmentSelectsLeft(operator: SyntaxKind, reference: EvaluationReference): boolean {
-    const logicalOperator = logicalAssignmentOperators.get(operator);
-    return logicalOperator !== undefined && shortCircuitValue(logicalOperator, reference.value.value) === true;
+    const logicalOperator = logicalAssignmentOperator(operator);
+    return shortCircuitValue(logicalOperator, reference.value.value) === true;
 }
 
 function assignmentValue(expression: BinaryExpression, context: EvaluationContext): AbstractValue | undefined {
@@ -137,7 +143,7 @@ function assignmentValue(expression: BinaryExpression, context: EvaluationContex
     if (assignmentSelectsLeft(operator, reference)) {
         return reference.value;
     }
-    return operator === SyntaxKind.EqualsToken || logicalAssignmentOperators.has(operator)
+    return operator === SyntaxKind.EqualsToken || logicalAssignmentOperator(operator) !== undefined
         ? writeReference(reference, context.evaluate(expression.getRight(), context))
         : compoundAssignmentValue(expression, reference, context);
 }

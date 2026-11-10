@@ -1,20 +1,23 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Node as TypeScriptMorphNodeType } from 'ts-morph';
 
-const writeTargetContainers: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.ParenthesizedExpression,
-    SyntaxKind.AsExpression,
-    SyntaxKind.TypeAssertionExpression,
-    SyntaxKind.SatisfiesExpression,
-    SyntaxKind.NonNullExpression,
-    SyntaxKind.ArrayLiteralExpression,
-    SyntaxKind.ObjectLiteralExpression,
-    SyntaxKind.SpreadElement,
-    SyntaxKind.SpreadAssignment
-]);
+function containsWriteTarget(parent: TypeScriptMorphNodeType): boolean {
+    return [
+        SyntaxKind.ParenthesizedExpression,
+        SyntaxKind.AsExpression,
+        SyntaxKind.TypeAssertionExpression,
+        SyntaxKind.SatisfiesExpression,
+        SyntaxKind.NonNullExpression,
+        SyntaxKind.ArrayLiteralExpression,
+        SyntaxKind.ObjectLiteralExpression,
+        SyntaxKind.SpreadElement,
+        SyntaxKind.SpreadAssignment
+    ]
+        .includes(parent.getKind());
+}
 
 function enclosingWriteTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
     const parent = node.getParent();
-    if (parent !== undefined && writeTargetContainers.has(parent.getKind())) {
+    if (parent !== undefined && containsWriteTarget(parent)) {
         return parent;
     }
     return TypeScriptMorphNode.isPropertyAssignment(parent) && parent.getInitializer()?.getStart() === node.getStart()

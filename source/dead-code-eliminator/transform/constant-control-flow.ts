@@ -1,3 +1,4 @@
+import { isTruthy } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     VariableDeclarationKind,
@@ -14,7 +15,7 @@ import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { createSourceEvaluation } from '../evaluation/constant-evaluation.ts';
-import { isTruthy, shortCircuitValue, type EvaluatedValue } from '../evaluation/primitive-value.ts';
+import { shortCircuitValue, type EvaluatedValue } from '../evaluation/primitive-value.ts';
 import { shortCircuitOperators } from '../syntax-kind-sets.ts';
 import { sourceReplacement, type SourcePart } from './source-replacement.ts';
 import { primitiveSource } from './primitive-source.ts';
