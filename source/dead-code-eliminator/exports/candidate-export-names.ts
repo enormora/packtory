@@ -12,7 +12,7 @@ export function collectCandidateExportNames(
     resolveModule: ExportTargetResolver
 ): CandidateExportNames {
     const state = {
-        models: new Map(models.map(function (model) {
+        models: new Map<SourceFile | undefined, ModuleExportModel>(models.map(function (model) {
             return [ model.source, model ];
         })),
         names: new Map<SourceFile, Set<string>>(),
@@ -32,17 +32,15 @@ export function collectCandidateExportNames(
     }
 
     function addStar(source: SourceFile, specifier: string | undefined): void {
-        const target = specifier === undefined ? undefined : resolveModule(source, specifier);
-        if (target === undefined || !state.models.has(target)) {
+        const resolved = specifier === undefined ? undefined : resolveModule(source, specifier);
+        const model = state.models.get(resolved);
+        if (model === undefined) {
             state.opaque.add(source);
             return;
         }
-        const dependencies = state.dependencies.get(source) ?? new Set();
-        dependencies.add(target);
-        state.dependencies.set(source, dependencies);
-        const dependents = state.dependents.get(target) ?? new Set();
-        dependents.add(source);
-        state.dependents.set(target, dependents);
+        const target = model.source;
+        state.dependencies.set(source, (state.dependencies.get(source) ?? new Set()).add(target));
+        state.dependents.set(target, (state.dependents.get(target) ?? new Set()).add(source));
     }
 
     function initialize(model: ModuleExportModel): void {
@@ -72,19 +70,17 @@ export function collectCandidateExportNames(
     }
 
     function scheduleDependents(source: SourceFile): void {
-        const dependents = state.dependents.get(source) ?? [];
-        for (const dependent of dependents) {
+        state.dependents.get(source)?.forEach(function (dependent) {
             state.pending.add(dependent);
-        }
+        });
     }
 
     function propagate(source: SourceFile): void {
         const previousSize = namesFor(source).size;
         const wasOpaque = state.opaque.has(source);
-        const dependencies = state.dependencies.get(source) ?? [];
-        for (const dependency of dependencies) {
+        state.dependencies.get(source)?.forEach(function (dependency) {
             inheritNames(source, dependency);
-        }
+        });
         if (namesFor(source).size !== previousSize || state.opaque.has(source) !== wasOpaque) {
             scheduleDependents(source);
         }

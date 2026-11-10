@@ -1,27 +1,35 @@
+import { match } from 'ts-pattern';
+import { constant } from 'remeda';
 import type { SourceFile } from 'ts-morph';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import { collectCandidateExportNames } from './candidate-export-names.ts';
-import { sameExportOrigin, type ExportResolution, type ExportResolver } from './export-resolution.ts';
+import {
+    sameExportOrigin,
+    type ExportResolution,
+    type ExportOrigin,
+    type ExportResolver
+} from './export-resolution.ts';
 import type { ModuleExportModel } from './module-export-model.ts';
 import { createModuleExportResolver, type ExportTargetResolver } from './module-export-resolver.ts';
 
 export type ExportReference = { readonly source: SourceFile; readonly name: string; };
+type ExportQuery = { readonly source: SourceFile | undefined; readonly name: string; };
 type ExportStatus = ExportResolution<SourceFile | undefined>['kind'];
 export type ModuleExportIndex = {
     readonly models: ReadonlyMap<SourceFile, ModuleExportModel>;
     readonly candidates: (source: SourceFile) => ReadonlySet<string>;
     readonly names: (source: SourceFile) => ReadonlySet<string> | undefined;
     readonly status: (source: SourceFile, name: string) => ExportStatus;
-    readonly sameExport: (left: ExportReference, right: ExportReference) => boolean;
-    readonly binding: (source: SourceFile, name: string) => BindingDescriptor | undefined;
+    readonly sameExport: (left: ExportQuery, right: ExportQuery) => boolean;
+    readonly binding: (source: SourceFile | undefined, name: string) => BindingDescriptor | undefined;
 };
 
 const noNames: ReadonlySet<string> = new Set();
 
 function matchingOrigins(
     resolver: ExportResolver<SourceFile | undefined>,
-    left: ExportReference,
-    right: ExportReference
+    left: ExportQuery,
+    right: ExportQuery
 ): boolean {
     const resolvedLeft = resolver.resolve(left.source, left.name);
     const resolvedRight = resolver.resolve(right.source, right.name);
@@ -29,15 +37,15 @@ function matchingOrigins(
         sameExportOrigin(resolvedLeft.origin, resolvedRight.origin);
 }
 
-function bindingForResolution(
-    resolution: ExportResolution<SourceFile | undefined>,
+export function bindingForExportOrigin(
+    origin: ExportOrigin<SourceFile | undefined>,
     models: ReadonlyMap<SourceFile | undefined, ModuleExportModel>
 ): BindingDescriptor | undefined {
-    if (resolution.kind !== 'unique' || resolution.origin.kind !== 'binding') {
-        return undefined;
-    }
-    const { module: source, name } = resolution.origin;
-    return models.get(source)?.locals.get(name === '*default*' ? 'default' : name);
+    return match(origin)
+        .with({ kind: 'namespace' }, constant(undefined))
+        .otherwise(function (binding) {
+            return models.get(binding.module)?.locals.get(binding.name === '*default*' ? 'default' : binding.name);
+        });
 }
 
 export function createModuleExportIndex(
@@ -54,7 +62,7 @@ export function createModuleExportIndex(
         schemas: new Map<SourceFile, ReadonlySet<string> | undefined>()
     };
 
-    function status(source: SourceFile, name: string): ExportStatus {
+    function status(source: SourceFile | undefined, name: string): ExportStatus {
         const local = state.local.resolve(source, name);
         const canonical = state.canonical.resolve(source, name);
         return local.kind === canonical.kind ? local.kind : 'unknown';
@@ -99,8 +107,9 @@ export function createModuleExportIndex(
         },
         status,
         binding(source, name) {
-            return status(source, name) === 'unique'
-                ? bindingForResolution(state.local.resolve(source, name), state.models)
+            const local = state.local.resolve(source, name);
+            return local.kind === 'unique' && state.canonical.resolve(source, name).kind === 'unique'
+                ? bindingForExportOrigin(local.origin, state.models)
                 : undefined;
         },
         sameExport(left, right) {

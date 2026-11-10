@@ -38,6 +38,74 @@ suite('module export dependencies', function () {
         );
     });
 
+    suite('link boundaries', function () {
+        for (
+            const [ name, expected ] of [
+                [ 'forwarded', [] ],
+                [ 'namespace', [ 'namespace' ] ],
+                [ 'default', [] ],
+                [ 'local', [] ]
+            ] as const
+        ) {
+            test(`resolves ${name} when links can be absent`, function () {
+                const fixture = createExportModuleFixture({
+                    'index.js':
+                        'export {used as forwarded} from "./library.js";export * as namespace from "./library.js";export default 1;export const local=1;',
+                    'library.js': 'export const used=1;'
+                }, []);
+                const model = fixture.models.get(fixture.source('index.js'));
+                assertDefined(model);
+                assert.deepStrictEqual(
+                    moduleExportDependencies(model, name, {
+                        resolveModule: fixture.resolveModule,
+                        binding() {
+                            return undefined;
+                        },
+                        exported() {
+                            return undefined;
+                        },
+                        namespaceTargets() {
+                            return [ 'namespace' ];
+                        },
+                        demand: {
+                            properties() {
+                                return undefined;
+                            },
+                            exportProperties() {
+                                return undefined;
+                            }
+                        }
+                    }),
+                    expected
+                );
+            });
+        }
+
+        for (const content of [ 'import(unknown);', 'import("./library.js");' ]) {
+            test(`excludes absent evaluation links for ${content}`, function () {
+                const fixture = createExportModuleFixture({
+                    'index.js': content,
+                    'library.js': 'export const value=1;'
+                }, []);
+                const call = fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
+                const dependencies = dynamicImportDependencies(call, {
+                    sources: [ fixture.source('library.js') ],
+                    resolveModule(source, specifier) {
+                        assert.strictEqual(specifier, './library.js');
+                        return fixture.resolveModule(source, specifier);
+                    },
+                    evaluated() {
+                        return undefined;
+                    },
+                    namespaceTargets() {
+                        return [ 'namespace' ];
+                    }
+                });
+                assert.deepStrictEqual(dependencies, [ 'namespace' ]);
+            });
+        }
+    });
+
     for (
         const [ content, expected ] of [
             [ 'import("./external.js");', undefined ],

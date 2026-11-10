@@ -43,18 +43,17 @@ export function moduleExportDependencies(
         .with({ kind: 'forward' }, function (value) {
             return [ links.exported(links.resolveModule(model.source, value.specifier), value.name) ].filter(isDefined);
         })
-        .with({ kind: 'namespace' }, function (value) {
+        .with({ kind: 'anonymous' }, function () {
+            return [];
+        })
+        .otherwise(function (value) {
             const target = value.specifier === undefined
                 ? undefined
                 : links.resolveModule(model.source, value.specifier);
             return target === undefined
                 ? []
                 : links.namespaceTargets(target, links.demand.exportProperties(model.source, name));
-        })
-        .with({ kind: 'anonymous' }, function () {
-            return [];
-        })
-        .exhaustive();
+        });
 }
 
 type DynamicImportLinks = Pick<ModuleExportLinks, 'namespaceTargets' | 'resolveModule'> & {

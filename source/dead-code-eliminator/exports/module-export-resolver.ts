@@ -51,7 +51,7 @@ function importedExportName(declaration: ImportBinding): string | undefined {
 }
 
 export function resolveImportedExport(
-    declaration: TypeScriptMorphNode,
+    declaration: TypeScriptMorphNode | undefined,
     resolveModule: ExportTargetResolver
 ): ImportedExport | undefined {
     if (
@@ -75,9 +75,14 @@ function importedEntry(
         return { kind: 'unknown' };
     }
     if (imported.name === undefined) {
-        return context.namespaceIdentity === 'canonical'
-            ? namespaceEntry(imported.source)
-            : bindingEntry(context.model.source, name);
+        return match(context.namespaceIdentity)
+            .with('canonical', function () {
+                return namespaceEntry(imported.source);
+            })
+            .with('local', function () {
+                return bindingEntry(context.model.source, name);
+            })
+            .exhaustive();
     }
     return forwardedEntry(imported.source, imported.name);
 }
