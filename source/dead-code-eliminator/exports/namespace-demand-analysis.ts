@@ -46,16 +46,10 @@ export function createNamespaceDemandAnalysis(
     const evaluations = createSourceEvaluations(createSourceEvaluation);
 
     function exportKey(source: SourceFile, name: string): ExportDemandKey {
-        let keys = state.exportedKeys.get(source);
-        if (keys === undefined) {
-            keys = new Map();
-            state.exportedKeys.set(source, keys);
-        }
-        let key = keys.get(name);
-        if (key === undefined) {
-            key = { source, name };
-            keys.set(name, key);
-        }
+        const keys = state.exportedKeys.get(source) ?? new Map<string, ExportDemandKey>();
+        state.exportedKeys.set(source, keys);
+        const key = keys.get(name) ?? { source, name };
+        keys.set(name, key);
         return key;
     }
 
