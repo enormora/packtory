@@ -43,16 +43,16 @@ export function moduleExportDependencies(
         .with({ kind: 'forward' }, function (value) {
             return [ links.exported(links.resolveModule(model.source, value.specifier), value.name) ].filter(isDefined);
         })
-        .with({ kind: 'anonymous' }, function () {
-            return [];
-        })
-        .otherwise(function (value) {
+        .with({ kind: 'namespace' }, function (value) {
             const target = value.specifier === undefined
                 ? undefined
                 : links.resolveModule(model.source, value.specifier);
             return target === undefined
                 ? []
                 : links.namespaceTargets(target, links.demand.exportProperties(model.source, name));
+        })
+        .otherwise(function () {
+            return [];
         });
 }
 
