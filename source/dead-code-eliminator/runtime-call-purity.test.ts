@@ -28,6 +28,7 @@ const cases: readonly (readonly [string, string, boolean])[] = [
         false
     ],
     [ 'const make = make; const schema = make();', 'export const other = 1;', false ],
+    [ 'const make=alias.method;const alias=make;const schema=make();', 'export const other=1;', false ],
     [ 'function make() { return 1; } const schema = make();', 'export const other = 1;', false ],
     [
         'import { make } from "missing"; const schema = make();',
