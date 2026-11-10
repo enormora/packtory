@@ -3,8 +3,11 @@ import { suite, test } from 'mocha';
 import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { buildResolvedRoots } from './bundle-resource-lookup.ts';
 
-const javaScriptResource = bundleResource('/source/index.ts', { targetFilePath: 'index.js' });
-const declarationResource = bundleResource('/source/index.d.ts', { targetFilePath: 'index.d.ts' });
+const javaScriptResource = bundleResource('/source/index.ts', { targetFilePath: 'index.js', moduleReferences: [] });
+const declarationResource = bundleResource('/source/index.d.ts', {
+    targetFilePath: 'index.d.ts',
+    moduleReferences: []
+});
 
 suite('bundle-resource-lookup', function () {
     test('resolves JSON and declaration-only roots without JavaScript resources', function () {

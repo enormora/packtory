@@ -3,6 +3,15 @@ import { createProject } from '../test-libraries/typescript-project.ts';
 import { expectFooReference, expectNoReferences } from './source-file-references.injected-imports-fixtures.test.ts';
 
 suite('source-file-references injected loader references', function () {
+    test('ignores calls on unresolved loader containers', function () {
+        expectNoReferences(createProject({
+            withFiles: [
+                { filePath: 'a.ts', content: 'missing.load("./foo");' },
+                { filePath: 'foo.ts', content: '' }
+            ]
+        }));
+    });
+
     test('follows renamed imports and re-exports to the importing call', function () {
         expectFooReference(createProject({
             withFiles: [
