@@ -1,5 +1,5 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type CallExpression, type SourceFile } from 'ts-morph';
-import { isDefined } from 'remeda';
+import { isDefined, prop } from 'remeda';
 import { match } from 'ts-pattern';
 import { dynamicImportProperties } from '../reachability/dynamic-import-properties.ts';
 import { dynamicImportSpecifier } from '../dynamic-import-specifier.ts';
@@ -43,16 +43,14 @@ export function moduleExportDependencies(
         .with({ kind: 'forward' }, function (value) {
             return [ links.exported(links.resolveModule(model.source, value.specifier), value.name) ].filter(isDefined);
         })
-        .with({ kind: 'namespace' }, function (value) {
-            const target = value.specifier === undefined
+        .otherwise(function (value) {
+            const specifier = prop(value, 'specifier');
+            const target = specifier === undefined
                 ? undefined
-                : links.resolveModule(model.source, value.specifier);
+                : links.resolveModule(model.source, specifier);
             return target === undefined
                 ? []
                 : links.namespaceTargets(target, links.demand.exportProperties(model.source, name));
-        })
-        .otherwise(function () {
-            return [];
         });
 }
 

@@ -6,37 +6,41 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { dynamicImportDependencies, moduleExportDependencies } from './module-export-dependencies.ts';
 
 suite('module export dependencies', function () {
-    test('excludes default exports from star forwarding', function () {
-        const fixture = createExportModuleFixture({
-            'index.js': 'export * from "./library.js";',
-            'library.js': 'export default 42;'
-        }, []);
-        const model = fixture.models.get(fixture.source('index.js'));
-        assertDefined(model);
-        assert.deepStrictEqual(
-            moduleExportDependencies(model, 'default', {
-                resolveModule: fixture.resolveModule,
-                binding() {
-                    return assert.fail('Default star lookup must not request a binding');
-                },
-                exported() {
-                    return assert.fail('Default star lookup must not forward an export');
-                },
-                namespaceTargets() {
-                    return assert.fail('Default star lookup must not observe a namespace');
-                },
-                demand: {
-                    properties() {
-                        return assert.fail('Default star lookup must not request namespace demand');
+    for (const declaration of [ 'export * from "./library.js";', 'export default class{}' ]) {
+        test(`excludes default dependencies for ${declaration}`, function () {
+            const fixture = createExportModuleFixture({
+                'index.js': declaration,
+                'library.js': 'export default 42;'
+            }, []);
+            const model = fixture.models.get(fixture.source('index.js'));
+            assertDefined(model);
+            assert.deepStrictEqual(
+                moduleExportDependencies(model, 'default', {
+                    resolveModule() {
+                        return assert.fail('Default declarations must not request a module');
                     },
-                    exportProperties() {
-                        return assert.fail('Default star lookup must not request export demand');
+                    binding() {
+                        return assert.fail('Default star lookup must not request a binding');
+                    },
+                    exported() {
+                        return assert.fail('Default star lookup must not forward an export');
+                    },
+                    namespaceTargets() {
+                        return assert.fail('Default star lookup must not observe a namespace');
+                    },
+                    demand: {
+                        properties() {
+                            return assert.fail('Default star lookup must not request namespace demand');
+                        },
+                        exportProperties() {
+                            return assert.fail('Default star lookup must not request export demand');
+                        }
                     }
-                }
-            }),
-            []
-        );
-    });
+                }),
+                []
+            );
+        });
+    }
 
     suite('link boundaries', function () {
         for (
