@@ -14,6 +14,8 @@ suite('construction target order', function () {
             [ 'class Local{};const result=new Local();eval("Local=unknown");export{};', undefined ],
             [ 'class Local{};const result=new Local();', undefined ],
             [ 'const Local;const result=new Local();export{};', undefined ],
+            [ 'let Local;const result=new Local();export{};', undefined ],
+            [ 'const result=new Missing();export{};', undefined ],
             [ 'const result=new (unknown.Member)();export{};', undefined ],
             [ 'class Local{static value=new Local();}export{};', undefined ],
             [ 'const result=new Local();class Local{};export{};', undefined ]
