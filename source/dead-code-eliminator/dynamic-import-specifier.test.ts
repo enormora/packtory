@@ -6,6 +6,7 @@ import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { dynamicImportSpecifier } from './dynamic-import-specifier.ts';
 
 const cases: readonly (readonly [string, string, string | undefined])[] = [
+    [ 'missing argument', 'import();', undefined ],
     [ 'literal', 'import("./lazy.js");', './lazy.js' ],
     [ 'template literal', 'import(`./lazy.js`);', './lazy.js' ],
     [ 'derived constant', 'const folder="./";const path=folder+"lazy.js";import(path);', './lazy.js' ],
