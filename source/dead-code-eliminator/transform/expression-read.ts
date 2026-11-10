@@ -32,7 +32,7 @@ function parentUsesAsValue(parent: TypeScriptMorphNode, expression: Expression):
         return parent.getInitializer() === expression;
     }
     if (TypeScriptMorphNode.isElementAccessExpression(parent)) {
-        return parent.getArgumentExpression() === expression;
+        return true;
     }
     if (TypeScriptMorphNode.isForStatement(parent)) {
         return [ parent.getInitializer(), parent.getCondition(), parent.getIncrementor() ].includes(expression);
