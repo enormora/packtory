@@ -1,6 +1,11 @@
 import type { SourceFile } from 'ts-morph';
 import { buildTextTransformMap, type PositionAtom } from '../../source-transformation/text-edits.ts';
-import { processStatement, repairImportDeclarations, hasModuleSyntax, type RemovalPlan } from './declaration-removal.ts';
+import {
+    processStatement,
+    repairImportDeclarations,
+    hasModuleSyntax,
+    type RemovalPlan
+} from './declaration-removal.ts';
 import { removeUnusedExports } from './export-removal.ts';
 import { removeRedundantEmptyStatements } from './empty-statements.ts';
 

@@ -1,5 +1,4 @@
 import { Node as TypeScriptMorphNode, type CallExpression, type Expression } from 'ts-morph';
-import type { PurityContext } from './purity-context.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { expressionBindingShapeIsStable } from './binding-stability.ts';
 import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
@@ -10,6 +9,7 @@ import {
     pureValueFact,
     purityCheckerFor,
     unknownFact,
+    type PurityContext,
     type ExpressionFact,
     type ExpressionFactResolver
 } from './expression-facts.ts';
