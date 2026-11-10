@@ -23,7 +23,7 @@ import {
 import { returnCreationIsPure, staticPropertyName } from '../liveness/builder-return.ts';
 import { sourceReplacement, type SourcePart } from './source-replacement.ts';
 
-type ObjectBinding = { readonly pattern: ObjectBindingPattern; readonly initializer: Expression; };
+type ObjectBinding = { readonly pattern: ObjectBindingPattern; readonly initializer: Expression | undefined; };
 
 function defaultCanDisappear(
     element: BindingElement,
@@ -64,7 +64,7 @@ function statementPattern(statement: VariableStatement): ObjectBinding | undefin
     const declaration = objectBindingDeclaration(statement);
     const pattern = declaration?.getNameNode();
     const initializer = declaration?.getInitializer();
-    return initializer !== undefined && TypeScriptMorphNode.isObjectBindingPattern(pattern)
+    return TypeScriptMorphNode.isObjectBindingPattern(pattern)
         ? { pattern, initializer }
         : undefined;
 }

@@ -6,6 +6,10 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { unescapedObjectOrigin } from './object-origin.ts';
 
 suite('object origins', function () {
+    test('keeps an absent initializer unknown', function () {
+        assert.strictEqual(unescapedObjectOrigin(undefined), undefined);
+    });
+
     for (
         const [ name, content, expected, createdAtRead ] of [
             [ 'inline object', '({answer:42});', '{answer:42}', true ],

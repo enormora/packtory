@@ -39,7 +39,7 @@ function aliasedObjectOrigin(read: Identifier): ObjectOrigin | undefined {
         : undefined;
 }
 
-export function unescapedObjectOrigin(expression: Expression): ObjectOrigin | undefined {
+export function unescapedObjectOrigin(expression: Expression | undefined): ObjectOrigin | undefined {
     const node = unwrapExpression(expression);
     if (TypeScriptMorphNode.isObjectLiteralExpression(node)) {
         return { object: node, creationIsAtRead: true };
