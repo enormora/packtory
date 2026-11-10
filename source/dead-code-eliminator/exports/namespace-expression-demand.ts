@@ -29,7 +29,7 @@ function observesReceiver(expression: Expression): boolean {
     const wrapped = expressionWithWrappers(expression);
     const parent = wrapped.getParent();
     return TypeScriptMorphNode.isCallExpression(parent) && parent.getExpression() === wrapped ||
-        TypeScriptMorphNode.isTaggedTemplateExpression(parent) && parent.getTag() === wrapped;
+        TypeScriptMorphNode.isTaggedTemplateExpression(parent);
 }
 
 function observesNamespaceReceiver(

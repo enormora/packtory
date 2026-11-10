@@ -28,6 +28,35 @@ function expressionContext(source: SourceFile): NamespaceExpressionContext {
 }
 
 suite('namespace expression boundaries', function () {
+    suite('computed key boundaries', function () {
+        test('does not use an element key as its namespace receiver', function () {
+            const source = createProject().createSourceFile('input.ts', 'object["key"];');
+            const key = source
+                .getFirstDescendantByKindOrThrow(SyntaxKind.ElementAccessExpression)
+                .getArgumentExpressionOrThrow();
+            assert.deepStrictEqual(namespaceExpressionDemand(key, expressionContext(source)), allNamespaceProperties);
+        });
+
+        test('does not evaluate an absent constant key initializer', function () {
+            const source = createProject().createSourceFile('input.ts', 'const key;ns[key];');
+            const access = source.getFirstDescendantByKindOrThrow(SyntaxKind.ElementAccessExpression);
+            const key = access.getArgumentExpressionOrThrow();
+            let evaluated = 0;
+            assert.deepStrictEqual(
+                namespaceExpressionDemand(access.getExpression(), {
+                    ...expressionContext(source),
+                    primitive(expression) {
+                        assert.strictEqual(expression, key);
+                        evaluated += 1;
+                        return undefined;
+                    }
+                }),
+                allNamespaceProperties
+            );
+            assert.strictEqual(evaluated, 1);
+        });
+    });
+
     for (
         const { content, expected } of [
             { content: 'consume(ns.used);', expected: namespaceMemberDemand('used', noNamespaceProperties) },
