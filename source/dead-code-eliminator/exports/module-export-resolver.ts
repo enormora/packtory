@@ -7,9 +7,12 @@ import {
     type NamespaceImport
 } from 'ts-morph';
 import { match } from 'ts-pattern';
+import { constant } from 'remeda';
+import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import {
     createExportResolver,
     type ExportEntry,
+    type ExportOrigin,
     type ExportResolver,
     type ModuleExports
 } from './export-resolution.ts';
@@ -20,6 +23,17 @@ export type NamespaceBindingIdentity = 'canonical' | 'local';
 export type ImportedExport = { readonly source: SourceFile; readonly name: string | undefined; };
 type ExportModule = SourceFile | undefined;
 type ImportBinding = ImportClause | ImportSpecifier | NamespaceImport;
+
+export function bindingForExportOrigin(
+    origin: ExportOrigin<SourceFile | undefined>,
+    models: ReadonlyMap<SourceFile | undefined, ModuleExportModel>
+): BindingDescriptor | undefined {
+    return match(origin)
+        .with({ kind: 'namespace' }, constant(undefined))
+        .otherwise(function (binding) {
+            return models.get(binding.module)?.locals.get(binding.name === '*default*' ? 'default' : binding.name);
+        });
+}
 
 type ExportContext = {
     readonly model: ModuleExportModel;

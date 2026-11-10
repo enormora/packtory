@@ -1,16 +1,17 @@
-import { match } from 'ts-pattern';
-import { constant } from 'remeda';
 import type { SourceFile } from 'ts-morph';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import { collectCandidateExportNames } from './candidate-export-names.ts';
 import {
     sameExportOrigin,
     type ExportResolution,
-    type ExportOrigin,
     type ExportResolver
 } from './export-resolution.ts';
 import type { ModuleExportModel } from './module-export-model.ts';
-import { createModuleExportResolver, type ExportTargetResolver } from './module-export-resolver.ts';
+import {
+    bindingForExportOrigin,
+    createModuleExportResolver,
+    type ExportTargetResolver
+} from './module-export-resolver.ts';
 
 export type ExportReference = { readonly source: SourceFile; readonly name: string; };
 type ExportQuery = { readonly source: SourceFile | undefined; readonly name: string; };
@@ -35,17 +36,6 @@ function matchingOrigins(
     const resolvedRight = resolver.resolve(right.source, right.name);
     return resolvedLeft.kind === 'unique' && resolvedRight.kind === 'unique' &&
         sameExportOrigin(resolvedLeft.origin, resolvedRight.origin);
-}
-
-export function bindingForExportOrigin(
-    origin: ExportOrigin<SourceFile | undefined>,
-    models: ReadonlyMap<SourceFile | undefined, ModuleExportModel>
-): BindingDescriptor | undefined {
-    return match(origin)
-        .with({ kind: 'namespace' }, constant(undefined))
-        .otherwise(function (binding) {
-            return models.get(binding.module)?.locals.get(binding.name === '*default*' ? 'default' : binding.name);
-        });
 }
 
 export function createModuleExportIndex(

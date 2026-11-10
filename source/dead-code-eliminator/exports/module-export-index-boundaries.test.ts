@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
-import { bindingForExportOrigin, createModuleExportIndex } from './module-export-index.ts';
+import { createModuleExportIndex } from './module-export-index.ts';
+import { bindingForExportOrigin } from './module-export-resolver.ts';
 import { collectCandidateExportNames } from './candidate-export-names.ts';
 
 suite('module export index boundaries', function () {
