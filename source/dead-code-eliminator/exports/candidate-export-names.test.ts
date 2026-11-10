@@ -27,6 +27,24 @@ function graphFor(files: Readonly<Record<string, string>>, omitted: readonly str
 }
 
 suite('candidate export names', function () {
+    test('retains opacity without resolving a star with no module specifier', function () {
+        const fixture = createExportModuleFixture({ 'index.js': 'export * from "./missing.js";' }, []);
+        const models = Array.from(fixture.models.values(), function (model) {
+            return {
+                ...model,
+                stars: model.stars.map(function (star) {
+                    return { ...star, specifier: undefined };
+                })
+            };
+        });
+        const result = collectCandidateExportNames(models, function () {
+            assert.fail('A missing module specifier cannot be resolved');
+        });
+        const source = fixture.source('index.js');
+        assert.deepStrictEqual(result.names.get(source), new Set());
+        assert.ok(result.opaque.has(source));
+    });
+
     test('inherits star names without forwarding the dependency default', function () {
         const graph = graphFor({
             'index.js': 'export * from "./library.js";export const own=1;',

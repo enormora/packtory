@@ -1,100 +1,71 @@
 import type { SourceFile } from 'ts-morph';
 import type { ModuleExportModel } from './module-export-model.ts';
 import type { ExportTargetResolver } from './module-export-resolver.ts';
+import { visitBindingDependencies } from './binding-dependencies.ts';
 
 export type CandidateExportNames = {
     readonly names: ReadonlyMap<SourceFile, ReadonlySet<string>>;
     readonly opaque: ReadonlySet<SourceFile>;
 };
 
+type ExportModuleGroup = {
+    readonly source: SourceFile;
+    readonly models: readonly ModuleExportModel[];
+};
+
 export function collectCandidateExportNames(
     models: readonly ModuleExportModel[],
     resolveModule: ExportTargetResolver
 ): CandidateExportNames {
-    const state = {
-        models: new Map<SourceFile | undefined, ModuleExportModel>(models.map(function (model) {
-            return [ model.source, model ];
-        })),
-        names: new Map<SourceFile, Set<string>>(),
-        opaque: new Set<SourceFile>(),
-        dependencies: new Map<SourceFile, Set<SourceFile>>(),
-        dependents: new Map<SourceFile, Set<SourceFile>>(),
-        pending: new Set<SourceFile>()
-    };
+    const grouped = Map.groupBy(models, function (model) {
+        return model.source;
+    });
+    const registry = new Map<SourceFile | undefined, ExportModuleGroup>(
+        Array.from(grouped, function ([ source, entries ]) {
+            return [ source, { source, models: entries } ];
+        })
+    );
+    const names = new Map<SourceFile, ReadonlySet<string>>();
+    const opaque = new Set<SourceFile>();
 
-    function namesFor(source: SourceFile): Set<string> {
-        let names = state.names.get(source);
-        if (names === undefined) {
-            names = new Set();
-            state.names.set(source, names);
-        }
-        return names;
-    }
-
-    function addStar(source: SourceFile, specifier: string | undefined): void {
-        const resolved = specifier === undefined ? undefined : resolveModule(source, specifier);
-        const model = state.models.get(resolved);
-        if (model === undefined) {
-            state.opaque.add(source);
-            return;
-        }
-        const target = model.source;
-        state.dependencies.set(source, (state.dependencies.get(source) ?? new Set()).add(target));
-        state.dependents.set(target, (state.dependents.get(target) ?? new Set()).add(source));
-    }
-
-    function initialize(model: ModuleExportModel): void {
-        const names = namesFor(model.source);
-        for (const name of model.entries.keys()) {
-            names.add(name);
-        }
-        if (!model.closed) {
-            state.opaque.add(model.source);
-        }
-        for (const star of model.stars) {
-            addStar(model.source, star.specifier);
-        }
-        state.pending.add(model.source);
-    }
-
-    function inheritNames(source: SourceFile, target: SourceFile): void {
-        if (state.opaque.has(target)) {
-            state.opaque.add(source);
-        }
-        const names = namesFor(source);
-        for (const name of namesFor(target)) {
-            if (name !== 'default') {
-                names.add(name);
+    function* dependencies(group: ExportModuleGroup, owner: SourceFile): Iterable<ExportModuleGroup> {
+        for (const model of group.models) {
+            for (const star of model.stars) {
+                const resolved = star.specifier === undefined ? undefined : resolveModule(group.source, star.specifier);
+                const target = registry.get(resolved);
+                if (target === undefined) {
+                    opaque.add(owner);
+                } else {
+                    yield target;
+                }
             }
         }
     }
 
-    function scheduleDependents(source: SourceFile): void {
-        state.dependents.get(source)?.forEach(function (dependent) {
-            state.pending.add(dependent);
+    function collect(group: ExportModuleGroup): void {
+        const visible = new Set(group.models.flatMap(function (model) {
+            return Array.from(model.entries.keys());
+        }));
+        names.set(group.source, visible);
+        visitBindingDependencies(group, {
+            get(dependency) {
+                return function () {
+                    return dependencies(dependency, group.source);
+                };
+            }
+        }, function (dependency) {
+            for (const model of dependency.models) {
+                if (!model.closed) {
+                    opaque.add(group.source);
+                }
+                for (const name of model.entries.keys()) {
+                    if (name !== 'default') {
+                        visible.add(name);
+                    }
+                }
+            }
         });
     }
-
-    function propagate(source: SourceFile): void {
-        const previousSize = namesFor(source).size;
-        const wasOpaque = state.opaque.has(source);
-        state.dependencies.get(source)?.forEach(function (dependency) {
-            inheritNames(source, dependency);
-        });
-        if (namesFor(source).size !== previousSize || state.opaque.has(source) !== wasOpaque) {
-            scheduleDependents(source);
-        }
-    }
-
-    function settle(): void {
-        for (const model of models) {
-            initialize(model);
-        }
-        for (const source of state.pending) {
-            state.pending.delete(source);
-            propagate(source);
-        }
-    }
-    settle();
-    return { names: state.names, opaque: state.opaque };
+    registry.forEach(collect);
+    return { names, opaque };
 }
