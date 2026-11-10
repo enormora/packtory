@@ -9,7 +9,8 @@ import {
     type Node as TypeScriptMorphNodeType,
     type ObjectLiteralExpression
 } from 'ts-morph';
-import { isDefined } from 'remeda';
+import { constant, isDefined } from 'remeda';
+import { match } from 'ts-pattern';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { returnCreationIsPure, staticPropertyName } from '../liveness/builder-return.ts';
 import type { PrimitiveEvaluator } from './constant-evaluation.ts';
@@ -143,5 +144,10 @@ export function objectReadShape(
 }
 
 export function propertyIsDefined(value: ObjectPropertyRead['value']): boolean {
-    return value.type === 'defined' || value.type === 'value' && value.value !== undefined;
+    return match(value)
+        .with({ type: 'unknown' }, constant(false))
+        .with({ type: 'defined' }, constant(true))
+        .otherwise(function (known) {
+            return known.value !== undefined;
+        });
 }

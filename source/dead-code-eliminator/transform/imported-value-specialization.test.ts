@@ -46,6 +46,24 @@ const cases: readonly (readonly [string, string, string])[] = [
 ];
 
 suite('imported value read positions', function () {
+    test('specializes an eligible read at the beginning of a source', function () {
+        const source = createProject().createSourceFile('input.ts', 'value;');
+        specializeImportedValues(createSourcePreparation(source), function (expression) {
+            assert.strictEqual(expression.getText(), 'value');
+            return { value: 42 };
+        });
+        assert.strictEqual(source.getFullText(), '(42);');
+    });
+
+    test('replaces an outer imported read without reevaluating its receiver', function () {
+        const source = createProject().createSourceFile('input.ts', 'library.value;');
+        specializeImportedValues(createSourcePreparation(source), function (expression) {
+            assert.strictEqual(expression.getText(), 'library.value');
+            return { value: 42 };
+        });
+        assert.strictEqual(source.getFullText(), '(42);');
+    });
+
     for (const [ name, original, expected ] of cases) {
         test(name, function () {
             const project = createProject({

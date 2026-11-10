@@ -10,7 +10,7 @@ export function specializeImportedValues(preparation: SourcePreparation, evaluat
     if (hasDynamicScope(sourceFile)) {
         return;
     }
-    let previousEnd = -1;
+    let previousEnd = 0;
     const candidates = sourceFile.getDescendants().filter(
         function (node): node is Identifier | PropertyAccessExpression {
             return TypeScriptMorphNode.isIdentifier(node) || TypeScriptMorphNode.isPropertyAccessExpression(node);

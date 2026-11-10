@@ -20,7 +20,8 @@ suite('object property reads', function () {
             [ '{answer(){}}', true, { getIsPure: true, value: { type: 'defined' } } ],
             [ '{set answer(value){}}', true, { getIsPure: true, value: { type: 'value', value: undefined } } ],
             [ '{__proto__:null}', true, { getIsPure: true, value: { type: 'value', value: undefined } } ],
-            [ '{}', true, undefined ]
+            [ '{}', true, undefined ],
+            [ '{other:42}', true, undefined ]
         ] as const
     ) {
         test(`separates creation effects from property reads for ${content}`, function () {
