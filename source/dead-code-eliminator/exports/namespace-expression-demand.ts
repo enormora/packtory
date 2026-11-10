@@ -54,8 +54,8 @@ function computedKeyValue(key: Expression, primitive: PrimitiveEvaluator): Evalu
 }
 
 function elementDemand(element: ElementAccessExpression, context: NamespaceExpressionContext): NamespaceDemand {
-    const key = element.getArgumentExpression();
-    const value = key === undefined ? undefined : computedKeyValue(key, context.primitive);
+    const key = element.getArgumentExpressionOrThrow();
+    const value = computedKeyValue(key, context.primitive);
     return value === undefined || observesNamespaceReceiver(element, String(value.value), context)
         ? allNamespaceProperties
         : namespaceMemberDemand(String(value.value), context.expression(element));

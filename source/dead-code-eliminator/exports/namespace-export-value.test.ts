@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { resolveNamespaceImport } from './namespace-export-value.ts';
+import { resolveNamespaceExport, resolveNamespaceImport } from './namespace-export-value.ts';
 
 type NamespaceCase = {
     readonly name: string;
@@ -143,6 +143,22 @@ const cases: readonly NamespaceCase[] = [
 ];
 
 suite('namespace export values', function () {
+    test('rejects namespace entries without module specifier metadata', function () {
+        const fixture = createExportModuleFixture({ 'index.js': 'export * as ns from "./missing.js";' }, []);
+        const source = fixture.source('index.js');
+        const models = new Map(fixture.models);
+        const model = models.get(source);
+        assertDefined(model);
+        models.set(source, { ...model, entries: new Map([ [ 'ns', { kind: 'namespace', specifier: undefined } ] ]) });
+        assert.strictEqual(resolveNamespaceExport(source, 'ns', models, fixture.resolveModule), undefined);
+    });
+
+    test('rejects declarations outside the supplied module models', function () {
+        const fixture = createExportModuleFixture({ 'outside.js': 'const ns=42;' }, [ 'outside.js' ]);
+        const declaration = fixture.source('outside.js').getVariableDeclarationOrThrow('ns');
+        assert.strictEqual(resolveNamespaceImport(declaration, fixture.models, fixture.resolveModule), undefined);
+    });
+
     for (const fixture of cases) {
         test(`resolves ${fixture.name} conservatively`, function () {
             assert.strictEqual(namespaceTarget(fixture.files), fixture.expected);

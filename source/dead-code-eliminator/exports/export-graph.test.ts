@@ -34,6 +34,15 @@ function graphFor(contents: Readonly<Record<string, string>>, publicPaths: reado
 
 suite('export reachability graph', function () {
     suite('module and binding edges', function () {
+        test('keeps unresolved local exports without inventing binding targets', function () {
+            const { graph } = graphFor({ 'index.js': 'export {missing};' }, [ 'index.js' ]);
+            assert.deepStrictEqual(
+                new Set(graph.roots()),
+                new Set([ 'index.js::@evaluate', 'index.js::@export:"missing"' ])
+            );
+            assert.deepStrictEqual(graph.nodes.get('index.js::@export:"missing"')?.(), []);
+        });
+
         test('connects named forwarding exports to their defining bindings', function () {
             const { graph } = graphFor({
                 'index.js': 'export {used} from "./library.js";',
@@ -79,6 +88,14 @@ suite('export reachability graph', function () {
             assert.deepStrictEqual(graph.nodes.get('library.js::@export:"default"')?.(), []);
         });
 
+        test('keeps effects in default export assignments reachable', function () {
+            const { graph } = graphFor({
+                'index.js': 'import "./library.js";export const probe=42;',
+                'library.js': 'export default console.log("loaded");'
+            }, [ 'index.js' ]);
+            assert.deepStrictEqual(graph.nodes.get('library.js::@evaluate')?.(), [ 'library.js::@export:"default"' ]);
+        });
+
         test('maps surviving exports independently of locally reachable bindings', function () {
             const { graph } = graphFor({
                 'index.js': 'export {used} from "./library.js";',
@@ -95,6 +112,23 @@ suite('export reachability graph', function () {
     });
 
     suite('namespace and dynamic consumers', function () {
+        for (
+            const [ path, content ] of [
+                [ 'index.js', 'import type * as ns from "./library.js";' ],
+                [ 'index.d.ts', 'import * as ns from "./library.js";' ]
+            ] as const
+        ) {
+            test(`omits erased namespace imports in ${path}`, function () {
+                const { graph, source } = graphFor({
+                    [path]: content,
+                    'library.js': 'export const value=42;'
+                }, [ path ]);
+                const name = source(path).getImportDeclarations()[0]?.getNamespaceImport();
+                assertDefined(name);
+                assert.deepStrictEqual(graph.namespaceBindingTargets(name.getParentOrThrow()), []);
+            });
+        }
+
         test('projects namespace bindings to their observed target exports', function () {
             const { graph, source } = graphFor({
                 'index.js': 'import * as ns from "./library.js";export function probe(){return ns.used;}',

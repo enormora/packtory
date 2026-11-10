@@ -18,6 +18,16 @@ function graphFor(files: Readonly<Record<string, string>>, omitted: readonly str
 }
 
 suite('module export index', function () {
+    test('distinguishes bindings from namespace and missing exports', function () {
+        const { index, source } = graphFor({
+            'index.js': 'export {value} from "./library.js";export * as ns from "./library.js";',
+            'library.js': 'export const value=42;'
+        }, []);
+        assert.strictEqual(index.binding(source('index.js'), 'value')?.name, 'value');
+        assert.strictEqual(index.binding(source('index.js'), 'ns'), undefined);
+        assert.strictEqual(index.binding(source('index.js'), 'missing'), undefined);
+    });
+
     test('excludes ambiguous star names from a closed namespace', function () {
         const { index, source } = graphFor({
             'index.js': 'export * from "./a.js";export * from "./b.js";',

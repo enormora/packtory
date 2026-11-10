@@ -56,7 +56,8 @@ function exportNameSource(name: string): string {
 }
 
 function selectedNames(star: StarExport, selection: StarSelection, remaining: ReadonlySet<string>): readonly string[] {
-    const target = star.specifier === undefined ? undefined : selection.resolveModule(selection.source, star.specifier);
+    const specifier = star.declaration.getFirstChildByKindOrThrow(SyntaxKind.StringLiteral).getLiteralValue();
+    const target = selection.resolveModule(selection.source, specifier);
     return Array.from(remaining).filter(function (name) {
         return target !== undefined &&
             selection.index.sameExport({ source: selection.source, name }, { source: target, name });

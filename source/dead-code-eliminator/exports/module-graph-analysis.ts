@@ -1,7 +1,7 @@
 import type { SourceFile, Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
-import type { FileBindings } from '../reachability/binding-identifier.ts';
+import { localBindingIdentifiers, type FileBindings } from '../reachability/binding-identifier.ts';
 import { observeReachableBindings } from '../reachability/binding-observation.ts';
 import { readModuleExportModel, type ModuleExportModel } from './module-export-model.ts';
 import { createModuleExportIndex, type ModuleExportIndex } from './module-export-index.ts';
@@ -16,7 +16,11 @@ export type ExportGraphInput = {
     readonly settings: DeadCodeEliminationSettings | undefined;
     readonly observedBindings: ReadonlySet<string> | undefined;
 };
-type ModuleGraphRecord = { readonly file: FileBindings; readonly model: ModuleExportModel; };
+type ModuleGraphRecord = {
+    readonly file: FileBindings;
+    readonly model: ModuleExportModel;
+    readonly bindingIdentifiers: ReadonlyMap<string, string>;
+};
 export type ModuleGraphAnalysis = {
     readonly records: ReadonlyMap<SourceFile, ModuleGraphRecord>;
     readonly index: ModuleExportIndex;
@@ -28,7 +32,11 @@ export type ModuleGraphAnalysis = {
 export function createModuleGraphAnalysis(input: ExportGraphInput): ModuleGraphAnalysis {
     const records = new Map(input.files.map(function (file) {
         const source = file.sourceFile.getSourceFile();
-        return [ source, { file, model: readModuleExportModel(source) } ] as const;
+        return [ source, {
+            file,
+            model: readModuleExportModel(source),
+            bindingIdentifiers: localBindingIdentifiers(file)
+        } ] as const;
     }));
     const byTarget = new Map(input.files.map(function (file) {
         return [ file.targetFilePath, file.sourceFile.getSourceFile() ];

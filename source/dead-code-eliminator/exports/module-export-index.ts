@@ -31,13 +31,13 @@ function matchingOrigins(
 
 function bindingForResolution(
     resolution: ExportResolution<SourceFile | undefined>,
-    models: ReadonlyMap<SourceFile, ModuleExportModel>
+    models: ReadonlyMap<SourceFile | undefined, ModuleExportModel>
 ): BindingDescriptor | undefined {
     if (resolution.kind !== 'unique' || resolution.origin.kind !== 'binding') {
         return undefined;
     }
     const { module: source, name } = resolution.origin;
-    return source === undefined ? undefined : models.get(source)?.locals.get(name === '*default*' ? 'default' : name);
+    return models.get(source)?.locals.get(name === '*default*' ? 'default' : name);
 }
 
 export function createModuleExportIndex(

@@ -25,6 +25,8 @@ type KnownOrigins<Module> = AmbiguousOrigins | NoOrigins | UniqueExport<Module>;
 type ExportQuery<Module> = {
     readonly module: Module;
     readonly name: string;
+    readonly origins: KnownOrigins<Module>;
+    readonly recordOrigins: (origins: KnownOrigins<Module>) => void;
 };
 
 export type ExportResolver<Module> = {
@@ -33,6 +35,20 @@ export type ExportResolver<Module> = {
 
 const noOrigins = { kind: 'none' } as const;
 const ambiguousOrigins = { kind: 'ambiguous' } as const;
+
+function createExportQuery<Module>(module: Module, name: string): ExportQuery<Module> {
+    let origins: KnownOrigins<Module> = noOrigins;
+    return {
+        module,
+        name,
+        get origins() {
+            return origins;
+        },
+        recordOrigins(next) {
+            origins = next;
+        }
+    };
+}
 
 export function sameExportOrigin<Module>(left: ExportOrigin<Module>, right: ExportOrigin<Module>): boolean {
     if (left.kind === 'namespace') {
@@ -69,7 +85,6 @@ export function createExportResolver<Module>(
         pending: new Set<ExportQuery<Module>>(),
         expanded: new Set<ExportQuery<Module>>(),
         unknown: new Set<ExportQuery<Module>>(),
-        origins: new Map<ExportQuery<Module>, KnownOrigins<Module>>(),
         dependencies: new Map<ExportQuery<Module>, Set<ExportQuery<Module>>>(),
         dependents: new Map<ExportQuery<Module>, Set<ExportQuery<Module>>>()
     };
@@ -82,7 +97,7 @@ export function createExportResolver<Module>(
         }
         let query = byName.get(name);
         if (query === undefined) {
-            query = { module, name };
+            query = createExportQuery(module, name);
             byName.set(name, query);
             state.pending.add(query);
         }
@@ -102,7 +117,7 @@ export function createExportResolver<Module>(
     function applyEntry(query: ExportQuery<Module>, entry: ExportEntry<Module>): void {
         match(entry)
             .with({ kind: 'origin' }, function (value) {
-                state.origins.set(query, { kind: 'unique', origin: value.origin });
+                query.recordOrigins({ kind: 'unique', origin: value.origin });
             })
             .with({ kind: 'forward' }, function (value) {
                 follow(query, value.module, value.name);
@@ -140,15 +155,15 @@ export function createExportResolver<Module>(
     }
 
     function inheritResolution(query: ExportQuery<Module>): void {
-        let inherited = state.origins.get(query) ?? noOrigins;
+        let inherited = query.origins;
         const dependencies = state.dependencies.get(query) ?? [];
         for (const dependency of dependencies) {
             if (state.unknown.has(dependency)) {
                 state.unknown.add(query);
             }
-            inherited = mergeOrigins(inherited, state.origins.get(dependency) ?? noOrigins);
+            inherited = mergeOrigins(inherited, dependency.origins);
         }
-        state.origins.set(query, inherited);
+        query.recordOrigins(inherited);
     }
 
     function scheduleDependents(query: ExportQuery<Module>): void {
@@ -159,14 +174,14 @@ export function createExportResolver<Module>(
     }
 
     function propagate(query: ExportQuery<Module>): void {
-        const previous = state.origins.get(query) ?? noOrigins;
+        const previous = query.origins;
         const wasUnknown = state.unknown.has(query);
         if (!state.expanded.has(query)) {
             state.expanded.add(query);
             expand(query);
         }
         inheritResolution(query);
-        if (state.origins.get(query) !== previous || state.unknown.has(query) !== wasUnknown) {
+        if (query.origins !== previous || state.unknown.has(query) !== wasUnknown) {
             scheduleDependents(query);
         }
     }
@@ -178,7 +193,7 @@ export function createExportResolver<Module>(
                 state.pending.delete(current);
                 propagate(current);
             }
-            return resolutionOf(state.origins.get(query) ?? noOrigins, state.unknown.has(query));
+            return resolutionOf(query.origins, state.unknown.has(query));
         }
     };
 }

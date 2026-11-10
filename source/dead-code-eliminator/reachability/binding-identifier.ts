@@ -43,19 +43,16 @@ export function bindingIdentifier(filePath: string, name: string): string {
     return `${filePath}::${name}`;
 }
 
+export function localBindingIdentifiers(file: FileBindingSet): BindingIdentifiersByName {
+    return new Map(file.bindings.map(function (binding) {
+        return [ binding.name, bindingIdentifier(file.targetFilePath, binding.name) ];
+    }));
+}
+
 function bindingIdentifiersByFile(files: readonly FileBindingSet[]): Map<string, BindingIdentifiersByName> {
-    const result = new Map<string, BindingIdentifiersByName>();
-    for (const file of files) {
-        result.set(
-            file.targetFilePath,
-            new Map(
-                file.bindings.map(function (binding) {
-                    return [ binding.name, bindingIdentifier(file.targetFilePath, binding.name) ];
-                })
-            )
-        );
-    }
-    return result;
+    return new Map(files.map(function (file) {
+        return [ file.targetFilePath, localBindingIdentifiers(file) ];
+    }));
 }
 
 function companionBindingIdentifier(

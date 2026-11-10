@@ -55,6 +55,17 @@ suite('namespace receiver analysis', function () {
     });
 
     suite('unproved receivers', function () {
+        for (const expression of [ 'missing', '({})' ]) {
+            test(`does not infer a namespace receiver from ${expression}`, function () {
+                assert.strictEqual(
+                    ignoresReceiver({
+                        'index.js': `export function probe(){return ${expression}.used();}`
+                    }),
+                    false
+                );
+            });
+        }
+
         for (
             const declaration of [
                 'export function used(){return this.unused;}',

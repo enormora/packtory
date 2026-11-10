@@ -6,8 +6,8 @@ import {
     type SourceFile
 } from 'ts-morph';
 import { isDefined } from 'remeda';
+import { bindingIdentifier, type FileBindings } from '../reachability/binding-identifier.ts';
 import { createWorklist } from '../../common/worklist.ts';
-import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import { createModuleGraphAnalysis, type ExportGraphInput } from './module-graph-analysis.ts';
 import { resolveImportedExport } from './module-export-resolver.ts';
 import { resolveNamespaceImport } from './namespace-export-value.ts';
@@ -108,8 +108,7 @@ export function createExportGraph(input: ExportGraphInput): ExportGraph {
             return key;
         },
         binding(source, name) {
-            const file = state.records.get(source)?.file;
-            return file === undefined ? undefined : bindingIdentifier(file.targetFilePath, name);
+            return state.records.get(source)?.bindingIdentifiers.get(name);
         },
         namespaceTargets(source, properties) {
             const names = index.names(source);
@@ -126,19 +125,18 @@ export function createExportGraph(input: ExportGraphInput): ExportGraph {
         }
     };
 
-    function registerModule(source: SourceFile): void {
+    function registerModule(file: FileBindings): void {
+        const source = file.sourceFile.getSourceFile();
         targets.evaluated(source);
         index.candidates(source).forEach(function (name) {
-            const binding = targets.binding(source, name);
-            if (binding !== undefined) {
-                state.externalTargets.set(
-                    binding,
-                    [ targets.evaluated(source), targets.exported(source, name) ]
-                        .filter(isDefined)
-                );
-            }
+            const binding = bindingIdentifier(file.targetFilePath, name);
+            state.externalTargets.set(
+                binding,
+                [ targets.evaluated(source), targets.exported(source, name) ]
+                    .filter(isDefined)
+            );
         });
-        state.records.get(source)?.file.bindings.forEach(function (descriptor) {
+        file.bindings.forEach(function (descriptor) {
             const request = resolveImportedExport(descriptor.declarationNode, resolveModule);
             if (request?.name !== undefined) {
                 targets.exported(request.source, request.name);
@@ -151,8 +149,8 @@ export function createExportGraph(input: ExportGraphInput): ExportGraph {
         });
     }
 
-    state.records.forEach(function (_record, source) {
-        registerModule(source);
+    state.records.forEach(function (record) {
+        registerModule(record.file);
     });
     state.nodes.forEach(function (read, key) {
         const neighbors = read();
