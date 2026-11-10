@@ -14,6 +14,48 @@ import {
 import { resolveRuntimeModule } from './runtime-module-resolution.ts';
 
 suite('expression facts', function () {
+    suite('runtime declaration boundaries', function () {
+        test('keeps instantiated namespace reads conservative', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'namespace value{export const used=1;}const observed=value;'
+            );
+            const read = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow().asKindOrThrow(
+                SyntaxKind.Identifier
+            );
+            assert.deepStrictEqual(
+                identifierReadFact(read, function () {
+                    return unknownFact;
+                }, { settings: undefined, resolveRuntimeModule }),
+                unknownFact
+            );
+        });
+
+        test('does not reuse callable import facts after mutating their shape', function () {
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/repo/package.json', content: '{"type":"module"}' },
+                    {
+                        filePath: '/repo/index.js',
+                        content: 'import {value} from "./provider.js";value.member=1;const observed=value;'
+                    },
+                    { filePath: '/repo/provider.js', content: 'export function value(){return 1;}' }
+                ]
+            });
+            const read = project
+                .getSourceFileOrThrow('/repo/index.js')
+                .getVariableDeclarationOrThrow('observed')
+                .getInitializerOrThrow()
+                .asKindOrThrow(SyntaxKind.Identifier);
+            assert.deepStrictEqual(
+                identifierReadFact(read, function () {
+                    return unknownFact;
+                }, { settings: undefined, resolveRuntimeModule }),
+                pureValueFact
+            );
+        });
+    });
+
     test('recognizes bounded local construction as a pure value', function () {
         const source = createProject().createSourceFile('input.ts', 'class Box{}const observed=new Box();export{};');
         const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.NewExpression);
