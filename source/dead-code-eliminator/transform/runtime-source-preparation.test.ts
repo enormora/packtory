@@ -2,9 +2,20 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import { specializeExpressions } from './expression-specialization.ts';
 import { prepareInitialRuntimeSource } from './runtime-source-preparation.ts';
 
 suite('runtime preparation convergence', function () {
+    for (const literal of [ '-0', '-1' ]) {
+        test(`does not rewrite the canonical literal ${literal}`, function () {
+            const content = `export const value=${literal};`;
+            const preparation = createSourcePreparation(createProject().createSourceFile('input.ts', content));
+            specializeExpressions(preparation);
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+            assert.deepStrictEqual(preparation.transformations, []);
+        });
+    }
+
     for (const content of [ '', 'eval("unknown()");(()=>42)();' ]) {
         test(`keeps ineligible preparation unchanged for ${content}`, function () {
             const preparation = createSourcePreparation(createProject().createSourceFile('input.ts', content));
