@@ -9,13 +9,19 @@ import { specializeImportedValues } from './imported-value-specialization.ts';
 import { reduceObjectBindings } from './object-binding-reduction.ts';
 import { removeUnusedValues } from './unused-values.ts';
 
+const maximumPreparationPasses = 32;
+
 export function prepareInitialRuntimeSource(preparation: SourcePreparation): void {
     const { sourceFile } = preparation;
     if (hasDynamicScope(sourceFile)) {
         return;
     }
     let previous = '';
-    while (sourceFile.getFullText() !== previous) {
+    for (
+        let remaining = maximumPreparationPasses;
+        remaining > 0 && sourceFile.getFullText() !== previous;
+        remaining -= 1
+    ) {
         previous = sourceFile.getFullText();
         reduceOptionalChains(preparation);
         simplifyConstantControlFlow(preparation);
