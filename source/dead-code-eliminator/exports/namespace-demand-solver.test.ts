@@ -15,6 +15,19 @@ const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
 const secondObservation = namespaceMemberDemand('second', noNamespaceProperties);
 
 suite('namespace demand fixed points', function () {
+    for (const field of [ 'maximumQueries', 'maximumEvaluations' ]) {
+        for (const value of [ -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY ]) {
+            test(`rejects ${field}=${value} before starting analysis`, function () {
+                assert.throws(function () {
+                    createNamespaceDemandSolver({ ...ordinaryLimits, [field]: value });
+                }, {
+                    name: 'RangeError',
+                    message: 'Namespace demand limits must be nonnegative safe integers'
+                });
+            });
+        }
+    }
+
     suite('dependencies', function () {
         test('evaluates a root and preserves its cached demand', function () {
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);

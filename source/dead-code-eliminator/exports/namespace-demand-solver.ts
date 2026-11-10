@@ -16,11 +16,23 @@ export type NamespaceDemandSolver<Key> = {
     readonly resolve: (key: Key, evaluate: () => NamespaceDemand) => NamespaceDemand;
 };
 
+function checkedLimits(limits: NamespaceDemandLimits): NamespaceDemandLimits {
+    if (
+        [ limits.maximumQueries, limits.maximumEvaluations ].some(function (limit) {
+            return !(Number.isSafeInteger(limit) && limit >= 0);
+        })
+    ) {
+        throw new RangeError('Namespace demand limits must be nonnegative safe integers');
+    }
+    return limits;
+}
+
 export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits): NamespaceDemandSolver<Key> {
     let evaluating: DemandJob<Key> | null = null;
     let exhausted = false;
     let processed = 0;
     const state = {
+        limits: checkedLimits(limits),
         jobs: new Map<Key, DemandJob<Key>>(),
         values: new Map<DemandJob<Key>, NamespaceDemand>(),
         dependents: new Map<DemandJob<Key>, Set<DemandJob<Key>>>(),
@@ -35,7 +47,7 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
         if (existing !== undefined) {
             return existing;
         }
-        if (state.jobs.size >= limits.maximumQueries) {
+        if (state.jobs.size >= state.limits.maximumQueries) {
             exhausted = true;
             return undefined;
         }
@@ -96,7 +108,7 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
         resolve(key, evaluate) {
             read(key, evaluate);
             for (const job of state.pending) {
-                if (state.isExhausted() || processed >= limits.maximumEvaluations) {
+                if (state.isExhausted() || processed >= state.limits.maximumEvaluations) {
                     exhausted = true;
                     return allNamespaceProperties;
                 }
