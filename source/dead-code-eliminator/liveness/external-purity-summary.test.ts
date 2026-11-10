@@ -67,7 +67,7 @@ function reexportFiles(): readonly TestFile[] {
             filePath: '/project/node_modules/schema-lib/inner.js',
             content: [
                 'export const z = { object() { return {}; } };',
-                'export const other = { object() { return {}; } };'
+                'export const other = { object() { record(); return {}; } };'
             ]
                 .join('\n')
         },
@@ -240,6 +240,7 @@ suite('external purity summary', function () {
 
             assert.strictEqual(purityFor([], files), 'unknown');
             assert.strictEqual(purityFor([ 'renamed' ], files), 'pure-object');
+            assert.strictEqual(purityFor([ '' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'renamed', 'object' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'renamed', 'her' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'renamed', 'star' ], files), 'unknown');

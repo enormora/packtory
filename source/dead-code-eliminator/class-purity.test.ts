@@ -4,7 +4,7 @@ import { SyntaxKind, type ClassDeclaration, type Expression } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { resolveRuntimeModule } from './runtime-module-resolution.ts';
 import { createExpressionPurityChecker } from './pure-expression.ts';
-import { hasClassImpurity } from './class-purity.ts';
+import { defaultClassConstructionIsPure, hasClassImpurity } from './class-purity.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 
 function classDeclaration(content: string): ClassDeclaration {
@@ -18,6 +18,10 @@ const propertyKeyFor = function (expression: Expression): string | undefined {
 };
 
 suite('class-purity', function () {
+    test('does not infer default construction for decorated classes', function () {
+        assert.strictEqual(defaultClassConstructionIsPure(classDeclaration('@decorate class Example {}')), false);
+    });
+
     suite('heritage', function () {
         for (
             const heritage of [

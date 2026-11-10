@@ -54,9 +54,6 @@ function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver
     if (TypeScriptMorphNode.isOmittedExpression(element)) {
         return true;
     }
-    if (TypeScriptMorphNode.isSpreadElement(element)) {
-        return false;
-    }
     return expressionFactIsPure(factFor(element));
 }
 
@@ -204,13 +201,10 @@ function objectLiteralExpressionFact(
     ) {
         return unknownFact;
     }
-    const hasSpread = properties.some(function (property) {
-        return TypeScriptMorphNode.isSpreadAssignment(property);
-    });
     const spreadSourcesAreSafe = properties.every(function (property) {
         return spreadAssignmentSourceIsSafe(property, factFor);
     });
-    if (hasSpread && !spreadSourcesAreSafe) {
+    if (!spreadSourcesAreSafe) {
         return unknownFact;
     }
     const createdObjectIsSafeToSpread = properties.every(function (property) {

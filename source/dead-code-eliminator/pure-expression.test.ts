@@ -34,6 +34,10 @@ suite('pure-expression', function () {
             [ '({}) === ({})', true ],
             [ '({}) !== ({})', true ],
             [ '({}) + ({})', false ],
+            [ '({}) + 1', false ],
+            [ '!{}', true ],
+            [ '+{}', false ],
+            [ '~{}', false ],
             [ '({}) && ({})', true ],
             [ '({}) || ({})', true ],
             [ '({}) ?? ({})', true ],
@@ -47,6 +51,14 @@ suite('pure-expression', function () {
             );
         });
     }
+
+    test('rejects an accessor spread mixed with ordinary data properties', function () {
+        const expression = variableInitializer(
+            'const source={get value(){effect();return 1;}};const a={...source,extra:1};',
+            'a'
+        );
+        assert.strictEqual(isPureExpression(expression, undefined), false);
+    });
 
     suite('literal and array purity', function () {
         test('isPureExpression returns true for a primitive literal', function () {

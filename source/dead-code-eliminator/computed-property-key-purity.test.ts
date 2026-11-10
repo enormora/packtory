@@ -9,6 +9,7 @@ suite('imported computed property keys', function () {
     for (
         const [ declaration, expected ] of [
             [ 'export const key=42;', '42' ],
+            [ 'export const key=undefined;', 'undefined' ],
             [ 'export const key=9007199254740993n;', '9007199254740993' ],
             [ 'export const key=consume();', undefined ],
             [ 'export let key="name";', undefined ]

@@ -8,6 +8,7 @@ import { dynamicImportSpecifier } from './dynamic-import-specifier.ts';
 const cases: readonly (readonly [string, string, string | undefined])[] = [
     [ 'missing argument', 'import();', undefined ],
     [ 'literal', 'import("./lazy.js");', './lazy.js' ],
+    [ 'literal with dynamic scope', 'eval("path");import("./lazy.js");', './lazy.js' ],
     [ 'template literal', 'import(`./lazy.js`);', './lazy.js' ],
     [ 'derived constant', 'const folder="./";const path=folder+"lazy.js";import(path);', './lazy.js' ],
     [ 'local constant', 'function probe(){const path="./lazy.js";return import(path);}', './lazy.js' ],
