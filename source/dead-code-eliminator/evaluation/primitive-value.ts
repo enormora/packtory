@@ -15,7 +15,7 @@ export function numericLiteralValue(literal: NumericLiteral): number {
 
 const maximumStringLength = 4096;
 function numericArithmetic(operator: SyntaxKind, left: number, right: number): number | undefined {
-    return match(operator)
+    return match<number>(operator)
         .with(SyntaxKind.PlusToken, function () {
             return left + right;
         })
@@ -35,7 +35,7 @@ function numericArithmetic(operator: SyntaxKind, left: number, right: number): n
 }
 
 function numericComparison(operator: SyntaxKind, left: number, right: number): boolean | undefined {
-    return match(operator)
+    return match<number>(operator)
         .with(SyntaxKind.LessThanToken, function () {
             return left < right;
         })
@@ -51,7 +51,7 @@ function numericComparison(operator: SyntaxKind, left: number, right: number): b
         .otherwise(constant(undefined));
 }
 
-function stringBinary(operator: SyntaxKind, left: PrimitiveValue, right: PrimitiveValue): EvaluatedValue | undefined {
+function stringBinary(operator: SyntaxKind, left: unknown, right: unknown): EvaluatedValue | undefined {
     if (typeof left !== 'string' || typeof right !== 'string' || operator !== SyntaxKind.PlusToken) {
         return undefined;
     }
@@ -60,8 +60,8 @@ function stringBinary(operator: SyntaxKind, left: PrimitiveValue, right: Primiti
 
 export function evaluatePrimitiveBinary(
     operator: SyntaxKind,
-    left: PrimitiveValue,
-    right: PrimitiveValue
+    left: unknown,
+    right: unknown
 ): EvaluatedValue | undefined {
     if (typeof left === 'number' && typeof right === 'number') {
         const value = numericArithmetic(operator, left, right) ?? numericComparison(operator, left, right);

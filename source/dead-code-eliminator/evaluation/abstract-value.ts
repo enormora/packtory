@@ -47,7 +47,5 @@ export function evaluateAbstractBinary(
     if (operator === SyntaxKind.ExclamationEqualsEqualsToken) {
         return evaluated(left.value !== right.value);
     }
-    return isPrimitiveResult(left) && isPrimitiveResult(right)
-        ? evaluatePrimitiveBinary(operator, left.value, right.value)
-        : undefined;
+    return evaluatePrimitiveBinary(operator, left.value, right.value);
 }
