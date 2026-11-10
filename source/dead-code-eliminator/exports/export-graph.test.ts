@@ -33,6 +33,87 @@ function graphFor(contents: Readonly<Record<string, string>>, publicPaths: reado
 }
 
 suite('export reachability graph', function () {
+    suite('lookup boundaries', function () {
+        for (
+            const [ path, content, expected ] of [
+                [ 'index.ts', 'import type {Value} from "./library.js";', undefined ],
+                [ 'index.ts', 'import {type Value} from "./library.js";', undefined ],
+                [ 'index.ts', 'import type * as ns from "./library.js";', undefined ],
+                [ 'index.d.ts', 'import {Value} from "./library.js";', undefined ],
+                [ 'index.ts', 'import {Value} from "./library.js";', [ 'library.js::@export:"Value"' ] ]
+            ] as const
+        ) {
+            test(`resolves import targets for ${path}: ${content}`, function () {
+                const { graph, source } = graphFor({ [path]: content, 'library.js': 'export const Value=42;' }, [
+                    path
+                ]);
+                const declaration = source(path).getFirstDescendantByKind(SyntaxKind.ImportSpecifier) ??
+                    source(path).getFirstDescendantByKind(SyntaxKind.ImportClause);
+                assertDefined(declaration);
+                assert.deepStrictEqual(graph.importedTargets(declaration), expected);
+                assert.deepStrictEqual(graph.namespaceBindingTargets(declaration), []);
+            });
+        }
+
+        for (
+            const [ path, content, expected ] of [
+                [ 'index.ts', 'export * as ns from "./library.js";export const Other=1;', [
+                    'index.ts::@export:"ns"'
+                ] ],
+                [ 'index.ts', 'export * from "./library.js";', [ 'index.ts::@export:"Value"' ] ],
+                [ 'index.ts', 'export {Value} from "./library.js";export const Other=1;', [
+                    'index.ts::@export:"Value"'
+                ] ],
+                [ 'index.ts', 'export type {Value} from "./library.js";', undefined ],
+                [ 'index.ts', 'export {type Value} from "./library.js";', undefined ],
+                [ 'index.d.ts', 'export {Value} from "./library.js";', undefined ]
+            ] as const
+        ) {
+            test(`resolves declaration targets for ${path}: ${content}`, function () {
+                const { graph, source } = graphFor({ [path]: content, 'library.js': 'export const Value=42;' }, [
+                    path
+                ]);
+                const declaration = source(path).getFirstDescendantByKindOrThrow(SyntaxKind.ExportDeclaration);
+                assert.deepStrictEqual(graph.declarationTargets(declaration), expected);
+            });
+        }
+
+        test('retains all known candidates when namespace closure is unknown', function () {
+            const { graph, source } = graphFor({
+                'index.js': 'import * as ns from "./library.js";export function probe(){return ns.Value;}',
+                'library.js': 'export const Value=42;export const Other=13;export * from "./external.js";'
+            }, [ 'index.js' ]);
+            const namespace = source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.NamespaceImport);
+            assert.deepStrictEqual(
+                new Set(graph.namespaceBindingTargets(namespace)),
+                new Set([ 'library.js::@export:"Value"', 'library.js::@export:"Other"' ])
+            );
+        });
+
+        test('registers failing imports before bounded graph traversal', function () {
+            const { graph, source } = graphFor({
+                'index.js': 'import {missing} from "./library.js";',
+                'library.js': 'export const Value=42;'
+            }, [ 'index.js' ]);
+            const { size } = graph.nodes;
+            const specifier = source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
+            assert.deepStrictEqual(graph.importedTargets(specifier), [ 'library.js::@export:"missing"' ]);
+            assert.strictEqual(graph.nodes.size, size);
+        });
+
+        test('preserves the evaluation snapshot when the source changes', function () {
+            const { graph, source } = graphFor({
+                'index.js': 'import "./library.js";export const value=1;',
+                'library.js': 'console.log("loaded");'
+            }, [ 'index.js' ]);
+            source('index.js').replaceWithText('export const value=2;');
+            graph.roots();
+            const neighbors = graph.nodes.get('index.js::@evaluate');
+            assertDefined(neighbors);
+            assert.deepStrictEqual(neighbors(), [ 'library.js::@evaluate' ]);
+        });
+    });
+
     suite('module and binding edges', function () {
         test('keeps unresolved local exports without inventing binding targets', function () {
             const { graph } = graphFor({ 'index.js': 'export {missing};' }, [ 'index.js' ]);

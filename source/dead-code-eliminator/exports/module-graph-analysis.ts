@@ -16,7 +16,7 @@ export type ExportGraphInput = {
     readonly settings: DeadCodeEliminationSettings | undefined;
     readonly observedBindings: ReadonlySet<string> | undefined;
 };
-type ModuleGraphRecord = {
+export type ModuleGraphRecord = {
     readonly file: FileBindings;
     readonly model: ModuleExportModel;
     readonly bindingIdentifiers: ReadonlyMap<string, string>;
