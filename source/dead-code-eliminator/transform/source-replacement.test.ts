@@ -7,6 +7,17 @@ import { applySourceTextEdits, translateGeneratedOffset } from '../../source-tra
 import { sourceReplacement } from './source-replacement.ts';
 
 suite('source replacement', function () {
+    test('rejects a retained node extending beyond the replaced statement', function () {
+        const source = createProject().createSourceFile('input.ts', 'first();second();');
+        const first = source.getStatements()[0];
+        const second = source.getStatements()[1];
+        assertDefined(first);
+        assertDefined(second);
+        assert.throws(function () {
+            sourceReplacement(first, [ second ]);
+        }, { message: 'Retained source range lies outside replacement' });
+    });
+
     test('retains the selected occurrence when branch text repeats', function () {
         const content = 'if (false) { console.log("same"); } else { console.log("same"); }';
         const sourceFile = createProject().createSourceFile('index.ts', content);

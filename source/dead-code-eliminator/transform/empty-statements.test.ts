@@ -13,7 +13,8 @@ suite('empty statement removal', function () {
             [ ';;"use strict";', 2 ],
             [ '"custom";;"use strict";', 1 ],
             [ '0;;"use strict";', 0 ],
-            [ '0;;const value=1;;', 0 ]
+            [ '0;;const value=1;;', 0 ],
+            [ '"custom";;effect();', 0 ]
         ] as const
     ) {
         test(`preserves required boundaries in ${content}`, function () {

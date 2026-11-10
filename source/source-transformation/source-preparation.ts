@@ -43,11 +43,12 @@ function originalRange(range: SourceRange, transformation: TextTransformMap): So
         const translated = retainedRange(range, atom);
         return translated === undefined ? [] : [ translated ];
     });
-    const first = retained[0];
-    const last = retained.at(-1);
-    return first === undefined || last === undefined
+    const [ first ] = retained;
+    return first === undefined
         ? replacementRange(range, transformation)
-        : { start: first.start, end: last.end };
+        : retained.reduce(function (combined, last) {
+            return { start: combined.start, end: last.end };
+        }, first);
 }
 
 export function createSourcePreparation(sourceFile: SourceFile): SourcePreparation {
