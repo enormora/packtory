@@ -6,6 +6,12 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { unescapedObjectOrigin } from './object-origin.ts';
 
 suite('object origins', function () {
+    test('rejects reads before a constant object is initialized', function () {
+        const source = createProject().createSourceFile('input.ts', 'object;const object={answer:42};');
+        const read = source.getFirstDescendantByKindOrThrow(SyntaxKind.ExpressionStatement).getExpression();
+        assert.strictEqual(unescapedObjectOrigin(read), undefined);
+    });
+
     test('keeps an absent initializer unknown', function () {
         assert.strictEqual(unescapedObjectOrigin(undefined), undefined);
     });
