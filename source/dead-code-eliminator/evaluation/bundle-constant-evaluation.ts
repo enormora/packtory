@@ -1,30 +1,31 @@
 import type { SourceFile } from 'ts-morph';
-import type { PreparedModule } from '../exports/prepared-module-graph.ts';
 import { resolveImportedExpressionPropertyPath } from '../imported-expression-origin.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { evaluateImportedConstant } from './imported-constant.ts';
 import type { PrimitiveEvaluator } from './constant-evaluation.ts';
-import {
-    createModuleConstantSnapshot,
-    type ModuleConstantSnapshot
-} from './module-constant-snapshot.ts';
+import type { ModuleConstantSnapshot } from './module-constant-snapshot.ts';
 import type { ModuleValue } from './module-export-value.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
+
+type BundleConstantSnapshot = Pick<ModuleConstantSnapshot, 'resolveModule'> & {
+    readonly modules: Pick<ModuleConstantSnapshot['modules'], 'get' | 'has'>;
+};
 
 function namespaceMember(
     value: ModuleValue | undefined,
     name: string | { readonly type: 'call-result'; },
-    snapshot: ModuleConstantSnapshot
+    snapshot: BundleConstantSnapshot
 ): ModuleValue | undefined {
-    return typeof name === 'string' && value?.kind === 'namespace'
-        ? snapshot.modules.get(value.source)?.exports.get(name)
+    const exports: ReadonlyMap<unknown, ModuleValue> | undefined = value?.kind === 'namespace'
+        ? snapshot.modules.get(value.source)?.exports
         : undefined;
+    return exports?.get(name);
 }
 
 function projectedValue(
     source: SourceFile,
     path: readonly (string | { readonly type: 'call-result'; })[],
-    snapshot: ModuleConstantSnapshot
+    snapshot: BundleConstantSnapshot
 ): EvaluatedValue | undefined {
     const value = path.reduce<ModuleValue | undefined>(function (current, name) {
         return namespaceMember(current, name, snapshot);
@@ -33,10 +34,9 @@ function projectedValue(
 }
 
 export function createBundleConstantEvaluator(
-    files: readonly PreparedModule[],
+    snapshot: BundleConstantSnapshot,
     resolveExternal: RuntimeModuleResolver
 ): PrimitiveEvaluator {
-    const snapshot = createModuleConstantSnapshot(files, resolveExternal);
     return function (expression) {
         const origin = resolveImportedExpressionPropertyPath(expression);
         if (origin === undefined) {
