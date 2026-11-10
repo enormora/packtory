@@ -15,7 +15,18 @@
         "ui": "tdd",
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
-        "spec": ["source/**/*.test.ts"]
+        "spec": [
+            "source/dead-code-eliminator/exports/export-resolution.test.ts",
+            "source/dead-code-eliminator/runtime-call-purity.test.ts",
+            "source/dead-code-eliminator/transform/bundle-source-preparation.test.ts",
+            "source/dead-code-eliminator/transform/runtime-source-preparation.test.ts",
+            "source/dead-code-eliminator/transform/constant-control-flow.test.ts",
+            "source/dead-code-eliminator/exports/namespace-demand-solver.test.ts",
+            "source/source-transformation/text-edits.test.ts",
+            "source/dead-code-eliminator/transform/unused-values.test.ts",
+            "source/report/inspectors/inspect-workspace.test.ts",
+            "source/**/*.test.ts"
+        ]
     },
     "testRunnerNodeArgs": ["--experimental-strip-types", "--enable-source-maps"],
     "mutate": [
