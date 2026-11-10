@@ -13,8 +13,8 @@ import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 export type KnownConstants = ReadonlyMap<VariableDeclaration, EvaluatedValue>;
 
 export function constantStatement(declaration: VariableDeclaration): VariableStatement | undefined {
-    const list = declaration.getParentIfKindOrThrow(SyntaxKind.VariableDeclarationList);
-    const statement = list.getParentIfKind(SyntaxKind.VariableStatement);
+    const list = declaration.getParentIfKind(SyntaxKind.VariableDeclarationList);
+    const statement = list?.getParentIfKind(SyntaxKind.VariableStatement);
     return statement?.getDeclarationKind() === VariableDeclarationKind.Const && !statement.isAmbient()
         ? statement
         : undefined;

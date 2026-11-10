@@ -35,7 +35,8 @@ suite('constant-binding', function () {
     for (
         const content of [
             'let value = 1; const run = () => value; run();',
-            'for (const value of items) { const run = () => value; run(); }'
+            'for (const value of items) { const run = () => value; run(); }',
+            'try { unknown(); } catch (value) { const run = () => value; run(); }'
         ]
     ) {
         test(`rejects a known value without a constant statement: ${content}`, function () {
