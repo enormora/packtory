@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
 
 const dependency = [
     'export let value = 0;',
@@ -111,5 +112,51 @@ suite('eliminator namespace observation', function () {
         const { entry, dependency: emittedDependency } = await eliminate(content, dependencyContent);
 
         assert.deepStrictEqual(await observe(entry, emittedDependency), await observe(content, dependencyContent));
+    });
+
+    suite('member call receivers', function () {
+        const receivers = [
+            { name: 'unused receiver', declaration: 'export function used(){return 42;}', retained: false },
+            { name: 'arrow function', declaration: 'export const used=()=>42;', retained: false },
+            { name: 'function expression', declaration: 'export const used=function(){return 42;};', retained: false },
+            {
+                name: 'throwing function',
+                declaration: 'export function used(){throw new Error("called");}',
+                retained: false
+            },
+            { name: 'receiver property', declaration: 'export function used(){return this.spare;}', retained: true },
+            {
+                name: 'default parameter',
+                declaration: 'export function used(value=this.spare){return value;}',
+                retained: true
+            },
+            { name: 'nested arrow', declaration: 'export function used(){return (()=>this.spare)();}', retained: true },
+            { name: 'direct eval', declaration: 'export function used(){return eval("this.spare");}', retained: true },
+            {
+                name: 'reassignment',
+                declaration: 'export function used(){return 42;}used=function(){return this.spare;};',
+                retained: true
+            },
+            {
+                name: 'proxy',
+                declaration: 'export const used=new Proxy(()=>42,{apply(target,receiver){return receiver.spare;}});',
+                retained: true
+            },
+            { name: 'class call error', declaration: 'export class used {}', retained: true }
+        ];
+        for (const scenario of receivers) {
+            test(`preserves ${scenario.name}`, async function () {
+                const content =
+                    'import * as ns from "./dep.js";export function probe(){try{return ns.used();}catch(error){return error.name+":"+error.message;}}';
+                const originalDependency = `${scenario.declaration}export const spare=13;`;
+                const { entry, dependency: emittedDependency } = await eliminate(content, originalDependency);
+                const source = createProject().createSourceFile('output.js', emittedDependency);
+                assert.deepStrictEqual(
+                    await observe(entry, emittedDependency),
+                    await observe(content, originalDependency)
+                );
+                assert.strictEqual(source.getVariableDeclaration('spare') !== undefined, scenario.retained);
+            });
+        }
     });
 });

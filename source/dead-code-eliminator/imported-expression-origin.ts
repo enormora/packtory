@@ -4,8 +4,16 @@ import { unwrapExpression } from './expression-unwrapping.ts';
 
 export type ImportedExpressionOrigin = {
     readonly from: string;
-    readonly path: readonly string[];
+    readonly path: readonly (string | { readonly type: 'call-result'; })[];
 };
+
+export function callResultPath(path: ImportedExpressionOrigin['path']): ImportedExpressionOrigin['path'] {
+    return [ ...path, { type: 'call-result' } ];
+}
+
+export function callResultOrigin(origin: ImportedExpressionOrigin): ImportedExpressionOrigin {
+    return { from: origin.from, path: callResultPath(origin.path) };
+}
 
 export type ExpressionPurityChecker = (expression: Expression) => boolean;
 
@@ -68,7 +76,7 @@ function originMatchesTrustedImport(
         return true;
     }
     const [ pathHead = trustedImport.from ] = origin.path;
-    return pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
+    return typeof pathHead === 'string' && pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
 }
 
 export function originIsTrustedPureImport(
@@ -90,7 +98,7 @@ function arePureCallArguments(
 ): boolean {
     return callArguments.every(function (argument) {
         if (TypeScriptMorphNode.isSpreadElement(argument)) {
-            return recurse(argument.getExpression());
+            return false;
         }
         return TypeScriptMorphNode.isExpression(argument) && recurse(argument);
     });

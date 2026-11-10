@@ -8,8 +8,11 @@ suite('side-effect-classifier trusted calls', function () {
             assert.deepStrictEqual(classify('const x = compute();'), [ { line: 1, kind: 'variable initializer' } ]);
         });
 
-        test('treats a const with a Symbol call as pure', function () {
-            assert.deepStrictEqual(classify('const x = Symbol("marker");'), []);
+        test('keeps an unresolved Symbol call observable', function () {
+            assert.deepStrictEqual(classify('const x = Symbol("marker");'), [ {
+                line: 1,
+                kind: 'variable initializer'
+            } ]);
         });
 
         test('treats a const with a trusted imported call as pure', function () {
@@ -22,7 +25,7 @@ suite('side-effect-classifier trusted calls', function () {
             );
         });
 
-        test('treats a const with a wrapped trusted imported call and spread arguments as pure', function () {
+        test('preserves argument iteration even when the callee is trusted', function () {
             assert.deepStrictEqual(
                 classify(
                     'import { bold } from "formatting-library"; const x = (((bold as typeof bold))!)(...[\'hi\']);',
@@ -31,7 +34,7 @@ suite('side-effect-classifier trusted calls', function () {
                         pureImports: [ { from: 'formatting-library', imports: [ 'bold' ] } ]
                     }
                 ),
-                []
+                [ { line: 1, kind: 'variable initializer' } ]
             );
         });
 

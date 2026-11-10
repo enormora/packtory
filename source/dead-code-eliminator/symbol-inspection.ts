@@ -17,14 +17,16 @@ export type SymbolLocation = {
 };
 
 export function locateSymbols(loaded: LoadedBundle): readonly SymbolLocation[] {
-    return loaded.fileBindings.flatMap(function (file) {
-        return file.bindings.map(function (binding) {
+    return loaded.loaded.flatMap(function (entry) {
+        if (entry.sourceFile === undefined) {
+            return [];
+        }
+        const { targetFilePath } = entry.resource.fileDescription;
+        return entry.symbolLocations.map(function (location) {
             return {
-                identifier: bindingIdentifier(file.targetFilePath, binding.name),
-                targetFilePath: file.targetFilePath,
-                name: binding.name,
-                line: binding.declarationNode.getStartLineNumber(),
-                kind: binding.declarationNode.getKindName()
+                ...location,
+                identifier: bindingIdentifier(targetFilePath, location.name),
+                targetFilePath
             };
         });
     });

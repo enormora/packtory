@@ -338,7 +338,7 @@ suite('publish', function () {
                 });
                 assert.strictEqual(
                     getPublishedFile(publishedConsumer, 'package/internal.js').content,
-                    "export const internal = 'internal';\n"
+                    "export function internal() { return 'internal'; }\n"
                 );
             })
         );

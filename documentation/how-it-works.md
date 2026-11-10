@@ -249,7 +249,7 @@ Three kinds of seeds are added to a set $S$:
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
 3. **Cross-bundle seeds** , bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 
-Public star reexports retain exported bindings through transitive barrels and cycles. Conflicting bindings are retained on both paths so ambiguous names stay ambiguous. Bare stars exclude defaults; namespace reexports include them.
+Star reexports resolve export origins through transitive barrels and cycles. Known export surfaces become explicit lists of unique names, allowing unused conflicting declarations to disappear without exposing an ambiguous name. Named requests that would fail module linking retain that failure. Bare stars exclude defaults; namespace reexports include them.
 
 ### Step 3 , Breadth-first closure
 
@@ -263,7 +263,7 @@ The neighbour relation is computed by walking every `Identifier` inside the bind
 
 - **Shadowing works correctly**: an inner `const foo = 1` shadows an outer `foo`, and the compiler tells us so. Naïve text matching would get this wrong.
 - **Import aliases follow through**: `import { x as y }` is tracked back to the original export.
-- **Dynamic imports preserve namespaces**: reachable local literal `import()` calls retain all target exports, including defaults and reexports. Unreachable calls do not retain exports. Module evaluation remains lazy.
+- **Dynamic imports preserve observed exports**: known property reads can prune other exports; namespace escape or enumeration retains all exports. Unreachable calls do not retain exports. Module evaluation remains lazy.
 - **Namespace observations preserve exports**: using a namespace as a value, including enumeration or passing it to another function, retains its exports. Direct property reads such as `namespace.value` retain only the referenced exports.
 
 Implementation: `breadthFirstClosure`.
@@ -279,7 +279,37 @@ survivingNames   = shouldTransform ? reachable ∩ fileBindings : fileBindings
 
 Impure top-level statements seed reachability along with the bindings they reference. Unrelated dead declarations can still be removed, including declarations on the same source line. Line numbers identify effects in diagnostics, not reachability.
 
-The declaration remover walks top-level statements and removes dead declarations via ts-morph. Combined declarations are split so each declarator can be removed independently. The same pass repairs stale import declarations: dead default, namespace, named, and aliased import bindings are removed; runtime imports with no surviving specifiers become bare imports; type-only imports with no surviving specifiers are removed. If removing the last type-only import would turn a module into a script, `export {};` is inserted.
+Local expressions can also be simplified by bounded evaluation before building the reachability graph. The evaluator follows primitive values and fresh records through synchronous functions, known branches, local assignments, finite `for`, `while`, and `do...while` loops, and nested calls. Loops support unlabelled `break` and `continue` within the same evaluation budget. Repeated calls with the same primitive arguments can share proven primitive results within an evaluated expression. Arguments still evaluate in order; record arguments and results preserve their mutations and identity. Proven primitive results replace calls, property reads, binary operations, unary operations, and `typeof`, allowing unused implementations to disappear even when their results remain public. Unknown values, observable operations, exceptions, direct eval, and exhausted evaluation budgets preserve the computation. Evaluation interprets supported syntax without running application code or accessing the environment.
+
+Synchronous `using` declarations can disappear when their resources are proven nullish. Other resource declarations retain initialization and disposal, including the suspension of `await using`.
+
+Primitive unary plus and minus follow JavaScript numeric conversion for known strings, booleans, null, and undefined. Unary plus on BigInt retains its native TypeError.
+
+Known `switch` discriminants select cases with strict equality, including BigInt literals and record identity. Evaluation preserves case-expression order, default selection, fallthrough, lexical scope, and abrupt completions within the same budget. BigInt results retain their exact literal values.
+
+After runtime dependencies resolve, proven primitive `const` exports and fixed default snapshots can specialize imported reads and feed the same evaluator. Local values propagate through reexports, namespace snapshots, and chains of derived constants. This can remove local loops or recursion whose inputs come from dependencies. Module evaluation remains. Write targets, delete operands, and callees keep their original references.
+
+Record evaluation tracks own data fields, nested allocations, computed primitive keys, and allocation identity. Updates through aliases, arithmetic and logical assignments, and loops over local record state can collapse to primitive results. Assignment targets are evaluated once before the right-hand side. A factory result such as `make(21).answer` can become `42` without emitting the intermediate record. Missing properties remain unknown unless the record has a null prototype. Completed calls with unused record results can disappear, including cyclic records, without serializing those results. Creating methods, accessors, and function-valued fields is harmless when their keys are proven safe; reading or writing those fields remains unknown. Unknown inherited writes, descriptor changes, and coercion of records prevent a proof. Escaped object constants do not supply record facts.
+
+Proven local identity calls can return their sole argument directly even when its value is unknown. Substitution preserves argument effects, exceptions, receiver behavior, and anonymous function or class names. Additional arguments, rest parameters, and hoisted parameter replacements prevent this substitution.
+
+Known conditions also remove unreachable branches and short-circuit operands, including inside public functions. Dominating primitive constants supply facts to evaluation, including aliases and nullish optional-chain receivers. Calls during module evaluation can also read captured primitive constants already initialized before the evaluated expression. Function-local captures and early initialization callbacks retain their initialization checks. Parentheses still delimit optional chains. Cleanup preserves hoisted declarations, directive boundaries, and call receiver behavior.
+
+Unused local result bindings can disappear while their initializers still execute. Pure primitive and literal creation initializers disappear too. Cleanup preserves inferred class names, lexical initialization errors, shared parameter bindings, and declarations visible to direct eval. Symbol inspection retains original locations and records removed bindings even when initializer effects remain.
+
+Unused calls to proven pure local functions can disappear even with unknown arguments. A supported body returns a parameter, a pure literal or structure, or nothing. Argument evaluation remains in order, including effects and exceptions. Reassigned functions, dynamic scopes, parameter defaults, destructuring parameters, and spread arguments prevent this reduction.
+
+Unused construction of stable local base classes can disappear when no constructor or instance field needs to run. Argument effects and exceptions remain in order. Class definition effects stay separate: computed keys run before static initializers, and key conversion effects or errors remain observable. Fresh instances support `typeof`, truthiness, and identity evaluation; prototype-dependent reads remain unknown.
+
+Unused object bindings can disappear when property reads and defaults are proven safe for a fresh object literal or a constant with a single use. Known own values can bypass effectful defaults; pure getter reads and setter-only reads can also disappear. Effectful object creation remains in order. Unproved inherited reads, getters, computed keys, and rest patterns preserve the computation.
+
+Namespace demand follows constant aliases, default exports, and named or namespace reexports. Known property reads can prune unobserved exports, including through awaited dynamic imports. Computed import paths use bounded primitive proofs when their artifact target is known; unresolved computed imports retain possible local module exports. Observations in unreachable bindings do not retain exports; demand is recomputed when another bundle consumes an export. Module evaluation stays lazy. Namespace escape, enumeration, unknown keys, and a possible `then` export preserve all exports. Member calls preserve the namespace unless the defining function is proven stable and does not observe its receiver.
+
+Preparation tracks retained source ranges for diagnostics, trace events, and source maps, including repeated source text.
+
+Purity facts distinguish known primitives from values that are merely safe to evaluate. Arithmetic and interpolation must also preserve conversion effects and exceptions. Array and call spreads preserve iterator execution and possible exceptions.
+
+The declaration remover tracks surviving bindings and export names independently, so an unused export alias can disappear while its locally used value remains. Combined declarations are split so each declarator can be removed independently. The same pass repairs stale import declarations: dead default, namespace, named, and aliased import bindings are removed; runtime imports with no surviving specifiers become bare imports; type-only imports with no surviving specifiers are removed. Empty reexports preserve module evaluation. If removing the last import or export would turn a module into a script, `export {};` is inserted.
 
 ### 6.4 Cross-bundle seeding
 
@@ -312,18 +342,22 @@ Dependency re-exports resolve from the dependency's own location. Linked sibling
 packages use cross-bundle analysis rather than installed copies. Purity summaries
 remain cached in memory within each TypeScript project.
 
-The classifier is what makes the difference between a file packtory will tree-shake and a file it will leave intact. It looks at every top-level statement and asks "could this run code on import?". A statement is impure iff it matches one of:
+Dependency summaries distinguish returned values from function properties and preserve literal property names. Effectful parameter initialization or return-value construction prevents an automatic purity proof. Reassignment, object mutation, unknown escapes through aliases, and direct eval invalidate inferred facts. Getters on returned objects remain observable when those objects are read or spread.
+
+Callable proofs follow runtime ESM implementations rather than type declarations. Async and generator results keep their Promise and iterator semantics, including when the callable has a purity annotation.
+
+The classifier identifies statements that may run observable code during module evaluation. It treats the following as effectful unless a narrower proof succeeds:
 
 - An expression statement: `console.log(...)`, `Object.freeze(...)`, IIFEs.
 - A top-level `await`.
 - A class declaration or expression with decorators, static blocks, impure static initializers, or heritage that cannot be proven safe. Safe heritage is `null`, an inline ordinary function, or a recursively pure inline class. Other heritage is retained because constructor validation and superclass prototype access can throw or run code.
 - A control-flow statement (`if`, `for`, `while`, `try`, `switch`, …).
-- A variable declarator whose initializer contains a call or property access (so `const x = 1 + 2` is pure; `const x = compute()` is not).
-- An object or array binding pattern. Destructuring can invoke getters, defaults, computed keys, or iterators, and can throw even when no names are bound. Packtory conservatively retains these declarations and their dependencies because binding evaluation is not yet proven pure and nonthrowing. Creating an unused object with getters remains removable when its creation is pure.
+- A variable declarator whose initializer cannot be proven free of effects and exceptions. Local evaluation and dependency summaries can prove calls safe.
+- An object or array binding pattern that survives preparation. Destructuring can invoke getters, defaults, computed keys, or iterators, and can throw even when no names are bound. Unproved reads retain these declarations and their dependencies. Creating an unused object with getters remains removable when its creation is pure.
 - A bare import of a `.css` file (e.g. `import './styles.css';`). CSS is the one asset format on a standards track (Import Attributes / CSS module type), so it gets explicit handling; other formats like `.scss`, `.less`, or images are bundler-only conventions and packtory makes no attempt to recognise them.
 - Any statement kind the classifier doesn't recognise (fail-closed).
 
-Pure-leaf expressions are: literals, identifiers, function/arrow expressions, certain unary/binary operators, plus parenthesised, `as`, `satisfies`, `!`, and `<T>` wrappers. Object and array literals are pure iff their elements are.
+Literal and function creation can be pure. Identifier reads must refer to available runtime bindings; type declarations alone do not establish runtime presence. Operators must also preserve conversion effects and exceptions. Parentheses and TypeScript-only wrappers delegate to their enclosed expression. Literal creation must preserve computed keys, spread protocols, and initializer effects.
 
 Soundness policy:
 
@@ -331,7 +365,7 @@ Soundness policy:
 - Dynamic import literals and `import.meta.resolve()` keep dependency metadata when they survive. Dead literals disappear with removed code. Unsupported `import.meta.resolve()` shapes fail during scanning.
 - Package `exports`, package `imports`, and conditional exports use the shared TypeScript module resolver before dead code elimination. dead code elimination consumes resolved artifact references and does not re-resolve emitted local paths.
 - Class static blocks, top-level await, control flow, unknown statements, calls, property reads, element access, computed keys, and getters are effectful unless a narrower proof exists.
-- Object literals with computed names remain live unless both key evaluation and conversion to a property key are proven harmless. Primitive literals, their constant aliases, and pure built-in `Symbol` calls are removable; unknown key values retain possible coercion effects and exceptions.
+- Object literals with computed names remain live unless both key evaluation and conversion to a property key are proven harmless. Literals, dominating constant aliases, and bounded primitive computations can supply this proof. Writable global names such as `Symbol` do not establish purity or primitive results; unknown key values retain possible coercion effects and exceptions. Imported keys can use proven primitive `const` exports and fixed default exports, including snapshots computed by dependency-local functions. Reads through exported objects remain unknown because consumers can replace their fields. The dependency graph and initializer prefix must establish that the imported binding is ready. Captured reads also require safe initialization of the consumer’s dependencies. Cycles, unresolved dependencies, and unknown initialization effects retain the read.
 - Side-effect-only imports and side-effecting files preserve runtime evaluation. Dead specifier imports become bare imports, and files reached by surviving bare imports are retained.
 - Declaration companions and source maps with missing physical sources do not decide runtime liveness. Runtime liveness is based on emitted artifact targets, and missing runtime targets fail invariants.
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Project, SourceFile } from 'ts-morph';
+import type { ImportedExpressionOrigin } from '../imported-expression-origin.ts';
 import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import {
@@ -41,7 +42,7 @@ function projectWithSchemaLibrary(content: string): Project {
     });
 }
 
-function purityFor(path: readonly string[], files: readonly TestFile[]): ExportPurity {
+function purityFor(path: ImportedExpressionOrigin['path'], files: readonly TestFile[]): ExportPurity {
     return exportPurityForOrigin(
         { from: 'schema-lib', path },
         containingSourceFile(files),
@@ -100,7 +101,7 @@ suite('external purity summary', function () {
 
             assert.strictEqual(purityFor([ 'expression' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'block' ], files), 'unknown');
-            assert.strictEqual(purityFor([ 'empty' ], files), 'unknown');
+            assert.strictEqual(purityFor([ 'empty' ], files), 'pure-callable');
         });
 
         test('exportPurityForOrigin summarizes object builder surfaces and returned object methods', function () {
@@ -116,8 +117,9 @@ suite('external purity summary', function () {
             } ];
 
             assert.strictEqual(purityFor([ 'z' ], files), 'pure-object');
+            assert.strictEqual(purityFor([ 'z', 'object', 'extend' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'z', 'string' ], files), 'pure-callable');
-            assert.strictEqual(purityFor([ 'z', 'object', 'extend' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'z', 'object', { type: 'call-result' }, 'extend' ], files), 'pure-callable');
         });
 
         test('exportPurityForOrigin summarizes string-named properties and arrow function exports', function () {
@@ -131,7 +133,7 @@ suite('external purity summary', function () {
             } ];
 
             assert.strictEqual(purityFor([ 'z', 'object' ], files), 'pure-callable');
-            assert.strictEqual(purityFor([ 'z', 'object', 'extend' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'z', 'object', { type: 'call-result' }, 'extend' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'build' ], files), 'pure-callable');
         });
 
@@ -150,8 +152,8 @@ suite('external purity summary', function () {
 
             assert.strictEqual(purityFor([ 'z', 'nested' ], files), 'pure-object');
             assert.strictEqual(purityFor([ 'z', 'object' ], files), 'pure-callable');
-            assert.strictEqual(purityFor([ 'z', 'object', 'extend' ], files), 'pure-callable');
-            assert.strictEqual(purityFor([ 'z', 'empty' ], files), 'unknown');
+            assert.strictEqual(purityFor([ 'z', 'object', { type: 'call-result' }, 'extend' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'z', 'empty' ], files), 'pure-callable');
         });
 
         test('exportPurityForOrigin summarizes function declarations and annotations', function () {
@@ -177,7 +179,7 @@ suite('external purity summary', function () {
             assert.strictEqual(purityFor([ 'disabled' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'absent' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'declared' ], files), 'unknown');
-            assert.strictEqual(purityFor([ 'empty' ], files), 'unknown');
+            assert.strictEqual(purityFor([ 'empty' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'computed' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'annotated' ], files), 'pure-callable');
         });

@@ -8,7 +8,7 @@ type DeadCodeEliminationTraceCollector = {
     readonly record: (event: DeadCodeEliminationTraceEvent) => void;
 };
 
-type LocalSeedReasons = readonly ['entry-export', 'entry-export-declaration', 'impure-statement'];
+type LocalSeedReasons = readonly ['entry-export', 'entry-export-declaration', 'impure-statement', 'module-evaluation'];
 export type LocalSeedReason = LocalSeedReasons[number];
 
 type CrossBundleSeedReasons = readonly [

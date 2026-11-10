@@ -16,19 +16,29 @@ export function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     };
 }
 
-export function analyzeBundleWithSeeds(
+function analysisContextFor(
     loaded: LoadedBundle,
     externalSeeds: ReadonlySet<string> | undefined,
     trace: DeadCodeEliminationTrace
-): AnalyzedBundle {
-    const context: AnalysisContext = {
+): AnalysisContext {
+    const reachable = loaded.reachability.resolveWith(externalSeeds);
+    return {
         bundleName: loaded.input.bundle.name,
-        reachable: loaded.reachability.expandWith(externalSeeds),
+        reachable: reachable.bindings,
+        survivingExports: reachable.exports,
         transformationsEnabled: loaded.input.transformationsEnabled,
         deadCodeElimination: loaded.input.deadCodeElimination,
         classifySideEffects: loaded.classifySideEffects,
         trace
     };
+}
+
+export function analyzeBundleWithSeeds(
+    loaded: LoadedBundle,
+    externalSeeds: ReadonlySet<string> | undefined,
+    trace: DeadCodeEliminationTrace
+): AnalyzedBundle {
+    const context = analysisContextFor(loaded, externalSeeds, trace);
     const outputs = loaded.loaded.map(function (entry) {
         return buildAnalyzedResource(entry, context);
     });

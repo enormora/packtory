@@ -24,6 +24,34 @@ function sampleBundle(): LinkedBundle {
 }
 
 suite('symbol inspection', function () {
+    test('preserves original symbol and effect locations through multiline branch pruning', async function () {
+        const trace = createDeadCodeEliminationTraceCollector();
+        const bundle = bundleForCodeFile({
+            name: 'example',
+            inputFilePath: '/source/index.js',
+            targetFilePath: 'index.js',
+            content:
+                'if (false) {\n console.log("same");\n}\nconst unused = console.log("same");\nexport const api = 42;'
+        });
+        const [ inspection ] = await createTracedTestEliminator(trace.collector).inspectSymbols(inputs(bundle));
+        assertDefined(inspection);
+        assert.deepStrictEqual(
+            inspection.symbols.map(function (symbol) {
+                return [ symbol.name, symbol.line, symbol.decision ];
+            }),
+            [ [ 'api', 5, 'kept' ], [ 'unused', 4, 'removed' ] ]
+        );
+        assert.deepStrictEqual(inspection.bundle.contents[0]?.analysis.sideEffectStatements, [
+            { line: 4, kind: 'expression statement' }
+        ]);
+        assert.deepStrictEqual(
+            trace.events.flatMap(function (event) {
+                return event.type === 'local-seed-added' && event.reason === 'entry-export' ? [ event.line ] : [];
+            }),
+            [ 5 ]
+        );
+    });
+
     test('explains entry exports, referenced bindings, and unreachable bindings using original locations', async function () {
         const [ inspection ] = await createTestEliminator().inspectSymbols(inputs(sampleBundle()));
         assertDefined(inspection);
@@ -72,7 +100,7 @@ suite('symbol inspection', function () {
         assert.match(inspection.bundle.contents[0]?.fileDescription.content ?? '', /unused/u);
     });
 
-    test('explains impure statements and includes symbols from eliminated files', async function () {
+    test('reports removed effect result bindings and symbols from eliminated files', async function () {
         const bundle = bundleForCodeFile({
             name: 'example',
             inputFilePath: '/source/index.js',
@@ -94,19 +122,20 @@ suite('symbol inspection', function () {
             }),
             [
                 [ './dead.js', 'unused', 'removed', [] ],
-                [ './index.js', 'effect', 'kept', [ {
-                    binding: 'index.js::effect',
-                    reason: 'impure-statement',
-                    consumerPackage: undefined
-                } ] ]
+                [ './index.js', 'effect', 'removed', [] ]
             ]
         );
+        assert.match(inspection.bundle.contents[0]?.fileDescription.content ?? '', /console\.log\("hello"\)/u);
     });
 
     test('reports cross-package seeds without confusing identical binding names in different packages', async function () {
-        const producer = producerBundleWith('export const used = 1;\nexport const unused = 2;');
-        const consumer = consumerBundleWith('import { used } from "producer/helpers.ts";\nexport const api = used;');
-        const inspected = await createTestEliminator().inspectSymbols(inputs(producer, consumer));
+        const trace = createDeadCodeEliminationTraceCollector();
+        const inspected = await createTracedTestEliminator(trace.collector).inspectSymbols(inputs(
+            producerBundleWith('export const used = 1;\nexport const unused = 2;'),
+            consumerBundleWith(
+                'if (false) {\n console.log("unreachable");\n}\nimport { used } from "producer/helpers.ts";\nexport const api = used;'
+            )
+        ));
         const producerInspection = inspected.find(function (entry) {
             return entry.bundle.name === 'producer';
         });
@@ -119,6 +148,14 @@ suite('symbol inspection', function () {
             decision: 'kept',
             chain: [ { binding: 'helpers.ts::used', reason: 'named-import', consumerPackage: 'consumer' } ]
         });
+        assert.deepStrictEqual(
+            trace.events.flatMap(function (event) {
+                return event.type === 'cross-bundle-seed-added' && event.reason === 'named-import'
+                    ? [ event.line ]
+                    : [];
+            }),
+            [ 4 ]
+        );
         assert.strictEqual(
             producerInspection
                 .symbols
@@ -135,7 +172,7 @@ suite('symbol inspection', function () {
             return bundleForCodeFile({ name, content, inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' });
         };
         const inspected = await createTestEliminator().inspectSymbols(inputs(
-            makeBundle('effect', 'const api = console.log("hello");'),
+            makeBundle('effect', 'const api = console.log("hello"); console.log(api);'),
             makeBundle('entry', 'export const api = 1;')
         ));
         assert.deepStrictEqual(

@@ -147,29 +147,46 @@ async function duplicatedFilesCheckConfiguration(fixturePath: string): Promise<P
 }
 
 suite('checks', function () {
-    test('resolveAndLinkAll() reports duplicated files when the rule is enabled', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const configuration = await duplicatedFilesCheckConfiguration(fixturePath);
+    suite('duplicate file reporting', function () {
+        test('resolveAndLinkAll() reports duplicated files when the rule is enabled', async function () {
+            const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+            const configuration = await duplicatedFilesCheckConfiguration(fixturePath);
 
-        const { result } = await resolveAndLinkAll(configuration);
+            const { result } = await resolveAndLinkAll(configuration);
 
-        if (!result.isErr) {
-            assert.fail('Expected resolveAndLinkAll to fail because of duplicated files');
-            return;
-        }
+            if (!result.isErr) {
+                assert.fail('Expected resolveAndLinkAll to fail because of duplicated files');
+                return;
+            }
 
-        if (result.error.type === 'checks') {
+            if (result.error.type === 'checks') {
+                assert.deepStrictEqual(result.error.issues, [
+                    [
+                        `File "${fixturePath}/source/shared/utilities.js" ` +
+                        'has shared declarations across multiple packages:',
+                        '  - "sharedValue" → package-a, package-b'
+                    ]
+                        .join('\n')
+                ]);
+            } else {
+                assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+            }
+        });
+
+        test('resolveAndLinkAll reports duplicated module copies without eliminated constant names', async function () {
+            const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-constants');
+            const { result } = await resolveAndLinkAll(await duplicatedFilesCheckConfiguration(fixturePath));
+            if (!result.isErr) {
+                assert.fail('Expected duplicated module copies to be reported');
+            }
+            if (result.error.type !== 'checks') {
+                assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+            }
             assert.deepStrictEqual(result.error.issues, [
-                [
-                    `File "${fixturePath}/source/shared/utilities.js" ` +
-                    'has shared declarations across multiple packages:',
-                    '  - "sharedValue" → package-a, package-b'
-                ]
-                    .join('\n')
+                `File "${fixturePath}/source/shared/utilities.js" ` +
+                'is included in multiple packages: package-a, package-b'
             ]);
-        } else {
-            assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
-        }
+        });
     });
 
     test('resolveAndLinkAll succeeds when checks are disabled', async function () {
@@ -234,7 +251,7 @@ suite('checks', function () {
         assert.strictEqual(
             consumer.analyzedBundle.contents.some(function (content) {
                 return content.fileDescription.targetFilePath === 'internal.js' &&
-                    content.fileDescription.content === "export const internal = 'internal';\n";
+                    content.fileDescription.content === "export function internal() { return 'internal'; }\n";
             }),
             true
         );

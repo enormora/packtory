@@ -1,7 +1,7 @@
-import type { Node as TypeScriptMorphNode } from 'ts-morph';
+import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
+import type { SourceLineResolver } from '../../source-transformation/source-preparation.ts';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
-import type { DeclarationNodeIndex } from './identifier-target-collector.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 
 export type FileBindingSet = {
@@ -10,6 +10,19 @@ export type FileBindingSet = {
     readonly targetFilePath: string;
     readonly moduleReferences: readonly ArtifactModuleReference[];
     readonly bindings: readonly BindingDescriptor[];
+};
+
+export type FileBindings = FileBindingSet & {
+    readonly sourceFile: Readonly<SourceFile>;
+    readonly originalLineFor: SourceLineResolver;
+};
+
+export type DeclarationNodeIndex = {
+    readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
+    readonly identifiersByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly identifiersByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
+    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
 };
 
 type BindingIdentifiersByName = ReadonlyMap<string, string>;

@@ -1,1 +1,1 @@
-export declare const consumer: string;
+export declare const consumer: () => string;

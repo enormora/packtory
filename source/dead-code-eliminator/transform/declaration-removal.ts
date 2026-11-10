@@ -14,7 +14,7 @@ import {
 } from '../variable-declaration-bindings.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
-function recordBindingRemoved(plan: RemovalPlan, name: string): void {
+export function recordBindingRemoved(plan: RemovalPlan, name: string): void {
     if (plan.trace !== undefined) {
         plan.trace.collector.record({
             type: 'binding-removed',
@@ -188,7 +188,7 @@ function hasExport(statement: Statement): boolean {
     return TypeScriptMorphNode.isModifierable(statement) && statement.hasModifier(SyntaxKind.ExportKeyword);
 }
 
-function hasModuleSyntax(sourceFile: SourceFile): boolean {
+export function hasModuleSyntax(sourceFile: SourceFile): boolean {
     if (
         sourceFile.getImportDeclarations().length > 0 ||
         sourceFile.getExportDeclarations().length > 0 ||
@@ -211,9 +211,8 @@ function preserveModuleStatus(sourceFile: SourceFile, wasModule: boolean): void 
     }
 }
 
-export function repairImportDeclarations(sourceFile: SourceFile, plan: RemovalPlan): boolean {
+export function repairImportDeclarations(sourceFile: SourceFile, plan: RemovalPlan, wasModule: boolean): boolean {
     const originalText = sourceFile.getFullText();
-    const wasModule = hasModuleSyntax(sourceFile);
     repairImports(sourceFile, plan);
     preserveModuleStatus(sourceFile, wasModule);
     return sourceFile.getFullText() !== originalText;
@@ -224,5 +223,6 @@ export type RemovalPlan = {
     readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly survivingNames: ReadonlySet<string>;
+    readonly survivingExportNames: ReadonlySet<string> | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };

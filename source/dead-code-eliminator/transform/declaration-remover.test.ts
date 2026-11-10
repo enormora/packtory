@@ -23,6 +23,7 @@ function transform(
         inputFilePath: filePath,
         targetFilePath: filePath,
         survivingNames: surviving,
+        survivingExportNames: undefined,
         trace: undefined
     });
     return { text: sourceFile.getFullText(), mutated: result.mutated, atoms: result.atoms };

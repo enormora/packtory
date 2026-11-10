@@ -265,7 +265,7 @@ suite('reachability', function () {
 
             assert.throws(function () {
                 index.expandWith(new Set([ bindingIdentifier('entry.ts', 'pub') ]));
-            }, /^Error: Reachability traversal exceeded 5 attempts$/u);
+            }, /^Error: Reachability traversal exceeded 17 attempts$/u);
         });
 
         test('passes newly added edges to the injected traversal dependency', function () {
@@ -323,6 +323,7 @@ const files = [{
     inputFilePath: 'entry.ts',
     parsedInputFilePath: sourceFile.getFilePath(),
     targetFilePath: 'entry.ts',
+    originalLineFor: (node) => node.getStartLineNumber(),
     sourceFile,
     bindings: extractTopLevelBindings(sourceFile)
 }];
@@ -361,7 +362,7 @@ console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
 
             assert.throws(function () {
                 buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])), { visitedHas });
-            }, /^Error: Reachability traversal exceeded 5 attempts$/u);
+            }, /^Error: Reachability traversal exceeded 19 attempts$/u);
         });
     });
 });

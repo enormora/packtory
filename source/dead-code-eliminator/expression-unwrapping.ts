@@ -20,3 +20,13 @@ export function unwrapExpression(expression: Expression | undefined): Expression
     const nextExpression = nextUnwrappedExpression(expression);
     return nextExpression === undefined ? expression : unwrapExpression(nextExpression);
 }
+
+export function expressionWithWrappers(expression: Expression): Expression {
+    let current = expression;
+    let parent = current.getParent();
+    while (TypeScriptMorphNode.isExpression(parent) && unwrapExpression(parent) === unwrapExpression(current)) {
+        current = parent;
+        parent = current.getParent();
+    }
+    return current;
+}

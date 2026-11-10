@@ -21,7 +21,8 @@
         "../source/test-libraries/eliminator-test-support.ts",
         "../source/test-libraries/module-reference-fixtures.ts",
         "../source/test-libraries/run-node-probe.ts",
-        "../source/test-libraries/typescript-project.ts"
+        "../source/test-libraries/typescript-project.ts",
+        "../source/test-libraries/with-deadline.ts"
     ],
     "exclude": ["fixtures/**/*"]
 }

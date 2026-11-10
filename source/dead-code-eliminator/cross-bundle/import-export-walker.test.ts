@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import type { FileBindings } from '../reachability/local-seed-gathering.ts';
+import type { FileBindings } from '../reachability/binding-identifier.ts';
 import { indexBundles, type IndexedBundle } from './bundle-index.ts';
 import { walkCrossBundleStatements, type WalkContext } from './import-export-walker.ts';
 import { createSeedStore, type SeedMap } from './seed-store.ts';
@@ -21,6 +21,9 @@ function walkContent(
     const seeds = createSeedStore();
     return walkCrossBundleStatements(sourceFile, {
         indexed: emptyIndex(),
+        originalLineFor(node) {
+            return node.getStartLineNumber();
+        },
         seeds,
         sourceBundleName: 'package-a',
         inputFilePath: sourceFile.getFilePath(),
@@ -55,7 +58,10 @@ function indexedBundleWithFiles(name: string, files: readonly string[]): Readonl
                     isExported: true
                 }
             ],
-            sourceFile
+            sourceFile,
+            originalLineFor(node) {
+                return node.getStartLineNumber();
+            }
         };
     });
     return indexBundles([ { bundle: linkedBundle({ name }), fileBindings } ]);

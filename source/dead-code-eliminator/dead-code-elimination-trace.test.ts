@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import {
@@ -353,6 +354,23 @@ suite('dead code elimination trace', function () {
                     event.bindingIdentifier === bindingIdentifier('index.js', 'shared');
             }),
             1
+        );
+    });
+
+    test('records original effect seed lines after removing result bindings', async function () {
+        const fixture = singleFileOracleCase(
+            'function effect() { console.log("effect"); }\nif (false) {\n console.log("unreachable");\n}\nconst unused = effect();\nexport const api = 42;',
+            'index.js'
+        );
+        const trace = createDeadCodeEliminationTraceCollector();
+        await createTracedTestEliminator(trace.collector).eliminate(fixture.eliminationInputs);
+        assert.deepStrictEqual(
+            trace.events.flatMap(function (event) {
+                return event.type === 'local-seed-added' && event.reason === 'impure-statement'
+                    ? [ [ event.bindingIdentifier, event.line ] ]
+                    : [];
+            }),
+            [ [ 'index.js::effect', 5 ] ]
         );
     });
 });

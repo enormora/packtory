@@ -5,33 +5,30 @@ import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
-import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
+import { loadResource, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
-import { extractTopLevelBindings } from './reachability/binding-extractor.ts';
 
 const statementStub = { identifier: 'stmt' };
 const declarationStub = { identifier: 'decl' };
 const referenceStub = { identifier: 'ref' };
 
 function loadedCodeResource(targetFilePath: string, content: string): LoadedCodeResource {
-    const project = createProject({ withFiles: [ { filePath: targetFilePath, content } ] });
-    const sourceFile = project.getSourceFileOrThrow(targetFilePath);
-    return {
-        resource: {
-            fileDescription: {
-                inputFilePath: `/source/${targetFilePath}`,
-                targetFilePath,
-                content,
-                isExecutable: false
-            },
-            directDependencies: new Set<string>(),
-            moduleReferences: [],
-            isExplicitlyIncluded: true,
-            isSubstituted: false
+    const loaded = loadResource(createProject(), createProject(), {
+        fileDescription: {
+            inputFilePath: `/source/${targetFilePath}`,
+            targetFilePath,
+            content,
+            isExecutable: false
         },
-        sourceFile,
-        bindings: extractTopLevelBindings(sourceFile)
-    };
+        directDependencies: new Set<string>(),
+        moduleReferences: [],
+        isExplicitlyIncluded: true,
+        isSubstituted: false
+    }, false);
+    if (loaded.sourceFile === undefined) {
+        assert.fail('Expected a code resource');
+    }
+    return loaded;
 }
 
 function nonCodeResource(targetFilePath: string, content: string): LoadedResource {
@@ -55,6 +52,7 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
 const baseContext: AnalysisContext = {
     bundleName: 'package',
     reachable: new Set<string>(),
+    survivingExports: new Map<string, ReadonlySet<string>>(),
     transformationsEnabled: false,
     deadCodeElimination: undefined,
     classifySideEffects,

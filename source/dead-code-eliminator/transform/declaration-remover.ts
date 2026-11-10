@@ -1,6 +1,8 @@
 import type { SourceFile } from 'ts-morph';
 import { buildTextTransformMap, type PositionAtom } from '../../source-transformation/text-edits.ts';
-import { processStatement, repairImportDeclarations, type RemovalPlan } from './declaration-removal.ts';
+import { processStatement, repairImportDeclarations, hasModuleSyntax, type RemovalPlan } from './declaration-removal.ts';
+import { removeUnusedExports } from './export-removal.ts';
+import { removeRedundantEmptyStatements } from './empty-statements.ts';
 
 export type RemovalResult = {
     readonly mutated: boolean;
@@ -9,16 +11,17 @@ export type RemovalResult = {
 
 export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): RemovalResult {
     const originalCode = sourceFile.getFullText();
+    const wasModule = hasModuleSyntax(sourceFile);
+    removeUnusedExports(sourceFile, plan);
     const statements = sourceFile.getStatements();
-    let mutated = false;
     for (const statement of statements) {
-        if (processStatement(statement, plan)) {
-            mutated = true;
-        }
+        processStatement(statement, plan);
     }
-    if (repairImportDeclarations(sourceFile, plan)) {
-        mutated = true;
-    }
+    repairImportDeclarations(sourceFile, plan, wasModule);
+    removeRedundantEmptyStatements(sourceFile);
     const transformedCode = sourceFile.getFullText();
-    return { mutated, atoms: buildTextTransformMap(originalCode, transformedCode).atoms };
+    return {
+        mutated: transformedCode !== originalCode,
+        atoms: buildTextTransformMap(originalCode, transformedCode).atoms
+    };
 }

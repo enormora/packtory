@@ -138,7 +138,7 @@ export async function eliminateCodeModules(
     content: string,
     modules: Readonly<Record<string, string>>
 ): Promise<ReadonlyMap<string, string>> {
-    const [ result ] = await createTestEliminator().eliminate(inputs(bundleForCodeFile({
+    const bundle = bundleForCodeFile({
         name: 'package',
         inputFilePath: '/source/index.js',
         targetFilePath: 'index.js',
@@ -149,7 +149,18 @@ export async function eliminateCodeModules(
                 isSubstituted: false
             };
         })
-    })));
+    });
+    const [ result ] = await createTestEliminator().eliminate(inputs({
+        ...bundle,
+        contents: bundle.contents.map(function (resource) {
+            return {
+                ...resource,
+                directDependencies: new Set(resource.moduleReferences.flatMap(function (reference) {
+                    return reference.type === 'local-code' ? [ reference.targetFilePath ] : [];
+                }))
+            };
+        })
+    }));
     assertDefined(result);
     return new Map(result.contents.map(function (resource) {
         return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];

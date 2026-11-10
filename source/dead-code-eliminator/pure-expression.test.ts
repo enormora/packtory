@@ -411,10 +411,10 @@ suite('pure-expression', function () {
                 assert.strictEqual(isPureExpression(expression, settings), true);
             });
 
-            test('isPureExpression returns true for a Symbol call with pure arguments', function () {
+            test('isPureExpression keeps an unresolved Symbol call with pure arguments', function () {
                 const expression = firstVariableInitializerExpression('const a = Symbol("x");');
 
-                assert.strictEqual(isPureExpression(expression, undefined), true);
+                assert.strictEqual(isPureExpression(expression, undefined), false);
             });
 
             test('isPureExpression returns false for a Symbol call with an impure argument', function () {

@@ -6,6 +6,7 @@
     "allowConsoleColors": false,
     "concurrency": "100%",
     "timeoutMS": 30000,
+    "dryRunTimeoutMinutes": 15,
     "incrementalFile": "target/stryker-incremental.json",
     "mochaOptions": {
         "no-package": true,

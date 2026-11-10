@@ -22,6 +22,9 @@ suite('bundle-index', function () {
                         parsedInputFilePath: '/a/index.ts',
                         targetFilePath: 'index.ts',
                         sourceFile: undefined as never,
+                        originalLineFor(node) {
+                            return node.getStartLineNumber();
+                        },
                         moduleReferences: [],
                         bindings: []
                     },
@@ -30,6 +33,9 @@ suite('bundle-index', function () {
                         parsedInputFilePath: '/a/helpers.ts',
                         targetFilePath: 'helpers.ts',
                         sourceFile: undefined as never,
+                        originalLineFor(node) {
+                            return node.getStartLineNumber();
+                        },
                         moduleReferences: [],
                         bindings: []
                     }

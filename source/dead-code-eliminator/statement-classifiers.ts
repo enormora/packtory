@@ -1,6 +1,7 @@
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
+    VariableDeclarationKind,
     type ClassDeclaration,
     type EnumDeclaration,
     type ExportAssignment,
@@ -10,12 +11,15 @@ import {
     type VariableStatement
 } from 'ts-morph';
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
-import { hasClassImpurity } from './class-purity.ts';
+import { hasClassImpurity, type ClassPropertyKeyResolver } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
+import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
+import { resourceBindingIsHarmless } from './evaluation/resource-binding.ts';
 
 type StatementClassifier = (
     statement: Statement,
-    isPure: ExpressionPurityChecker
+    isPure: ExpressionPurityChecker,
+    propertyKeyFor: ClassPropertyKeyResolver
 ) => string | undefined;
 
 function classifyImportDeclaration(statement: ImportDeclaration): string | undefined {
@@ -34,9 +38,10 @@ function classifyExportAssignment(
 
 function classifyClassDeclaration(
     statement: ClassDeclaration,
-    isPure: ExpressionPurityChecker
+    isPure: ExpressionPurityChecker,
+    propertyKeyFor: ClassPropertyKeyResolver
 ): string | undefined {
-    if (hasClassImpurity(statement, isPure)) {
+    if (hasClassImpurity(statement, isPure, propertyKeyFor)) {
         return 'class declaration';
     }
     return undefined;
@@ -66,10 +71,25 @@ function classifyModuleDeclaration(statement: ModuleDeclaration): string | undef
     return 'module declaration';
 }
 
+function resourceStatementHasEffects(statement: VariableStatement): boolean {
+    const kind = statement.getDeclarationKind();
+    if (![ VariableDeclarationKind.Using, VariableDeclarationKind.AwaitUsing ].includes(kind)) {
+        return false;
+    }
+    const evaluate = createSourceEvaluation(statement.getSourceFile()).primitiveValue;
+    return !statement.getDeclarations().every(function (declaration) {
+        const initializer = declaration.getInitializer();
+        return initializer !== undefined && resourceBindingIsHarmless(kind, evaluate(initializer));
+    });
+}
+
 function classifyVariableStatement(
     statement: VariableStatement,
     isPure: ExpressionPurityChecker
 ): string | undefined {
+    if (resourceStatementHasEffects(statement)) {
+        return 'resource declaration';
+    }
     for (const declarator of statement.getDeclarations()) {
         if (!TypeScriptMorphNode.isIdentifier(declarator.getNameNode())) {
             return 'variable binding pattern';
@@ -96,9 +116,10 @@ function exportAssignmentClassifier(
 
 function classDeclarationClassifier(
     statement: Statement,
-    isPure: ExpressionPurityChecker
+    isPure: ExpressionPurityChecker,
+    propertyKeyFor: ClassPropertyKeyResolver
 ): string | undefined {
-    return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), isPure);
+    return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), isPure, propertyKeyFor);
 }
 
 function enumDeclarationClassifier(

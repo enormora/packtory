@@ -114,6 +114,9 @@ function inputFor(
             inputFilePath: sourceFile.getFilePath(),
             parsedInputFilePath: sourceFile.getFilePath(),
             targetFilePath: resource.fileDescription.targetFilePath,
+            originalLineFor(node) {
+                return node.getStartLineNumber();
+            },
             sourceFile,
             moduleReferences: resource.moduleReferences,
             bindings: extractTopLevelBindings(sourceFile)

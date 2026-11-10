@@ -11,7 +11,7 @@ function collectEntryReExportTargets(files: Parameters<typeof multiFileBindingsF
     assertDefined(entry);
     const [ declaration ] = entry.sourceFile.getExportDeclarations();
     assertDefined(declaration);
-    return collectIdentifierTargets(declaration, buildDeclarationNodeIndex(bindings));
+    return collectIdentifierTargets(declaration, buildDeclarationNodeIndex(bindings), undefined);
 }
 
 suite('identifier-target-collector reexports', function () {

@@ -10,12 +10,12 @@ import {
     type PurityContext,
     classExpressionFact,
     expressionFactIsPure,
-    expressionFactOrigin,
     identifierReadFact,
-    pureCallableWithOrigin,
+    localCallFact,
+    localConstructionFact,
     pureLocalObjectFact,
-    pureObjectWithOrigin,
     pureValueFact,
+    purePrimitiveFact,
     purityCheckerFor,
     unknownFact,
     type ExpressionFact,
@@ -24,21 +24,20 @@ import {
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
+import { arePureCallArguments } from './imported-expression-origin.ts';
 import {
-    arePureCallArguments,
-    originIsTrustedPureImport,
-    resolveImportedExpressionPropertyPath,
-    type ImportedExpressionOrigin
-} from './imported-expression-origin.ts';
-import {
-    exportHasPureObjectReturnForOrigin,
-    exportPurityForOrigin
-} from './liveness/external-purity-summary.ts';
+    importedCallResultFact,
+    originForCallTarget,
+    propertyAccessExpressionFact
+} from './imported-expression-facts.ts';
 import {
     allowedBinaryOperators,
     allowedPrefixUnaryOperators,
     inherentlyPurePropertyKinds,
-    pureLeafKinds
+    pureLeafKinds,
+    purePrimitiveLeafKinds,
+    strictEqualityOperators,
+    shortCircuitOperators
 } from './syntax-kind-sets.ts';
 
 type PurityRule = (
@@ -56,7 +55,7 @@ function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver
         return true;
     }
     if (TypeScriptMorphNode.isSpreadElement(element)) {
-        return expressionFactIsPure(factFor(element.getExpression()));
+        return false;
     }
     return expressionFactIsPure(factFor(element));
 }
@@ -116,16 +115,6 @@ function createdObjectPropertyIsSafeToSpread(
         spreadAssignmentSourceIsSafe(property, factFor);
 }
 
-function isPureBuiltinCallExpression(
-    callTarget: Expression,
-    expression: CallExpression,
-    factFor: ExpressionFactResolver
-): boolean {
-    return TypeScriptMorphNode.isIdentifier(callTarget) && callTarget.getText() === 'Symbol'
-        ? arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor))
-        : false;
-}
-
 function hasPureAnnotation(expression: Expression): boolean {
     const text = expression.getFullText();
     return text.includes('@__PURE__') || text.includes('#__PURE__');
@@ -138,75 +127,18 @@ function pureAnnotationMakesCallPure(
     return hasPureAnnotation(expression) && arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
 }
 
-function appendOriginPath(
-    origin: ImportedExpressionOrigin | undefined,
-    segment: string
-): ImportedExpressionOrigin | undefined {
-    return origin === undefined ? undefined : { from: origin.from, path: [ ...origin.path, segment ] };
-}
-
-function originForExpressionFact(
-    expression: Expression,
-    factFor: ExpressionFactResolver
-): ImportedExpressionOrigin | undefined {
-    return expressionFactOrigin(factFor(expression));
-}
-
-function originForCallTarget(
-    expression: Expression,
-    factFor: ExpressionFactResolver,
-    context: PurityContext
-): ImportedExpressionOrigin | undefined {
-    const unwrapped = unwrapExpression(expression);
-    if (TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)) {
-        const base = unwrapped.getExpression();
-        const baseOrigin = TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(base))
-            ? originForCallTarget(base, factFor, context)
-            : resolveImportedExpressionPropertyPath(base) ?? originForExpressionFact(base, factFor);
-        return appendOriginPath(baseOrigin, unwrapped.getName());
-    }
-    return resolveImportedExpressionPropertyPath(unwrapped) ?? originForExpressionFact(unwrapped, factFor);
-}
-
-function externalCallResultFact(
-    origin: ImportedExpressionOrigin,
-    expression: CallExpression,
-    context: PurityContext
-): ExpressionFact {
-    if (exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule) !== 'pure-callable') {
-        return unknownFact;
-    }
-    return exportHasPureObjectReturnForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule)
-        ? pureObjectWithOrigin(origin)
-        : pureValueFact;
-}
-
-function importedCallResultFact(
-    origin: ImportedExpressionOrigin | undefined,
-    expression: CallExpression,
-    factFor: ExpressionFactResolver,
-    context: PurityContext
-): ExpressionFact {
-    if (origin === undefined || !arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor))) {
-        return unknownFact;
-    }
-    if (originIsTrustedPureImport(origin, context.settings)) {
-        return pureObjectWithOrigin(origin);
-    }
-    return externalCallResultFact(origin, expression, context);
-}
-
 function callExpressionFact(
     expression: CallExpression,
     factFor: ExpressionFactResolver,
     context: PurityContext
 ): ExpressionFact {
     const callTarget = unwrapExpression(expression.getExpression());
-    if (
-        pureAnnotationMakesCallPure(expression, factFor) ||
-        isPureBuiltinCallExpression(callTarget, expression, factFor)
-    ) {
+    if (pureAnnotationMakesCallPure(expression, factFor)) {
         return pureValueFact;
+    }
+    const localFact = localCallFact(expression);
+    if (expressionFactIsPure(localFact)) {
+        return localFact;
     }
     const importedCallFact = importedCallResultFact(
         originForCallTarget(callTarget, factFor, context),
@@ -215,25 +147,6 @@ function callExpressionFact(
         context
     );
     return importedCallFact;
-}
-
-function propertyAccessExpressionFact(
-    expression: Expression,
-    factFor: ExpressionFactResolver,
-    context: PurityContext
-): ExpressionFact {
-    const origin = originForCallTarget(expression, factFor, context);
-    if (origin === undefined) {
-        return unknownFact;
-    }
-    if (originIsTrustedPureImport(origin, context.settings)) {
-        return pureObjectWithOrigin(origin);
-    }
-    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule);
-    if (exportPurity === 'pure-callable') {
-        return pureCallableWithOrigin(origin);
-    }
-    return exportPurity === 'pure-object' ? pureObjectWithOrigin(origin) : unknownFact;
 }
 
 function constructorNameIsTrusted(
@@ -252,7 +165,8 @@ function isPureNewExpression(
     const constructorExpression = unwrapExpression(expression.getExpression());
     const trustedConstructorCall = constructorNameIsTrusted(constructorExpression, context) &&
         arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
-    return pureAnnotationMakesCallPure(expression, factFor) || trustedConstructorCall;
+    return pureAnnotationMakesCallPure(expression, factFor) || trustedConstructorCall ||
+        expressionFactIsPure(localConstructionFact(expression));
 }
 
 function templateExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
@@ -260,9 +174,9 @@ function templateExpressionFact(expression: Expression, factFor: ExpressionFactR
         .asKindOrThrow(SyntaxKind.TemplateExpression)
         .getTemplateSpans()
         .every(function (span) {
-            return expressionFactIsPure(factFor(span.getExpression()));
+            return factFor(span.getExpression()).type === 'pure-primitive';
         });
-    return spansArePure ? pureValueFact : unknownFact;
+    return spansArePure ? purePrimitiveFact : unknownFact;
 }
 
 function arrayLiteralExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
@@ -309,9 +223,26 @@ function objectLiteralExpressionFact(
 
 function prefixUnaryExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
     const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
+    const operand = factFor(unary.getOperand());
+    const operandIsSafe = unary.getOperatorToken() === SyntaxKind.ExclamationToken
+        ? expressionFactIsPure(operand)
+        : operand.type === 'pure-primitive';
     const operandIsPure = allowedPrefixUnaryOperators.has(unary.getOperatorToken()) &&
-        expressionFactIsPure(factFor(unary.getOperand()));
-    return operandIsPure ? pureValueFact : unknownFact;
+        operandIsSafe;
+    return operandIsPure ? purePrimitiveFact : unknownFact;
+}
+
+function nonCoerciveBinaryResultFact(operator: SyntaxKind): ExpressionFact {
+    if (strictEqualityOperators.has(operator)) {
+        return purePrimitiveFact;
+    }
+    return shortCircuitOperators.has(operator) ? pureValueFact : unknownFact;
+}
+
+function binaryPureOperandsFact(operator: SyntaxKind, left: ExpressionFact, right: ExpressionFact): ExpressionFact {
+    return left.type === 'pure-primitive' && right.type === 'pure-primitive'
+        ? purePrimitiveFact
+        : nonCoerciveBinaryResultFact(operator);
 }
 
 function binaryExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
@@ -319,8 +250,10 @@ function binaryExpressionFact(expression: Expression, factFor: ExpressionFactRes
     if (!allowedBinaryOperators.has(binary.getOperatorToken().getKind())) {
         return unknownFact;
     }
-    return expressionFactIsPure(factFor(binary.getLeft())) && expressionFactIsPure(factFor(binary.getRight()))
-        ? pureValueFact
+    const left = factFor(binary.getLeft());
+    const right = factFor(binary.getRight());
+    return expressionFactIsPure(left) && expressionFactIsPure(right)
+        ? binaryPureOperandsFact(binary.getOperatorToken().getKind(), left, right)
         : unknownFact;
 }
 
@@ -365,24 +298,21 @@ function memberPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
     return undefined;
 }
 
-function operationPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    if (kind === SyntaxKind.PrefixUnaryExpression) {
-        return prefixUnaryExpressionFact;
-    }
-    if (kind === SyntaxKind.BinaryExpression) {
-        return binaryExpressionFact;
-    }
-    if (kind === SyntaxKind.CallExpression) {
-        return callExpressionRule;
-    }
-    if (kind === SyntaxKind.NewExpression) {
-        return newExpressionFact;
-    }
-    return undefined;
+function voidExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
+    const operand = expression.asKindOrThrow(SyntaxKind.VoidExpression).getExpression();
+    return expressionFactIsPure(factFor(operand)) ? purePrimitiveFact : unknownFact;
 }
 
+const operationPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map([
+    [ SyntaxKind.VoidExpression, voidExpressionFact ],
+    [ SyntaxKind.PrefixUnaryExpression, prefixUnaryExpressionFact ],
+    [ SyntaxKind.BinaryExpression, binaryExpressionFact ],
+    [ SyntaxKind.CallExpression, callExpressionRule ],
+    [ SyntaxKind.NewExpression, newExpressionFact ]
+]);
+
 function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRuleFor(kind);
+    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRules.get(kind);
 }
 
 function calculateExpressionFact(
@@ -393,6 +323,9 @@ function calculateExpressionFact(
     const unwrapped = unwrapExpression(expression);
     if (TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return identifierReadFact(unwrapped, factFor, context.purity);
+    }
+    if (purePrimitiveLeafKinds.has(unwrapped.getKind())) {
+        return purePrimitiveFact;
     }
     if (pureLeafKinds.has(unwrapped.getKind())) {
         return pureValueFact;

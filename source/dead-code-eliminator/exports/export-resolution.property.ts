@@ -1,0 +1,175 @@
+import assert from 'node:assert';
+import fastCheck from 'fast-check';
+import { suite, test } from 'mocha';
+import {
+    createExportResolver,
+    type ExportEntry,
+    type ExportOrigin,
+    type ExportResolution,
+    type ModuleExports
+} from './export-resolution.ts';
+
+type TerminalExports = {
+    readonly origins: readonly ExportOrigin<number>[];
+    readonly unknown: boolean;
+};
+
+type ExportWalk = {
+    readonly modules: ReadonlyMap<number, ModuleExports<number>>;
+    readonly module: number;
+    readonly name: string;
+    readonly visited: ReadonlySet<string>;
+};
+
+const noTerminals: TerminalExports = { origins: [], unknown: false };
+const opaqueTerminals: TerminalExports = { origins: [], unknown: true };
+
+function entryTerminals(
+    walk: ExportWalk,
+    entry: ExportEntry<number>,
+    visit: (walk: ExportWalk) => TerminalExports
+): TerminalExports {
+    if (entry.kind === 'origin') {
+        return { origins: [ entry.origin ], unknown: false };
+    }
+    if (entry.kind === 'unknown') {
+        return opaqueTerminals;
+    }
+    return visit({ ...walk, module: entry.module, name: entry.name });
+}
+
+function starTerminals(
+    walk: ExportWalk,
+    module: ModuleExports<number>,
+    visit: (walk: ExportWalk) => TerminalExports
+): TerminalExports {
+    if (!module.closed) {
+        return opaqueTerminals;
+    }
+    if (walk.name === 'default') {
+        return noTerminals;
+    }
+    const branches = module.stars.map(function (target) {
+        return visit({ ...walk, module: target });
+    });
+    return {
+        origins: branches.flatMap(function (branch) {
+            return branch.origins;
+        }),
+        unknown: branches.some(function (branch) {
+            return branch.unknown;
+        })
+    };
+}
+
+function reachableTerminals(walk: ExportWalk): TerminalExports {
+    const key = `${walk.module}:${walk.name}`;
+    if (walk.visited.has(key)) {
+        return noTerminals;
+    }
+    const module = walk.modules.get(walk.module);
+    if (module === undefined) {
+        return opaqueTerminals;
+    }
+    const next = { ...walk, visited: new Set([ ...walk.visited, key ]) };
+    const entry = module.entries.get(walk.name);
+    return entry === undefined
+        ? starTerminals(next, module, reachableTerminals)
+        : entryTerminals(next, entry, reachableTerminals);
+}
+
+function expectedResolution(
+    modules: ReadonlyMap<number, ModuleExports<number>>,
+    module: number,
+    name: string
+): ExportResolution<number> {
+    const terminals = reachableTerminals({ modules, module, name, visited: new Set() });
+    const identities = new Set(terminals.origins.map(function (origin) {
+        return JSON.stringify(origin);
+    }));
+    if (identities.size > 1) {
+        return { kind: 'ambiguous' };
+    }
+    if (terminals.unknown) {
+        return { kind: 'unknown' };
+    }
+    const [ origin ] = terminals.origins;
+    return origin === undefined ? { kind: 'missing' } : { kind: 'unique', origin };
+}
+
+const originEntries = fastCheck.oneof(
+    fastCheck.record({
+        kind: fastCheck.constant('origin' as const),
+        origin: fastCheck.record({
+            kind: fastCheck.constant('binding' as const),
+            module: fastCheck.nat({ max: 7 }),
+            name: fastCheck.constantFrom('local', 'other')
+        })
+    }),
+    fastCheck.record({
+        kind: fastCheck.constant('origin' as const),
+        origin: fastCheck.record({ kind: fastCheck.constant('namespace' as const), module: fastCheck.nat({ max: 7 }) })
+    })
+);
+
+const entries = fastCheck.oneof(
+    originEntries,
+    fastCheck.record({
+        kind: fastCheck.constant('forward' as const),
+        module: fastCheck.nat({ max: 7 }),
+        name: fastCheck.constantFrom('value', 'default')
+    }),
+    fastCheck.constant({ kind: 'unknown' } as const)
+);
+
+const moduleGraphs = fastCheck.array(
+    fastCheck.record({
+        closed: fastCheck.boolean(),
+        entries: fastCheck.array(fastCheck.tuple(fastCheck.constantFrom('value', 'default'), entries), {
+            maxLength: 3
+        }),
+        stars: fastCheck.uniqueArray(fastCheck.nat({ max: 7 }), { maxLength: 4 })
+    }),
+    { minLength: 1, maxLength: 7 }
+);
+
+function moduleQueries(
+    _module: unknown,
+    module: number
+): readonly { readonly module: number; readonly name: string; }[] {
+    return [ 'value', 'default' ].map(function (name) {
+        return { module, name };
+    });
+}
+
+suite('export resolution properties', function () {
+    test('matches all terminating paths through cyclic graphs independently of query order', function () {
+        fastCheck.assert(
+            fastCheck.property(moduleGraphs, function (graph) {
+                const modules = new Map(graph.map(function (module, index) {
+                    return [ index, { ...module, entries: new Map(module.entries) } ] as const;
+                }));
+                const resolver = createExportResolver(modules);
+                const reverse = createExportResolver(modules);
+                const queries = graph.flatMap(moduleQueries);
+                for (const query of queries) {
+                    assert.deepStrictEqual(
+                        resolver.resolve(query.module, query.name),
+                        expectedResolution(
+                            modules,
+                            query.module,
+                            query.name
+                        )
+                    );
+                }
+                for (const query of queries.toReversed()) {
+                    assert.deepStrictEqual(
+                        reverse.resolve(query.module, query.name),
+                        resolver.resolve(query.module, query.name)
+                    );
+                }
+            }),
+            { numRuns: 500 }
+        );
+    });
+});

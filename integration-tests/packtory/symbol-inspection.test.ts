@@ -35,11 +35,13 @@ function assertDecisions(symbols: PackageSymbolInspection['symbols'], enabled: b
     assertDefined(imported);
     assert.deepStrictEqual({
         helper: helper.decision,
+        helperReason: helper.reason,
         imported: imported.decision,
         unused: unused.decision,
         reason: unused.reason
     }, {
-        helper: 'kept',
+        helper: enabled ? 'removed' : 'kept',
+        helperReason: enabled ? 'unreachable' : 'dead-code-elimination-disabled',
         imported: 'kept',
         unused: enabled ? 'removed' : 'kept',
         reason: enabled ? 'unreachable' : 'dead-code-elimination-disabled'
@@ -48,7 +50,7 @@ function assertDecisions(symbols: PackageSymbolInspection['symbols'], enabled: b
         helper.chain.map(function (step) {
             return step.reason;
         }),
-        [ 'entry-export', 'identifier-reference' ]
+        enabled ? [] : [ 'entry-export', 'identifier-reference' ]
     );
 }
 

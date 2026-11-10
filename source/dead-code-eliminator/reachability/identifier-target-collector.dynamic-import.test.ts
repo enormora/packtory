@@ -25,7 +25,8 @@ suite('identifier-target-collector dynamic import', function () {
             assert.deepStrictEqual(
                 collectIdentifierTargets(
                     entry.sourceFile.getFunctionOrThrow('probe'),
-                    buildDeclarationNodeIndex(files)
+                    buildDeclarationNodeIndex(files),
+                    undefined
                 ),
                 new Set([
                     '/source/index.js::probe',
@@ -50,7 +51,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe' ])
         );
     });
@@ -76,7 +81,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe', '/source/dep.js::value' ])
         );
     });
@@ -101,7 +110,7 @@ suite('identifier-target-collector dynamic import', function () {
                     moduleReferencesByTargetFilePath: omitted === 'references'
                         ? new Map()
                         : index.moduleReferencesByTargetFilePath
-                }),
+                }, undefined),
                 new Set([ '/source/index.js::probe' ])
             );
         });
@@ -117,7 +126,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe', '/source/a.js::clash', '/source/b.js::clash' ])
         );
     });

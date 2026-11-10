@@ -1,9 +1,9 @@
 import type { SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import type { PositionAtom, TextTransformMap } from '../source-transformation/text-edits.ts';
+import type { TextTransformMap } from '../source-transformation/text-edits.ts';
 import type { SideEffectClassifier } from './side-effect-classifier.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
-import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
+import type { LoadedCodeResource, LoadedResource } from './load-resource.ts';
 import { buildModuleAnalysis } from './liveness/module-analysis.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
@@ -12,6 +12,7 @@ import { applyRemovalPlan } from './transform/declaration-remover.ts';
 export type AnalysisContext = {
     readonly bundleName: string;
     readonly reachable: ReadonlySet<string>;
+    readonly survivingExports: ReadonlyMap<string, ReadonlySet<string>>;
     readonly transformationsEnabled: boolean;
     readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
@@ -25,11 +26,6 @@ type TransformRecord = {
 export type AnalyzedResourceOutput = {
     readonly resource: AnalyzedBundleResource;
     readonly transforms: readonly TransformRecord[];
-};
-
-type TransformedSourceFile = {
-    readonly transformedCode: string;
-    readonly atoms: readonly PositionAtom[];
 };
 
 const noTransforms: readonly TransformRecord[] = [];
@@ -56,15 +52,22 @@ function transformSourceFile(
     context: AnalysisContext,
     sourceFile: SourceFile,
     surviving: ReadonlySet<string>
-): TransformedSourceFile {
-    const result = applyRemovalPlan(sourceFile, {
+): TextTransformMap {
+    const originalCode = sourceFile.getFullText();
+    const { atoms } = applyRemovalPlan(sourceFile, {
         bundleName: context.bundleName,
         inputFilePath: loaded.resource.fileDescription.inputFilePath,
         targetFilePath: loaded.resource.fileDescription.targetFilePath,
         survivingNames: surviving,
+        survivingExportNames: context.survivingExports.get(loaded.resource.fileDescription.targetFilePath),
         trace: context.trace
     });
-    return { transformedCode: sourceFile.getFullText(), atoms: result.atoms };
+    const transformedCode = sourceFile.getFullText();
+    return {
+        originalCode,
+        transformedCode,
+        atoms
+    };
 }
 
 type CodeAnalysis = {
@@ -78,6 +81,7 @@ function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): 
         inputFilePath: loaded.resource.fileDescription.inputFilePath,
         targetFilePath: loaded.resource.fileDescription.targetFilePath,
         sourceFile: loaded.sourceFile,
+        originalLineFor: loaded.originalLineFor,
         bindings: loaded.bindings,
         deadCodeElimination: context.deadCodeElimination,
         classifySideEffects: context.classifySideEffects
@@ -101,9 +105,9 @@ export function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisC
     if (!shouldTransform) {
         return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }
-    const originalCode = loaded.resource.fileDescription.content;
-    const { transformedCode, atoms } = transformSourceFile(loaded, context, loaded.sourceFile, reachableBindings);
-    if (transformedCode === originalCode) {
+    const transformation = transformSourceFile(loaded, context, loaded.sourceFile, reachableBindings);
+    const { transformedCode } = transformation;
+    if (transformedCode === loaded.resource.fileDescription.content) {
         return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }
     return {
@@ -112,6 +116,11 @@ export function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisC
             fileDescription: { ...loaded.resource.fileDescription, content: transformedCode },
             analysis
         },
-        transforms: [ { textTransform: { originalCode, transformedCode, atoms } } ]
+        transforms: [
+            ...loaded.transformations.map(function (textTransform) {
+                return { textTransform };
+            }),
+            { textTransform: transformation }
+        ]
     };
 }

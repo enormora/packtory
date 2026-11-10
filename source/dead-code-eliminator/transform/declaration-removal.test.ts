@@ -10,6 +10,7 @@ function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
         inputFilePath: 'index.ts',
         targetFilePath: 'index.ts',
         survivingNames,
+        survivingExportNames: undefined,
         trace: undefined
     };
 }

@@ -2,8 +2,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import { extractTopLevelBindings } from '../dead-code-eliminator/reachability/binding-extractor.ts';
-import { bindingIdentifier } from '../dead-code-eliminator/reachability/binding-identifier.ts';
-import type { FileBindings } from '../dead-code-eliminator/reachability/local-seed-gathering.ts';
+import { bindingIdentifier, type FileBindings } from '../dead-code-eliminator/reachability/binding-identifier.ts';
 import { buildReachabilityIndex, type ReachabilityIndex } from '../dead-code-eliminator/reachability/reachability.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import { classifySideEffects } from './side-effect-classifier-test-support.ts';
@@ -37,6 +36,9 @@ export function fileBindingsFor(filePath: string, content: string): FileBindings
         targetFilePath: filePath,
         moduleReferences: localModuleReferences(filePath, content),
         sourceFile,
+        originalLineFor(node) {
+            return node.getStartLineNumber();
+        },
         bindings: extractTopLevelBindings(sourceFile)
     };
 }
@@ -49,7 +51,7 @@ export function multiFileBindingsFor(
             return { filePath: file.filePath, content: file.content };
         })
     });
-    return files.map(function (file) {
+    return files.map(function (file): FileBindings {
         const sourceFile = project.getSourceFileOrThrow(file.filePath);
         return {
             inputFilePath: file.filePath,
@@ -57,6 +59,9 @@ export function multiFileBindingsFor(
             targetFilePath: file.filePath,
             moduleReferences: localModuleReferences(file.filePath, file.content),
             sourceFile,
+            originalLineFor(node) {
+                return node.getStartLineNumber();
+            },
             bindings: extractTopLevelBindings(sourceFile)
         };
     });

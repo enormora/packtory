@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { SyntaxKind, type Node as TypeScriptMorphNode, type SourceFile } from 'ts-morph';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
+import { collectIdentifierTargets } from './identifier-target-collector.ts';
+import type { DeclarationNodeIndex } from './binding-identifier.ts';
 
 function rootSourceFile(content: string): SourceFile {
     const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
@@ -42,7 +43,7 @@ function collectImportTargets(content: string, declarationIndex: DeclarationNode
     const project = createProject({ withFiles: [ { filePath: '/source/index.js', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/source/index.js');
     const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
-    return collectIdentifierTargets(importSpecifier, declarationIndex);
+    return collectIdentifierTargets(importSpecifier, declarationIndex, undefined);
 }
 
 function registerRelativeImportTests(): void {
@@ -175,20 +176,23 @@ function registerRelativeImportTests(): void {
 
 suite('identifier-target-collector', function () {
     test('collectIdentifierTargets returns an empty set when the root has no identifiers', function () {
-        assert.deepStrictEqual(collectIdentifierTargets(rootSourceFile(''), emptyIndex()), new Set<string>());
+        assert.deepStrictEqual(
+            collectIdentifierTargets(rootSourceFile(''), emptyIndex(), undefined),
+            new Set<string>()
+        );
     });
 
     test('collectIdentifierTargets returns an empty set when no identifier matches a known declaration', function () {
         const sourceFile = rootSourceFile('const x = 1;\nconsole.log(x);');
 
-        assert.deepStrictEqual(collectIdentifierTargets(sourceFile, emptyIndex()), new Set<string>());
+        assert.deepStrictEqual(collectIdentifierTargets(sourceFile, emptyIndex(), undefined), new Set<string>());
     });
 
     test('collectIdentifierTargets maps each identifier symbol back to its declaration id when indexed', function () {
         const sourceFile = rootSourceFile('const x = 1;\nconst y = x;');
         const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
 
-        const targets = collectIdentifierTargets(sourceFile, declarationIndex);
+        const targets = collectIdentifierTargets(sourceFile, declarationIndex, undefined);
 
         assert.strictEqual(targets.has('/index.ts::x'), true);
     });
@@ -201,7 +205,7 @@ suite('identifier-target-collector', function () {
             assert.fail('expected obj declaration statement');
         }
 
-        const targets = collectIdentifierTargets(objectStatement, declarationIndex);
+        const targets = collectIdentifierTargets(objectStatement, declarationIndex, undefined);
 
         assert.strictEqual(targets.has('/index.ts::x'), true);
     });
@@ -217,7 +221,7 @@ suite('identifier-target-collector', function () {
             identifiersByTargetFileAndName: new Map(),
             moduleReferencesByTargetFilePath: new Map(),
             targetFilePathByInputFilePath: new Map()
-        });
+        }, undefined);
 
         assert.deepStrictEqual(targets, new Set([ '/external.ts::x' ]));
     });
@@ -268,7 +272,7 @@ suite('identifier-target-collector', function () {
                 [ '/source/file-manager/permissions.ts', 'file-manager/permissions.js' ]
             ])
         };
-        const targets = collectIdentifierTargets(importSpecifier, declarationIndex);
+        const targets = collectIdentifierTargets(importSpecifier, declarationIndex, undefined);
 
         assert.deepStrictEqual(
             targets,
@@ -296,7 +300,7 @@ suite('identifier-target-collector', function () {
             identifiersByTargetFileAndName: new Map(),
             moduleReferencesByTargetFilePath: new Map(),
             targetFilePathByInputFilePath: new Map()
-        });
+        }, undefined);
 
         assert.deepStrictEqual(targets, new Set());
     });
@@ -346,7 +350,7 @@ suite('identifier-target-collector', function () {
                     identifiersByTargetFileAndName: new Map(),
                     moduleReferencesByTargetFilePath: new Map(),
                     targetFilePathByInputFilePath: new Map([ [ '/source/index.js', 'index.js' ] ])
-                });
+                }, undefined);
             },
             {
                 message: 'Missing resolved module reference for "./missing.js" in "index.js"'

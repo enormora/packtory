@@ -52,7 +52,7 @@ suite('load-bundle', function () {
 
         const result = loadBundle(createProject, loadInput(bundle), undefined);
 
-        assert.deepStrictEqual(result.loaded[1], { resource });
+        assert.deepStrictEqual(result.loaded[1], { resource, sourceFile: undefined });
         assert.strictEqual(result.fileBindings.length, 1);
     });
 

@@ -1,114 +1,56 @@
-import path from 'node:path';
 import {
     Node as TypeScriptMorphNode,
-    SyntaxKind,
-    VariableDeclarationKind,
     type Expression,
-    type Identifier,
-    type ObjectLiteralExpression,
-    type SourceFile,
-    type VariableDeclaration
+    type Identifier
 } from 'ts-morph';
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { resolveImportedExpressionPropertyPath, type ImportedExpressionOrigin } from './imported-expression-origin.ts';
-
-function objectPropertyInitializer(expression: ObjectLiteralExpression, propertyName: string): Expression | undefined {
-    const property = expression.getProperty(propertyName);
-    return TypeScriptMorphNode.isPropertyAssignment(property) ? property.getInitializerOrThrow() : undefined;
-}
-
-function primitiveKeyExpression(expression: Expression | undefined): boolean {
-    return TypeScriptMorphNode.isStringLiteral(unwrapExpression(expression));
-}
-
-function symbolKeyIsPure(expression: Expression | undefined): boolean {
-    if (!TypeScriptMorphNode.isCallExpression(expression)) {
-        return false;
-    }
-    const target = expression.getExpression();
-    return TypeScriptMorphNode.isIdentifier(target) && target.getText() === 'Symbol' &&
-        target.getSymbol() === undefined && expression.getArguments().every(TypeScriptMorphNode.isStringLiteral);
-}
-
-function primitiveKeyLiteral(expression: Expression | undefined): boolean {
-    return expression !== undefined && [
-        SyntaxKind.StringLiteral,
-        SyntaxKind.NumericLiteral,
-        SyntaxKind.BigIntLiteral,
-        SyntaxKind.TrueKeyword,
-        SyntaxKind.FalseKeyword,
-        SyntaxKind.NullKeyword,
-        SyntaxKind.NoSubstitutionTemplateLiteral
-    ]
-        .includes(expression.getKind());
-}
+import { constantDominatesRead } from './evaluation/constant-binding.ts';
+import { createConstantEvaluator } from './evaluation/local-call.ts';
+import { evaluateImportedConstant } from './evaluation/imported-constant.ts';
 
 function constantKeyInitializer(expression: Identifier): Expression | undefined {
     const declaration = expression.getSymbol()?.getValueDeclaration();
     if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return undefined;
     }
-    const initializedConstant =
-        declaration.getVariableStatement()?.getDeclarationKind() === VariableDeclarationKind.Const &&
-        Math.sign(expression.getStart() - declaration.getEnd()) === 1;
-    return initializedConstant ? declaration.getInitializer() : undefined;
+    return constantDominatesRead(declaration, expression) ? declaration.getInitializer() : undefined;
 }
 
-function localExpressionIsPrimitiveKey(expression: Expression | undefined): boolean {
+function primitiveExpressionKey(expression: Expression): string | undefined {
+    if (TypeScriptMorphNode.isBigIntLiteral(expression)) {
+        return String(expression.getLiteralValue());
+    }
+    const value = createConstantEvaluator(expression.getSourceFile(), new Map())(expression);
+    return value === undefined ? undefined : String(value.value);
+}
+
+function localPropertyKey(expression: Expression | undefined): string | undefined {
     const unwrapped = unwrapExpression(expression);
+    if (unwrapped === undefined) {
+        return undefined;
+    }
     if (!TypeScriptMorphNode.isIdentifier(unwrapped)) {
-        return primitiveKeyLiteral(unwrapped) || symbolKeyIsPure(unwrapped);
+        return primitiveExpressionKey(unwrapped);
     }
     if (unwrapped.getText() === 'undefined' && unwrapped.getSymbolOrThrow().getDeclarations().length === 0) {
-        return true;
+        return 'undefined';
     }
-    return localExpressionIsPrimitiveKey(constantKeyInitializer(unwrapped));
+    return localPropertyKey(constantKeyInitializer(unwrapped));
 }
 
-function expressionMemberIsPrimitiveKey(expression: Expression | undefined, propertyName: string): boolean {
-    const unwrapped = unwrapExpression(expression);
-    if (!TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)) {
-        return false;
-    }
-    return primitiveKeyExpression(objectPropertyInitializer(unwrapped, propertyName));
-}
-
-function constDeclarationInitializer(declaration: VariableDeclaration): Expression | undefined {
-    const statement = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.VariableStatement);
-    return statement.isExported() && statement.getDeclarationKind() === VariableDeclarationKind.Const
-        ? declaration.getInitializer()
-        : undefined;
-}
-
-function exportPathIsPrimitiveKey(
-    sourceFile: SourceFile,
-    origin: ImportedExpressionOrigin
-): boolean {
-    const [ exportName = origin.from, propertyName = exportName, ...rest ] = origin.path;
-    const declaration = sourceFile.getVariableDeclaration(exportName);
-    if (declaration === undefined) {
-        return false;
-    }
-    return rest.length === 0 && expressionMemberIsPrimitiveKey(constDeclarationInitializer(declaration), propertyName);
-}
-
-function importedExpressionIsPrimitiveKey(expression: Expression, resolveModule: RuntimeModuleResolver): boolean {
-    const origin = resolveImportedExpressionPropertyPath(expression);
-    if (origin === undefined) {
-        return false;
-    }
-    const sourceFile = resolveModule(origin.from, expression.getSourceFile());
-    if (sourceFile === undefined || path.extname(sourceFile.getFilePath()) !== '.js') {
-        return false;
-    }
-    return exportPathIsPrimitiveKey(sourceFile, origin);
-}
-
-export function computedPropertyNameIsPure(
+export function resolveComputedPropertyKey(
     expression: Expression,
     resolveModule: RuntimeModuleResolver
-): boolean {
-    return localExpressionIsPrimitiveKey(expression) ||
-        importedExpressionIsPrimitiveKey(expression, resolveModule);
+): string | undefined {
+    const local = localPropertyKey(expression);
+    if (local !== undefined) {
+        return local;
+    }
+    const imported = evaluateImportedConstant(expression, resolveModule);
+    return imported === undefined ? undefined : String(imported.value);
+}
+
+export function computedPropertyNameIsPure(expression: Expression, resolveModule: RuntimeModuleResolver): boolean {
+    return resolveComputedPropertyKey(expression, resolveModule) !== undefined;
 }

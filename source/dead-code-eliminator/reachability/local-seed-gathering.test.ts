@@ -4,8 +4,8 @@ import { suite, test } from 'mocha';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
-import { buildDeclarationNodeIndex } from './binding-identifier.ts';
-import { gatherLocalSeeds, type FileBindings } from './local-seed-gathering.ts';
+import { buildDeclarationNodeIndex, type FileBindings } from './binding-identifier.ts';
+import { gatherLocalSeeds } from './local-seed-gathering.ts';
 
 function sourceFileFor(content: string): SourceFile {
     const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
@@ -21,6 +21,9 @@ function fileBindings(
         inputFilePath,
         parsedInputFilePath: sourceFile.getFilePath(),
         targetFilePath: inputFilePath,
+        originalLineFor(node) {
+            return node.getStartLineNumber();
+        },
         sourceFile,
         moduleReferences: [],
         bindings
@@ -61,7 +64,7 @@ function gatherSeedsForSingleBinding(
         classifySideEffects,
         bundleName: 'package',
         trace: undefined
-    });
+    }, undefined);
 }
 
 suite('local-seed-gathering', function () {
