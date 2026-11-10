@@ -10,7 +10,7 @@ function numberSource(value: number): string {
     if (Number.isFinite(value)) {
         return String(value);
     }
-    return value < 0 ? '-1 / 0' : '1 / 0';
+    return value === Number.NEGATIVE_INFINITY ? '-1 / 0' : '1 / 0';
 }
 
 export function primitiveSource(result: EvaluatedValue): string {
@@ -24,5 +24,5 @@ export function primitiveSource(result: EvaluatedValue): string {
     if (typeof value === 'bigint') {
         return `${value}n`;
     }
-    return typeof value === 'string' ? JSON.stringify(value) : String(value);
+    return JSON.stringify(value);
 }
