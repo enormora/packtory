@@ -145,9 +145,9 @@ export function objectReadShape(
 
 export function propertyIsDefined(value: ObjectPropertyRead['value']): boolean {
     return match(value)
-        .with({ type: 'unknown' }, constant(false))
         .with({ type: 'defined' }, constant(true))
-        .otherwise(function (known) {
+        .with({ type: 'value' }, function (known) {
             return known.value !== undefined;
-        });
+        })
+        .otherwise(constant(false));
 }
