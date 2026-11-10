@@ -12,7 +12,8 @@ import {
     referenceAliasName,
     referenceDeclaresBinding,
     referenceMayUseBinding,
-    referenceTarget
+    referenceTarget,
+    bindingReferenceTargets
 } from './reference-target.ts';
 
 type ReferenceObserver = (reference: TypeScriptMorphNodeType) => boolean;
@@ -44,14 +45,7 @@ export function bindingValueIsStable(name: Identifier): boolean {
 }
 
 function bindingReferencesOnlyObserveValue(name: Identifier, observe: ReferenceObserver): boolean {
-    return name
-        .findReferences()
-        .flatMap(function (group) {
-            return group.getReferences();
-        })
-        .every(function (reference) {
-            return observe(referenceTarget(reference));
-        });
+    return bindingReferenceTargets(name).every(observe);
 }
 
 export function bindingHasOnlyUses(

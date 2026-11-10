@@ -1,6 +1,6 @@
-import type { Node as TypeScriptMorphNode, Identifier, SourceFile } from 'ts-morph';
-import { createSourceEvaluation, type PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
-import { referenceTarget } from '../reference-target.ts';
+import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
+import { createSourceEvaluation, createSourceEvaluations } from '../evaluation/constant-evaluation.ts';
+import { bindingReferenceTargets, createBindingReferenceResolver } from '../reference-target.ts';
 import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { collectNamespaceConsumers } from './namespace-consumers.ts';
 import { namespaceConsumerDemand } from './namespace-consumer-demand.ts';
@@ -40,10 +40,10 @@ export function createNamespaceDemandAnalysis(
     const state = {
         analyzedFiles: new Set(files),
         incoming: collectNamespaceConsumers(files, resolveModule),
-        exportedKeys: new Map<SourceFile, Map<string, ExportDemandKey>>(),
-        references: new Map<Identifier, readonly (TypeScriptMorphNode | undefined)[]>(),
-        evaluations: new Map<SourceFile, PrimitiveEvaluator>()
+        exportedKeys: new Map<SourceFile, Map<string, ExportDemandKey>>()
     };
+    const references = createBindingReferenceResolver(bindingReferenceTargets);
+    const evaluations = createSourceEvaluations(createSourceEvaluation);
 
     function exportKey(source: SourceFile, name: string): ExportDemandKey {
         let keys = state.exportedKeys.get(source);
@@ -89,29 +89,9 @@ export function createNamespaceDemandAnalysis(
             });
         },
         primitive(expression) {
-            const source = expression.getSourceFile();
-            let evaluate = state.evaluations.get(source);
-            if (evaluate === undefined) {
-                evaluate = createSourceEvaluation(source).primitiveValue;
-                state.evaluations.set(source, evaluate);
-            }
-            return evaluate(expression);
+            return evaluations(expression.getSourceFile()).primitiveValue(expression);
         },
-        references(name) {
-            let references = state.references.get(name);
-            if (references === undefined) {
-                references = name
-                    .findReferences()
-                    .flatMap(function (group) {
-                        return group.getReferences().map(referenceTarget);
-                    })
-                    .filter(function (reference) {
-                        return reference !== name;
-                    });
-                state.references.set(name, references);
-            }
-            return references;
-        }
+        references
     };
 
     return {

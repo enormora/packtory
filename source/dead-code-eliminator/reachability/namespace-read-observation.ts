@@ -1,7 +1,7 @@
 import {
     Node as TypeScriptMorphNode,
-    SyntaxKind,
     type Expression,
+    type Identifier,
     type VariableDeclaration
 } from 'ts-morph';
 import { bindingHasOnlyUses } from '../binding-stability.ts';
@@ -10,6 +10,7 @@ import { expressionWithWrappers, unwrapExpression } from '../expression-unwrappi
 import { numericLiteralValue } from '../evaluation/primitive-value.ts';
 
 type NamespaceObservation = {
+    readonly references: (name: Identifier, declaration: VariableDeclaration) => readonly Identifier[];
     readonly recordProperty: (key: string) => void;
     readonly enterBinding: (declaration: VariableDeclaration) => boolean;
     readonly observe: (value: Expression) => boolean;
@@ -20,7 +21,7 @@ function recordProperty(property: Expression, key: string, observation: Namespac
     const parent = expression.getParent();
     if (
         TypeScriptMorphNode.isCallExpression(parent) && parent.getExpression() === expression ||
-        TypeScriptMorphNode.isTaggedTemplateExpression(parent) && parent.getTag() === expression
+        TypeScriptMorphNode.isTaggedTemplateExpression(parent)
     ) {
         return false;
     }
@@ -37,11 +38,7 @@ function observeBinding(declaration: VariableDeclaration, observation: Namespace
     if (statement === undefined || statement.isExported() || !TypeScriptMorphNode.isIdentifier(name)) {
         return false;
     }
-    const references = declaration.getSourceFile().getDescendantsOfKind(SyntaxKind.Identifier).filter(
-        function (reference) {
-            return reference !== name && reference.getSymbol()?.getDeclarations().includes(declaration) === true;
-        }
-    );
+    const references = observation.references(name, declaration);
     return references.every(function (reference) {
         return observation.observe(reference);
     }) && bindingHasOnlyUses(name, declaration, new Set(references));
@@ -88,11 +85,14 @@ type NamespaceReadObservation = {
     readonly observe: (value: Expression) => boolean;
 };
 
-export function createNamespaceReadObservation(): NamespaceReadObservation {
+export function createNamespaceReadObservation(
+    references: NamespaceObservation['references']
+): NamespaceReadObservation {
     let complete = true;
     const properties = new Set<string>();
     const visited = new Set<VariableDeclaration>();
     const observation: NamespaceObservation = {
+        references,
         recordProperty(key) {
             properties.add(key);
         },

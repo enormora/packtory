@@ -7,10 +7,32 @@ import {
     referenceAliasName,
     referenceDeclaresBinding,
     referenceMayUseBinding,
-    referenceTarget
+    referenceTarget,
+    createBindingReferenceResolver
 } from './reference-target.ts';
 
 suite('reference targets', function () {
+    for (const populated of [ true, false ]) {
+        test(`caches and deduplicates binding references when populated is ${populated}`, function () {
+            const source = createProject().createSourceFile('input.ts', 'const value=1;const observed=value;');
+            const name = source.getVariableDeclarationOrThrow('value').getNameNode().asKindOrThrow(
+                SyntaxKind.Identifier
+            );
+            const read = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow();
+            let reads = 0;
+            const references = createBindingReferenceResolver(function (binding) {
+                assert.strictEqual(binding, name);
+                reads += 1;
+                assert.strictEqual(reads, 1);
+                return populated ? [ name, name, read, read, undefined ] : [];
+            });
+            const result = references(name);
+            assert.deepStrictEqual(result, populated ? [ read, undefined ] : []);
+            assert.strictEqual(references(name), result);
+            assert.strictEqual(reads, 1);
+        });
+    }
+
     suite('binding identities', function () {
         test('keeps non-identifier export references conservative even when they resolve to another binding', function () {
             const source = createProject().createSourceFile(
@@ -26,6 +48,12 @@ suite('reference targets', function () {
             const source = createProject().createSourceFile('input.ts', 'export default function (): Result {}');
             const read = source.getFirstDescendantByKindOrThrow(SyntaxKind.Identifier);
             assert.strictEqual(referenceDeclaresBinding(read), false);
+        });
+
+        test('keeps anonymous default export keywords outside binding names', function () {
+            const source = createProject().createSourceFile('input.ts', 'export default function(){}');
+            const keyword = source.getFirstDescendantByKindOrThrow(SyntaxKind.DefaultKeyword);
+            assert.strictEqual(referenceDeclaresBinding(keyword), false);
         });
 
         test('does not treat uninitialized names as alias reads', function () {

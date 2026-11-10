@@ -3,10 +3,38 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { constantDominatesRead, constantValueFor } from './constant-binding.ts';
+import { constantDominatesRead, constantValueFor, evaluateConstantBindings } from './constant-binding.ts';
 import { evaluated } from './primitive-value.ts';
 
 suite('constant-binding', function () {
+    test('does not prove a parser placeholder at the end of an incomplete declaration', function () {
+        const source = createProject().createSourceFile('incomplete.ts', 'const value=;');
+        const declaration = source.getVariableDeclarationOrThrow('value');
+        assert.strictEqual(constantDominatesRead(declaration, declaration.getInitializerOrThrow()), false);
+    });
+
+    test('evaluates only constant initializers and yields only known values', function () {
+        const source = createProject().createSourceFile(
+            'constants.ts',
+            [
+                'const known=1;',
+                'const unknown=consume();',
+                'const missing;',
+                'const {nested}={nested:2};',
+                'let mutable=3;',
+                'declare const ambient:number;'
+            ]
+                .join('')
+        );
+        const evaluatedInitializers: string[] = [];
+        const bindings = Array.from(evaluateConstantBindings(source.getVariableDeclarations(), function (expression) {
+            evaluatedInitializers.push(expression.getText());
+            return expression.getText() === '1' ? evaluated(1) : undefined;
+        }));
+        assert.deepStrictEqual(evaluatedInitializers, [ '1', 'consume()' ]);
+        assert.deepStrictEqual(bindings, [ [ source.getVariableDeclarationOrThrow('known'), evaluated(1) ] ]);
+    });
+
     test('does not treat a declaration name or initializer as a subsequent read', function () {
         const source = createProject({ withFiles: [ { filePath: 'index.ts', content: 'const value = value;' } ] })
             .getSourceFileOrThrow('index.ts');

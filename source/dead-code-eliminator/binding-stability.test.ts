@@ -10,6 +10,42 @@ import {
 } from './binding-stability.ts';
 
 suite('binding stability', function () {
+    suite('declaration proofs', function () {
+        test('rejects property names as local identifier bindings', function () {
+            const source = createProject().createSourceFile('input.ts', 'const object={"read":1};');
+            const property = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAssignment);
+            assert.strictEqual(bindingHasOnlyUses(property.getNameNode(), property, new Set()), false);
+        });
+
+        test('rejects merged local declarations even when their references are allowed', function () {
+            const source = createProject().createSourceFile('input.ts', 'var value=1;var value=2;');
+            const declaration = source.getVariableDeclarations()[0];
+            assertDefined(declaration);
+            const name = declaration.getNameNode();
+            assert.strictEqual(bindingHasOnlyUses(name, declaration, new Set(source.getDescendants())), false);
+        });
+
+        for (
+            const content of [
+                'const object={read(){return 1;},read(){return 2;}};object.read();',
+                'type Api={ [K in "read"]:()=>number };const object={} as Api;object.read();'
+            ]
+        ) {
+            test(`rejects member calls without a unique source declaration: ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                const name = source
+                    .getVariableDeclarationOrThrow('object')
+                    .getNameNode()
+                    .asKindOrThrow(SyntaxKind.Identifier);
+                assert.strictEqual(
+                    bindingShapeIsStable(name, function () {
+                        return false;
+                    }),
+                    false
+                );
+            });
+        }
+    });
     for (
         const [ name, content, expected ] of [
             [ 'cyclic aliases without escape', 'const object=alias;const alias=object;', true ],

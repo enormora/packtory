@@ -17,6 +17,35 @@ export function referenceTarget(reference: ReferenceEntry): TypeScriptMorphNodeT
         source.getDescendantAtPos(span.getStart()) ?? source;
 }
 
+export function localBindingReferences(name: Identifier, declaration: VariableDeclaration): readonly Identifier[] {
+    return declaration.getSourceFile().getDescendantsOfKind(SyntaxKind.Identifier).filter(function (reference) {
+        return reference !== name && reference.getSymbol()?.getDeclarations().includes(declaration) === true;
+    });
+}
+
+export function bindingReferenceTargets(name: Identifier): readonly TypeScriptMorphNodeType[] {
+    return name.findReferences().flatMap(function (group) {
+        return group.getReferences().map(referenceTarget);
+    });
+}
+
+type BindingReferenceResolver = (name: Identifier) => readonly (TypeScriptMorphNodeType | undefined)[];
+
+export function createBindingReferenceResolver(readReferences: BindingReferenceResolver): BindingReferenceResolver {
+    const cached = new WeakMap<Identifier, readonly (TypeScriptMorphNodeType | undefined)[]>();
+    return function (name) {
+        const existing = cached.get(name);
+        if (existing !== undefined) {
+            return existing;
+        }
+        const unique = new Set(readReferences(name));
+        unique.delete(name);
+        const references = Array.from(unique);
+        cached.set(name, references);
+        return references;
+    };
+}
+
 function valueSymbolAt(reference: Identifier): TypeScriptMorphSymbol | undefined {
     const parent = reference.getParent();
     if (TypeScriptMorphNode.isShorthandPropertyAssignment(parent)) {

@@ -7,6 +7,7 @@ import {
     type VariableDeclaration,
     type VariableStatement
 } from 'ts-morph';
+import { isIncludedIn } from 'remeda';
 import { declarationOf } from './evaluation-context.ts';
 import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 
@@ -18,6 +19,27 @@ export function constantStatement(declaration: VariableDeclaration): VariableSta
     return statement?.getDeclarationKind() === VariableDeclarationKind.Const && !statement.isAmbient()
         ? statement
         : undefined;
+}
+
+export function constantInitializer(declaration: VariableDeclaration): Expression | undefined {
+    const name = declaration.getNameNode();
+    if (!TypeScriptMorphNode.isIdentifier(name)) {
+        return undefined;
+    }
+    return constantStatement(declaration) === undefined ? undefined : declaration.getInitializer();
+}
+
+export function* evaluateConstantBindings(
+    declarations: readonly VariableDeclaration[],
+    evaluate: (expression: Expression) => EvaluatedValue | undefined
+): Generator<readonly [VariableDeclaration, EvaluatedValue]> {
+    for (const declaration of declarations) {
+        const initializer = constantInitializer(declaration);
+        const value = initializer === undefined ? undefined : evaluate(initializer);
+        if (value !== undefined) {
+            yield [ declaration, value ];
+        }
+    }
 }
 
 function sameActivation(declaration: VariableDeclaration, read: Expression): boolean {
@@ -34,8 +56,8 @@ function constantDeclarationScope(declaration: VariableDeclaration): TypeScriptM
 export function constantDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
     const scope = constantDeclarationScope(declaration);
     const ancestors = read.getAncestors();
-    return scope !== undefined && sameActivation(declaration, read) &&
-        read.getStart() > declaration.getStart() && !ancestors.includes(declaration) && ancestors.includes(scope);
+    return sameActivation(declaration, read) && read.getStart() > declaration.getEnd() &&
+        isIncludedIn(scope, ancestors);
 }
 
 function intrinsicUndefined(read: Identifier): boolean {

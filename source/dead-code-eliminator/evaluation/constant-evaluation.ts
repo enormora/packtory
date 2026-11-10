@@ -1,12 +1,10 @@
 import {
-    Node as TypeScriptMorphNode,
     SyntaxKind,
     type Expression,
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import { constantStatement } from './constant-binding.ts';
-import { declarationOf } from './evaluation-context.ts';
+import { evaluateConstantBindings } from './constant-binding.ts';
 import { createBoundedEvaluator } from './local-call.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult } from './abstract-value.ts';
@@ -17,15 +15,15 @@ export type SourceEvaluation = {
     readonly canDiscard: (expression: Expression) => boolean;
 };
 
-function declarationValue(declaration: VariableDeclaration, evaluate: PrimitiveEvaluator): EvaluatedValue | undefined {
-    const name = declaration.getNameNode();
-    if (!TypeScriptMorphNode.isIdentifier(name) || declarationOf(name) !== declaration) {
-        return undefined;
-    }
-    const initializer = declaration.getInitializer();
-    return initializer === undefined || constantStatement(declaration) === undefined
-        ? undefined
-        : evaluate(initializer);
+export function createSourceEvaluations(
+    evaluateSource: (source: SourceFile) => SourceEvaluation
+): (source: SourceFile) => SourceEvaluation {
+    const evaluations = new WeakMap<SourceFile, SourceEvaluation>();
+    return function (source) {
+        const evaluation = evaluations.get(source) ?? evaluateSource(source);
+        evaluations.set(source, evaluation);
+        return evaluation;
+    };
 }
 
 export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
@@ -34,11 +32,9 @@ export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation
     const primitiveValue: PrimitiveEvaluator = function (expression) {
         return primitiveResult(evaluate(expression));
     };
-    for (const declaration of sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
-        const value = declarationValue(declaration, primitiveValue);
-        if (value !== undefined) {
-            values.set(declaration, value);
-        }
+    const declarations = sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration);
+    for (const [ declaration, value ] of evaluateConstantBindings(declarations, primitiveValue)) {
+        values.set(declaration, value);
     }
     return {
         primitiveValue,

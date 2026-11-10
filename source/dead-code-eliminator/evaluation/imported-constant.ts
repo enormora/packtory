@@ -8,7 +8,7 @@ import {
 } from 'ts-morph';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { resolveImportedExpressionPropertyPath } from '../imported-expression-origin.ts';
-import { constantStatement } from './constant-binding.ts';
+import { constantInitializer, constantStatement } from './constant-binding.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
@@ -46,7 +46,7 @@ export function constantBinding(declaration: TypeScriptMorphNodeType): ConstantB
     if (binding === undefined) {
         return undefined;
     }
-    const expression = binding.getInitializer();
+    const expression = constantInitializer(binding);
     return expression === undefined ? undefined : { declaration: binding, expression };
 }
 
