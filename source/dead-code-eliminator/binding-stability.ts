@@ -3,14 +3,13 @@ import {
     SyntaxKind,
     type Expression,
     type Identifier,
-    type Symbol as TypeScriptMorphSymbol,
     type ReferenceEntry,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { hasDynamicScope } from './dynamic-scope.ts';
 import { builderCallIsPure, type BuilderFunction } from './liveness/builder-return.ts';
-import { referenceTarget } from './reference-target.ts';
+import { referenceMayUseBinding, referenceTarget } from './reference-target.ts';
 
 type ReferenceObserver = (reference: TypeScriptMorphNodeType) => boolean;
 type RuntimeCallProof = (expression: Expression) => boolean;
@@ -58,26 +57,6 @@ function bindingReferencesOnlyObserveValue(name: Identifier, observe: ReferenceO
     });
 }
 
-function valueSymbolAt(reference: Identifier): TypeScriptMorphSymbol | undefined {
-    const parent = reference.getParent();
-    if (TypeScriptMorphNode.isShorthandPropertyAssignment(parent)) {
-        return parent.getValueSymbol();
-    }
-    return TypeScriptMorphNode.isExportSpecifier(parent) ? parent.getLocalTargetSymbol() : reference.getSymbol();
-}
-
-function referenceUsesBinding(reference: TypeScriptMorphNodeType, declaration: TypeScriptMorphNodeType): boolean {
-    if (!TypeScriptMorphNode.isIdentifier(reference)) {
-        return true;
-    }
-    const symbol = valueSymbolAt(reference);
-    if (symbol === undefined) {
-        return true;
-    }
-    const aliases = symbol.getAliasedSymbol()?.getDeclarations() ?? [];
-    return symbol.getDeclarations().includes(declaration) || aliases.includes(declaration);
-}
-
 export function bindingHasOnlyUses(
     name: TypeScriptMorphNodeType,
     declaration: TypeScriptMorphNodeType,
@@ -89,7 +68,7 @@ export function bindingHasOnlyUses(
     const declarations = name.getSymbol()?.getDeclarations() ?? [];
     return declarations.length === 1 && declarations[0] === declaration &&
         bindingReferencesOnlyObserveValue(name, function (reference) {
-            return reference === name || allowed.has(reference) || !referenceUsesBinding(reference, declaration);
+            return reference === name || allowed.has(reference) || !referenceMayUseBinding(reference, declaration);
         });
 }
 
