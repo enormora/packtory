@@ -19,6 +19,16 @@ function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
 const entry = 'import * as ns from "./library.js";export function probe(){return ns.used();}';
 
 suite('namespace receiver analysis', function () {
+    test('requires an implementation body for a declared function', function () {
+        assert.strictEqual(
+            ignoresReceiver({
+                'index.js': entry,
+                'library.js': 'export declare function used():number;'
+            }),
+            false
+        );
+    });
+
     for (const stable of [ true, false ]) {
         test(`reuses the binding proof when stability is ${stable}`, function () {
             const fixture = createExportModuleFixture({

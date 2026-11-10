@@ -38,9 +38,9 @@ function receiverIsUnused(binding: BindingDescriptor, bindingIsStable: BindingSt
         return false;
     }
     const name = TypeScriptMorphNode.isFunctionDeclaration(target)
-        ? target.getNameNode()
+        ? target.getNameNodeOrThrow()
         : declaration.getFirstChildByKindOrThrow(SyntaxKind.Identifier);
-    return name !== undefined && bindingIsStable(name) && target.getBody() !== undefined &&
+    return bindingIsStable(name) && target.getBody() !== undefined &&
         target.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
 }
 
