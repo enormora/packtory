@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { firstStatement, withSource } from '../../test-libraries/transform-test-support.ts';
-import { processStatement, type RemovalPlan } from './declaration-removal.ts';
+import { processStatement, repairImportDeclarations, type RemovalPlan } from './declaration-removal.ts';
 
 function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
     return {
@@ -16,6 +16,57 @@ function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
 }
 
 suite('declaration-removal', function () {
+    suite('change reporting', function () {
+        test('reports no change when every declarator survives', function () {
+            const source = withSource('const first=1,second=2;');
+            assert.strictEqual(
+                processStatement(firstStatement(source), removalPlan(new Set([ 'first', 'second' ]))),
+                false
+            );
+            assert.strictEqual(source.getFullText(), 'const first=1,second=2;');
+        });
+        for (const content of [ 'export {};', 'const value=1;' ]) {
+            test(`reports import repair changes accurately for ${content}`, function () {
+                const source = withSource(content);
+                assert.strictEqual(
+                    repairImportDeclarations(source, removalPlan(new Set()), true),
+                    content === 'const value=1;'
+                );
+                assert.strictEqual(repairImportDeclarations(source, removalPlan(new Set()), true), false);
+            });
+        }
+
+        test('records every removed declarator', function () {
+            const source = withSource('const first=1,second=2;');
+            const removed: unknown[] = [];
+            const plan = {
+                ...removalPlan(new Set()),
+                trace: {
+                    collector: {
+                        record(event: unknown) {
+                            removed.push(event);
+                        }
+                    }
+                }
+            };
+            assert.strictEqual(processStatement(firstStatement(source), plan), true);
+            assert.deepStrictEqual(removed, [
+                {
+                    type: 'binding-removed',
+                    bundleName: 'package',
+                    bindingIdentifier: 'index.ts::first',
+                    inputFilePath: 'index.ts'
+                },
+                {
+                    type: 'binding-removed',
+                    bundleName: 'package',
+                    bindingIdentifier: 'index.ts::second',
+                    inputFilePath: 'index.ts'
+                }
+            ]);
+        });
+    });
+
     test('processStatement removes a named declaration when its name is not in the surviving set', function () {
         const sourceFile = withSource('function keep() {}\nfunction drop() {}');
 
