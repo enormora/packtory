@@ -10,7 +10,7 @@ import {
     type VariableStatement
 } from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
-import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import { applySourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { createUnusedValueResolver, type UnusedValueResolver } from '../evaluation/unused-value-effects.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
@@ -139,9 +139,7 @@ export function removeUnusedValues(preparation: SourcePreparation, isPure: Expre
     if (hasDynamicScope(sourceFile)) {
         return;
     }
-    let edits = unusedValueEdits(sourceFile, isPure);
-    while (edits.length > 0) {
-        preparation.applyEdits(edits);
-        edits = unusedValueEdits(sourceFile, isPure);
-    }
+    applySourcePreparation(preparation, function (source) {
+        return unusedValueEdits(source, isPure);
+    });
 }

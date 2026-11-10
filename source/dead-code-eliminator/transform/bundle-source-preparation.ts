@@ -1,4 +1,4 @@
-import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import { preparationPasses, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import type { PreparedModule } from '../exports/prepared-module-graph.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
@@ -12,8 +12,7 @@ export function prepareBundleSources(
     resolveModule: RuntimeModuleResolver,
     isPure: ExpressionPurityChecker
 ): void {
-    let changed = true;
-    while (changed) {
+    for (const pass of preparationPasses(preparations)) {
         const previous = modules.map(function (file) {
             return file.sourceFile.getFullText();
         });
@@ -21,11 +20,14 @@ export function prepareBundleSources(
             createModuleConstantSnapshot(modules, resolveModule),
             resolveModule
         );
-        for (const preparation of preparations) {
+        for (const preparation of pass) {
             prepareResolvedRuntimeSource(preparation, evaluateImport, isPure);
         }
-        changed = modules.some(function (file, index) {
+        const changed = modules.some(function (file, index) {
             return file.sourceFile.getFullText() !== previous[index];
         });
+        if (!changed) {
+            return;
+        }
     }
 }

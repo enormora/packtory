@@ -1,4 +1,4 @@
-import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import { preparationPasses, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import type { PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
@@ -9,23 +9,19 @@ import { specializeImportedValues } from './imported-value-specialization.ts';
 import { reduceObjectBindings } from './object-binding-reduction.ts';
 import { removeUnusedValues } from './unused-values.ts';
 
-const maximumPreparationPasses = 32;
-
 export function prepareInitialRuntimeSource(preparation: SourcePreparation): void {
-    const { sourceFile } = preparation;
-    if (hasDynamicScope(sourceFile)) {
+    if (hasDynamicScope(preparation.sourceFile)) {
         return;
     }
     let previous = '';
-    for (
-        let remaining = maximumPreparationPasses;
-        remaining > 0 && sourceFile.getFullText() !== previous;
-        remaining -= 1
-    ) {
-        previous = sourceFile.getFullText();
-        reduceOptionalChains(preparation);
-        simplifyConstantControlFlow(preparation);
-        specializeExpressions(preparation);
+    for (const pass of preparationPasses(preparation)) {
+        if (preparation.sourceFile.getFullText() === previous) {
+            return;
+        }
+        previous = preparation.sourceFile.getFullText();
+        reduceOptionalChains(pass);
+        simplifyConstantControlFlow(pass);
+        specializeExpressions(pass);
     }
 }
 

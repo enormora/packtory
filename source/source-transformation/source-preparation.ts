@@ -2,6 +2,14 @@ import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
 import { buildLineIndex, offsetToLineColumn } from './line-index.ts';
 import { applySourceTextEdits, type PositionAtom, type SourceTextEdit, type TextTransformMap } from './text-edits.ts';
 
+const maximumPreparationPasses = 32;
+
+export function preparationPasses<Preparation>(preparation: Preparation): readonly Preparation[] {
+    return Array.from({ length: maximumPreparationPasses }, function () {
+        return preparation;
+    });
+}
+
 type SourceRange = { readonly start: number; readonly end: number; };
 export type SourceLineResolver = (node: TypeScriptMorphNode) => number;
 
@@ -11,6 +19,19 @@ export type SourcePreparation = {
     readonly applyEdits: (edits: readonly SourceTextEdit[]) => void;
     readonly originalLineFor: SourceLineResolver;
 };
+
+export function applySourcePreparation(
+    preparation: SourcePreparation,
+    editsFor: (source: SourceFile) => readonly SourceTextEdit[]
+): void {
+    for (const pass of preparationPasses(preparation)) {
+        const edits = editsFor(pass.sourceFile);
+        if (edits.length === 0) {
+            return;
+        }
+        pass.applyEdits(edits);
+    }
+}
 
 function retainedRange(range: SourceRange, atom: PositionAtom): SourceRange | undefined {
     const start = Math.max(range.start, atom.newStart);

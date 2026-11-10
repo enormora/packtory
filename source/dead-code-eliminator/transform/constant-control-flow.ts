@@ -12,7 +12,7 @@ import {
     type Statement
 } from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
-import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import { applySourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { createSourceEvaluation } from '../evaluation/constant-evaluation.ts';
 import { shortCircuitValue, type EvaluatedValue } from '../evaluation/primitive-value.ts';
@@ -147,9 +147,5 @@ export function simplifyConstantControlFlow(preparation: SourcePreparation): voi
     if (hasDynamicScope(sourceFile)) {
         return;
     }
-    let edits = controlFlowEdits(sourceFile);
-    while (edits.length > 0) {
-        preparation.applyEdits(edits);
-        edits = controlFlowEdits(sourceFile);
-    }
+    applySourcePreparation(preparation, controlFlowEdits);
 }

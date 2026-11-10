@@ -5,8 +5,41 @@ import { createSourcePreparation } from '../../source-transformation/source-prep
 import { simplifyConstantControlFlow } from './constant-control-flow.ts';
 
 suite('constant control flow', function () {
+    suite('preparation limits', function () {
+        test('does not apply empty edits', function () {
+            const content = 'export const result=1;';
+            const preparation = createSourcePreparation(createProject().createSourceFile('input.js', content));
+            simplifyConstantControlFlow({
+                ...preparation,
+                applyEdits() {
+                    assert.fail('stable control flow must not apply empty edits');
+                }
+            });
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+        });
+
+        test('retains remaining computation after 32 changing passes', function () {
+            const content = 'export const result=1||2;';
+            const preparation = createSourcePreparation(createProject().createSourceFile('input.js', content));
+            let passes = 0;
+            simplifyConstantControlFlow({
+                ...preparation,
+                applyEdits(edits) {
+                    passes += 1;
+                    assert.ok(passes <= 32);
+                    preparation.applyEdits(edits);
+                    preparation.applyEdits([ { start: 0, end: preparation.sourceFile.getFullText().length, content } ]);
+                }
+            });
+            assert.strictEqual(passes, 32);
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+        });
+    });
+
     for (
         const [ content, expected ] of [
+            [ 'export const result=1+2;', 'export const result=1+2;' ],
+            [ 'export const result=unknown||2;', 'export const result=unknown||2;' ],
             [ 'export const result=true?1:2;', 'export const result=(1);' ],
             [ 'export const result=false?1:2;', 'export const result=(2);' ],
             [ 'export const result=true?1+1:3;', 'export const result=(2);' ],
