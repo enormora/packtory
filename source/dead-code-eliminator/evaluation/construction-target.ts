@@ -29,9 +29,12 @@ function classBindingIsPrivate(declaration: ClassDeclaration): boolean {
 
 function classDeclarationDominatesRead(declaration: ClassDeclaration, read: Identifier): boolean {
     const activation = declaration.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
+    const scope = declaration.getParentOrThrow();
+    const statement = read.getAncestors().find(function (ancestor) {
+        return ancestor.getParent() === scope;
+    });
     return activation === read.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration) &&
-        declaration.getSourceFile() === read.getSourceFile() && read.getStart() > declaration.getEnd() &&
-        read.getAncestors().includes(declaration.getParent());
+        statement !== undefined && declaration.getChildIndex() < statement.getChildIndex();
 }
 
 function declaredClassTarget(declaration: ClassDeclaration, read: Identifier): ClassDeclaration | undefined {
@@ -41,8 +44,7 @@ function declaredClassTarget(declaration: ClassDeclaration, read: Identifier): C
     ) {
         return undefined;
     }
-    const name = declaration.getNameNode();
-    return name !== undefined && bindingValueIsStable(name) ? declaration : undefined;
+    return bindingValueIsStable(declaration.getNameNodeOrThrow()) ? declaration : undefined;
 }
 
 function constructorStep(expression: Expression): ConstructionClass | Expression | undefined {
