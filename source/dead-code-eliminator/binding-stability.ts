@@ -1,6 +1,5 @@
 import {
     Node as TypeScriptMorphNode,
-    SyntaxKind,
     type Expression,
     type Identifier,
     type ReferenceEntry,
@@ -9,21 +8,15 @@ import {
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { hasDynamicScope } from './dynamic-scope.ts';
 import { builderCallIsPure, type BuilderFunction } from './liveness/builder-return.ts';
-import { referenceMayUseBinding, referenceTarget } from './reference-target.ts';
+import {
+    referenceAliasName,
+    referenceDeclaresBinding,
+    referenceMayUseBinding,
+    referenceTarget
+} from './reference-target.ts';
 
 type ReferenceObserver = (reference: TypeScriptMorphNodeType) => boolean;
 type RuntimeCallProof = (expression: Expression) => boolean;
-
-function isBindingDeclaration(node: TypeScriptMorphNodeType | undefined): boolean {
-    return TypeScriptMorphNode.isVariableDeclaration(node) || TypeScriptMorphNode.isFunctionDeclaration(node) ||
-        TypeScriptMorphNode.isNamespaceImport(node);
-}
-
-function referenceDeclaresBinding(reference: TypeScriptMorphNodeType): boolean {
-    const parent = reference.getParent();
-    return isBindingDeclaration(parent) &&
-        parent?.getFirstChildByKind(SyntaxKind.Identifier)?.getStart() === reference.getStart();
-}
 
 function referenceIsModuleBinding(reference: TypeScriptMorphNodeType): boolean {
     const parent = reference.getParent();
@@ -36,25 +29,29 @@ function referencePreservesBinding(reference: ReferenceEntry, name: Identifier):
         return true;
     }
     const node = referenceTarget(reference);
-    return node !== undefined &&
-        (node === name || referenceDeclaresBinding(node) || referenceIsModuleBinding(node));
+    return node === name || referenceDeclaresBinding(node) || referenceIsModuleBinding(node);
 }
 
 export function bindingValueIsStable(name: Identifier): boolean {
-    return !hasDynamicScope(name.getSourceFile()) && name.findReferences().every(function (group) {
-        return group.getReferences().every(function (reference) {
+    return !hasDynamicScope(name.getSourceFile()) && name
+        .findReferences()
+        .flatMap(function (group) {
+            return group.getReferences();
+        })
+        .every(function (reference) {
             return referencePreservesBinding(reference, name);
         });
-    });
 }
 
 function bindingReferencesOnlyObserveValue(name: Identifier, observe: ReferenceObserver): boolean {
-    return name.findReferences().every(function (group) {
-        return group.getReferences().every(function (reference) {
-            const target = referenceTarget(reference);
-            return target !== undefined && observe(target);
+    return name
+        .findReferences()
+        .flatMap(function (group) {
+            return group.getReferences();
+        })
+        .every(function (reference) {
+            return observe(referenceTarget(reference));
         });
-    });
 }
 
 export function bindingHasOnlyUses(
@@ -65,8 +62,12 @@ export function bindingHasOnlyUses(
     if (!TypeScriptMorphNode.isIdentifier(name)) {
         return false;
     }
-    const declarations = name.getSymbol()?.getDeclarations() ?? [];
-    return declarations.length === 1 && declarations[0] === declaration &&
+    const symbol = name.getSymbol();
+    if (symbol === undefined) {
+        return false;
+    }
+    const [ first, additional ] = symbol.getDeclarations();
+    return first === declaration && additional === undefined &&
         bindingReferencesOnlyObserveValue(name, function (reference) {
             return reference === name || allowed.has(reference) || !referenceMayUseBinding(reference, declaration);
         });
@@ -98,20 +99,17 @@ function calledMemberIsPure(reference: TypeScriptMorphNodeType, proveRuntimeCall
     if (!TypeScriptMorphNode.isPropertyAccessExpression(reference) || proveRuntimeCall(reference)) {
         return true;
     }
-    const declarations = reference.getSymbol()?.getDeclarations() ?? [];
-    return declarations.length === 1 && declarations.every(sourceMemberCallIsPure);
+    const symbol = reference.getSymbol();
+    if (symbol === undefined) {
+        return false;
+    }
+    const [ declaration, additional ] = symbol.getDeclarations();
+    return declaration !== undefined && additional === undefined && sourceMemberCallIsPure(declaration);
 }
 
 function referenceCreatesAlias(reference: TypeScriptMorphNodeType, observe: ReferenceObserver): boolean {
-    const parent = reference.getParent();
-    if (
-        !TypeScriptMorphNode.isVariableDeclaration(parent) ||
-        parent.getInitializer()?.getStart() !== reference.getStart()
-    ) {
-        return false;
-    }
-    const name = parent.getNameNode();
-    return TypeScriptMorphNode.isIdentifier(name) && bindingReferencesOnlyObserveValue(name, observe);
+    const name = referenceAliasName(reference);
+    return name !== undefined && bindingReferencesOnlyObserveValue(name, observe);
 }
 
 function referenceContinuesObservation(reference: TypeScriptMorphNodeType, observe: ReferenceObserver): boolean {

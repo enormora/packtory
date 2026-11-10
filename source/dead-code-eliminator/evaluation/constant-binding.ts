@@ -13,8 +13,8 @@ import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 export type KnownConstants = ReadonlyMap<VariableDeclaration, EvaluatedValue>;
 
 export function constantStatement(declaration: VariableDeclaration): VariableStatement | undefined {
-    const list = declaration.getParentIfKind(SyntaxKind.VariableDeclarationList);
-    const statement = list?.getParentIfKind(SyntaxKind.VariableStatement);
+    const list = declaration.getParentIfKindOrThrow(SyntaxKind.VariableDeclarationList);
+    const statement = list.getParentIfKind(SyntaxKind.VariableStatement);
     return statement?.getDeclarationKind() === VariableDeclarationKind.Const && !statement.isAmbient()
         ? statement
         : undefined;
@@ -23,17 +23,19 @@ export function constantStatement(declaration: VariableDeclaration): VariableSta
 function sameActivation(declaration: VariableDeclaration, read: Expression): boolean {
     const declarationScope = declaration.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     const readScope = read.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
-    return declaration.getSourceFile() === read.getSourceFile() &&
-        declarationScope === readScope;
+    return declarationScope === readScope;
+}
+
+function constantDeclarationScope(declaration: VariableDeclaration): TypeScriptMorphNode | undefined {
+    const scope = constantStatement(declaration)?.getParent();
+    return TypeScriptMorphNode.isSourceFile(scope) || TypeScriptMorphNode.isBlock(scope) ? scope : undefined;
 }
 
 export function constantDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
-    const scope = constantStatement(declaration)?.getParent();
-    if (!TypeScriptMorphNode.isSourceFile(scope) && !TypeScriptMorphNode.isBlock(scope)) {
-        return false;
-    }
-    return sameActivation(declaration, read) && read.getStart() > declaration.getEnd() &&
-        read.getAncestors().includes(scope);
+    const scope = constantDeclarationScope(declaration);
+    const ancestors = read.getAncestors();
+    return scope !== undefined && sameActivation(declaration, read) &&
+        read.getStart() > declaration.getStart() && !ancestors.includes(declaration) && ancestors.includes(scope);
 }
 
 function intrinsicUndefined(read: Identifier): boolean {
@@ -60,13 +62,9 @@ export function constantValueFor(
     if (intrinsicUndefined(read)) {
         return evaluated(undefined);
     }
-    if (values.size === 0) {
+    const declaration = declarationOf(read)?.asKind(SyntaxKind.VariableDeclaration);
+    if (declaration === undefined) {
         return undefined;
     }
-    const declaration = declarationOf(read);
-    if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
-        return undefined;
-    }
-    const value = values.get(declaration);
-    return value !== undefined && constantIsAvailable(declaration, read, evaluationRoot) ? value : undefined;
+    return constantIsAvailable(declaration, read, evaluationRoot) ? values.get(declaration) : undefined;
 }

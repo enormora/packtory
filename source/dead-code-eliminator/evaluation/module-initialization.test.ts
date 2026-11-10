@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
-import { moduleInitializesBinding } from './module-initialization.ts';
+import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 
 type InitializationCase = {
     readonly name: string;
@@ -13,6 +13,31 @@ type InitializationCase = {
 };
 
 const cases: readonly InitializationCase[] = [
+    ...[
+        'import {value} from "./other.js";',
+        'import value from "./other.js";',
+        'import * as value from "./other.js";'
+    ]
+        .map(function (declaration) {
+            return {
+                name: `initialized import read ${declaration}`,
+                source: `${declaration}const before=value;export const resultType={};`,
+                modules: { 'other.js': 'export const value=42;export default 42;' },
+                expected: true
+            };
+        }),
+    {
+        name: 'selected declaration initializer',
+        source: 'export const resultType=unknown();',
+        modules: {},
+        expected: false
+    },
+    {
+        name: 'abrupt module prefix',
+        source: 'throw new Error("stop");export const resultType={};',
+        modules: {},
+        expected: false
+    },
     {
         name: 'literal',
         source: 'export const resultType={config:"key"};',
@@ -227,10 +252,48 @@ function initializationIsProven(content: string, modules: Readonly<Record<string
         ]
     });
     const declaration = project.getSourceFileOrThrow('/repo/index.js').getVariableDeclarationOrThrow('resultType');
-    return moduleInitializesBinding(declaration, resolveRuntimeModule);
+    let resolutions = 0;
+    return moduleInitializesBinding(declaration, function (specifier, source) {
+        resolutions += 1;
+        assert.ok(resolutions <= maximumEvaluationDepth);
+        return resolveRuntimeModule(specifier, source);
+    });
 }
 
 suite('module initialization proof', function () {
+    test('checks dependencies before executing the root module', function () {
+        const source = createProject().createSourceFile('/index.js', 'unknown();export const value=1;');
+        assert.strictEqual(moduleDependenciesInitialize(source, resolveRuntimeModule), true);
+        assert.strictEqual(
+            moduleInitializesBinding(source.getVariableDeclarationOrThrow('value'), resolveRuntimeModule),
+            false
+        );
+    });
+
+    test('initializes a shared dependency once across a diamond', function () {
+        const project = createProject({
+            withFiles: [
+                { filePath: '/repo/package.json', content: '{"type":"module"}' },
+                { filePath: '/repo/index.js', content: 'import "./a.js";import "./b.js";' },
+                { filePath: '/repo/a.js', content: 'import "./leaf.js";' },
+                { filePath: '/repo/b.js', content: 'import "./leaf.js";' },
+                { filePath: '/repo/leaf.js', content: 'import "./base.js";' },
+                { filePath: '/repo/base.js', content: 'export const value=1;' }
+            ]
+        });
+        let baseResolutions = 0;
+        assert.strictEqual(
+            moduleDependenciesInitialize(project.getSourceFileOrThrow('/repo/index.js'), function (specifier, source) {
+                if (specifier === './base.js') {
+                    baseResolutions += 1;
+                }
+                return resolveRuntimeModule(specifier, source);
+            }),
+            true
+        );
+        assert.strictEqual(baseResolutions, 1);
+    });
+
     for (const fixture of cases) {
         test(`checks ${fixture.name}`, function () {
             assert.strictEqual(initializationIsProven(fixture.source, fixture.modules), fixture.expected);

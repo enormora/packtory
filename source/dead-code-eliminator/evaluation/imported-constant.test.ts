@@ -5,7 +5,7 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { isPureExpression } from '../../test-libraries/expression-purity-test-support.ts';
 import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
-import { constantBindingExpression, evaluateImportedConstant } from './imported-constant.ts';
+import { constantBinding, evaluateImportedConstant } from './imported-constant.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
 type ConstantCase = readonly [
@@ -17,6 +17,22 @@ type ConstantCase = readonly [
 ];
 
 const cases: readonly ConstantCase[] = [
+    [ 'uninitialized constant', 'import {key} from "./library.js";', 'key', 'export const key;', undefined ],
+    [ 'export assignment', 'import key from "./library.js";', 'key', 'export = 42;', undefined ],
+    [
+        'root read before an unrelated dependency can initialize',
+        'import {key} from "./library.js";import "external";',
+        'key',
+        'export const key=42;',
+        { value: 42 }
+    ],
+    [
+        'named value alongside a default',
+        'import {key} from "./library.js";',
+        'key',
+        'export default 99;export const key=42;',
+        { value: 42 }
+    ],
     [
         'minimum positive number',
         'import {key} from "./library.js";',
@@ -155,6 +171,22 @@ suite('imported constant evaluation', function () {
     }
 
     suite('initialization', function () {
+        for (const expression of [ 'library', 'library.nested.value' ]) {
+            test(`does not resolve unsupported constant paths: ${expression}`, function () {
+                const source = createProject().createSourceFile(
+                    'input.ts',
+                    `import * as library from "library";const result=${expression};`
+                );
+                const read = source.getVariableDeclarationOrThrow('result').getInitializerOrThrow();
+                assert.strictEqual(
+                    evaluateImportedConstant(read, function () {
+                        return assert.fail('Unsupported paths must not resolve modules');
+                    }),
+                    undefined
+                );
+            });
+        }
+
         for (
             const [ content, kind, expected ] of [
                 [ 'export const value=42;', SyntaxKind.VariableDeclaration, '42' ],
@@ -167,7 +199,7 @@ suite('imported constant evaluation', function () {
             test(`finds supported initialization in ${content}`, function () {
                 const source = createProject().createSourceFile('input.ts', content);
                 const declaration = source.getFirstDescendantByKindOrThrow(kind);
-                assert.strictEqual(constantBindingExpression(declaration)?.getText(), expected);
+                assert.strictEqual(constantBinding(declaration)?.expression.getText(), expected);
             });
         }
 

@@ -1,4 +1,5 @@
-import { Node as TypeScriptMorphNode, VariableDeclarationKind, type Expression } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type Expression } from 'ts-morph';
+import { constantStatement } from './evaluation/constant-binding.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { declarationOf } from './evaluation/evaluation-context.ts';
 import {
@@ -15,16 +16,13 @@ type TargetOriginResolver = (
 ) => ImportedExpressionOrigin | undefined;
 
 function aliasInitializer(expression: Expression): Expression | undefined {
-    if (!TypeScriptMorphNode.isIdentifier(expression)) {
-        return undefined;
-    }
     const declaration = declarationOf(expression);
     if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return undefined;
     }
-    return declaration.getVariableStatement()?.getDeclarationKind() === VariableDeclarationKind.Const
-        ? declaration.getInitializer()
-        : undefined;
+    return constantStatement(declaration) === undefined
+        ? undefined
+        : declaration.getInitializer();
 }
 
 function inheritedTargetOrigin(

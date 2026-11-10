@@ -12,6 +12,9 @@ import {
 suite('binding stability', function () {
     for (
         const [ name, content, expected ] of [
+            [ 'cyclic aliases without escape', 'const object=alias;const alias=object;', true ],
+            [ 'destructured alias', 'const object={};const {value}=object;consume(value);', false ],
+            [ 'declaration name without initializer', 'let object;object={};', false ],
             [ 'arrow member', 'const object={read:()=>1};object.read();', true ],
             [ 'function member', 'const object={read:function(){return 1;}};object.read();', true ],
             [ 'non-callable member', 'const object={read:1};object.read();', false ],
@@ -106,9 +109,46 @@ suite('binding stability', function () {
         assert.strictEqual(bindingHasOnlyUses(name, specifier, new Set()), false);
     });
 
-    test('does not prove missing declarations', function () {
-        const source = createProject().createSourceFile('input.ts', 'const value=missing;');
-        const declaration = source.getVariableDeclarationOrThrow('value');
-        assert.strictEqual(bindingHasOnlyUses(declaration.getInitializerOrThrow(), declaration, new Set()), false);
+    suite('declaration boundaries', function () {
+        test('rejects binding patterns and unrelated declarations', function () {
+            const source = createProject().createSourceFile('input.ts', 'const [value]=[1];const other=2;');
+            const declaration = source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
+            const other = source.getVariableDeclarationOrThrow('other');
+            assert.strictEqual(bindingHasOnlyUses(declaration.getNameNode(), declaration, new Set()), false);
+            assert.strictEqual(bindingHasOnlyUses(other.getNameNode(), declaration, new Set()), false);
+        });
+
+        test('rejects names with merged declarations', function () {
+            const source = createProject().createSourceFile('input.ts', 'var value;var value;');
+            const declaration = source.getVariableDeclarations()[0];
+            assertDefined(declaration);
+            assert.strictEqual(bindingHasOnlyUses(declaration.getNameNode(), declaration, new Set()), false);
+        });
+
+        test('does not prove purity from a declaration-file body', function () {
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/source/types.d.ts', content: 'export function read() { return 1; }' },
+                    { filePath: '/source/index.ts', content: 'import * as object from "./types.js";object.read();' }
+                ]
+            });
+            const name = project
+                .getSourceFileOrThrow('/source/index.ts')
+                .getImportDeclarations()[0]
+                ?.getNamespaceImport();
+            assertDefined(name);
+            assert.strictEqual(
+                bindingShapeIsStable(name, function () {
+                    return false;
+                }),
+                false
+            );
+        });
+
+        test('does not prove missing declarations', function () {
+            const source = createProject().createSourceFile('input.ts', 'const value=missing;');
+            const declaration = source.getVariableDeclarationOrThrow('value');
+            assert.strictEqual(bindingHasOnlyUses(declaration.getInitializerOrThrow(), declaration, new Set()), false);
+        });
     });
 });

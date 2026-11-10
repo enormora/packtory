@@ -29,7 +29,7 @@ function variableInitializationIsSafe(
     return statement
         .getDeclarations()
         .filter(function (declaration) {
-            return declaration.getStart() < limit;
+            return declaration.getEnd() <= limit;
         })
         .every(function (declaration) {
             const initializer = declaration.getInitializer();
@@ -48,23 +48,31 @@ function statementInitializationIsSafe(statement: Statement, limit: number, prov
     return pureDeclarationKinds.has(statement.getKind()) || TypeScriptMorphNode.isImportDeclaration(statement);
 }
 
-function importedBindings(declaration: ImportDeclaration): readonly TypeScriptMorphNode[] {
+export function* runtimeImportBindings(declaration: ImportDeclaration): Iterable<TypeScriptMorphNode> {
     if (declaration.isTypeOnly()) {
-        return [];
+        return;
     }
-    const clause = declaration.getImportClause();
+    const defaultBinding = declaration.getDefaultImport();
+    if (defaultBinding !== undefined) {
+        yield defaultBinding.getParentOrThrow();
+    }
     const namespace = declaration.getNamespaceImport();
-    return [
-        ...clause?.getDefaultImport() === undefined ? [] : [ clause ],
-        ...namespace === undefined ? [] : [ namespace.getParentOrThrow() ],
-        ...declaration.getNamedImports().filter(function (named) {
-            return !named.isTypeOnly();
-        })
-    ];
+    if (namespace !== undefined) {
+        yield namespace.getParentOrThrow();
+    }
+    yield* declaration.getNamedImports().filter(function (named) {
+        return !named.isTypeOnly();
+    });
 }
 
 function initializedImports(source: SourceFile): ReadonlySet<TypeScriptMorphNode> {
-    return new Set(source.getImportDeclarations().flatMap(importedBindings));
+    const bindings = new Set<TypeScriptMorphNode>();
+    for (const declaration of source.getImportDeclarations()) {
+        for (const binding of runtimeImportBindings(declaration)) {
+            bindings.add(binding);
+        }
+    }
+    return bindings;
 }
 
 function initializationPrefixIsSafe(sourceFile: SourceFile, limit: number): boolean {
@@ -129,10 +137,11 @@ function initializationReaches(
             const dependency = resolveModule(specifier, sourceFile);
             return dependency !== undefined && visit(dependency, dependency.getEnd(), next);
         }) && initializationPrefixIsSafe(sourceFile, limit);
-        if (initialized) {
-            completed.add(sourceFile);
+        if (!initialized) {
+            return false;
         }
-        return initialized;
+        completed.add(sourceFile);
+        return true;
     }
     return visit(root, initializedThrough, new Set());
 }

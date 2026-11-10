@@ -3,9 +3,54 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { referenceMayUseBinding, referenceTarget } from './reference-target.ts';
+import {
+    referenceAliasName,
+    referenceDeclaresBinding,
+    referenceMayUseBinding,
+    referenceTarget
+} from './reference-target.ts';
 
 suite('reference targets', function () {
+    suite('binding identities', function () {
+        test('keeps non-identifier export references conservative even when they resolve to another binding', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'const binding={};const other={};export {other as "public value"};'
+            );
+            const declaration = source.getVariableDeclarationOrThrow('binding');
+            const reference = source.getFirstDescendantByKindOrThrow(SyntaxKind.StringLiteral);
+            assert.strictEqual(referenceMayUseBinding(reference, declaration), true);
+        });
+
+        test('does not treat unnamed function return types as declaration names', function () {
+            const source = createProject().createSourceFile('input.ts', 'export default function (): Result {}');
+            const read = source.getFirstDescendantByKindOrThrow(SyntaxKind.Identifier);
+            assert.strictEqual(referenceDeclaresBinding(read), false);
+        });
+
+        test('does not treat uninitialized names as alias reads', function () {
+            const source = createProject().createSourceFile('input.ts', 'let value;');
+            const name = source.getVariableDeclarationOrThrow('value').getNameNode();
+            assert.strictEqual(referenceAliasName(name), undefined);
+        });
+
+        test('does not treat a name with an initializer as an alias read', function () {
+            const source = createProject().createSourceFile('input.ts', 'const value = other;');
+            const declaration = source.getVariableDeclarationOrThrow('value');
+            assert.strictEqual(referenceAliasName(declaration.getNameNode()), undefined);
+            assert.strictEqual(referenceAliasName(declaration.getInitializerOrThrow()), declaration.getNameNode());
+        });
+    });
+
+    test('returns the source boundary for a reference whose text was removed', function () {
+        const source = createProject().createSourceFile('input.ts', 'const value = 1; value;');
+        const name = source.getVariableDeclarationOrThrow('value').getNameNode().asKindOrThrow(SyntaxKind.Identifier);
+        const reference = name.findReferences()[0]?.getReferences()[0];
+        assertDefined(reference);
+        source.replaceWithText('');
+        assert.strictEqual(referenceTarget(reference), source);
+    });
+
     test('resolves quoted export names whose reference spans omit the quotes', function () {
         const content = 'const value={};export {value as "public value"};';
         const source = createProject().createSourceFile('input.ts', content);
@@ -19,7 +64,7 @@ suite('reference targets', function () {
                 return entry.getTextSpan().getLength() === 'public value'.length;
             });
         assertDefined(reference);
-        assert.strictEqual(referenceTarget(reference)?.getText(), '"public value"');
+        assert.strictEqual(referenceTarget(reference).getText(), '"public value"');
     });
 
     for (
@@ -71,7 +116,7 @@ suite('reference targets', function () {
                 return !reference.isWriteAccess();
             });
         assertDefined(read);
-        assert.strictEqual(referenceTarget(read)?.getText(), 'x');
+        assert.strictEqual(referenceTarget(read).getText(), 'x');
     });
 
     test('resolves an exported arrow binding without consuming its initializer', function () {
@@ -82,6 +127,6 @@ suite('reference targets', function () {
         const references = name.findReferences();
         const definition = references[0]?.getReferences()[0];
         assertDefined(definition);
-        assert.strictEqual(referenceTarget(definition)?.getText(), 'expression');
+        assert.strictEqual(referenceTarget(definition).getText(), 'expression');
     });
 });

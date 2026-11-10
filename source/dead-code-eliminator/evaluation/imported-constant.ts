@@ -13,32 +13,41 @@ import { createSourceEvaluation } from './constant-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
-type ConstantExport = {
+type ConstantExport = ExportAssignment | VariableDeclaration;
+export type ConstantBinding = {
+    readonly declaration: ConstantExport;
     readonly expression: Expression;
-    readonly initialization: ExportAssignment | VariableDeclaration;
 };
 
 function exportedConstantBinding(
     declaration: TypeScriptMorphNodeType | undefined,
     sourceFile: SourceFile
-): ConstantExport | undefined {
+): VariableDeclaration | undefined {
     if (
-        !TypeScriptMorphNode.isVariableDeclaration(declaration) || declaration.getSourceFile() !== sourceFile ||
+        !TypeScriptMorphNode.isVariableDeclaration(declaration) ||
         constantStatement(declaration)?.getParent() !== sourceFile
     ) {
         return undefined;
     }
-    const expression = declaration.getInitializer();
-    return expression === undefined ? undefined : { expression, initialization: declaration };
+    return declaration;
 }
 
-export function constantBindingExpression(declaration: TypeScriptMorphNodeType): Expression | undefined {
+function constantExportAssignment(declaration: ExportAssignment): ConstantBinding | undefined {
+    return !declaration.isExportEquals() && TypeScriptMorphNode.isSourceFile(declaration.getParent())
+        ? { declaration, expression: declaration.getExpression() }
+        : undefined;
+}
+
+export function constantBinding(declaration: TypeScriptMorphNodeType): ConstantBinding | undefined {
     if (TypeScriptMorphNode.isExportAssignment(declaration)) {
-        return !declaration.isExportEquals() && TypeScriptMorphNode.isSourceFile(declaration.getParent())
-            ? declaration.getExpression()
-            : undefined;
+        return constantExportAssignment(declaration);
     }
-    return exportedConstantBinding(declaration, declaration.getSourceFile())?.expression;
+    const binding = exportedConstantBinding(declaration, declaration.getSourceFile());
+    if (binding === undefined) {
+        return undefined;
+    }
+    const expression = binding.getInitializer();
+    return expression === undefined ? undefined : { declaration: binding, expression };
 }
 
 function ownConstantExport(sourceFile: SourceFile, name: string): ConstantExport | undefined {
@@ -51,14 +60,9 @@ function ownConstantExport(sourceFile: SourceFile, name: string): ConstantExport
 
 function constantExport(sourceFile: SourceFile, name: string): ConstantExport | undefined {
     if (name === 'default') {
-        const assignments = sourceFile.getExportAssignments().filter(function (assignment) {
-            return !assignment.isExportEquals();
-        });
-        if (assignments.length > 0) {
-            const [ assignment ] = assignments;
-            return assignment !== undefined && assignments.length === 1
-                ? { expression: assignment.getExpression(), initialization: assignment }
-                : undefined;
+        const [ assignment, additional ] = sourceFile.getExportAssignments();
+        if (assignment !== undefined) {
+            return additional === undefined ? assignment : undefined;
         }
     }
     return ownConstantExport(sourceFile, name);
@@ -85,7 +89,11 @@ export function evaluateImportedConstant(
     resolveModule: RuntimeModuleResolver
 ): EvaluatedValue | undefined {
     const exported = importedConstantExport(expression, resolveModule);
-    if (exported === undefined || !moduleInitializesBinding(exported.initialization, resolveModule)) {
+    if (exported === undefined) {
+        return undefined;
+    }
+    const binding = constantBinding(exported);
+    if (binding === undefined || !moduleInitializesBinding(binding.declaration, resolveModule)) {
         return undefined;
     }
     if (
@@ -94,5 +102,5 @@ export function evaluateImportedConstant(
     ) {
         return undefined;
     }
-    return createSourceEvaluation(exported.expression.getSourceFile()).primitiveValue(exported.expression);
+    return createSourceEvaluation(binding.expression.getSourceFile()).primitiveValue(binding.expression);
 }

@@ -1,4 +1,4 @@
-import { Node as TypeScriptMorphNode, type SourceFile } from 'ts-morph';
+import type { SourceFile } from 'ts-morph';
 import {
     createPreparedModuleGraph,
     type PreparedModule,
@@ -7,8 +7,9 @@ import {
 import { resolveNamespaceExport } from '../exports/namespace-export-value.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
-import { constantBindingExpression } from './imported-constant.ts';
-import { createSourceEvaluation, type SourceEvaluation } from './constant-evaluation.ts';
+import type { ModuleExportModel } from '../exports/module-export-model.ts';
+import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createModuleBindingEvaluator, type ModuleBindingEvaluator } from './module-binding-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
@@ -23,47 +24,12 @@ export type ModuleConstantSnapshot = {
     readonly modules: ReadonlyMap<SourceFile, ModuleConstants>;
     readonly resolveModule: RuntimeModuleResolver;
 };
-type BindingEvaluator = (declaration: TypeScriptMorphNode) => EvaluatedValue | undefined;
 
-function bindingValue(
-    declaration: TypeScriptMorphNode,
-    resolveModule: RuntimeModuleResolver,
-    evaluation: SourceEvaluation
-): EvaluatedValue | undefined {
-    if (
-        !(TypeScriptMorphNode.isVariableDeclaration(declaration) ||
-            TypeScriptMorphNode.isExportAssignment(declaration))
-    ) {
-        return undefined;
-    }
-    const expression = constantBindingExpression(declaration);
-    if (expression === undefined || !moduleInitializesBinding(declaration, resolveModule)) {
-        return undefined;
-    }
-    return evaluation.primitiveValue(expression);
-}
-
-function createBindingEvaluator(resolveModule: RuntimeModuleResolver): BindingEvaluator {
-    const values = new Map<TypeScriptMorphNode, EvaluatedValue | undefined>();
-    const evaluations = new Map<SourceFile, SourceEvaluation>();
-    return function (declaration) {
-        if (values.has(declaration)) {
-            return values.get(declaration);
-        }
-        const source = declaration.getSourceFile();
-        const evaluation = evaluations.get(source) ?? createSourceEvaluation(source);
-        evaluations.set(source, evaluation);
-        const value = bindingValue(declaration, resolveModule, evaluation);
-        values.set(declaration, value);
-        return value;
-    };
-}
-
-function exportedValue(
+export function exportedModuleValue(
     source: SourceFile,
     name: string,
     graph: PreparedModuleGraph,
-    evaluate: BindingEvaluator
+    evaluate: ModuleBindingEvaluator
 ): ModuleValue | undefined {
     if (graph.index.status(source, name) !== 'unique') {
         return undefined;
@@ -78,16 +44,16 @@ function exportedValue(
 }
 
 function exportValues(
-    source: SourceFile,
+    model: ModuleExportModel,
     graph: PreparedModuleGraph,
-    evaluate: BindingEvaluator
+    evaluate: ModuleBindingEvaluator
 ): ReadonlyMap<string, ModuleValue> {
-    if (graph.index.models.get(source)?.closed !== true || hasDynamicScope(source)) {
+    if (!model.closed || hasDynamicScope(model.source)) {
         return new Map();
     }
     return new Map(
-        Array.from(graph.index.candidates(source)).flatMap(function (name) {
-            const value = exportedValue(source, name, graph, evaluate);
+        Array.from(graph.index.candidates(model.source)).flatMap(function (name) {
+            const value = exportedModuleValue(model.source, name, graph, evaluate);
             return value === undefined ? [] : [ [ name, value ] as const ];
         })
     );
@@ -102,15 +68,20 @@ export function createModuleConstantSnapshot(
     const resolveModule: RuntimeModuleResolver = function (specifier, source) {
         return resolveLocal(source, specifier) ?? resolveExternal(specifier, source);
     };
-    const evaluate = createBindingEvaluator(resolveModule);
+    const evaluate = createModuleBindingEvaluator({
+        evaluateSource: createSourceEvaluation,
+        initializesBinding(declaration) {
+            return moduleInitializesBinding(declaration, resolveModule);
+        }
+    });
     return {
         resolveModule,
-        modules: new Map(files.map(function (file) {
-            const source = file.sourceFile;
+        modules: new Map(Array.from(graph.index.models.values(), function (model) {
+            const { source } = model;
             return [ source, {
-                initialized: graph.index.models.get(source)?.closed === true &&
+                initialized: model.closed &&
                     moduleDependenciesInitialize(source, resolveModule),
-                exports: exportValues(source, graph, evaluate)
+                exports: exportValues(model, graph, evaluate)
             } ];
         }))
     };
