@@ -152,7 +152,7 @@ function builderVoidReturnIsPure(builder: BuilderFunction): boolean {
         return false;
     }
     const first = firstBodyStatement(body);
-    return first === undefined || TypeScriptMorphNode.isReturnStatement(first) && first.getExpression() === undefined;
+    return first === undefined || TypeScriptMorphNode.isReturnStatement(first);
 }
 
 export function builderBodyIsPure(builder: BuilderFunction): boolean {

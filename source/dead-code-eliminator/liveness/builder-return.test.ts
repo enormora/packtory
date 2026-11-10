@@ -2,9 +2,23 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { objectDataShapeIsKnown, objectMemberName } from './builder-return.ts';
+import { objectDataShapeIsKnown, objectMemberName, returnCreationIsPure } from './builder-return.ts';
 
 suite('builder object shapes', function () {
+    test('requires identifier reads when checking parameter values', function () {
+        const source = createProject().createSourceFile('input.ts', 'const object={value:1};object.value;');
+        const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAccessExpression);
+        const property = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAssignment);
+        assert.strictEqual(returnCreationIsPure(expression, new Set([ property ])), false);
+    });
+
+    test('recognizes a parameter among merged declarations', function () {
+        const source = createProject().createSourceFile('input.ts', 'function run(value){var value;return value;}');
+        const target = source.getFunctionOrThrow('run');
+        const expression = target.getFirstDescendantByKindOrThrow(SyntaxKind.ReturnStatement).getExpressionOrThrow();
+        assert.strictEqual(returnCreationIsPure(expression, new Set(target.getParameters())), true);
+    });
+
     for (
         const [ content, expected ] of [
             [ '{first:1,second(){return 2;}}', true ],
