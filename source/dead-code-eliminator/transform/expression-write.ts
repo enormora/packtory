@@ -1,9 +1,6 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Node as TypeScriptMorphNodeType } from 'ts-morph';
 
-function containsWriteTarget(parent: TypeScriptMorphNodeType | undefined): boolean {
-    if (parent === undefined) {
-        return false;
-    }
+function containsWriteTarget(parent: TypeScriptMorphNodeType): boolean {
     return [
         SyntaxKind.ParenthesizedExpression,
         SyntaxKind.AsExpression,
@@ -20,6 +17,9 @@ function containsWriteTarget(parent: TypeScriptMorphNodeType | undefined): boole
 
 function enclosingWriteTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
     const parent = node.getParent();
+    if (parent === undefined) {
+        return undefined;
+    }
     if (containsWriteTarget(parent)) {
         return parent;
     }
