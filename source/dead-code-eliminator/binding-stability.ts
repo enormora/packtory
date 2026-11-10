@@ -123,18 +123,31 @@ function referenceCallsValue(reference: TypeScriptMorphNodeType, proveRuntimeCal
         calledMemberIsPure(reference, proveRuntimeCall);
 }
 
+function referencePreservesShape(
+    reference: TypeScriptMorphNodeType,
+    observe: ReferenceObserver,
+    proveRuntimeCall: RuntimeCallProof
+): boolean {
+    return referenceDeclaresBinding(reference) || referenceIsModuleBinding(reference) ||
+        referenceCreatesAlias(reference, observe) || referenceContinuesObservation(reference, observe) ||
+        referenceCallsValue(reference, proveRuntimeCall);
+}
+
 export function bindingShapeIsStable(name: Identifier, proveRuntimeCall: RuntimeCallProof): boolean {
-    const seen = new Set<TypeScriptMorphNodeType>();
+    if (hasDynamicScope(name.getSourceFile())) {
+        return false;
+    }
+    const pending = new Set(bindingReferenceTargets(name));
     const observe: ReferenceObserver = function (reference) {
-        if (seen.has(reference)) {
-            return true;
-        }
-        seen.add(reference);
-        return referenceDeclaresBinding(reference) || referenceIsModuleBinding(reference) ||
-            referenceCreatesAlias(reference, observe) || referenceContinuesObservation(reference, observe) ||
-            referenceCallsValue(reference, proveRuntimeCall);
+        pending.add(reference);
+        return true;
     };
-    return !hasDynamicScope(name.getSourceFile()) && bindingReferencesOnlyObserveValue(name, observe);
+    for (const reference of pending) {
+        if (!referencePreservesShape(reference, observe, proveRuntimeCall)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 export function expressionBindingShapeIsStable(expression: Expression, proveRuntimeCall: RuntimeCallProof): boolean {

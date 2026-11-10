@@ -48,6 +48,7 @@ suite('binding stability', function () {
     });
     for (
         const [ name, content, expected ] of [
+            [ 'direct eval', 'const object={};eval("object.changed=1");', false ],
             [ 'cyclic aliases without escape', 'const object=alias;const alias=object;', true ],
             [ 'destructured alias', 'const object={};const {value}=object;consume(value);', false ],
             [ 'declaration name without initializer', 'let object;object={};', false ],
