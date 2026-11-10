@@ -14,7 +14,7 @@ import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
 import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
-import { resourceBindingIsHarmless } from './evaluation/resource-binding.ts';
+import { resourceDeclarationIsHarmless } from './evaluation/resource-binding.ts';
 
 type StatementClassifier = (
     statement: Statement,
@@ -77,9 +77,8 @@ function resourceStatementHasEffects(statement: VariableStatement): boolean {
         return false;
     }
     const evaluate = createSourceEvaluation(statement.getSourceFile()).primitiveValue;
-    return !statement.getDeclarations().every(function (declaration) {
-        const initializer = declaration.getInitializer();
-        return initializer !== undefined && resourceBindingIsHarmless(kind, evaluate(initializer));
+    return statement.getDeclarations().some(function (declaration) {
+        return !resourceDeclarationIsHarmless(kind, declaration, evaluate);
     });
 }
 
