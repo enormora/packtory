@@ -15,6 +15,21 @@ function collectEntryReExportTargets(files: Parameters<typeof multiFileBindingsF
 }
 
 suite('identifier-target-collector reexports', function () {
+    test('follows compiler aliases when emitted binding metadata is unavailable', function () {
+        const files = multiFileBindingsFor([
+            { filePath: '/source/index.js', content: 'import {value} from "./dep.js";export const result=value;' },
+            { filePath: '/source/dep.js', content: 'export const value=1;' }
+        ]);
+        const entry = files[0];
+        assertDefined(entry);
+        const index = buildDeclarationNodeIndex(files);
+        const targets = collectIdentifierTargets(entry.sourceFile.getSourceFile(), {
+            ...index,
+            identifiersByTargetFileAndName: new Map()
+        }, undefined);
+        assert.strictEqual(targets.has('/source/dep.js::value'), true);
+    });
+
     for (
         const scenario of [
             { declaration: 'export * from "./dep.js";', names: [ 'a' ] },

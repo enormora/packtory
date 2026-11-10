@@ -205,7 +205,7 @@ function observesNamespace(identifier: Identifier): boolean {
 function identifierSymbol(identifier: Identifier): SymbolReference | undefined {
     const parent = identifier.getParent();
     return TypeScriptMorphNode.isExportSpecifier(parent)
-        ? parent.getLocalTargetSymbol() ?? identifier.getSymbol()
+        ? parent.getLocalTargetSymbol()
         : identifier.getSymbol();
 }
 
