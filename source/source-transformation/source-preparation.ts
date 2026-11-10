@@ -24,13 +24,18 @@ function retainedRange(range: SourceRange, atom: PositionAtom): SourceRange | un
 }
 
 function replacementRange(range: SourceRange, transformation: TextTransformMap): SourceRange {
-    const following = transformation.atoms.find(function (atom) {
-        return atom.newStart > range.start;
-    });
-    const previous = transformation.atoms.findLast(function (atom) {
-        return atom.newStart + atom.originalEnd - atom.originalStart <= range.start;
-    });
-    return { start: previous?.originalEnd ?? 0, end: following?.originalStart ?? transformation.originalCode.length };
+    let start = 0;
+    let end = transformation.originalCode.length;
+    for (const atom of transformation.atoms) {
+        if (atom.newStart + atom.originalEnd - atom.originalStart <= range.start) {
+            start = atom.originalEnd;
+        }
+        if (atom.newStart > range.start) {
+            end = atom.originalStart;
+            break;
+        }
+    }
+    return { start, end };
 }
 
 function originalRange(range: SourceRange, transformation: TextTransformMap): SourceRange {

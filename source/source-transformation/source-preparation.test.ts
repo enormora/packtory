@@ -117,11 +117,18 @@ suite('source preparation', function () {
         );
     });
 
-    for (const suffix of [ '', '\nconst tail=3;' ]) {
-        test(`anchors a replaced expression with suffix ${JSON.stringify(suffix)}`, function () {
-            const preparation = prepareMixedExpression(`const keep=0;\nconst result=\n target();${suffix}`);
+    for (
+        const [ prefix, suffix, expected ] of [
+            [ '', '', 2 ],
+            [ '', '\nconst tail=3;', 2 ],
+            [ 'const keep=0;\n', '', 3 ],
+            [ 'const keep=0;\n', '\nconst tail=3;', 3 ]
+        ] as const
+    ) {
+        test(`anchors a replaced expression between ${JSON.stringify([ prefix, suffix ])}`, function () {
+            const preparation = prepareMixedExpression(`${prefix}const result=\n target();${suffix}`);
             replaceGeneratedExpression(preparation, []);
-            assertOriginalExpressionLine(preparation, 3);
+            assertOriginalExpressionLine(preparation, expected);
         });
     }
 
