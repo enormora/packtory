@@ -191,6 +191,10 @@ suite('imported constant evaluation', function () {
             const [ content, kind, expected ] of [
                 [ 'export const value=42;', SyntaxKind.VariableDeclaration, '42' ],
                 [ 'const value;', SyntaxKind.VariableDeclaration, undefined ],
+                [ 'let value=42;', SyntaxKind.VariableDeclaration, undefined ],
+                [ 'function value(){}', SyntaxKind.FunctionDeclaration, undefined ],
+                [ '{const value=42;}', SyntaxKind.VariableDeclaration, undefined ],
+                [ 'for(const value=0;value<1;){break;}', SyntaxKind.VariableDeclaration, undefined ],
                 [ 'export default 42;', SyntaxKind.ExportAssignment, '42' ],
                 [ 'export = 42;', SyntaxKind.ExportAssignment, undefined ],
                 [ 'namespace scope { export default 42; }', SyntaxKind.ExportAssignment, undefined ]

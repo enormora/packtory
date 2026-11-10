@@ -8,7 +8,7 @@ import {
 } from 'ts-morph';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { resolveImportedExpressionPropertyPath } from '../imported-expression-origin.ts';
-import { constantInitializer, constantStatement } from './constant-binding.ts';
+import { constantInitializer } from './constant-binding.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
@@ -19,13 +19,13 @@ export type ConstantBinding = {
     readonly expression: Expression;
 };
 
-function exportedConstantBinding(
+function moduleVariableDeclaration(
     declaration: TypeScriptMorphNodeType | undefined,
     sourceFile: SourceFile
 ): VariableDeclaration | undefined {
     if (
         !TypeScriptMorphNode.isVariableDeclaration(declaration) ||
-        constantStatement(declaration)?.getParent() !== sourceFile
+        declaration.getVariableStatement()?.getParent() !== sourceFile
     ) {
         return undefined;
     }
@@ -42,7 +42,7 @@ export function constantBinding(declaration: TypeScriptMorphNodeType): ConstantB
     if (TypeScriptMorphNode.isExportAssignment(declaration)) {
         return constantExportAssignment(declaration);
     }
-    const binding = exportedConstantBinding(declaration, declaration.getSourceFile());
+    const binding = moduleVariableDeclaration(declaration, declaration.getSourceFile());
     if (binding === undefined) {
         return undefined;
     }
@@ -55,7 +55,7 @@ function ownConstantExport(sourceFile: SourceFile, name: string): ConstantExport
         return exported.getName() === name;
     });
     const declaration = (symbol?.getAliasedSymbol() ?? symbol)?.getValueDeclaration();
-    return exportedConstantBinding(declaration, sourceFile);
+    return moduleVariableDeclaration(declaration, sourceFile);
 }
 
 function constantExport(sourceFile: SourceFile, name: string): ConstantExport | undefined {
