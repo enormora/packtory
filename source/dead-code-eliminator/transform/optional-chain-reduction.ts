@@ -1,7 +1,6 @@
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
-    ts,
     type CallExpression,
     type ElementAccessExpression,
     type Expression,
@@ -36,14 +35,9 @@ function chainShortCircuits(expression: OptionalChain, evaluate: PrimitiveEvalua
         nullishValue(evaluate(base));
 }
 
-function continuesChain(expression: OptionalChain): boolean {
-    const parent = expression.getParentOrThrow().compilerNode;
-    return ts.isOptionalChain(parent) && parent.expression === expression.compilerNode;
-}
-
 function reductionFor(node: TypeScriptMorphNodeType, evaluate: PrimitiveEvaluator): SourceTextEdit | undefined {
     const expression = optionalChain(node);
-    if (expression === undefined || continuesChain(expression) || !chainShortCircuits(expression, evaluate)) {
+    if (expression === undefined || !chainShortCircuits(expression, evaluate)) {
         return undefined;
     }
     return { start: expression.getStart(), end: expression.getEnd(), content: '(void 0)' };
