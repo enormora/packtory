@@ -10,12 +10,12 @@ import {
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import type { PurityContext } from './pure-expression.ts';
 import { hasClassImpurity } from './class-purity.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 import {
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
+    type PurityContext,
     type ExpressionPurityChecker,
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';

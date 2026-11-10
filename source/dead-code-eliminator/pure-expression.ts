@@ -23,7 +23,7 @@ import {
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { arePureCallArguments } from './imported-expression-origin.ts';
+import { arePureCallArguments, type PurityContext } from './imported-expression-origin.ts';
 import {
     importedCallResultFact,
     originForCallTarget,
@@ -45,10 +45,6 @@ type PurityRule = (
     context: PurityContext
 ) => ExpressionFact;
 
-export type PurityContext = {
-    readonly settings: DeadCodeEliminationSettings | undefined;
-    readonly resolveRuntimeModule: RuntimeModuleResolver;
-};
 type ExpressionFactContext = {
     readonly cache: WeakMap<Expression, ExpressionFact>;
     readonly purity: PurityContext;

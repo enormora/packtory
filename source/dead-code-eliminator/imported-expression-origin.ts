@@ -1,5 +1,6 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
 export type ImportedExpressionOrigin = {
@@ -16,6 +17,11 @@ export function callResultOrigin(origin: ImportedExpressionOrigin): ImportedExpr
 }
 
 export type ExpressionPurityChecker = (expression: Expression) => boolean;
+
+export type PurityContext = {
+    readonly settings: DeadCodeEliminationSettings | undefined;
+    readonly resolveRuntimeModule: RuntimeModuleResolver;
+};
 
 type TrustedImport = {
     readonly from: string;

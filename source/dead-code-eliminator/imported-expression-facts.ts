@@ -12,12 +12,12 @@ import {
     type ExpressionFact,
     type ExpressionFactResolver
 } from './expression-facts.ts';
-import type { PurityContext } from './pure-expression.ts';
 import {
     arePureCallArguments,
     callResultOrigin,
     originIsTrustedPureImport,
     resolveImportedExpressionPropertyPath,
+    type PurityContext,
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
 import { exportHasPureObjectReturnForOrigin, exportPurityForOrigin } from './liveness/external-purity-summary.ts';
