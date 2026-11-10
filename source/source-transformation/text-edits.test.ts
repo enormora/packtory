@@ -7,7 +7,11 @@ suite('atom-translator', function () {
     test('keeps text and source positions unchanged when there are no edits', function () {
         const source = 'const title = "🍎";\n';
         const transformed = applySourceTextEdits(source, []);
-        assert.strictEqual(transformed.transformedCode, source);
+        assert.deepStrictEqual(transformed, {
+            originalCode: source,
+            transformedCode: source,
+            atoms: [ { originalStart: 0, originalEnd: source.length, newStart: 0 } ]
+        });
         assert.strictEqual(translateGeneratedOffset(source.indexOf('🍎'), transformed.atoms), source.indexOf('🍎'));
     });
 
