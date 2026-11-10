@@ -14,7 +14,10 @@ function namespaceTarget(files: Readonly<Record<string, string>>): string | unde
     const fixture = createExportModuleFixture(files, []);
     const declaration = fixture.models.get(fixture.source('index.js'))?.locals.get('ns')?.declarationNode;
     assertDefined(declaration);
-    const target = resolveNamespaceImport(declaration, fixture.models, fixture.resolveModule);
+    const target = resolveNamespaceImport(declaration, fixture.models, function (source, specifier) {
+        assert.strictEqual(typeof specifier, 'string');
+        return fixture.resolveModule(source, specifier);
+    });
     return target?.getBaseName();
 }
 const cases: readonly NamespaceCase[] = [
