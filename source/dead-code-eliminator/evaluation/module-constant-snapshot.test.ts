@@ -5,7 +5,8 @@ import { multiFileBindingsFor } from '../../test-libraries/reachability-test-sup
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { createModuleExportIndex } from '../exports/module-export-index.ts';
 import type { PreparedModule } from '../exports/prepared-module-graph.ts';
-import { createModuleConstantSnapshot, exportedModuleValue } from './module-constant-snapshot.ts';
+import { createModuleConstantSnapshot } from './module-constant-snapshot.ts';
+import { exportedModuleValue } from './module-export-value.ts';
 
 function preparedFiles(
     contents: readonly { readonly filePath: string; readonly content: string; }[]

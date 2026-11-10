@@ -6,9 +6,9 @@ import { evaluateImportedConstant } from './imported-constant.ts';
 import type { PrimitiveEvaluator } from './constant-evaluation.ts';
 import {
     createModuleConstantSnapshot,
-    type ModuleConstantSnapshot,
-    type ModuleValue
+    type ModuleConstantSnapshot
 } from './module-constant-snapshot.ts';
+import type { ModuleValue } from './module-export-value.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
 function namespaceMember(

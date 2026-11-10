@@ -4,18 +4,14 @@ import {
     type PreparedModule,
     type PreparedModuleGraph
 } from '../exports/prepared-module-graph.ts';
-import { resolveNamespaceExport } from '../exports/namespace-export-value.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { ModuleExportModel } from '../exports/module-export-model.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
 import { createModuleBindingEvaluator, type ModuleBindingEvaluator } from './module-binding-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
-import type { EvaluatedValue } from './primitive-value.ts';
+import { exportedModuleValue, type ModuleValue } from './module-export-value.ts';
 
-type ConstantModuleValue = { readonly kind: 'constant'; readonly value: EvaluatedValue; };
-type NamespaceModuleValue = { readonly kind: 'namespace'; readonly source: SourceFile; };
-export type ModuleValue = ConstantModuleValue | NamespaceModuleValue;
 type ModuleConstants = {
     readonly initialized: boolean;
     readonly exports: ReadonlyMap<string, ModuleValue>;
@@ -24,24 +20,6 @@ export type ModuleConstantSnapshot = {
     readonly modules: ReadonlyMap<SourceFile, ModuleConstants>;
     readonly resolveModule: RuntimeModuleResolver;
 };
-
-export function exportedModuleValue(
-    source: SourceFile,
-    name: string,
-    graph: PreparedModuleGraph,
-    evaluate: ModuleBindingEvaluator
-): ModuleValue | undefined {
-    if (graph.index.status(source, name) !== 'unique') {
-        return undefined;
-    }
-    const namespace = resolveNamespaceExport(source, name, graph.index.models, graph.resolveModule);
-    if (namespace !== undefined) {
-        return { kind: 'namespace', source: namespace };
-    }
-    const binding = graph.index.binding(source, name);
-    const value = binding === undefined ? undefined : evaluate(binding.declarationNode);
-    return value === undefined ? undefined : { kind: 'constant', value };
-}
 
 function exportValues(
     model: ModuleExportModel,
