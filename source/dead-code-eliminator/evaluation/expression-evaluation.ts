@@ -4,7 +4,8 @@ import {
     type Expression,
     type BinaryExpression,
     type PrefixUnaryExpression,
-    type PostfixUnaryExpression
+    type PostfixUnaryExpression,
+    type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { bindingReference, type EvaluationContext } from './evaluation-context.ts';
@@ -46,8 +47,7 @@ function evaluateReference(expression: Expression, context: EvaluationContext): 
 
 function literalValue(expression: Expression): EvaluatedValue | undefined {
     if (TypeScriptMorphNode.isBigIntLiteral(expression)) {
-        const value = expression.getLiteralValue();
-        return typeof value === 'bigint' ? evaluated(value) : undefined;
+        return evaluated(BigInt(expression.compilerNode.text.slice(0, -1)));
     }
     if (TypeScriptMorphNode.isNumericLiteral(expression)) {
         return evaluated(numericLiteralValue(expression));
@@ -205,6 +205,11 @@ function expressionValue(node: Expression, context: EvaluationContext): Abstract
     return valueWithoutMutation(node, context) ?? unaryValue(node, context);
 }
 
-export function evaluateExpression(expression: Expression, context: EvaluationContext): AbstractValue | undefined {
-    return context.consume() ? expressionValue(unwrapExpression(expression), context) : undefined;
+export function evaluateExpression(
+    expression: TypeScriptMorphNodeType,
+    context: EvaluationContext
+): AbstractValue | undefined {
+    return context.consume() && TypeScriptMorphNode.isExpression(expression)
+        ? expressionValue(unwrapExpression(expression), context)
+        : undefined;
 }

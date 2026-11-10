@@ -29,6 +29,25 @@ function variableInitializer(content: string, name: string): Expression {
 }
 
 suite('pure-expression', function () {
+    for (
+        const [ expression, expected ] of [
+            [ '({}) === ({})', true ],
+            [ '({}) !== ({})', true ],
+            [ '({}) + ({})', false ],
+            [ '({}) && ({})', true ],
+            [ '({}) || ({})', true ],
+            [ '({}) ?? ({})', true ],
+            [ 'void missing', false ]
+        ] as const
+    ) {
+        test(`classifies non-coercive expression ${expression}`, function () {
+            assert.strictEqual(
+                isPureExpression(firstVariableInitializerExpression(`const value = ${expression};`), undefined),
+                expected
+            );
+        });
+    }
+
     suite('literal and array purity', function () {
         test('isPureExpression returns true for a primitive literal', function () {
             assert.strictEqual(isPureExpression(firstVariableInitializerExpression('const a = 1;'), undefined), true);

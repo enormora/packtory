@@ -69,10 +69,10 @@ function importedConstantExport(
     resolveModule: RuntimeModuleResolver
 ): ConstantExport | undefined {
     const origin = resolveImportedExpressionPropertyPath(expression);
-    if (origin?.path.length !== 1) {
+    if (origin === undefined) {
         return undefined;
     }
-    const [ name ] = origin.path;
+    const name = origin.path.length === 1 ? origin.path[0] : undefined;
     if (typeof name !== 'string') {
         return undefined;
     }

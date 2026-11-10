@@ -25,8 +25,9 @@ type RecordDataField = {
     readonly value: AbstractValue;
     readonly prototype: boolean;
 };
-type OpaqueField = { readonly type: 'opaque'; readonly key: string; };
+type OpaqueField = { readonly type: 'opaque'; readonly key: string; readonly prototype: false; };
 type RecordField = OpaqueField | RecordDataField;
+type StoredRecordField = Pick<OpaqueField, 'type'> | Pick<RecordDataField, 'type' | 'value'>;
 type RecordAllocation = {
     readonly value: AllocatedRecord;
     readonly addField: (field: RecordField | undefined) => boolean;
@@ -58,7 +59,7 @@ function assignedField(property: PropertyAssignment, key: string, context: Evalu
         !prototype &&
         (TypeScriptMorphNode.isArrowFunction(initializer) || TypeScriptMorphNode.isFunctionExpression(initializer))
     ) {
-        return { type: 'opaque', key };
+        return { type: 'opaque', key, prototype: false };
     }
     const value = context.evaluate(initializer, context);
     return value === undefined ? undefined : {
@@ -76,7 +77,7 @@ function namedRecordField(property: ObjectMember, context: EvaluationContext): R
     }
     return TypeScriptMorphNode.isPropertyAssignment(property)
         ? assignedField(property, key, context)
-        : { type: 'opaque', key };
+        : { type: 'opaque', key, prototype: false };
 }
 
 function recordField(property: TypeScriptMorphNodeType, context: EvaluationContext): RecordField | undefined {
@@ -91,7 +92,7 @@ function recordField(property: TypeScriptMorphNodeType, context: EvaluationConte
 }
 
 function createRecordAllocation(): RecordAllocation {
-    const properties = new Map<string, RecordField>();
+    const properties = new Map<string, StoredRecordField>();
     let nullPrototype = false;
     const value: AllocatedRecord = {
         propertyReference(key) {
@@ -105,7 +106,7 @@ function createRecordAllocation(): RecordAllocation {
                     return current?.type === 'data' ? current.value : evaluated(undefined);
                 },
                 assign(next) {
-                    properties.set(key, { type: 'data', key, value: next, prototype: false });
+                    properties.set(key, { type: 'data', value: next });
                     return next;
                 }
             };
@@ -117,7 +118,7 @@ function createRecordAllocation(): RecordAllocation {
             if (field === undefined) {
                 return false;
             }
-            if (field.type === 'data' && field.prototype) {
+            if (field.prototype) {
                 nullPrototype = field.value.value === null;
                 return nullPrototype;
             }
@@ -160,10 +161,8 @@ export function recordPropertyReference(
         );
     }
     if (TypeScriptMorphNode.isElementAccessExpression(expression)) {
-        const key = expression.getArgumentExpression();
-        return key === undefined
-            ? undefined
-            : propertyReference(context.evaluate(expression.getExpression(), context), computedKey(key, context));
+        const key = expression.getArgumentExpressionOrThrow();
+        return propertyReference(context.evaluate(expression.getExpression(), context), computedKey(key, context));
     }
     return undefined;
 }

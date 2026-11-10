@@ -38,7 +38,7 @@ function evaluateCall(
         return undefined;
     }
     const values = call.getArguments().map(function (argument) {
-        return TypeScriptMorphNode.isExpression(argument) ? context.evaluate(argument, context) : undefined;
+        return context.evaluate(argument, context);
     });
     if (!values.every(isDefined)) {
         return undefined;
@@ -51,18 +51,11 @@ function evaluateCall(
 }
 
 function createCallEvaluator(sourceFile: SourceFile): () => EvaluationContext['call'] {
-    const targets = new WeakMap<CallExpression, LocalFunction | undefined>();
     const resolveTarget = createCallTargetResolver(sourceFile, functionIsSynchronous);
-    const cachedTarget: CallTargetResolver = function (call) {
-        if (!targets.has(call)) {
-            targets.set(call, resolveTarget(call));
-        }
-        return targets.get(call);
-    };
     return function () {
         const evaluateResult = createCalleeEvaluation();
         return function (call, context) {
-            return evaluateCall(call, context, cachedTarget, evaluateResult);
+            return evaluateCall(call, context, resolveTarget, evaluateResult);
         };
     };
 }
@@ -72,7 +65,11 @@ export function createBoundedEvaluator(
     values: KnownConstants
 ): (expression: Expression) => AbstractValue | undefined {
     const evaluateCallSite = createCallEvaluator(sourceFile);
+    const hasSyntaxErrors = sourceFile.getProject().getProgram().getSyntacticDiagnostics(sourceFile).length > 0;
     return function (expression) {
+        if (hasSyntaxErrors) {
+            return undefined;
+        }
         let remaining = maximumEvaluationSteps;
         const context: EvaluationContext = {
             locals: createLocalScope(new Map()),

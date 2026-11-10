@@ -17,6 +17,13 @@ import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
 const evaluationGuards: readonly SingleFileEvaluationCase[] = [
     {
+        name: 'retains malformed argument syntax',
+        content: 'function compute(input){return input;}export const value=compute(,);',
+        result: undefined,
+        native: { error: { name: 'SyntaxError' } },
+        remainingCalls: 1
+    },
+    {
         name: 'folds unary plus on primitive strings',
         content: 'function compute(){return +"42";}export const value=compute();',
         result: { value: 42 },
@@ -96,6 +103,13 @@ const evaluationGuards: readonly SingleFileEvaluationCase[] = [
     {
         name: 'retains unsupported numeric operations',
         content: 'function compute(){return 2**3;}export const value=compute();',
+        result: undefined,
+        native: { error: null, value: 8 },
+        remainingCalls: 1
+    },
+    {
+        name: 'retains unsupported compound assignments',
+        content: 'function compute(){let value=2;value**=3;return value;}export const value=compute();',
         result: undefined,
         native: { error: null, value: 8 },
         remainingCalls: 1

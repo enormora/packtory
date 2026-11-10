@@ -15,19 +15,10 @@ type PureCall = {
 export type PureCallResolver = (call: CallExpression) => PureCall | undefined;
 
 function returnsSoleParameter(target: LocalFunction): boolean {
-    const parameters = runtimeParameters(target);
-    if (parameters.length !== 1) {
-        return false;
-    }
+    const [ parameter, additional ] = runtimeParameters(target);
     const returned = unwrapExpression(builderReturnExpression(target));
-    if (!TypeScriptMorphNode.isIdentifier(returned)) {
-        return false;
-    }
-    const declarations = returned.getSymbol()?.getDeclarations() ?? [];
-    return parameters.every(function (parameter) {
-        return !parameter.isRestParameter() && declarations.length === 1 && declarations[0] === parameter &&
-            parameterBindingIsStable(parameter);
-    });
+    return parameter !== undefined && additional === undefined && !parameter.isRestParameter() &&
+        TypeScriptMorphNode.isIdentifier(returned) && parameterBindingIsStable(parameter);
 }
 
 export function createPureCallResolver(sourceFile: SourceFile): PureCallResolver {

@@ -4,11 +4,39 @@ import { SyntaxKind, ts } from 'ts-morph';
 import { variableInitializer } from '../pure-expression-test-support.ts';
 import { observeModuleExpression } from '../../test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { evaluateLocalCall } from './local-call.ts';
+import { createConstantEvaluator, evaluateLocalCall } from './local-call.ts';
 import { createPureCallResolver } from './pure-local-call.ts';
 import type { PrimitiveValue } from './primitive-value.ts';
 
 suite('bounded local evaluation values', function () {
+    suite('evaluation limits', function () {
+        for (const [ depth, expected ] of [ [ 31, { value: 42 } ], [ 32, undefined ] ] as const) {
+            test(`bounds recursive evaluation at input depth ${String(depth)}`, function () {
+                const call = variableInitializer(
+                    `function compute(n){if(n===0)return 42;return compute(n-1);}const result=compute(${
+                        String(depth)
+                    });export{};`,
+                    'result'
+                )
+                    .asKindOrThrow(SyntaxKind.CallExpression);
+                assert.deepStrictEqual(evaluateLocalCall(call), expected);
+            });
+        }
+
+        test('uses the final permitted evaluation step and rejects the next step', function () {
+            let expression = '1';
+            for (let depth = 0; depth < 10; depth += 1) {
+                expression = `(${expression}+${expression})`;
+            }
+            const permitted = variableInitializer(`const result=+${expression};`, 'result');
+            const rejected = variableInitializer(`const result=+(+${expression});`, 'result');
+            assert.deepStrictEqual(createConstantEvaluator(permitted.getSourceFile(), new Map())(permitted), {
+                value: 1024
+            });
+            assert.strictEqual(createConstantEvaluator(rejected.getSourceFile(), new Map())(rejected), undefined);
+        });
+    });
+
     suite('typed call parameters', function () {
         const typedCalls: readonly (readonly [string, number])[] = [
             [ 'function compute(this: unknown,n:number){return n;}export const value=compute(1);', 1 ],
@@ -75,7 +103,16 @@ suite('bounded local evaluation values', function () {
     });
 
     suite('pure return argument resolution', function () {
+        test('recognizes pure calls without arguments', function () {
+            const call = variableInitializer('function compute(){return 42;}const result=compute();', 'result')
+                .asKindOrThrow(SyntaxKind.CallExpression);
+            const resolved = createPureCallResolver(call.getSourceFile())(call);
+            assert.deepStrictEqual(resolved, { arguments: [], returnedArgument: undefined });
+        });
+
         const declarations = [
+            'function compute(first,second){return second;}',
+            'function compute(...values){return values;}',
             'function compute(){return 1;}',
             'function compute(value){}',
             'function compute(value){return 42;}',

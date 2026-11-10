@@ -11,6 +11,7 @@ import {
     type ParameterDeclaration,
     type Statement
 } from 'ts-morph';
+import { takeWhile } from 'remeda';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
@@ -44,16 +45,13 @@ function sourceIsStrict(source: SourceFile): boolean {
     if (ts.isExternalModule(source.compilerNode)) {
         return true;
     }
-    for (const statement of source.getStatements()) {
+    const directives = takeWhile(source.getStatements(), function (statement) {
+        return directiveText(statement) !== undefined;
+    });
+    return directives.some(function (statement) {
         const text = directiveText(statement);
-        if (text === undefined) {
-            return false;
-        }
-        if ([ '"use strict"', "'use strict'" ].includes(text)) {
-            return true;
-        }
-    }
-    return false;
+        return text === '"use strict"' || text === "'use strict'";
+    });
 }
 
 function declarationHasConditionalReplacement(declaration: FunctionDeclaration): boolean {

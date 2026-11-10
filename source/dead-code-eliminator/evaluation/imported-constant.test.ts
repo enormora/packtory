@@ -5,7 +5,7 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { isPureExpression } from '../../test-libraries/expression-purity-test-support.ts';
 import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
-import { evaluateImportedConstant } from './imported-constant.ts';
+import { constantBindingExpression, evaluateImportedConstant } from './imported-constant.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
 type ConstantCase = readonly [
@@ -153,4 +153,47 @@ suite('imported constant evaluation', function () {
             assert.deepStrictEqual(evaluateImportedConstant(key, resolveRuntimeModule), expected);
         });
     }
+
+    suite('initialization', function () {
+        for (
+            const [ content, kind, expected ] of [
+                [ 'export const value=42;', SyntaxKind.VariableDeclaration, '42' ],
+                [ 'const value;', SyntaxKind.VariableDeclaration, undefined ],
+                [ 'export default 42;', SyntaxKind.ExportAssignment, '42' ],
+                [ 'export = 42;', SyntaxKind.ExportAssignment, undefined ],
+                [ 'namespace scope { export default 42; }', SyntaxKind.ExportAssignment, undefined ]
+            ] as const
+        ) {
+            test(`finds supported initialization in ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                const declaration = source.getFirstDescendantByKindOrThrow(kind);
+                assert.strictEqual(constantBindingExpression(declaration)?.getText(), expected);
+            });
+        }
+
+        for (
+            const [ content, expected ] of [
+                [ 'export default 42;', { value: 42 } ],
+                [ 'export default 42;export default 43;', undefined ]
+            ] as const
+        ) {
+            test(`requires an unambiguous default in ${content}`, function () {
+                const project = createProject({
+                    withFiles: [
+                        { filePath: '/source/provider.js', content },
+                        {
+                            filePath: '/source/index.js',
+                            content: 'import value from "./provider.js";export const result=value;'
+                        }
+                    ]
+                });
+                const source = project.getSourceFileOrThrow('/source/index.js');
+                const expression = source.getVariableDeclarationOrThrow('result').getInitializerOrThrow();
+                const value = evaluateImportedConstant(expression, function () {
+                    return project.getSourceFileOrThrow('/source/provider.js');
+                });
+                assert.deepStrictEqual(value, expected);
+            });
+        }
+    });
 });

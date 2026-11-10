@@ -9,6 +9,7 @@ import {
     type Node as TypeScriptMorphNodeType,
     type ObjectLiteralExpression
 } from 'ts-morph';
+import { isDefined } from 'remeda';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { returnCreationIsPure, staticPropertyName } from '../liveness/builder-return.ts';
 import type { PrimitiveEvaluator } from './constant-evaluation.ts';
@@ -46,7 +47,7 @@ function propertyValue(expression: Expression, evaluate: PrimitiveEvaluator): Pr
 function getterReturn(getter: GetAccessorDeclaration): ReturnStatement | undefined {
     const body = getter.getBody()?.asKind(SyntaxKind.Block);
     const statements = body?.getStatements() ?? [];
-    return statements.length === 1 ? statements[0]?.asKind(SyntaxKind.ReturnStatement) : undefined;
+    return statements.length === 1 ? statements.find(TypeScriptMorphNode.isReturnStatement) : undefined;
 }
 
 function getterValue(getter: GetAccessorDeclaration, evaluate: PrimitiveEvaluator): PropertyValue {
@@ -111,11 +112,11 @@ export function objectReadShape(
     const entries = object.getProperties().map(function (property) {
         return shapeEntry(property, evaluate);
     });
-    if (entries.includes(undefined)) {
+    if (!entries.every(isDefined)) {
         return undefined;
     }
     const data = entries.flatMap(function (entry) {
-        return entry?.type === 'field' ? [ entry ] : [];
+        return entry.type === 'field' ? [ entry ] : [];
     });
     const fields = new Map(data.map(function (entry) {
         return [ entry.key, entry.read ];
@@ -124,7 +125,7 @@ export function objectReadShape(
         return undefined;
     }
     const nullPrototype = entries.some(function (entry) {
-        return entry?.type === 'null-prototype';
+        return entry.type === 'null-prototype';
     });
     return {
         creationIsPure: data.every(function (entry) {

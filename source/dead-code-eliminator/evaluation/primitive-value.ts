@@ -75,13 +75,14 @@ export function shortCircuitValue(operator: SyntaxKind, left: unknown): boolean 
     return operator === SyntaxKind.QuestionQuestionToken ? left !== null && left !== undefined : undefined;
 }
 
-function numericNegation(operand: PrimitiveValue): EvaluatedValue {
-    return evaluated(typeof operand === 'bigint' ? -operand : -Number(operand));
+function numericOperand(operand: PrimitiveValue): bigint | number {
+    return typeof operand === 'bigint' ? operand : Number(operand);
 }
 
 export function evaluatePrimitiveUnary(operator: SyntaxKind, operand: PrimitiveValue): EvaluatedValue | undefined {
+    const value = numericOperand(operand);
     if (operator === SyntaxKind.MinusToken) {
-        return numericNegation(operand);
+        return evaluated(-value);
     }
-    return typeof operand !== 'bigint' && operator === SyntaxKind.PlusToken ? evaluated(Number(operand)) : undefined;
+    return typeof value === 'number' && operator === SyntaxKind.PlusToken ? evaluated(value) : undefined;
 }

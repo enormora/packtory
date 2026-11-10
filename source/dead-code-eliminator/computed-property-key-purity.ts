@@ -18,9 +18,6 @@ function constantKeyInitializer(expression: Identifier): Expression | undefined 
 }
 
 function primitiveExpressionKey(expression: Expression): string | undefined {
-    if (TypeScriptMorphNode.isBigIntLiteral(expression)) {
-        return String(expression.getLiteralValue());
-    }
     const value = createConstantEvaluator(expression.getSourceFile(), new Map())(expression);
     return value === undefined ? undefined : String(value.value);
 }

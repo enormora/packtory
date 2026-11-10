@@ -56,7 +56,7 @@ export type EvaluationContext = {
     readonly consume: () => boolean;
     readonly depth: number;
     readonly readConstant: (identifier: Identifier) => EvaluatedValue | undefined;
-    readonly evaluate: (expression: Expression, context: EvaluationContext) => AbstractValue | undefined;
+    readonly evaluate: (expression: TypeScriptMorphNodeType, context: EvaluationContext) => AbstractValue | undefined;
     readonly execute: (statement: Statement, context: EvaluationContext) => Completion | undefined;
     readonly call: (call: CallExpression, context: EvaluationContext) => AbstractValue | undefined;
 };

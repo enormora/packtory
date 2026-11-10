@@ -37,7 +37,7 @@ export function constantDominatesRead(declaration: VariableDeclaration, read: Ex
 }
 
 function intrinsicUndefined(read: Identifier): boolean {
-    return read.getText() === 'undefined' && (read.getSymbol()?.getDeclarations().length ?? 0) === 0;
+    return read.getText() === 'undefined' && read.getSymbolOrThrow().getDeclarations().length === 0;
 }
 
 function constantIsAvailable(

@@ -3,6 +3,12 @@ import { assertSingleFileCallReduction } from '../test-libraries/dead-code-elimi
 
 const cases = [
     {
+        name: 'null prototype retains opaque own functions',
+        content: 'function make(){return {__proto__:null,answer:()=>42}.answer===undefined;}' +
+            'export function probe(){return make();}',
+        makeCalls: 1
+    },
+    {
         name: 'numeric exponent property',
         content: 'function make(){return {5e-324:42,5:9};}export function probe(){return make()[5e-324];}',
         makeCalls: 0

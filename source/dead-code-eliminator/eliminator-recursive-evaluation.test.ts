@@ -24,6 +24,30 @@ type CallCase = {
 
 const cases: readonly CallCase[] = [
     {
+        name: 'distinguishes nearby floating point arguments',
+        declarations: 'function read(value){return value;}' +
+            'function compute(){return read(1)===read(1.0000000000000002);}',
+        expression: 'compute()',
+        value: false,
+        remainingCalls: 0
+    },
+    {
+        name: 'distinguishes number identities from BigInt arguments',
+        declarations: 'function read(value){return value;}' +
+            'function compute(){return read(0)===read(0n);}',
+        expression: 'compute()',
+        value: false,
+        remainingCalls: 0
+    },
+    {
+        name: 'does not cache mixed record and primitive arguments',
+        declarations: 'function increment(state,amount){state.value+=amount;return state.value;}' +
+            'function compute(){const state={value:0};return increment(state,1)*10+increment(state,1);}',
+        expression: 'compute()',
+        value: 12,
+        remainingCalls: 0
+    },
+    {
         name: 'overlapping recursion',
         declarations: 'function compute(n){return n<2?n:compute(n-1)+compute(n-2);}',
         expression: 'compute(30)',
