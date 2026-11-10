@@ -13,6 +13,22 @@ function model(content: string): ModuleExportModel {
 }
 
 suite('module export model', function () {
+    suite('mixed runtime and type metadata', function () {
+        for (const content of [ 'export type {Value} from "./types.js";', 'export {type Value} from "./types.js";' ]) {
+            test(`omits erased exports in ${content}`, function () {
+                assert.deepStrictEqual(modelAt(content, '/repo/index.ts').entries, new Map());
+            });
+        }
+
+        test('retains an opaque export assignment alongside ordinary statements', function () {
+            assert.strictEqual(modelAt('export {};const value=1;export = value;', '/repo/index.ts').closed, false);
+        });
+
+        test('recognizes module syntax among unrelated statements', function () {
+            assert.strictEqual(model(';export default function(){}').closed, true);
+        });
+    });
+
     test('records direct declarations and renamed local bindings', function () {
         const result = model('export const first=1;const local=2;export {local as second};');
         assert.deepStrictEqual(
@@ -115,23 +131,25 @@ suite('module export model', function () {
         assert.strictEqual(model('const value=1;').closed, false);
     });
 
-    const opaqueModules = [
-        [ 'export const value=1;', '/repo/index.cjs' ],
-        [ 'export const value=1;', '/repo/index.cts' ],
-        [ 'export declare const value:number;', '/repo/index.d.ts' ],
-        [ 'export declare const value:number;', '/repo/index.d.mts' ],
-        [ 'export declare const value:number;', '/repo/index.ts' ],
-        [ 'export interface Value{}', '/repo/index.ts' ],
-        [ 'export type Value=number;', '/repo/index.ts' ],
-        [ 'export type * from "./types.js";', '/repo/index.ts' ],
-        [ 'export {type Value} from "./types.js";', '/repo/index.ts' ],
-        [ 'import type {Value} from "./types.js";export {};', '/repo/index.ts' ],
-        [ 'import {type Value} from "./types.js";export {};', '/repo/index.ts' ],
-        [ 'const value=1;export = value;', '/repo/index.ts' ]
-    ] as const;
-    for (const [ content, filePath ] of opaqueModules) {
-        test(`keeps opaque export schemas unchanged: ${content} in ${filePath}`, function () {
-            assert.strictEqual(modelAt(content, filePath).closed, false);
-        });
-    }
+    suite('opaque schemas', function () {
+        const opaqueModules = [
+            [ 'export const value=1;', '/repo/index.cjs' ],
+            [ 'export const value=1;', '/repo/index.cts' ],
+            [ 'export declare const value:number;', '/repo/index.d.ts' ],
+            [ 'export declare const value:number;', '/repo/index.d.mts' ],
+            [ 'export declare const value:number;', '/repo/index.ts' ],
+            [ 'export interface Value{}', '/repo/index.ts' ],
+            [ 'export type Value=number;', '/repo/index.ts' ],
+            [ 'export type * from "./types.js";', '/repo/index.ts' ],
+            [ 'export {type Value} from "./types.js";', '/repo/index.ts' ],
+            [ 'import type {Value} from "./types.js";export {};', '/repo/index.ts' ],
+            [ 'import {type Value} from "./types.js";export {};', '/repo/index.ts' ],
+            [ 'const value=1;export = value;', '/repo/index.ts' ]
+        ] as const;
+        for (const [ content, filePath ] of opaqueModules) {
+            test(`keeps opaque export schemas unchanged: ${content} in ${filePath}`, function () {
+                assert.strictEqual(modelAt(content, filePath).closed, false);
+            });
+        }
+    });
 });
