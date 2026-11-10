@@ -7,7 +7,6 @@ import {
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import {
-    type PurityContext,
     classExpressionFact,
     expressionFactIsPure,
     identifierReadFact,
@@ -45,6 +44,11 @@ type PurityRule = (
     factFor: ExpressionFactResolver,
     context: PurityContext
 ) => ExpressionFact;
+
+export type PurityContext = {
+    readonly settings: DeadCodeEliminationSettings | undefined;
+    readonly resolveRuntimeModule: RuntimeModuleResolver;
+};
 type ExpressionFactContext = {
     readonly cache: WeakMap<Expression, ExpressionFact>;
     readonly purity: PurityContext;

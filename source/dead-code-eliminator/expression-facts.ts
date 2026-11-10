@@ -10,8 +10,7 @@ import {
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
+import type { PurityContext } from './pure-expression.ts';
 import { hasClassImpurity } from './class-purity.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 import {
@@ -345,8 +344,3 @@ export function identifierReadFact(
     }
     return unknownFact;
 }
-
-export type PurityContext = {
-    readonly settings: DeadCodeEliminationSettings | undefined;
-    readonly resolveRuntimeModule: RuntimeModuleResolver;
-};

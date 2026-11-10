@@ -9,10 +9,10 @@ import {
     pureValueFact,
     purityCheckerFor,
     unknownFact,
-    type PurityContext,
     type ExpressionFact,
     type ExpressionFactResolver
 } from './expression-facts.ts';
+import type { PurityContext } from './pure-expression.ts';
 import {
     arePureCallArguments,
     callResultOrigin,
