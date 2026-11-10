@@ -46,7 +46,7 @@ function bindingEntry(module: SourceFile, name: string): ExportEntry<ExportModul
 }
 
 function forwardedEntry(module: ExportModule, name: string): ExportEntry<ExportModule> {
-    return { kind: 'forward', module, name };
+    return { module, name };
 }
 
 function namespaceEntry(module: ExportModule): ExportEntry<ExportModule> {

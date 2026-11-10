@@ -123,7 +123,7 @@ suite('export resolution', function () {
                 new Map([
                     [
                         'entry',
-                        moduleExports([ [ 'alias', { kind: 'forward', module: 'dependency', name: 'public' } ] ], [])
+                        moduleExports([ [ 'alias', { module: 'dependency', name: 'public' } ] ], [])
                     ],
                     [ 'dependency', moduleExports([ [ 'public', binding('dependency', 'local') ] ], []) ]
                 ])
@@ -141,7 +141,7 @@ suite('export resolution', function () {
                     [ 'first', moduleExports([], [ 'shared' ]) ],
                     [
                         'second',
-                        moduleExports([ [ 'value', { kind: 'forward', module: 'shared', name: 'value' } ] ], [])
+                        moduleExports([ [ 'value', { module: 'shared', name: 'value' } ] ], [])
                     ],
                     [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
                 ])
@@ -177,7 +177,7 @@ suite('export resolution', function () {
                 new Map([
                     [
                         'entry',
-                        moduleExports([ [ 'value', { kind: 'forward', module: 'dependency', name: 'default' } ] ], [])
+                        moduleExports([ [ 'value', { module: 'dependency', name: 'default' } ] ], [])
                     ],
                     [ 'dependency', moduleExports([ [ 'default', binding('dependency', 'snapshot') ] ], []) ]
                 ])
@@ -220,7 +220,7 @@ suite('export resolution', function () {
                 new Map([
                     [
                         'entry',
-                        moduleExports([ [ 'value', { kind: 'forward', module: 'external', name: 'value' } ] ], [])
+                        moduleExports([ [ 'value', { module: 'external', name: 'value' } ] ], [])
                     ]
                 ])
             );
@@ -285,8 +285,8 @@ suite('export resolution', function () {
 
         test('expands each module once in a cyclic forwarding graph', function () {
             const modules = new Map([
-                [ 'first', moduleExports([ [ 'value', { kind: 'forward', module: 'second', name: 'value' } ] ], []) ],
-                [ 'second', moduleExports([ [ 'value', { kind: 'forward', module: 'first', name: 'value' } ] ], []) ]
+                [ 'first', moduleExports([ [ 'value', { module: 'second', name: 'value' } ] ], []) ],
+                [ 'second', moduleExports([ [ 'value', { module: 'first', name: 'value' } ] ], []) ]
             ]);
             let expansions = 0;
             const resolver = createExportResolver({
@@ -370,14 +370,14 @@ suite('export resolution', function () {
                 new Map([
                     [
                         'first',
-                        moduleExports([ [ 'value', { kind: 'forward', module: 'second', name: 'alias' } ], [
+                        moduleExports([ [ 'value', { module: 'second', name: 'alias' } ], [
                             'other',
                             binding('first', 'other')
                         ] ], [])
                     ],
                     [
                         'second',
-                        moduleExports([ [ 'alias', { kind: 'forward', module: 'first', name: 'value' } ] ], [])
+                        moduleExports([ [ 'alias', { module: 'first', name: 'value' } ] ], [])
                     ]
                 ])
             );

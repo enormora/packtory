@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import fastCheck from 'fast-check';
+import { hasProp } from 'remeda';
 import { suite, test } from 'mocha';
 import {
     createExportResolver,
@@ -32,7 +33,7 @@ function entryTerminals(
     if (entry === null) {
         return opaqueTerminals;
     }
-    if (entry.kind === 'origin') {
+    if (hasProp(entry, 'origin')) {
         return { origins: [ entry.origin ], unknown: false };
     }
     return visit({ ...walk, module: entry.module, name: entry.name });
@@ -114,7 +115,6 @@ const originEntries = fastCheck.oneof(
 const entries = fastCheck.oneof(
     originEntries,
     fastCheck.record({
-        kind: fastCheck.constant('forward' as const),
         module: fastCheck.nat({ max: 7 }),
         name: fastCheck.constantFrom('value', 'default')
     }),

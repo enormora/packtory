@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 
 export type ExportOrigin<Module> = { readonly module: Module; readonly name: string | undefined; };
 
-type ForwardedExport<Module> = { readonly kind: 'forward'; readonly module: Module; readonly name: string; };
+type ForwardedExport<Module> = { readonly module: Module; readonly name: string; };
 type OriginExport<Module> = { readonly kind: 'origin'; readonly origin: ExportOrigin<Module>; };
 export type ExportEntry<Module> = ForwardedExport<Module> | OriginExport<Module> | null;
 
