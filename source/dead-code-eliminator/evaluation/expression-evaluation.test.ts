@@ -17,19 +17,48 @@ suite('expression evaluation writes', function () {
         assert.deepStrictEqual(reference.value, { value: 1 });
     });
 
-    test('rejects an unsupported compound assignment before evaluating its right operand', function () {
-        const source = createProject().createSourceFile('input.ts', 'let value=1;value<<=expensive();');
-        const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.BinaryExpression);
-        const context = createBoundedEvaluationContext(0, 100);
-        context.locals.set(source.getVariableDeclarationOrThrow('value'), createBindingReference({ value: 1 }, true));
-        assert.strictEqual(
-            evaluateExpression(expression, {
-                ...context,
-                evaluate() {
-                    return assert.fail('Unsupported compound operators must not evaluate operands');
-                }
-            }),
-            undefined
-        );
-    });
+    for (const operator of [ '<<=', '^=' ]) {
+        test(`rejects unsupported ${operator} before evaluating its right operand`, function () {
+            const source = createProject().createSourceFile('input.ts', `let value=1;value${operator}expensive();`);
+            const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.BinaryExpression);
+            const context = createBoundedEvaluationContext(0, 100);
+            context.locals.set(
+                source.getVariableDeclarationOrThrow('value'),
+                createBindingReference({ value: 1 }, true)
+            );
+            assert.strictEqual(
+                evaluateExpression(expression, {
+                    ...context,
+                    evaluate() {
+                        return assert.fail('Unsupported compound operators must not evaluate operands');
+                    }
+                }),
+                undefined
+            );
+        });
+    }
+
+    for (const operator of [ 'in', 'instanceof' ]) {
+        test(`evaluates ordinary ${operator} operands in source order`, function () {
+            const source = createProject().createSourceFile('input.ts', `let value=1;value ${operator} other;`);
+            const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.BinaryExpression);
+            const context = createBoundedEvaluationContext(0, 100);
+            context.locals.set(
+                source.getVariableDeclarationOrThrow('value'),
+                createBindingReference({ value: 1 }, true)
+            );
+            const operands: string[] = [];
+            assert.strictEqual(
+                evaluateExpression(expression, {
+                    ...context,
+                    evaluate(operand) {
+                        operands.push(operand.getText());
+                        return { value: 1 };
+                    }
+                }),
+                undefined
+            );
+            assert.deepStrictEqual(operands, [ 'value', 'other' ]);
+        });
+    }
 });

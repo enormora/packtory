@@ -26,7 +26,7 @@ import {
 import { evaluateRecordExpression, recordPropertyReference } from './record-evaluation.ts';
 
 function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
-    return match(operator)
+    return match<number>(operator)
         .with(SyntaxKind.PlusEqualsToken, constant(SyntaxKind.PlusToken))
         .with(SyntaxKind.MinusEqualsToken, constant(SyntaxKind.MinusToken))
         .with(SyntaxKind.AsteriskEqualsToken, constant(SyntaxKind.AsteriskToken))
@@ -36,7 +36,7 @@ function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefine
 }
 
 function logicalAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
-    return match(operator)
+    return match<number>(operator)
         .with(SyntaxKind.AmpersandAmpersandEqualsToken, constant(SyntaxKind.AmpersandAmpersandToken))
         .with(SyntaxKind.BarBarEqualsToken, constant(SyntaxKind.BarBarToken))
         .with(SyntaxKind.QuestionQuestionEqualsToken, constant(SyntaxKind.QuestionQuestionToken))
