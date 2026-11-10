@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind, type Expression, type VariableDeclaration } from 'ts-morph';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { unwrapExpression } from './expression-unwrapping.ts';
+import { expressionWithWrappers, unwrapExpression } from './expression-unwrapping.ts';
 
 function firstDeclaration(declarations: readonly VariableDeclaration[]): VariableDeclaration {
     const [ declaration ] = declarations;
@@ -19,6 +19,24 @@ function firstInitializer(content: string): Expression {
 }
 
 suite('expression-unwrapping', function () {
+    for (
+        const [ content, expected ] of [
+            [ 'const a=((1 as number) satisfies number)!;', '((1 as number) satisfies number)!' ],
+            [ 'const a=call(((1 as number) satisfies number));', '((1 as number) satisfies number)' ],
+            [ 'const a=(1+2);', '1' ],
+            [ 'const a=1;', '1' ]
+        ] as const
+    ) {
+        test(`retains only enclosing wrappers in ${content}`, function () {
+            const literal = firstInitializer(content)
+                .getSourceFile()
+                .getFirstDescendantByKindOrThrow(SyntaxKind.NumericLiteral);
+            const result = expressionWithWrappers(literal);
+            assert.strictEqual(result.getText(), expected);
+            assert.strictEqual(unwrapExpression(result), literal);
+        });
+    }
+
     test('unwrapExpression returns the same node when there are no wrapping expressions', function () {
         const expression = firstInitializer('const a = 1;');
 

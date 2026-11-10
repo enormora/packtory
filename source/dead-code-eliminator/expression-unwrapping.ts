@@ -1,6 +1,6 @@
 import { Node as TypeScriptMorphNode, type Expression } from 'ts-morph';
 
-function nextUnwrappedExpression(expression: Expression | undefined): Expression | undefined {
+function nextUnwrappedExpression(expression: TypeScriptMorphNode | undefined): Expression | undefined {
     if (TypeScriptMorphNode.isAsExpression(expression) || TypeScriptMorphNode.isSatisfiesExpression(expression)) {
         return expression.getExpression();
     }
@@ -21,12 +21,14 @@ export function unwrapExpression(expression: Expression | undefined): Expression
     return nextExpression === undefined ? expression : unwrapExpression(nextExpression);
 }
 
+function wrapsExpression(parent: TypeScriptMorphNode, expression: Expression): parent is Expression {
+    return nextUnwrappedExpression(parent) === expression;
+}
+
 export function expressionWithWrappers(expression: Expression): Expression {
-    let current = expression;
-    let parent = current.getParent();
-    while (TypeScriptMorphNode.isExpression(parent) && unwrapExpression(parent) === unwrapExpression(current)) {
-        current = parent;
-        parent = current.getParent();
-    }
-    return current;
+    return expression.getAncestors().reduce<Expression>(function (current, parent) {
+        return wrapsExpression(parent, current)
+            ? parent
+            : current;
+    }, expression);
 }
