@@ -17,10 +17,13 @@ export function observeReachableBindings(
         if (reachable === undefined) {
             return true;
         }
-        const owner = [ reference, ...reference.getAncestors() ].find(function (node) {
-            return owners.has(node);
-        });
-        const identifiers = owner === undefined ? undefined : owners.get(owner);
+        const identifiers = [ reference, ...reference.getAncestors() ]
+            .map(function (node) {
+                return owners.get(node);
+            })
+            .find(function (owner) {
+                return owner !== undefined;
+            });
         return identifiers === undefined || Array.from(identifiers).some(function (identifier) {
             return reachable.has(identifier);
         });
