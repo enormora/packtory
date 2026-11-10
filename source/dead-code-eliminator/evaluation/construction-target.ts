@@ -11,6 +11,7 @@ import { defaultClassConstructionIsPure } from '../class-purity.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import { collectBindingDependencies } from '../exports/binding-dependencies.ts';
 import { constantDominatesRead } from './constant-binding.ts';
 import { declarationOf } from './evaluation-context.ts';
 
@@ -46,14 +47,7 @@ function declaredClassTarget(declaration: ClassDeclaration, read: Identifier): C
     return bindingValueIsStable(declaration.getNameNodeOrThrow()) ? declaration : undefined;
 }
 
-function constructorStep(expression: Expression): ConstructionClass | Expression | undefined {
-    const read = unwrapExpression(expression);
-    if (TypeScriptMorphNode.isClassExpression(read)) {
-        return read;
-    }
-    if (!TypeScriptMorphNode.isIdentifier(read)) {
-        return undefined;
-    }
+function constructorBindingTarget(read: Identifier): ConstructionClass | Expression | undefined {
     const declaration = declarationOf(read);
     if (TypeScriptMorphNode.isClassDeclaration(declaration)) {
         return declaredClassTarget(declaration, read);
@@ -63,15 +57,30 @@ function constructorStep(expression: Expression): ConstructionClass | Expression
         : undefined;
 }
 
-function constructionClass(expression: Expression): ConstructionClass | undefined {
-    let target: ConstructionClass | Expression | undefined = expression;
-    while (target !== undefined) {
-        if (TypeScriptMorphNode.isClassDeclaration(target) || TypeScriptMorphNode.isClassExpression(target)) {
-            return target;
-        }
-        target = constructorStep(target);
+function constructorStep(expression: Expression): ConstructionClass | Expression {
+    const read = unwrapExpression(expression);
+    if (TypeScriptMorphNode.isClassExpression(read)) {
+        return read;
     }
-    return undefined;
+    return TypeScriptMorphNode.isIdentifier(read) ? constructorBindingTarget(read) ?? expression : expression;
+}
+
+function isConstructionClass(node: ConstructionClass | Expression): node is ConstructionClass {
+    return TypeScriptMorphNode.isClassDeclaration(node) || TypeScriptMorphNode.isClassExpression(node);
+}
+
+function constructionClass(expression: Expression): ConstructionClass | undefined {
+    const leaves = collectBindingDependencies<ConstructionClass | Expression>(expression, {
+        get(target) {
+            if (isConstructionClass(target)) {
+                return undefined;
+            }
+            return function () {
+                return [ constructorStep(target) ];
+            };
+        }
+    });
+    return leaves.find(isConstructionClass);
 }
 
 function constructionArguments(expression: NewExpression): readonly Expression[] | undefined {
