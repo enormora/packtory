@@ -2,10 +2,43 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createCallTargetResolver } from './call-target.ts';
 import { evaluateLocalCall } from './local-call.ts';
 
 suite('conditional function bindings', function () {
+    for (
+        const content of [
+            'function selected(){return 1;}if(flag){function unrelated(){return 2;}}selected();',
+            'function outer(){function selected(){return 1;}return selected();}'
+        ]
+    ) {
+        test(`keeps stable declarations distinct from conditional replacements in ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', content);
+            const call = source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
+            const target = source.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).find(function (declaration) {
+                return declaration.getName() === 'selected';
+            });
+            assertDefined(target);
+            const resolve = createCallTargetResolver(source, function () {
+                return true;
+            });
+            assert.strictEqual(resolve(call), target);
+        });
+    }
+
+    test('does not treat namespace method calls as local identifier calls', function () {
+        const source = createProject().createSourceFile(
+            'input.ts',
+            'namespace Scope{export function selected(){return 1;}Scope.selected();}'
+        );
+        const call = source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
+        const resolve = createCallTargetResolver(source, function () {
+            return true;
+        });
+        assert.strictEqual(resolve(call), undefined);
+    });
+
     for (const accepted of [ true, false ]) {
         test(`reuses function support proofs when acceptance is ${String(accepted)}`, function () {
             const source = createProject().createSourceFile(

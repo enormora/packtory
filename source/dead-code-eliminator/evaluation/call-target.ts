@@ -64,8 +64,8 @@ function declarationHasConditionalReplacement(declaration: FunctionDeclaration):
 }
 
 function declarationBindingIsStable(declaration: FunctionDeclaration): boolean {
-    const name = declaration.getNameNode();
-    if (name === undefined || declarationHasConditionalReplacement(declaration)) {
+    const name = declaration.getNameNodeOrThrow();
+    if (declarationHasConditionalReplacement(declaration)) {
         return false;
     }
     return bindingValueIsStable(name);

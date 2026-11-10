@@ -30,11 +30,10 @@ function classBindingIsPrivate(declaration: ClassDeclaration): boolean {
 function classDeclarationDominatesRead(declaration: ClassDeclaration, read: Identifier): boolean {
     const activation = declaration.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     const scope = declaration.getParentOrThrow();
-    const statement = read.getAncestors().find(function (ancestor) {
-        return ancestor.getParent() === scope;
-    });
     return activation === read.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration) &&
-        statement !== undefined && declaration.getChildIndex() < statement.getChildIndex();
+        read.getAncestors().some(function (ancestor) {
+            return ancestor.getParent() === scope && declaration.getChildIndex() < ancestor.getChildIndex();
+        });
 }
 
 function declaredClassTarget(declaration: ClassDeclaration, read: Identifier): ClassDeclaration | undefined {
