@@ -20,9 +20,11 @@ function availableObjectDeclaration(read: Identifier): VariableDeclaration | und
     if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return undefined;
     }
-    return constantDominatesRead(declaration, read) && constantStatement(declaration)?.isExported() === false
-        ? declaration
-        : undefined;
+    const statement = constantStatement(declaration);
+    if (statement === undefined || statement.isExported()) {
+        return undefined;
+    }
+    return constantDominatesRead(declaration, read) ? declaration : undefined;
 }
 
 function aliasedObjectOrigin(read: Identifier): ObjectOrigin | undefined {
