@@ -7,7 +7,7 @@ compile:
     tsc --build
 
 eslint *OPTIONS:
-    eslint . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0 {{OPTIONS}}
+    node --max-old-space-size=6144 ./node_modules/eslint/bin/eslint.js . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0 {{OPTIONS}}
 
 eslint-fix: (eslint '--fix')
 
