@@ -32,8 +32,8 @@ suite('identifier-target-collector reexports', function () {
 
     for (
         const scenario of [
-            { declaration: 'export * from "./dep.js";', names: [ 'a' ] },
-            { declaration: 'export * as ns from "./dep.js";', names: [ 'a', 'default' ] },
+            { declaration: 'export * from "./dep.js";', names: [ 'a', 'b' ] },
+            { declaration: 'export * as ns from "./dep.js";', names: [ 'a', 'b', 'default' ] },
             { declaration: 'export { a } from "./dep.js";', names: [ 'a' ] },
             { declaration: 'export * from "external";', names: [] }
         ]
@@ -41,7 +41,10 @@ suite('identifier-target-collector reexports', function () {
         test(`collects exactly the targets of ${scenario.declaration}`, function () {
             const targets = collectEntryReExportTargets([
                 { filePath: '/source/index.js', content: scenario.declaration },
-                { filePath: '/source/dep.js', content: 'export const a = 1; export default 9; const unused = 0;' }
+                {
+                    filePath: '/source/dep.js',
+                    content: 'export const a = 1; export const b = 2; export default 9; const unused = 0;'
+                }
             ]);
             assert.deepStrictEqual(
                 targets,

@@ -12,6 +12,7 @@ import {
 } from 'ts-morph';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 import type { ExportGraph } from '../exports/export-graph.ts';
+import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
@@ -145,33 +146,42 @@ function symbolTargets(
     ];
 }
 
-function reExportTargets(
+function compilerReExportDependencies(
     declaration: ExportDeclaration,
-    declarationIndex: IdentifierTargetIndex,
-    visited: ReadonlySet<ExportDeclaration>
-): readonly string[] {
-    const targets = declarationIndex.exportGraph?.declarationTargets(declaration);
-    if (targets !== undefined) {
-        return targets;
-    }
-    if (!declaration.isNamespaceExport() || visited.has(declaration)) {
+    declarationIndex: IdentifierTargetIndex
+): readonly (ExportDeclaration | string)[] {
+    const source = declaration.isNamespaceExport() ? declaration.getModuleSpecifierSourceFile() : undefined;
+    if (source === undefined) {
         return [];
     }
-    const sourceFile = declaration.getModuleSpecifierSourceFile();
-    if (sourceFile === undefined) {
-        return [];
-    }
-    const nextVisited = new Set([ ...visited, declaration ]);
     return [
-        ...sourceFile.getExportSymbols().flatMap(function (symbol) {
+        ...source.getExportSymbols().flatMap(function (symbol) {
             return symbol.getName() !== 'default' || declaration.getNamespaceExport() !== undefined
                 ? symbolTargets(symbol, declarationIndex)
                 : [];
         }),
-        ...sourceFile.getExportDeclarations().flatMap(function (nested) {
-            return reExportTargets(nested, declarationIndex, nextVisited);
-        })
+        ...source.getExportDeclarations()
     ];
+}
+
+function reExportTargets(
+    declaration: ExportDeclaration,
+    declarationIndex: IdentifierTargetIndex
+): readonly string[] {
+    const targets = new Set<string>();
+    visitBindingDependencies<ExportDeclaration | string>(declaration, {
+        get(node) {
+            return typeof node === 'string' ? undefined : function () {
+                return declarationIndex.exportGraph?.declarationTargets(node) ??
+                    compilerReExportDependencies(node, declarationIndex);
+            };
+        }
+    }, function (node) {
+        if (typeof node === 'string') {
+            targets.add(node);
+        }
+    });
+    return Array.from(targets);
 }
 
 function namespaceExportTargets(
@@ -278,7 +288,7 @@ function observedDynamicExports(
                 return symbolTargets(symbol, declarationIndex);
             }),
         ...sourceFile.getExportDeclarations().flatMap(function (declaration) {
-            return reExportTargets(declaration, declarationIndex, new Set());
+            return reExportTargets(declaration, declarationIndex);
         })
     ];
 }
@@ -312,7 +322,7 @@ export function collectIdentifierTargets(
     const index = { ...declarationIndex, exportGraph };
     return new Set([
         ...TypeScriptMorphNode.isExportDeclaration(rootNode)
-            ? reExportTargets(rootNode, index, new Set())
+            ? reExportTargets(rootNode, index)
             : [],
         ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
             return identifierTargets(identifier, index);

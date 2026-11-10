@@ -16,6 +16,7 @@
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
+            "source/dead-code-eliminator/reachability/identifier-target-collector.reexports.test.ts",
             "source/dependency-scanner/source-file-references.injected-imports*.test.ts",
             "source/report/terminal-renderer/terminal-preview-renderer-shared.test.ts",
             "source/dead-code-eliminator/exports/export-resolution.test.ts",
