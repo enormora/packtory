@@ -16,10 +16,7 @@ function containsWriteTarget(parent: TypeScriptMorphNodeType): boolean {
 }
 
 function enclosingWriteTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
-    const parent = node.getParent();
-    if (parent === undefined) {
-        return undefined;
-    }
+    const parent = node.getParentOrThrow();
     if (containsWriteTarget(parent)) {
         return parent;
     }
@@ -27,7 +24,7 @@ function enclosingWriteTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNod
         return undefined;
     }
     const initializesProperty = parent.getInitializerOrThrow().getStart() === node.getStart();
-    return initializesProperty ? parent.getParent() : undefined;
+    return initializesProperty ? parent : undefined;
 }
 
 function assignmentWritesNode(node: TypeScriptMorphNodeType): boolean | undefined {
@@ -44,19 +41,15 @@ function assignmentWritesNode(node: TypeScriptMorphNodeType): boolean | undefine
 }
 
 export function expressionIsWriteTarget(node: TypeScriptMorphNodeType): boolean {
-    let current: TypeScriptMorphNodeType | undefined = node;
-    while (current !== undefined) {
-        const assignment = assignmentWritesNode(current);
-        if (assignment !== undefined) {
-            return assignment;
-        }
-        const parent = current.getParent();
-        if (
-            TypeScriptMorphNode.isPrefixUnaryExpression(parent) || TypeScriptMorphNode.isPostfixUnaryExpression(parent)
-        ) {
-            return [ SyntaxKind.PlusPlusToken, SyntaxKind.MinusMinusToken ].includes(parent.getOperatorToken());
-        }
-        current = enclosingWriteTarget(current);
+    const target = node.getAncestors().reduce(function (current, parent) {
+        return enclosingWriteTarget(current) === parent ? parent : current;
+    }, node);
+    const assignment = assignmentWritesNode(target);
+    if (assignment !== undefined) {
+        return assignment;
     }
-    return false;
+    const parent = target.getParent();
+    return TypeScriptMorphNode.isPrefixUnaryExpression(parent) || TypeScriptMorphNode.isPostfixUnaryExpression(parent)
+        ? [ SyntaxKind.PlusPlusToken, SyntaxKind.MinusMinusToken ].includes(parent.getOperatorToken())
+        : false;
 }

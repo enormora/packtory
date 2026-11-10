@@ -12,6 +12,37 @@ suite('expression value reads', function () {
         assert.strictEqual(expressionIsWriteTarget(source), false);
     });
 
+    for (
+        const [ content, expected ] of [
+            [ 'target=1;', true ],
+            [ 'target+=1;', true ],
+            [ 'target^=1;', true ],
+            [ 'target+1;', false ],
+            [ '++target;', true ],
+            [ '--target;', true ],
+            [ '!target;', false ],
+            [ 'target++;', true ],
+            [ 'target--;', true ],
+            [ 'for(target of values){}', true ],
+            [ 'for(target in object){}', true ],
+            [ 'for(const value of target){}', false ],
+            [ '[target]=values;', true ],
+            [ '({...target}=value);', true ],
+            [ 'const value={key:target};', false ],
+            [ '(target).value=1;', false ],
+            [ 'call(target);', false ]
+        ] as const
+    ) {
+        test(`classifies the write target in ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', content);
+            const target = source.getDescendantsOfKind(SyntaxKind.Identifier).find(function (candidate) {
+                return candidate.getText() === 'target';
+            });
+            assertDefined(target);
+            assert.strictEqual(expressionIsWriteTarget(target), expected);
+        });
+    }
+
     test('distinguishes destructuring property names from assigned values', function () {
         const source = createProject().createSourceFile('input.ts', '({key:target}=value);');
         const property = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAssignment);
