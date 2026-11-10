@@ -7,7 +7,6 @@ import {
     type NamespaceImport
 } from 'ts-morph';
 import { match } from 'ts-pattern';
-import { constant } from 'remeda';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import {
     createExportResolver,
@@ -28,11 +27,8 @@ export function bindingForExportOrigin(
     origin: ExportOrigin<SourceFile | undefined>,
     models: ReadonlyMap<SourceFile | undefined, ModuleExportModel>
 ): BindingDescriptor | undefined {
-    return match(origin)
-        .with({ kind: 'namespace' }, constant(undefined))
-        .otherwise(function (binding) {
-            return models.get(binding.module)?.locals.get(binding.name === '*default*' ? 'default' : binding.name);
-        });
+    const locals: ReadonlyMap<string | undefined, BindingDescriptor> | undefined = models.get(origin.module)?.locals;
+    return locals?.get(origin.name === '*default*' ? 'default' : origin.name);
 }
 
 type ExportContext = {
@@ -46,15 +42,15 @@ function exportTarget(context: ExportContext, specifier: string | undefined): Ex
 }
 
 function bindingEntry(module: SourceFile, name: string): ExportEntry<ExportModule> {
-    return { kind: 'origin', origin: { kind: 'binding', module, name } };
+    return { kind: 'origin', origin: { module, name } };
 }
 
 function forwardedEntry(module: ExportModule, name: string): ExportEntry<ExportModule> {
-    return module === undefined ? { kind: 'unknown' } : { kind: 'forward', module, name };
+    return { kind: 'forward', module, name };
 }
 
 function namespaceEntry(module: ExportModule): ExportEntry<ExportModule> {
-    return module === undefined ? { kind: 'unknown' } : { kind: 'origin', origin: { kind: 'namespace', module } };
+    return module === undefined ? { kind: 'unknown' } : { kind: 'origin', origin: { module, name: undefined } };
 }
 
 function importedExportName(declaration: ImportBinding): string | undefined {
@@ -62,6 +58,16 @@ function importedExportName(declaration: ImportBinding): string | undefined {
         return undefined;
     }
     return TypeScriptMorphNode.isImportClause(declaration) ? 'default' : declaration.getNameNode().compilerNode.text;
+}
+
+export function resolveModuleExport(
+    importer: SourceFile,
+    specifier: string,
+    name: string | undefined,
+    resolveModule: ExportTargetResolver
+): ImportedExport | undefined {
+    const source = resolveModule(importer, specifier);
+    return source === undefined ? undefined : { source, name };
 }
 
 export function resolveImportedExport(
@@ -75,8 +81,12 @@ export function resolveImportedExport(
         return undefined;
     }
     const imported = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
-    const source = resolveModule(declaration.getSourceFile(), imported.getModuleSpecifierValue());
-    return source === undefined ? undefined : { source, name: importedExportName(declaration) };
+    return resolveModuleExport(
+        declaration.getSourceFile(),
+        imported.getModuleSpecifierValue(),
+        importedExportName(declaration),
+        resolveModule
+    );
 }
 
 function importedEntry(
@@ -130,10 +140,9 @@ function resolvedEntry(context: ExportContext, entry: ModuleExportEntry): Export
         .with({ kind: 'namespace' }, function (value) {
             return namespaceEntry(exportTarget(context, value.specifier));
         })
-        .with({ kind: 'forward' }, function (value) {
+        .otherwise(function (value) {
             return forwardedEntry(exportTarget(context, value.specifier), value.name);
-        })
-        .exhaustive();
+        });
 }
 
 function resolvedModule(context: ExportContext): ModuleExports<ExportModule> {

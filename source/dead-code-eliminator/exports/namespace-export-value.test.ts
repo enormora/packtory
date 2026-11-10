@@ -143,6 +143,59 @@ const cases: readonly NamespaceCase[] = [
 ];
 
 suite('namespace export values', function () {
+    suite('model boundaries', function () {
+        test('resolves a directly queried namespace export', function () {
+            const fixture = createExportModuleFixture({
+                'index.js': 'export * as library from "./library.js";',
+                'library.js': 'export const value=1;'
+            }, []);
+            assert.strictEqual(
+                resolveNamespaceExport(fixture.source('index.js'), 'library', fixture.models, fixture.resolveModule),
+                fixture.source('library.js')
+            );
+        });
+
+        test('rejects export queries for excluded modules', function () {
+            const fixture = createExportModuleFixture({ 'index.js': 'export const value=1;' }, [ 'index.js' ]);
+            assert.strictEqual(
+                resolveNamespaceExport(fixture.source('index.js'), 'value', fixture.models, fixture.resolveModule),
+                undefined
+            );
+        });
+
+        test('rejects a local alias without an initializer', function () {
+            assert.strictEqual(namespaceTarget({ 'index.js': 'const ns;' }), undefined);
+        });
+
+        test('does not identify property accesses as local namespace aliases', function () {
+            assert.strictEqual(
+                namespaceTarget({
+                    'index.js': 'import * as library from "./library.js";const ns=library.value;',
+                    'library.js': 'export const value=1;'
+                }),
+                undefined
+            );
+        });
+
+        test('requires the model binding to own the referenced declaration', function () {
+            const fixture = createExportModuleFixture({
+                'index.js': 'import * as library from "./library.js";const other=1;const ns=library;',
+                'library.js': 'export const value=1;'
+            }, []);
+            const source = fixture.source('index.js');
+            const model = fixture.models.get(source);
+            assertDefined(model);
+            const other = model.locals.get('other');
+            assertDefined(other);
+            const models = new Map(fixture.models);
+            models.set(source, { ...model, locals: new Map([ ...model.locals, [ 'library', other ] ]) });
+            assert.strictEqual(
+                resolveNamespaceImport(source.getVariableDeclarationOrThrow('ns'), models, fixture.resolveModule),
+                undefined
+            );
+        });
+    });
+
     test('rejects namespace entries without module specifier metadata', function () {
         const fixture = createExportModuleFixture({ 'index.js': 'export * as ns from "./missing.js";' }, []);
         const source = fixture.source('index.js');
@@ -150,7 +203,12 @@ suite('namespace export values', function () {
         const model = models.get(source);
         assertDefined(model);
         models.set(source, { ...model, entries: new Map([ [ 'ns', { kind: 'namespace', specifier: undefined } ] ]) });
-        assert.strictEqual(resolveNamespaceExport(source, 'ns', models, fixture.resolveModule), undefined);
+        assert.strictEqual(
+            resolveNamespaceExport(source, 'ns', models, function () {
+                assert.fail('a namespace without a specifier must not request a module');
+            }),
+            undefined
+        );
     });
 
     test('rejects declarations outside the supplied module models', function () {

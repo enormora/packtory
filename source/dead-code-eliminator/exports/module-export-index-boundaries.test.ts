@@ -6,6 +6,17 @@ import { bindingForExportOrigin } from './module-export-resolver.ts';
 import { collectCandidateExportNames } from './candidate-export-names.ts';
 
 suite('module export index boundaries', function () {
+    test('keeps distinct local namespace bindings ambiguous after canonical origins merge', function () {
+        const fixture = createExportModuleFixture({
+            'index.js': 'export * from "./a.js";export * from "./b.js";',
+            'a.js': 'import * as ns from "./library.js";export {ns as value};',
+            'b.js': 'export * as value from "./library.js";',
+            'library.js': 'export const used=1;'
+        }, []);
+        const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
+        assert.strictEqual(index.binding(fixture.source('index.js'), 'value'), undefined);
+    });
+
     test('does not close a namespace containing both known and unknown exports', function () {
         const fixture = createExportModuleFixture({
             'index.js': 'export {missing} from "./external.js";export const known=1;'
@@ -29,24 +40,22 @@ suite('module export index boundaries', function () {
             'outside.js': 'export const value=1;'
         }, [ 'outside.js' ]);
         assert.strictEqual(
-            bindingForExportOrigin({ kind: 'binding', module: undefined, name: 'value' }, fixture.models),
+            bindingForExportOrigin({ module: undefined, name: 'value' }, fixture.models),
             undefined
         );
         assert.strictEqual(
             bindingForExportOrigin({
-                kind: 'binding',
                 module: fixture.source('outside.js'),
                 name: 'value'
             }, fixture.models),
             undefined
         );
         assert.strictEqual(
-            bindingForExportOrigin({ kind: 'namespace', module: fixture.source('index.js') }, fixture.models),
+            bindingForExportOrigin({ name: undefined, module: fixture.source('index.js') }, fixture.models),
             undefined
         );
         assert.strictEqual(
             bindingForExportOrigin({
-                kind: 'binding',
                 module: fixture.source('index.js'),
                 name: '*default*'
             }, fixture.models)

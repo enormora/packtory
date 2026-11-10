@@ -98,7 +98,7 @@ export function createModuleExportIndex(
         status,
         binding(source, name) {
             const local = state.local.resolve(source, name);
-            return local.kind === 'unique' && state.canonical.resolve(source, name).kind === 'unique'
+            return local.kind === 'unique'
                 ? bindingForExportOrigin(local.origin, state.models)
                 : undefined;
         },

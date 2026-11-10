@@ -1,8 +1,6 @@
 import { match } from 'ts-pattern';
 
-type BindingOrigin<Module> = { readonly kind: 'binding'; readonly module: Module; readonly name: string; };
-type NamespaceOrigin<Module> = { readonly kind: 'namespace'; readonly module: Module; };
-export type ExportOrigin<Module> = BindingOrigin<Module> | NamespaceOrigin<Module>;
+export type ExportOrigin<Module> = { readonly module: Module; readonly name: string | undefined; };
 
 type ForwardedExport<Module> = { readonly kind: 'forward'; readonly module: Module; readonly name: string; };
 type OriginExport<Module> = { readonly kind: 'origin'; readonly origin: ExportOrigin<Module>; };
@@ -51,10 +49,7 @@ function createExportQuery<Module>(module: Module, name: string): ExportQuery<Mo
 }
 
 export function sameExportOrigin<Module>(left: ExportOrigin<Module>, right: ExportOrigin<Module>): boolean {
-    if (left.kind === 'namespace') {
-        return right.kind === 'namespace' && left.module === right.module;
-    }
-    return right.kind === 'binding' && left.module === right.module && left.name === right.name;
+    return left.module === right.module && left.name === right.name;
 }
 
 function mergeOrigins<Module>(left: KnownOrigins<Module>, right: KnownOrigins<Module>): KnownOrigins<Module> {
@@ -78,7 +73,7 @@ function resolutionOf<Module>(origins: KnownOrigins<Module>, unknown: boolean): 
 }
 
 export function createExportResolver<Module>(
-    modules: ReadonlyMap<Module, ModuleExports<Module>>
+    modules: Pick<ReadonlyMap<Module, ModuleExports<Module>>, 'get'>
 ): ExportResolver<Module> {
     const state = {
         queries: new Map<Module, Map<string, ExportQuery<Module>>>(),
@@ -122,10 +117,9 @@ export function createExportResolver<Module>(
             .with({ kind: 'forward' }, function (value) {
                 follow(query, value.module, value.name);
             })
-            .with({ kind: 'unknown' }, function () {
+            .otherwise(function () {
                 state.unknown.add(query);
-            })
-            .exhaustive();
+            });
     }
 
     function inheritStars(query: ExportQuery<Module>, module: ModuleExports<Module>): void {

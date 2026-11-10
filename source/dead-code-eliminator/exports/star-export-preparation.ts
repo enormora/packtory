@@ -3,7 +3,12 @@ import type { SourcePreparation } from '../../source-transformation/source-prepa
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { ExportReference, ModuleExportIndex } from './module-export-index.ts';
 import type { ModuleExportModel } from './module-export-model.ts';
-import { resolveImportedExport, type ExportTargetResolver, type ImportedExport } from './module-export-resolver.ts';
+import {
+    resolveImportedExport,
+    resolveModuleExport,
+    type ExportTargetResolver,
+    type ImportedExport
+} from './module-export-resolver.ts';
 
 type StarExport = ModuleExportModel['stars'][number];
 type StarSelection = {
@@ -27,9 +32,9 @@ function* moduleRequests(model: ModuleExportModel, resolveModule: ExportTargetRe
         return entry.kind === 'forward';
     });
     for (const entry of forwarded) {
-        const source = resolveModule(model.source, entry.specifier);
-        if (source !== undefined) {
-            yield { source, name: entry.name };
+        const request = resolveModuleExport(model.source, entry.specifier, entry.name, resolveModule);
+        if (isNamedRequest(request)) {
+            yield request;
         }
     }
 }

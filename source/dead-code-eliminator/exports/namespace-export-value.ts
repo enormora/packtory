@@ -1,14 +1,21 @@
 import { Node as TypeScriptMorphNode, type Expression, type SourceFile } from 'ts-morph';
-import { match, P } from 'ts-pattern';
+import { match } from 'ts-pattern';
+import { constant, hasProp } from 'remeda';
 import { constantStatement } from '../evaluation/constant-binding.ts';
+import { declarationOf } from '../evaluation/evaluation-context.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import type { BindingDescriptor } from '../reachability/binding-extractor.ts';
 import type { ModuleExportEntry, ModuleExportModel } from './module-export-model.ts';
-import { resolveImportedExport, type ExportTargetResolver, type ImportedExport } from './module-export-resolver.ts';
+import {
+    resolveImportedExport,
+    resolveModuleExport,
+    type ExportTargetResolver,
+    type ImportedExport
+} from './module-export-resolver.ts';
 
-type ExportSearch = { readonly kind: 'export'; readonly source: SourceFile; readonly name: string; };
-type BindingSearch = { readonly kind: 'binding'; readonly source: SourceFile; readonly name: string; };
-type NamespaceValue = { readonly kind: 'namespace'; readonly source: SourceFile; };
+type ExportSearch = { readonly source: SourceFile; readonly name: string; };
+type BindingSearch = { readonly model: ModuleExportModel; readonly name: string; };
+type NamespaceValue = { readonly namespace: SourceFile; };
 type NamespaceSearch = BindingSearch | ExportSearch | NamespaceValue;
 type NamespaceSite = BindingDescriptor | ModuleExportEntry;
 type NamespaceContext = {
@@ -22,8 +29,8 @@ function importedSearch(request: ImportedExport | undefined): NamespaceSearch | 
         return undefined;
     }
     return request.name === undefined
-        ? { kind: 'namespace', source: request.source }
-        : { kind: 'export', source: request.source, name: request.name };
+        ? { namespace: request.source }
+        : { source: request.source, name: request.name };
 }
 
 function namespaceInitializer(declaration: TypeScriptMorphNode): Expression | undefined {
@@ -35,24 +42,23 @@ function namespaceInitializer(declaration: TypeScriptMorphNode): Expression | un
         : undefined;
 }
 
-function followExpression(
-    source: SourceFile,
-    expression: Expression,
-    context: NamespaceContext
-): NamespaceSearch | undefined {
+function localBindingSearch(
+    declaration: TypeScriptMorphNode | undefined,
+    model: ModuleExportModel
+): BindingSearch | undefined {
+    const binding = Array.from(model.locals.values()).find(function (candidate) {
+        return candidate.declarationNode === declaration;
+    });
+    return binding === undefined ? undefined : { model, name: binding.name };
+}
+
+function followExpression(model: ModuleExportModel, expression: Expression | undefined): BindingSearch | undefined {
     const value = unwrapExpression(expression);
-    if (!TypeScriptMorphNode.isIdentifier(value)) {
-        return undefined;
-    }
-    const binding = context.models.get(source)?.locals.get(value.getText());
-    if (binding === undefined || value.getSymbol()?.getDeclarations().includes(binding.declarationNode) !== true) {
-        return undefined;
-    }
-    return { kind: 'binding', source, name: binding.name };
+    return localBindingSearch(value === undefined ? undefined : declarationOf(value), model);
 }
 
 function followBinding(search: BindingSearch, context: NamespaceContext): NamespaceSearch | undefined {
-    const binding = context.models.get(search.source)?.locals.get(search.name);
+    const binding = search.model.locals.get(search.name);
     if (binding === undefined || !context.firstVisit(binding)) {
         return undefined;
     }
@@ -61,33 +67,34 @@ function followBinding(search: BindingSearch, context: NamespaceContext): Namesp
         return importedSearch(imported);
     }
     const expression = namespaceInitializer(binding.declarationNode);
-    return expression === undefined ? undefined : followExpression(search.source, expression, context);
+    return followExpression(search.model, expression);
 }
 
 function followExport(search: ExportSearch, context: NamespaceContext): NamespaceSearch | undefined {
-    const entry = context.models.get(search.source)?.entries.get(search.name);
+    const model = context.models.get(search.source);
+    if (model === undefined) {
+        return undefined;
+    }
+    const entry = model.entries.get(search.name);
     if (entry === undefined || !context.firstVisit(entry)) {
         return undefined;
     }
     return match(entry)
         .with({ kind: 'local' }, function (value): NamespaceSearch {
-            return { kind: 'binding', source: search.source, name: value.local };
+            return { model, name: value.local };
         })
-        .with({ kind: 'anonymous' }, function () {
-            return undefined;
-        })
-        .with({ kind: P.union('namespace', 'forward') }, function (value): NamespaceSearch | undefined {
-            const target = value.specifier === undefined
+        .with({ kind: 'namespace' }, function (value): NamespaceSearch | undefined {
+            const request = value.specifier === undefined
                 ? undefined
-                : context.resolveModule(search.source, value.specifier);
-            if (target === undefined) {
-                return undefined;
-            }
-            return value.kind === 'namespace'
-                ? { kind: 'namespace', source: target }
-                : { kind: 'export', source: target, name: value.name };
+                : resolveModuleExport(search.source, value.specifier, undefined, context.resolveModule);
+            return importedSearch(request);
         })
-        .exhaustive();
+        .with({ kind: 'forward' }, function (value): NamespaceSearch | undefined {
+            return importedSearch(
+                resolveModuleExport(search.source, value.specifier, value.name, context.resolveModule)
+            );
+        })
+        .otherwise(constant(undefined));
 }
 
 function initialSearch(
@@ -102,11 +109,11 @@ function initialSearch(
     if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
         return undefined;
     }
-    const source = declaration.getSourceFile();
-    const binding = Array.from(models.get(source)?.locals.values() ?? []).find(function (candidate) {
-        return candidate.declarationNode === declaration;
-    });
-    return binding === undefined ? undefined : { kind: 'binding', source, name: binding.name };
+    const model = models.get(declaration.getSourceFile());
+    if (model === undefined) {
+        return undefined;
+    }
+    return localBindingSearch(declaration, model);
 }
 
 function resolveNamespaceSearch(
@@ -128,10 +135,10 @@ function resolveNamespaceSearch(
     };
     let search = initial;
     while (search !== undefined) {
-        if (search.kind === 'namespace') {
-            return search.source;
+        if (hasProp(search, 'namespace')) {
+            return search.namespace;
         }
-        search = search.kind === 'binding' ? followBinding(search, context) : followExport(search, context);
+        search = hasProp(search, 'model') ? followBinding(search, context) : followExport(search, context);
     }
     return undefined;
 }
@@ -150,5 +157,5 @@ export function resolveNamespaceExport(
     models: ReadonlyMap<SourceFile, ModuleExportModel>,
     resolveModule: ExportTargetResolver
 ): SourceFile | undefined {
-    return resolveNamespaceSearch({ kind: 'export', source, name }, models, resolveModule);
+    return resolveNamespaceSearch({ source, name }, models, resolveModule);
 }

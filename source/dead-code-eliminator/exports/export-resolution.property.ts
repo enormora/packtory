@@ -101,14 +101,13 @@ const originEntries = fastCheck.oneof(
     fastCheck.record({
         kind: fastCheck.constant('origin' as const),
         origin: fastCheck.record({
-            kind: fastCheck.constant('binding' as const),
             module: fastCheck.nat({ max: 7 }),
             name: fastCheck.constantFrom('local', 'other')
         })
     }),
     fastCheck.record({
         kind: fastCheck.constant('origin' as const),
-        origin: fastCheck.record({ kind: fastCheck.constant('namespace' as const), module: fastCheck.nat({ max: 7 }) })
+        origin: fastCheck.record({ name: fastCheck.constant(undefined), module: fastCheck.nat({ max: 7 }) })
     })
 );
 

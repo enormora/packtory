@@ -2,7 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { SourceFile } from 'ts-morph';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
-import { createModuleExportResolver, type NamespaceBindingIdentity } from './module-export-resolver.ts';
+import {
+    createModuleExportResolver,
+    resolveModuleExport,
+    type NamespaceBindingIdentity
+} from './module-export-resolver.ts';
 import type { ExportResolution } from './export-resolution.ts';
 
 type ExportFixture = {
@@ -22,6 +26,23 @@ function resolverFor(files: Readonly<Record<string, string>>, identity: Namespac
 }
 
 suite('module export provenance', function () {
+    suite('module export requests', function () {
+        for (const name of [ 'value', undefined ]) {
+            test(`resolves ${String(name)} only when its module exists`, function () {
+                const fixture = createExportModuleFixture({
+                    'index.js': 'export {};',
+                    'provider.js': 'export const value=1;'
+                }, []);
+                const source = fixture.source('index.js');
+                assert.deepStrictEqual(resolveModuleExport(source, './provider.js', name, fixture.resolveModule), {
+                    source: fixture.source('provider.js'),
+                    name
+                });
+                assert.strictEqual(resolveModuleExport(source, './missing.js', name, fixture.resolveModule), undefined);
+            });
+        }
+    });
+
     test('follows named and default import aliases to the defining export', function () {
         const graph = resolverFor({
             'index.js': 'import snapshot,{value as alias} from "./library.js";export {alias as named,snapshot};',
@@ -29,11 +50,11 @@ suite('module export provenance', function () {
         }, 'canonical');
         assert.deepStrictEqual(graph.resolve('named'), {
             kind: 'unique',
-            origin: { kind: 'binding', module: graph.source('library.js'), name: 'value' }
+            origin: { module: graph.source('library.js'), name: 'value' }
         });
         assert.deepStrictEqual(graph.resolve('snapshot'), {
             kind: 'unique',
-            origin: { kind: 'binding', module: graph.source('library.js'), name: '*default*' }
+            origin: { module: graph.source('library.js'), name: '*default*' }
         });
     });
 
@@ -45,11 +66,11 @@ suite('module export provenance', function () {
         }, 'canonical');
         assert.deepStrictEqual(graph.resolve('fn'), {
             kind: 'unique',
-            origin: { kind: 'binding', module: graph.source('function.js'), name: 'named' }
+            origin: { module: graph.source('function.js'), name: 'named' }
         });
         assert.deepStrictEqual(graph.resolve('cls'), {
             kind: 'unique',
-            origin: { kind: 'binding', module: graph.source('class.js'), name: 'Named' }
+            origin: { module: graph.source('class.js'), name: 'Named' }
         });
     });
 
@@ -57,7 +78,7 @@ suite('module export provenance', function () {
         const graph = resolverFor({ 'index.js': 'export default class{}' }, 'canonical');
         assert.deepStrictEqual(graph.resolve('default'), {
             kind: 'unique',
-            origin: { kind: 'binding', module: graph.source('index.js'), name: '*default*' }
+            origin: { module: graph.source('index.js'), name: '*default*' }
         });
     });
 
@@ -79,7 +100,7 @@ suite('module export provenance', function () {
         }, 'local');
         assert.deepStrictEqual(graph.resolve('grouped'), {
             kind: 'unique',
-            origin: { kind: 'namespace', module: graph.source('library.js') }
+            origin: { name: undefined, module: graph.source('library.js') }
         });
     });
 
@@ -90,8 +111,8 @@ suite('module export provenance', function () {
                 'library.js': 'export const value=42;'
             }, identity);
             const origin = identity === 'canonical'
-                ? { kind: 'namespace', module: graph.source('library.js') }
-                : { kind: 'binding', module: graph.source('index.js'), name: 'ns' };
+                ? { name: undefined, module: graph.source('library.js') }
+                : { module: graph.source('index.js'), name: 'ns' };
             assert.deepStrictEqual(graph.resolve('grouped'), { kind: 'unique', origin });
         });
     }

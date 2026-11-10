@@ -15,7 +15,7 @@ function moduleExports(
 }
 
 function binding(module: string, name: string): ExportEntry<string> {
-    return { kind: 'origin', origin: { kind: 'binding', module, name } };
+    return { kind: 'origin', origin: { module, name } };
 }
 
 function starModules(origins: Readonly<Record<string, ExportEntry<string>>>): Map<string, ModuleExports<string>> {
@@ -43,15 +43,15 @@ const originCases: readonly OriginCase[] = [
     {
         name: 'merges namespace origins by module identity',
         origins: {
-            first: { kind: 'origin', origin: { kind: 'namespace', module: 'shared' } },
-            second: { kind: 'origin', origin: { kind: 'namespace', module: 'shared' } }
+            first: { kind: 'origin', origin: { name: undefined, module: 'shared' } },
+            second: { kind: 'origin', origin: { name: undefined, module: 'shared' } }
         },
-        expected: { kind: 'unique', origin: { kind: 'namespace', module: 'shared' } }
+        expected: { kind: 'unique', origin: { name: undefined, module: 'shared' } }
     },
     {
         name: 'distinguishes namespace origins from local bindings',
         origins: {
-            first: { kind: 'origin', origin: { kind: 'namespace', module: 'shared' } },
+            first: { kind: 'origin', origin: { name: undefined, module: 'shared' } },
             second: binding('shared', 'value')
         },
         expected: { kind: 'ambiguous' }
@@ -64,14 +64,50 @@ const originCases: readonly OriginCase[] = [
     {
         name: 'distinguishes namespace origins from different modules',
         origins: {
-            first: { kind: 'origin', origin: { kind: 'namespace', module: 'first' } },
-            second: { kind: 'origin', origin: { kind: 'namespace', module: 'second' } }
+            first: { kind: 'origin', origin: { name: undefined, module: 'first' } },
+            second: { kind: 'origin', origin: { name: undefined, module: 'second' } }
         },
         expected: { kind: 'ambiguous' }
     }
 ];
 
 suite('export resolution', function () {
+    test('propagates a delayed ambiguous provider into an already known consumer', function () {
+        const resolver = createExportResolver(
+            new Map([
+                [ 'entry', moduleExports([], [ 'delayed', 'known' ]) ],
+                [ 'delayed', moduleExports([], [ 'first', 'second' ]) ],
+                [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
+                [ 'first', moduleExports([ [ 'value', binding('first', 'value') ] ], []) ],
+                [ 'second', moduleExports([ [ 'value', binding('second', 'value') ] ], []) ]
+            ])
+        );
+        assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'ambiguous' });
+    });
+
+    test('reads module entries once while settling forwarding dependencies', function () {
+        let reads = 0;
+        const resolver = createExportResolver(
+            new Map([
+                [ 'entry', {
+                    closed: true,
+                    stars: [ 'dependency' ],
+                    get entries() {
+                        reads += 1;
+                        assert.strictEqual(reads, 1);
+                        return new Map<string, ExportEntry<string>>();
+                    }
+                } ],
+                [ 'dependency', moduleExports([ [ 'value', binding('dependency', 'value') ] ], []) ]
+            ])
+        );
+        assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
+            kind: 'unique',
+            origin: { module: 'dependency', name: 'value' }
+        });
+        assert.strictEqual(reads, 1);
+    });
+
     suite('origin identity', function () {
         for (const fixture of originCases) {
             test(fixture.name, function () {
@@ -94,7 +130,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'alias'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'dependency', name: 'local' }
+                origin: { module: 'dependency', name: 'local' }
             });
         });
 
@@ -112,7 +148,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'shared', name: 'value' }
+                origin: { module: 'shared', name: 'value' }
             });
         });
 
@@ -122,7 +158,7 @@ suite('export resolution', function () {
             const resolver = createExportResolver(modules);
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'entry', name: 'own' }
+                origin: { module: 'entry', name: 'own' }
             });
         });
 
@@ -148,7 +184,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'dependency', name: 'snapshot' }
+                origin: { module: 'dependency', name: 'snapshot' }
             });
         });
 
@@ -162,7 +198,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'shared', name: 'value' }
+                origin: { module: 'shared', name: 'value' }
             });
             assert.deepStrictEqual(resolver.resolve('cycle', 'value'), resolver.resolve('entry', 'value'));
         });
@@ -179,6 +215,16 @@ suite('export resolution', function () {
     });
 
     suite('unknown and namespace exports', function () {
+        test('does not expand unknown entries as forwarding requests', function () {
+            const resolver = createExportResolver({
+                get(module: string): ModuleExports<string> {
+                    assert.strictEqual(module, 'entry');
+                    return moduleExports([ [ 'value', { kind: 'unknown' } ] ], []);
+                }
+            });
+            assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
+        });
+
         test('keeps unknown modules distinct from missing exports', function () {
             const resolver = createExportResolver(new Map([ [ 'entry', moduleExports([], [ 'external' ]) ] ]));
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
@@ -212,7 +258,7 @@ suite('export resolution', function () {
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'ambiguous' });
             assert.deepStrictEqual(resolver.resolve('first', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'first', name: 'value' }
+                origin: { module: 'first', name: 'value' }
             });
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'ambiguous' });
         });
@@ -227,7 +273,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'present', name: 'value' }
+                origin: { module: 'present', name: 'value' }
             });
         });
 
@@ -263,7 +309,7 @@ suite('export resolution', function () {
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'entry', name: 'local' }
+                origin: { module: 'entry', name: 'local' }
             });
         });
 
@@ -286,7 +332,7 @@ suite('export resolution', function () {
             assert.deepStrictEqual(resolver.resolve('first', 'value'), { kind: 'missing' });
             assert.deepStrictEqual(resolver.resolve('first', 'other'), {
                 kind: 'unique',
-                origin: { kind: 'binding', module: 'first', name: 'other' }
+                origin: { module: 'first', name: 'other' }
             });
             assert.deepStrictEqual(resolver.resolve('second', 'alias'), { kind: 'missing' });
         });
