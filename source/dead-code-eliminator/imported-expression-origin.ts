@@ -81,8 +81,9 @@ function originMatchesTrustedImport(
     if (trustedImport.imports === undefined) {
         return true;
     }
-    const [ pathHead = trustedImport.from ] = origin.path;
-    return typeof pathHead === 'string' && pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
+    return trustedImport.imports.some(function (name) {
+        return name !== trustedImport.from && name === origin.path[0];
+    });
 }
 
 export function originIsTrustedPureImport(
