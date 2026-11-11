@@ -27,8 +27,6 @@ function workspacePackage(): PreviewPackage {
     });
 }
 
-const colors = createColors(false);
-
 suite('terminal workspace contract', function () {
     test('reports exact artifact counts and failure details', function () {
         assert.strictEqual(
@@ -42,6 +40,7 @@ suite('terminal workspace contract', function () {
     });
 
     test('renders selected changes with source rows and comparison rows separated by newlines', function () {
+        const colors = createColors(false);
         assert.strictEqual(
             renderWorkspacePackage(workspacePackage(), false, colors),
             [
@@ -59,6 +58,7 @@ suite('terminal workspace contract', function () {
     });
 
     test('includes unchanged sources and comparisons when requested', function () {
+        const colors = createColors(false);
         assert.strictEqual(
             renderWorkspacePackage(workspacePackage(), true, colors),
             [
@@ -78,6 +78,7 @@ suite('terminal workspace contract', function () {
     });
 
     test('keeps missing source and comparison snapshots explicit and defaults selected views to changes', function () {
+        const colors = createColors(false);
         assert.strictEqual(
             renderWorkspacePackage(createPreviewPackageFixture(), false, colors)
                 .split('Comparison unavailable')

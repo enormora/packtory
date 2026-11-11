@@ -20,13 +20,13 @@ function mapResource(targetFilePath: string, content: string): AnalyzedBundleRes
     } as unknown as AnalyzedBundleResource;
 }
 
-const transformRecord: TransformRecord = {
-    textTransform: buildTextTransformMap('export const removed = 1;\n', '')
-};
+function removedDeclarationTransform(): TransformRecord {
+    return { textTransform: buildTextTransformMap('export const removed = 1;\n', '') };
+}
 
 suite('source-map-recomposition', function () {
     test('buildMapPathTransformIndex maps each transform to the matching .map file path', function () {
-        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ transformRecord ]) ]);
+        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ removedDeclarationTransform() ]) ]);
 
         assert.strictEqual(index.get('a.js.map')?.length, 1);
     });
@@ -54,7 +54,7 @@ suite('source-map-recomposition', function () {
                 mappings: 'AAAA'
             })
         );
-        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ transformRecord ]) ]);
+        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ removedDeclarationTransform() ]) ]);
 
         const recomposed = recomposePairedSourceMaps([ resource ], index);
 
