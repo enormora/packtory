@@ -30,6 +30,10 @@
             "source/source-transformation/text-edits.test.ts",
             "source/dead-code-eliminator/transform/unused-values.test.ts",
             "source/report/inspectors/inspect-workspace.test.ts",
+            "source/dead-code-eliminator/transform/declaration-removal.test.ts",
+            "source/dead-code-eliminator/exports/module-export-model.test.ts",
+            "source/dead-code-eliminator/exports/export-graph.test.ts",
+            "source/dead-code-eliminator/transform/expression-specialization-convergence.test.ts",
             "source/**/*.test.ts"
         ]
     },
