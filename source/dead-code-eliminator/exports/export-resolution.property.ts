@@ -22,6 +22,12 @@ type ExportWalk = {
     readonly visited: ReadonlySet<string>;
 };
 
+type ModuleGraph = readonly {
+    readonly closed: boolean;
+    readonly entries: readonly (readonly [string, ExportEntry<number>])[];
+    readonly stars: readonly number[];
+}[];
+
 const noTerminals: TerminalExports = { origins: [], unknown: false };
 const opaqueTerminals: TerminalExports = { origins: [], unknown: true };
 
@@ -98,6 +104,12 @@ function expectedResolution(
     return origin === undefined ? { kind: 'missing' } : { kind: 'unique', origin };
 }
 
+function resolutionIdentity(resolution: ExportResolution<number>): ExportResolution<number> {
+    return resolution.kind === 'unique'
+        ? { kind: 'unique', origin: { module: resolution.origin.module, name: resolution.origin.name } }
+        : resolution;
+}
+
 const originEntries = fastCheck.oneof(
     fastCheck.record({
         kind: fastCheck.constant('origin' as const),
@@ -121,7 +133,7 @@ const entries = fastCheck.oneof(
     fastCheck.constant(null)
 );
 
-const moduleGraphs = fastCheck.array(
+const moduleGraphs: fastCheck.Arbitrary<ModuleGraph> = fastCheck.array(
     fastCheck.record({
         closed: fastCheck.boolean(),
         entries: fastCheck.array(fastCheck.tuple(fastCheck.constantFrom('value', 'default'), entries), {
@@ -143,6 +155,22 @@ function moduleQueries(
 
 suite('export resolution properties', function () {
     test('matches all terminating paths through cyclic graphs independently of query order', function () {
+        const nullPrototypeOrigin = { __proto__: null, name: undefined, module: 1 };
+        const equivalentOrigins: ModuleGraph = [
+            {
+                closed: false,
+                entries: [ [ 'value', { kind: 'origin', origin: nullPrototypeOrigin } ] ],
+                stars: []
+            },
+            { closed: false, entries: [], stars: [] },
+            { closed: false, entries: [], stars: [] },
+            { closed: true, entries: [], stars: [ 4, 0 ] },
+            {
+                closed: false,
+                entries: [ [ 'value', { kind: 'origin', origin: { name: undefined, module: 1 } } ] ],
+                stars: []
+            }
+        ];
         fastCheck.assert(
             fastCheck.property(moduleGraphs, function (graph) {
                 const modules = new Map(graph.map(function (module, index) {
@@ -153,22 +181,22 @@ suite('export resolution properties', function () {
                 const queries = graph.flatMap(moduleQueries);
                 for (const query of queries) {
                     assert.deepStrictEqual(
-                        resolver.resolve(query.module, query.name),
-                        expectedResolution(
+                        resolutionIdentity(resolver.resolve(query.module, query.name)),
+                        resolutionIdentity(expectedResolution(
                             modules,
                             query.module,
                             query.name
-                        )
+                        ))
                     );
                 }
                 for (const query of queries.toReversed()) {
                     assert.deepStrictEqual(
-                        reverse.resolve(query.module, query.name),
-                        resolver.resolve(query.module, query.name)
+                        resolutionIdentity(reverse.resolve(query.module, query.name)),
+                        resolutionIdentity(resolver.resolve(query.module, query.name))
                     );
                 }
             }),
-            { numRuns: 500 }
+            { numRuns: 500, examples: [ [ equivalentOrigins ] ] }
         );
     });
 });
