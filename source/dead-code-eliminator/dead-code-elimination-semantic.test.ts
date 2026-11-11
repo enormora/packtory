@@ -16,17 +16,19 @@ import { createSourcePreparation } from '../source-transformation/source-prepara
 import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
 
 suite('dead code elimination semantic regressions', function () {
-    test('preserves indirect eval without rewriting its comma expression', function () {
-        const content = 'export function api() { return (0, eval)("typeof hidden"); }';
-        const preparation = createSourcePreparation(createProject().createSourceFile('index.js', content));
-        prepareInitialRuntimeSource({
-            ...preparation,
-            applyEdits(edits) {
-                assert.deepStrictEqual(edits, [], 'indirect eval must not require source edits');
-            }
+    for (const expression of [ '(0, eval)("typeof hidden")', '-1', '-0', '1 / 0', '-1 / 0', '0 / 0' ]) {
+        test(`preserves ${expression} without source edits`, function () {
+            const content = `export function api() { return ${expression}; }`;
+            const preparation = createSourcePreparation(createProject().createSourceFile('index.js', content));
+            prepareInitialRuntimeSource({
+                ...preparation,
+                applyEdits(edits) {
+                    assert.deepStrictEqual(edits, [], 'canonical runtime expressions must not require source edits');
+                }
+            });
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
         });
-        assert.strictEqual(preparation.sourceFile.getFullText(), content);
-    });
+    }
 
     test('negative class heritage reaches a runtime TypeError', async function () {
         const program = deadCodeEliminationSemanticProgram({
