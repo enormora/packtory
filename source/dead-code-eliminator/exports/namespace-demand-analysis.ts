@@ -6,7 +6,7 @@ import { collectNamespaceConsumers } from './namespace-consumers.ts';
 import { namespaceConsumerDemand } from './namespace-consumer-demand.ts';
 import { namespaceBindingDemand, type NamespaceBindingContext } from './namespace-binding-demand.ts';
 import { namespaceExpressionDemand, type NamespaceExpressionContext } from './namespace-expression-demand.ts';
-import { createNamespaceDemandSolver } from './namespace-demand-solver.ts';
+import { createNamespaceDemandSolver, namespaceDemandLimits } from './namespace-demand-solver.ts';
 import {
     allNamespaceProperties,
     mergeNamespaceDemand,
@@ -24,19 +24,18 @@ export type NamespaceDemandAnalysis = {
     readonly exportProperties: (source: SourceFile, name: string) => ReadonlySet<string> | undefined;
 };
 
-const maximumDemandQueries = 2048;
-const maximumDemandEvaluations = 32_768;
-
 export function createNamespaceDemandAnalysis(
     files: readonly SourceFile[],
     publicFiles: ReadonlySet<SourceFile>,
     resolveModule: ExportTargetResolver,
     policy: NamespaceDemandPolicy
 ): NamespaceDemandAnalysis {
-    const solver = createNamespaceDemandSolver<ExportDemandKey | TypeScriptMorphNode>({
-        maximumQueries: maximumDemandQueries,
-        maximumEvaluations: maximumDemandEvaluations
-    });
+    const syntaxNodes = files.reduce(function (total, source) {
+        return total + source.getDescendants().length;
+    }, 1);
+    const solver = createNamespaceDemandSolver<ExportDemandKey | TypeScriptMorphNode>(
+        namespaceDemandLimits(syntaxNodes)
+    );
     const state = {
         analyzedFiles: new Set(files),
         incoming: collectNamespaceConsumers(files, resolveModule),
