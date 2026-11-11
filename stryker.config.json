@@ -6,6 +6,7 @@
     "allowConsoleColors": false,
     "concurrency": "100%",
     "timeoutMS": 30000,
+    "dryRunTimeoutMinutes": 15,
     "incrementalFile": "target/stryker-incremental.json",
     "mochaOptions": {
         "no-package": true,
@@ -14,7 +15,27 @@
         "ui": "tdd",
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
-        "spec": ["source/**/*.test.ts"]
+        "spec": [
+            "source/dead-code-eliminator/reachability/breadth-first-closure.test.ts",
+            "source/dead-code-eliminator/expression-facts.test.ts",
+            "source/dead-code-eliminator/reachability/identifier-target-collector.reexports.test.ts",
+            "source/dependency-scanner/source-file-references.injected-imports*.test.ts",
+            "source/report/terminal-renderer/terminal-preview-renderer-shared.test.ts",
+            "source/dead-code-eliminator/exports/export-resolution.test.ts",
+            "source/dead-code-eliminator/runtime-call-purity.test.ts",
+            "source/dead-code-eliminator/transform/bundle-source-preparation.test.ts",
+            "source/dead-code-eliminator/transform/runtime-source-preparation.test.ts",
+            "source/dead-code-eliminator/transform/constant-control-flow.test.ts",
+            "source/dead-code-eliminator/exports/namespace-demand-solver.test.ts",
+            "source/source-transformation/text-edits.test.ts",
+            "source/dead-code-eliminator/transform/unused-values.test.ts",
+            "source/report/inspectors/inspect-workspace.test.ts",
+            "source/dead-code-eliminator/transform/declaration-removal.test.ts",
+            "source/dead-code-eliminator/exports/module-export-model.test.ts",
+            "source/dead-code-eliminator/exports/export-graph.test.ts",
+            "source/dead-code-eliminator/transform/expression-specialization-convergence.test.ts",
+            "source/**/*.test.ts"
+        ]
     },
     "testRunnerNodeArgs": ["--experimental-strip-types", "--enable-source-maps"],
     "mutate": [

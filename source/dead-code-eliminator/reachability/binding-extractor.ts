@@ -22,6 +22,22 @@ export type BindingDescriptor = {
     readonly referenceNode: TypeScriptMorphNode;
 };
 
+export type BindingLocation = {
+    readonly name: string;
+    readonly line: number;
+    readonly kind: string;
+};
+
+export function captureBindingLocations(bindings: readonly BindingDescriptor[]): readonly BindingLocation[] {
+    return bindings.map(function (binding) {
+        return {
+            name: binding.name,
+            line: binding.declarationNode.getStartLineNumber(),
+            kind: binding.declarationNode.getKindName()
+        };
+    });
+}
+
 type ObjectDeclarationStatement = ClassDeclaration | InterfaceDeclaration | TypeAliasDeclaration;
 type NamedDeclarationStatement = EnumDeclaration | FunctionDeclaration | ModuleDeclaration | ObjectDeclarationStatement;
 

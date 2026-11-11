@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { SyntaxKind } from 'ts-morph';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
 import {
+    arePureCallArguments,
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
     resolveImportedExpressionPropertyPath,
@@ -72,6 +74,20 @@ suite('imported-expression-origin', function () {
         });
     });
 
+    test('rejects spread arguments before checking expression purity', function () {
+        const call = firstVariableInitializerExpression('const value = run(...items);')
+            .asKindOrThrow(SyntaxKind.CallExpression);
+        let visited = 0;
+        assert.strictEqual(
+            arePureCallArguments(call.getArguments(), function () {
+                visited += 1;
+                return true;
+            }),
+            false
+        );
+        assert.strictEqual(visited, 0);
+    });
+
     suite('trusted import matching', function () {
         const origin: ImportedExpressionOrigin = { from: 'lib', path: [ 'foo', 'bar' ] };
 
@@ -111,6 +127,25 @@ suite('imported-expression-origin', function () {
                 false
             );
         });
+
+        for (
+            const [ path, imports, expected ] of [
+                [ [ 'foo' ], [ 'other', 'foo' ], true ],
+                [ [ 'foo' ], [], false ],
+                [ [ 'lib' ], [ 'lib' ], false ],
+                [ [ { type: 'call-result' } ], [ 'foo' ], false ]
+            ] as const
+        ) {
+            test(`matches trusted names for ${JSON.stringify({ path, imports })}`, function () {
+                assert.strictEqual(
+                    originIsTrustedPureImport(
+                        { from: 'lib', path },
+                        { enabled: true, pureImports: [ { from: 'lib', imports } ] }
+                    ),
+                    expected
+                );
+            });
+        }
 
         test('originIsTrustedPureImport rejects a missing origin', function () {
             assert.strictEqual(

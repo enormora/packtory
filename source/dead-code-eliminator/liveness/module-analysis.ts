@@ -1,4 +1,5 @@
 import type { SourceFile } from 'ts-morph';
+import type { SourceLineResolver } from '../../source-transformation/source-preparation.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectStatement } from '../analyzed-bundle.ts';
@@ -24,6 +25,7 @@ type ModuleAnalysisInput = {
     readonly inputFilePath: string;
     readonly targetFilePath: string;
     readonly sourceFile: Readonly<SourceFile> | undefined;
+    readonly originalLineFor: SourceLineResolver;
     readonly bindings: readonly BindingDescriptor[];
     readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
@@ -53,7 +55,7 @@ export function buildModuleAnalysis(input: ModuleAnalysisInput): ModuleAnalysis 
         effects: input.sourceFile === undefined
             ? []
             : input.classifySideEffects(input.sourceFile, input.deadCodeElimination).map(function (effect) {
-                return { line: effect.statement.getStartLineNumber(), kind: effect.kind };
+                return { line: input.originalLineFor(effect.statement), kind: effect.kind };
             })
     };
 }

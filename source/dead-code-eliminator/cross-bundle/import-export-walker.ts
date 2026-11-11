@@ -1,4 +1,5 @@
 import { Node as TypeScriptMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
+import type { SourceLineResolver } from '../../source-transformation/source-preparation.ts';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import type { CrossBundleSeedReason, DeadCodeEliminationTrace } from '../trace.ts';
@@ -6,6 +7,7 @@ import type { IndexedBundle, ResolvedTarget } from './bundle-index.ts';
 import { recordSeed, type SeedMap } from './seed-store.ts';
 
 export type WalkContext = {
+    readonly originalLineFor: SourceLineResolver;
     readonly indexed: ReadonlyMap<string, IndexedBundle>;
     readonly seeds: SeedMap;
     readonly sourceBundleName: string;
@@ -61,7 +63,7 @@ function recordCrossBundleSeed(input: CrossBundleSeedInput): SeedMap {
             bindingIdentifier: seed,
             sourceBundleName: context.sourceBundleName,
             inputFilePath: context.inputFilePath,
-            line: statement.getStartLineNumber(),
+            line: context.originalLineFor(statement),
             moduleSpecifier: target.moduleSpecifier,
             reason
         });

@@ -6,10 +6,10 @@ import {
     buildBindingsByFile,
     buildDeclarationNodeIndex,
     buildNodeByIdentifier,
-    type FileBindingSet
+    type FileBindingSet,
+    type DeclarationNodeIndex
 } from './binding-identifier.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
-import type { DeclarationNodeIndex } from './identifier-target-collector.ts';
 
 const declarationStub = { identifier: 'decl' };
 const referenceStub = { identifier: 'ref' };

@@ -3,39 +3,56 @@ import {
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
+    type CallExpression,
+    type NewExpression,
     type Identifier,
     type Node as TypeScriptMorphNodeType,
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { hasClassImpurity } from './class-purity.ts';
+import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 import {
     originIsTrustedPureImport,
     resolveImportedExpressionPath,
+    type PurityContext,
     type ExpressionPurityChecker,
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
+import { evaluateLocalCall, createBoundedEvaluator } from './evaluation/local-call.ts';
+import { expressionBindingShapeIsStable } from './binding-stability.ts';
+import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
 import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
 
 type PureCallableFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-callable'; };
 type PureObjectFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-object'; };
 type PureValueFact = { readonly origin: undefined; readonly type: 'pure-value'; };
+type PurePrimitiveFact = { readonly origin: undefined; readonly type: 'pure-primitive'; };
 type UnknownExpressionFact = { readonly origin: undefined; readonly type: 'unknown'; };
 
-export type ExpressionFact = PureCallableFact | PureObjectFact | PureValueFact | UnknownExpressionFact;
+type PureExpressionFact = PureCallableFact | PureObjectFact | PurePrimitiveFact | PureValueFact;
+export type ExpressionFact = PureExpressionFact | UnknownExpressionFact;
 
 export type ExpressionFactResolver = (expression: Expression) => ExpressionFact;
 type MutationRecord = { readonly name: string; readonly start: number; };
 
 export const pureValueFact: ExpressionFact = { origin: undefined, type: 'pure-value' };
+export const purePrimitiveFact: ExpressionFact = { origin: undefined, type: 'pure-primitive' };
 export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin: undefined };
 export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
+export function localCallFact(expression: CallExpression): ExpressionFact {
+    return evaluateLocalCall(expression) === undefined ? unknownFact : purePrimitiveFact;
+}
+
+export function localConstructionFact(expression: NewExpression): ExpressionFact {
+    const value = createBoundedEvaluator(expression.getSourceFile(), new Map())(expression);
+    return value === undefined ? unknownFact : pureValueFact;
+}
+
 export function expressionFactIsPure(fact: ExpressionFact): boolean {
-    return [ 'pure-callable', 'pure-object', 'pure-value' ].includes(fact.type);
+    return [ 'pure-callable', 'pure-object', 'pure-value', 'pure-primitive' ].includes(fact.type);
 }
 
 export function expressionFactOrigin(fact: ExpressionFact): ImportedExpressionOrigin | undefined {
@@ -48,10 +65,19 @@ export function purityCheckerFor(factFor: ExpressionFactResolver): ExpressionPur
     };
 }
 
-export function classExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
-    return hasClassImpurity(expression.asKindOrThrow(SyntaxKind.ClassExpression), purityCheckerFor(factFor))
-        ? unknownFact
-        : pureValueFact;
+export function classExpressionFact(
+    expression: Expression,
+    factFor: ExpressionFactResolver,
+    context: PurityContext
+): ExpressionFact {
+    const impure = hasClassImpurity(
+        expression.asKindOrThrow(SyntaxKind.ClassExpression),
+        purityCheckerFor(factFor),
+        function (key) {
+            return resolveComputedPropertyKey(key, context.resolveRuntimeModule);
+        }
+    );
+    return impure ? unknownFact : pureValueFact;
 }
 
 export function pureObjectWithOrigin(origin: ImportedExpressionOrigin): ExpressionFact {
@@ -69,6 +95,9 @@ function importedExpressionFact(
 ): ExpressionFact {
     if (originIsTrustedPureImport(origin, context.settings)) {
         return pureObjectWithOrigin(origin);
+    }
+    if (!expressionBindingShapeIsStable(expression, createRuntimeCallablePurityProof(context.resolveRuntimeModule))) {
+        return pureValueFact;
     }
     const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule);
     if (exportPurity === 'pure-callable') {
@@ -272,12 +301,22 @@ function importedOriginForIdentifierDeclaration(
         : undefined;
 }
 
+function declarationIsRuntimeLocal(declaration: TypeScriptMorphNodeType, expression: Identifier): boolean {
+    const ambient = [ declaration, ...declaration.getAncestors() ].some(function (candidate) {
+        return TypeScriptMorphNode.isAmbientable(candidate) && candidate.isAmbient();
+    });
+    return declaration.getSourceFile() === expression.getSourceFile() && !ambient;
+}
+
 function declarationFactForIdentifier(
     declaration: TypeScriptMorphNodeType,
     expression: Identifier,
     factFor: ExpressionFactResolver,
     context: PurityContext
 ): ExpressionFact {
+    if (!declarationIsRuntimeLocal(declaration, expression)) {
+        return unknownFact;
+    }
     const origin = importedOriginForIdentifierDeclaration(declaration, expression);
     if (origin !== undefined) {
         return importedExpressionFact(origin, expression, context);
@@ -293,10 +332,11 @@ export function identifierReadFact(
     factFor: ExpressionFactResolver,
     context: PurityContext
 ): ExpressionFact {
-    if (expression.getText() === 'undefined') {
-        return pureValueFact;
+    const declarations = identifierDeclarations(expression);
+    if (expression.getText() === 'undefined' && declarations.length === 0) {
+        return purePrimitiveFact;
     }
-    for (const declaration of identifierDeclarations(expression)) {
+    for (const declaration of declarations) {
         const fact = declarationFactForIdentifier(declaration, expression, factFor, context);
         if (expressionFactIsPure(fact)) {
             return fact;
@@ -304,8 +344,3 @@ export function identifierReadFact(
     }
     return unknownFact;
 }
-
-export type PurityContext = {
-    readonly settings: DeadCodeEliminationSettings | undefined;
-    readonly resolveRuntimeModule: RuntimeModuleResolver;
-};

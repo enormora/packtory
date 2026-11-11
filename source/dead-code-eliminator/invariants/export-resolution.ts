@@ -5,6 +5,7 @@ import {
     type Statement
 } from 'ts-morph';
 import { collectVariableDeclarationBindings } from '../variable-declaration-bindings.ts';
+import { isOrdinaryStarExport } from '../exports/module-export-model.ts';
 
 export type DeadCodeEliminationExportCheckMode = 'declaration' | 'runtime';
 
@@ -186,8 +187,7 @@ function starReExportMatches(search: ReExportSearch): boolean {
     if (sourceFile === undefined) {
         return false;
     }
-    return search.declaration.getNamespaceExport() === undefined &&
-        search.declaration.getNamedExports().length === 0 &&
+    return isOrdinaryStarExport(search.declaration) &&
         search.input.exportName !== 'default' &&
         search.hasExportedName({
             input: { ...search.input, targetPath: search.target.targetPath, sourceFile },

@@ -45,20 +45,87 @@ jobs:
             - name: Publish dry run
               run: npx just publish-dry-run
 
+    mutation-shards:
+        runs-on: ubuntu-latest
+        name: Prepare mutation shards
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        outputs:
+            matrix: ${{ steps.shards.outputs.matrix }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 26.x
+            - name: Install dependencies
+              run: npm clean-install --ignore-scripts
+            - name: Balance source files across mutation shards
+              id: shards
+              run: |
+                  node --experimental-strip-types --input-type=module <<'NODE'
+                  import fileSystem from 'node:fs';
+                  import { execFileSync } from 'node:child_process';
+                  import { matchesGlob } from 'node:path';
+                  import { createFileManager } from './source/file-manager/file-manager.ts';
+                  const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+                  const configuration = JSON.parse(await fileManager.readFile('stryker.config.json'));
+                  function selectsFile(file, patterns) {
+                      let selected = false;
+                      for (const pattern of patterns) {
+                          const excluded = pattern.startsWith('!');
+                          if (matchesGlob(file, excluded ? pattern.slice(1) : pattern)) {
+                              selected = !excluded;
+                          }
+                      }
+                      return selected;
+                  }
+                  const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0');
+                  const files = tracked.filter(file => selectsFile(file, configuration.mutate));
+                  if (files.length === 0) {
+                      throw new Error('No source files selected for mutation testing');
+                  }
+                  const weighted = await Promise.all(files.map(async file => ({
+                      file,
+                      bytes: Buffer.byteLength(await fileManager.readFile(file), 'utf8')
+                  })));
+                  weighted.sort((left, right) => right.bytes - left.bytes || left.file.localeCompare(right.file));
+                  const shards = Array.from({ length: 32 }, () => ({ files: [], bytes: 0 }));
+                  for (const file of weighted) {
+                      const shard = shards.reduce((lightest, current) => current.bytes < lightest.bytes ? current : lightest);
+                      shard.files.push(file.file);
+                      shard.bytes += file.bytes;
+                  }
+                  const exclusions = configuration.mutate.filter(pattern => pattern.startsWith('!'));
+                  for (const file of files) {
+                      const owners = shards.filter(shard => selectsFile(file, [ ...shard.files, ...exclusions ]));
+                      if (owners.length !== 1) {
+                          throw new Error('Mutation shard coverage mismatch for ' + file);
+                      }
+                  }
+                  const matrix = { include: shards.filter(shard => shard.files.length > 0).map((shard, index) => ({
+                      shard: index + 1,
+                      files: shard.files
+                  })) };
+                  const output = process.env.GITHUB_OUTPUT;
+                  if (typeof output !== 'string') {
+                      throw new Error('Missing workflow output path');
+                  }
+                  await fileManager.writeFile(output, 'matrix=' + JSON.stringify(matrix) + '\n');
+                  NODE
+
     mutation-testing:
         runs-on: ubuntu-latest
+        needs: mutation-shards
         name: Mutation testing (${{ matrix.shard }})
-        timeout-minutes: 60
+        timeout-minutes: 90
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         strategy:
             fail-fast: false
-            matrix:
-                include:
-                    - shard: a-m
-                      exclusion: "!source/**/[!a-m]*.ts"
-                    - shard: a-m-complement
-                      exclusion: "!source/**/[a-m]*.ts"
+            matrix: ${{ fromJSON(needs.mutation-shards.outputs.matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -72,20 +139,20 @@ jobs:
               run: npm clean-install --ignore-scripts
             - name: Run mutation tests
               env:
-                  MUTATION_EXCLUSION: ${{ matrix.exclusion }}
+                  MUTATION_FILES: ${{ toJSON(matrix.files) }}
               run: |
                   node --experimental-strip-types --input-type=module <<'NODE'
                   import fileSystem from 'node:fs';
                   import { createFileManager } from './source/file-manager/file-manager.ts';
                   const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
                   const configuration = JSON.parse(await fileManager.readFile('stryker.config.json'));
-                  const exclusion = process.env.MUTATION_EXCLUSION;
-                  if (typeof exclusion !== 'string') {
-                      throw new Error('Missing mutation shard exclusion');
+                  const files = process.env.MUTATION_FILES;
+                  if (typeof files !== 'string') {
+                      throw new Error('Missing mutation shard files');
                   }
                   await fileManager.writeFile('target/stryker-shard.json', JSON.stringify({
                       ...configuration,
-                      mutate: [ ...configuration.mutate, exclusion ]
+                      mutate: [ ...JSON.parse(files), ...configuration.mutate.filter(pattern => pattern.startsWith('!')) ]
                   }));
                   NODE
                   npx just test-mutation target/stryker-shard.json

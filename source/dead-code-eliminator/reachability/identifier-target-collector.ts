@@ -7,17 +7,19 @@ import {
     type ImportClause,
     type ImportDeclaration,
     type ImportSpecifier,
-    type ShorthandPropertyAssignment
+    type ShorthandPropertyAssignment,
+    type SourceFile
 } from 'ts-morph';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
+import type { ExportGraph } from '../exports/export-graph.ts';
+import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
-export type DeclarationNodeIndex = {
-    readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
-    readonly identifiersByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
-    readonly identifiersByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
-    readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
-    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
+import type { DeclarationNodeIndex } from './binding-identifier.ts';
+
+type IdentifierTargetIndex = DeclarationNodeIndex & {
+    readonly exportGraph: ExportGraph | undefined;
 };
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
 type IdentifiersByFileAndName = ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
@@ -28,7 +30,7 @@ function declarationName(declaration: TypeScriptMorphNode): string {
 
 function declarationPathTargets(
     declaration: TypeScriptMorphNode,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const name = declarationName(declaration);
     return declarationIndex.identifiersByFileAndName.get(declaration.getSourceFile().getFilePath())?.get(name) ?? [];
@@ -36,7 +38,7 @@ function declarationPathTargets(
 
 function importerTargetFilePath(
     node: TypeScriptMorphNode,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): string | undefined {
     const inputFilePath = node.getSourceFile().getFilePath();
     return declarationIndex.targetFilePathByInputFilePath.get(inputFilePath);
@@ -49,7 +51,7 @@ function isRelativeImport(importDeclaration: ImportDeclaration): boolean {
 function resolvedModuleReference(
     node: TypeScriptMorphNode,
     specifier: string,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): ArtifactModuleReference | undefined {
     const importerPath = importerTargetFilePath(node, declarationIndex);
     if (importerPath === undefined) {
@@ -68,7 +70,7 @@ function missingReferenceError(importDeclaration: ImportDeclaration, importerPat
 
 function relativeImportTargetPath(
     importDeclaration: ImportDeclaration,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): string | undefined {
     const importerPath = importerTargetFilePath(importDeclaration, declarationIndex);
     const reference = resolvedModuleReference(
@@ -95,7 +97,7 @@ function targetsByFileAndName(
 
 function relativeImportBindingTargets(
     declaration: ImportClause | ImportSpecifier,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
     if (!isRelativeImport(importDeclaration)) {
@@ -111,17 +113,18 @@ function relativeImportBindingTargets(
 
 function importBindingTargets(
     declaration: TypeScriptMorphNode,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     if (!TypeScriptMorphNode.isImportSpecifier(declaration) && !TypeScriptMorphNode.isImportClause(declaration)) {
         return [];
     }
-    return relativeImportBindingTargets(declaration, declarationIndex);
+    return declarationIndex.exportGraph?.importedTargets(declaration) ??
+        relativeImportBindingTargets(declaration, declarationIndex);
 }
 
 function declarationTargets(
     declarations: readonly TypeScriptMorphNode[],
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     return declarations.flatMap(function (declaration) {
         return [
@@ -134,7 +137,7 @@ function declarationTargets(
 
 function symbolTargets(
     symbol: SymbolReference,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const aliased = symbol.getAliasedSymbol();
     return [
@@ -143,36 +146,59 @@ function symbolTargets(
     ];
 }
 
-function reExportTargets(
+function compilerReExportDependencies(
     declaration: ExportDeclaration,
-    declarationIndex: DeclarationNodeIndex,
-    visited: ReadonlySet<ExportDeclaration>
-): readonly string[] {
-    if (!declaration.isNamespaceExport() || visited.has(declaration)) {
+    declarationIndex: IdentifierTargetIndex
+): readonly (ExportDeclaration | string)[] {
+    const source = declaration.isNamespaceExport() ? declaration.getModuleSpecifierSourceFile() : undefined;
+    if (source === undefined) {
         return [];
     }
-    const sourceFile = declaration.getModuleSpecifierSourceFile();
-    if (sourceFile === undefined) {
-        return [];
-    }
-    const nextVisited = new Set([ ...visited, declaration ]);
     return [
-        ...sourceFile.getExportSymbols().flatMap(function (symbol) {
+        ...source.getExportSymbols().flatMap(function (symbol) {
             return symbol.getName() !== 'default' || declaration.getNamespaceExport() !== undefined
                 ? symbolTargets(symbol, declarationIndex)
                 : [];
         }),
-        ...sourceFile.getExportDeclarations().flatMap(function (nested) {
-            return reExportTargets(nested, declarationIndex, nextVisited);
-        })
+        ...source.getExportDeclarations()
     ];
+}
+
+function reExportTargets(
+    declaration: ExportDeclaration,
+    declarationIndex: IdentifierTargetIndex
+): readonly string[] {
+    const targets = new Set<string>();
+    visitBindingDependencies<ExportDeclaration | string>(declaration, {
+        get(node) {
+            return typeof node === 'string' ? undefined : function () {
+                return declarationIndex.exportGraph?.declarationTargets(node) ??
+                    compilerReExportDependencies(node, declarationIndex);
+            };
+        }
+    }, function (node) {
+        if (typeof node === 'string') {
+            targets.add(node);
+        }
+    });
+    return Array.from(targets);
 }
 
 function namespaceExportTargets(
     symbol: SymbolReference,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
-    if (!symbol.getDeclarations().some(TypeScriptMorphNode.isNamespaceImport)) {
+    const declarations = symbol.getDeclarations();
+    const graph = declarationIndex.exportGraph;
+    const usesRuntimeGraph = graph !== undefined && declarations.every(function (declaration) {
+        return graph.owns(declaration.getSourceFile()) &&
+            declaration.getFirstAncestorByKind(SyntaxKind.ImportDeclaration)?.isTypeOnly() !== true &&
+            (!TypeScriptMorphNode.isImportSpecifier(declaration) || !declaration.isTypeOnly());
+    });
+    if (usesRuntimeGraph) {
+        return declarations.flatMap(graph.namespaceBindingTargets);
+    }
+    if (!declarations.some(TypeScriptMorphNode.isNamespaceImport)) {
         return [];
     }
     return symbol.getAliasedSymbolOrThrow().getExports().flatMap(function (exported) {
@@ -186,20 +212,28 @@ function observesNamespace(identifier: Identifier): boolean {
         !TypeScriptMorphNode.isPropertyAccessExpression(parent);
 }
 
-function identifierTargets(identifier: Identifier, declarationIndex: DeclarationNodeIndex): readonly string[] {
+function identifierSymbol(identifier: Identifier): SymbolReference | undefined {
     const parent = identifier.getParent();
-    const symbol = TypeScriptMorphNode.isExportSpecifier(parent)
-        ? parent.getLocalTargetSymbol() ?? identifier.getSymbol()
+    return TypeScriptMorphNode.isExportSpecifier(parent)
+        ? parent.getLocalTargetSymbol()
         : identifier.getSymbol();
+}
+
+function identifierTargets(identifier: Identifier, declarationIndex: IdentifierTargetIndex): readonly string[] {
+    const symbol = identifierSymbol(identifier);
+    const runtimeReference = identifier.getFirstAncestor(TypeScriptMorphNode.isTypeNode) === undefined;
+    const index = runtimeReference ? declarationIndex : { ...declarationIndex, exportGraph: undefined };
     return symbol === undefined ? [] : [
-        ...symbolTargets(symbol, declarationIndex),
-        ...observesNamespace(identifier) ? namespaceExportTargets(symbol, declarationIndex) : []
+        ...symbolTargets(symbol, index),
+        ...index.exportGraph?.owns(identifier.getSourceFile()) === true || observesNamespace(identifier)
+            ? namespaceExportTargets(symbol, index)
+            : []
     ];
 }
 
 function shorthandPropertyTargets(
     rootNode: TypeScriptMorphNode,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const targets: string[] = [];
     for (
@@ -220,7 +254,7 @@ function shorthandPropertyTargets(
 
 function directEvalTargets(
     call: CallExpression,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const expression = unwrapExpression(call.getExpression());
     if (
@@ -238,9 +272,30 @@ function directEvalTargets(
     ];
 }
 
+function observedDynamicExports(
+    call: CallExpression,
+    sourceFile: SourceFile,
+    declarationIndex: IdentifierTargetIndex
+): readonly string[] {
+    const properties = dynamicImportProperties(call, sourceFile);
+    return [
+        ...sourceFile
+            .getExportSymbols()
+            .filter(function (symbol) {
+                return properties === undefined || properties.has(symbol.getName());
+            })
+            .flatMap(function (symbol) {
+                return symbolTargets(symbol, declarationIndex);
+            }),
+        ...sourceFile.getExportDeclarations().flatMap(function (declaration) {
+            return reExportTargets(declaration, declarationIndex);
+        })
+    ];
+}
+
 function dynamicImportTargets(
     call: CallExpression,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) {
         return [];
@@ -256,30 +311,26 @@ function dynamicImportTargets(
     const sourceFile = call.getProject().getSourceFiles().find(function (candidate) {
         return declarationIndex.targetFilePathByInputFilePath.get(candidate.getFilePath()) === reference.targetFilePath;
     });
-    return sourceFile === undefined ? [] : [
-        ...sourceFile.getExportSymbols().flatMap(function (symbol) {
-            return symbolTargets(symbol, declarationIndex);
-        }),
-        ...sourceFile.getExportDeclarations().flatMap(function (declaration) {
-            return reExportTargets(declaration, declarationIndex, new Set());
-        })
-    ];
+    return sourceFile === undefined ? [] : observedDynamicExports(call, sourceFile, declarationIndex);
 }
 
 export function collectIdentifierTargets(
     rootNode: TypeScriptMorphNode,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: DeclarationNodeIndex,
+    exportGraph: ExportGraph | undefined
 ): Set<string> {
+    const index = { ...declarationIndex, exportGraph };
     return new Set([
         ...TypeScriptMorphNode.isExportDeclaration(rootNode)
-            ? reExportTargets(rootNode, declarationIndex, new Set())
+            ? reExportTargets(rootNode, index)
             : [],
         ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
-            return identifierTargets(identifier, declarationIndex);
+            return identifierTargets(identifier, index);
         }),
-        ...shorthandPropertyTargets(rootNode, declarationIndex),
+        ...shorthandPropertyTargets(rootNode, index),
         ...rootNode.getDescendantsOfKind(SyntaxKind.CallExpression).flatMap(function (call) {
-            return [ ...dynamicImportTargets(call, declarationIndex), ...directEvalTargets(call, declarationIndex) ];
+            const dynamicTargets = index.exportGraph?.dynamicTargets(call) ?? dynamicImportTargets(call, index);
+            return [ ...dynamicTargets, ...directEvalTargets(call, index) ];
         })
     ]);
 }

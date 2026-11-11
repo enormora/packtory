@@ -1,13 +1,8 @@
 import {
     Node as TypeScriptMorphNode,
-    SyntaxKind,
-    type ArrowFunction,
-    type Block,
     type ExportDeclaration,
     type ExportSpecifier,
     type Expression,
-    type FunctionDeclaration,
-    type FunctionExpression,
     type MethodDeclaration,
     type ObjectLiteralExpression,
     type Project,
@@ -16,20 +11,30 @@ import {
     type Statement,
     type VariableDeclaration
 } from 'ts-morph';
+import { constant } from 'remeda';
 import { resolveRuntimeModule, type RuntimeModuleResolver } from '../runtime-module-resolution.ts';
-import type { ImportedExpressionOrigin } from '../imported-expression-origin.ts';
+import { bindingShapeIsStable, bindingValueIsStable } from '../binding-stability.ts';
+import { callResultPath, type ImportedExpressionOrigin } from '../imported-expression-origin.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import {
+    builderCallIsPure,
+    builderIsSynchronous,
+    builderReturnExpression,
+    objectDataShapeIsKnown,
+    objectMemberName,
+    type BuilderFunction
+} from './builder-return.ts';
 
 export type ExportPurity = 'pure-callable' | 'pure-object' | 'unknown';
 
-type ExternalPuritySummary = {
-    readonly exports: ReadonlyMap<string, ExportPurity>;
-};
+type ExportPath = ImportedExpressionOrigin['path'];
+type ExportEntry = { readonly path: ExportPath; readonly purity: ExportPurity; };
+type ExternalPuritySummary = { readonly exports: ReadonlyMap<string, ExportEntry>; };
 
-type ExportPurityEntry = readonly [string, ExportPurity];
+type ExportPurityEntry = readonly [ExportPath, ExportPurity];
 
 type ExportPurityRecorder = {
-    readonly set: (key: string, value: ExportPurity) => unknown;
+    readonly set: (key: ExportPath, value: ExportPurity) => unknown;
 };
 
 type SummaryCache = {
@@ -39,10 +44,9 @@ type SummaryCache = {
 
 type ExternalPuritySummaryBuilder = (sourceFile: SourceFile) => ExternalPuritySummary;
 type ObjectEntriesCollector = (
-    exportName: string,
-    initializer: ObjectLiteralExpression,
-    selfPurity: ExportPurity | undefined
-) => readonly ExportPurityEntry[];
+    exportName: ExportPath,
+    initializer: ObjectLiteralExpression
+) => Iterable<ExportPurityEntry>;
 
 type SummaryContext = {
     readonly sourceFile: SourceFile;
@@ -51,10 +55,7 @@ type SummaryContext = {
     readonly buildSummary: ExternalPuritySummaryBuilder;
 };
 
-type FunctionLike = ArrowFunction | FunctionDeclaration | FunctionExpression | MethodDeclaration;
 type SupportedObjectProperty = MethodDeclaration | PropertyAssignment;
-
-const noExportEntries: readonly ExportPurityEntry[] = [];
 
 function isProjectSummaryStore(value: unknown): value is Map<string, ExternalPuritySummary> {
     return value instanceof Map;
@@ -67,78 +68,17 @@ function projectSummaryCache(project: Project): Map<string, ExternalPuritySummar
     return cache;
 }
 
-function kindIsTextOrNumberReturnLeaf(kind: SyntaxKind): boolean {
-    return kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NumericLiteral;
-}
-
-function kindIsBooleanReturnLeaf(kind: SyntaxKind): boolean {
-    return kind === SyntaxKind.TrueKeyword || kind === SyntaxKind.FalseKeyword;
-}
-
-function kindIsPureReturnLeaf(kind: SyntaxKind): boolean {
-    return kindIsTextOrNumberReturnLeaf(kind) ||
-        kindIsBooleanReturnLeaf(kind) ||
-        kind === SyntaxKind.NullKeyword;
-}
-
-function arrowReturnExpressionFrom(functionLike: ArrowFunction): Expression | undefined {
-    const body = functionLike.getBody();
-    return TypeScriptMorphNode.isExpression(body) ? body : undefined;
-}
-
-function blockFromFunctionLike(
-    functionLike: FunctionDeclaration | FunctionExpression | MethodDeclaration
-): Block | undefined {
-    return functionLike.getBody()?.asKind(SyntaxKind.Block);
-}
-
-function blockReturnExpressionFrom(
-    functionLike: FunctionDeclaration | FunctionExpression | MethodDeclaration
-): Expression | undefined {
-    const body = blockFromFunctionLike(functionLike);
-    if (body === undefined) {
-        return undefined;
-    }
-    const [ statement ] = body.getStatements();
-    return TypeScriptMorphNode.isReturnStatement(statement) ? statement.getExpression() : undefined;
-}
-
-function returnExpressionFrom(functionLike: FunctionLike): Expression | undefined {
-    if (TypeScriptMorphNode.isArrowFunction(functionLike)) {
-        return arrowReturnExpressionFrom(functionLike);
-    }
-    return blockReturnExpressionFrom(functionLike);
-}
-
-function expressionIsPureReturnStructure(expression: Expression): boolean {
-    return TypeScriptMorphNode.isObjectLiteralExpression(expression) ||
-        TypeScriptMorphNode.isArrayLiteralExpression(expression) ||
-        TypeScriptMorphNode.isArrowFunction(expression) ||
-        TypeScriptMorphNode.isFunctionExpression(expression);
-}
-
-function expressionIsPureReturnValue(expression: Expression): boolean {
-    const unwrapped = unwrapExpression(expression);
-    return kindIsPureReturnLeaf(unwrapped.getKind()) || expressionIsPureReturnStructure(unwrapped);
-}
-
-function functionLikeIsPureBuilder(functionLike: FunctionLike): boolean {
-    if (functionLike.getFullText().includes('@__NO_SIDE_EFFECTS__')) {
-        return true;
-    }
-    const expression = returnExpressionFrom(functionLike);
-    return expression !== undefined && expressionIsPureReturnValue(expression);
-}
-
-function callablePurity(functionLike: FunctionLike): ExportPurity {
-    return functionLikeIsPureBuilder(functionLike) ? 'pure-callable' : 'unknown';
+function callablePurity(builder: BuilderFunction): ExportPurity {
+    return builderCallIsPure(builder) ? 'pure-callable' : 'unknown';
 }
 
 function propertyInitializerPurity(initializer: Expression): ExportPurity {
     if (TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)) {
         return callablePurity(initializer);
     }
-    return TypeScriptMorphNode.isObjectLiteralExpression(initializer) ? 'pure-object' : 'unknown';
+    return TypeScriptMorphNode.isObjectLiteralExpression(initializer) && objectDataShapeIsKnown(initializer)
+        ? 'pure-object'
+        : 'unknown';
 }
 
 function supportedObjectProperty(property: TypeScriptMorphNode): SupportedObjectProperty | undefined {
@@ -155,92 +95,95 @@ function propertyPurity(property: SupportedObjectProperty): ExportPurity {
     return propertyInitializerPurity(property.getInitializerOrThrow());
 }
 
-function propertyName(property: SupportedObjectProperty): string {
-    const nameNode = property.getNameNode();
-    return TypeScriptMorphNode.isStringLiteral(nameNode) ? nameNode.getLiteralText() : property.getName();
-}
-
-function functionLikeReturnObjectEntries(
-    exportName: string,
-    functionLike: FunctionLike,
+function* builderReturnObjectEntries(
+    exportName: ExportPath,
+    builder: BuilderFunction,
     collectObjectEntries: ObjectEntriesCollector
-): readonly ExportPurityEntry[] {
-    const unwrapped = unwrapExpression(returnExpressionFrom(functionLike));
-    return TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)
-        ? collectObjectEntries(exportName, unwrapped, undefined)
-        : noExportEntries;
+): Iterable<ExportPurityEntry> {
+    if (!builderIsSynchronous(builder)) {
+        return;
+    }
+    const unwrapped = unwrapExpression(builderReturnExpression(builder));
+    if (TypeScriptMorphNode.isObjectLiteralExpression(unwrapped) && objectDataShapeIsKnown(unwrapped)) {
+        yield* collectObjectEntries(callResultPath(exportName), unwrapped);
+    }
 }
 
-function methodReturnObjectEntries(
-    propertyPath: string,
+function* methodReturnObjectEntries(
+    propertyPath: ExportPath,
     property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
-): readonly ExportPurityEntry[] {
-    return TypeScriptMorphNode.isMethodDeclaration(property)
-        ? functionLikeReturnObjectEntries(propertyPath, property, collectObjectEntries)
-        : noExportEntries;
+): Iterable<ExportPurityEntry> {
+    if (TypeScriptMorphNode.isMethodDeclaration(property)) {
+        yield* builderReturnObjectEntries(propertyPath, property, collectObjectEntries);
+    }
 }
 
-function propertyAssignmentReturnObjectEntries(
-    propertyPath: string,
+function* propertyAssignmentReturnObjectEntries(
+    propertyPath: ExportPath,
     property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
-): readonly ExportPurityEntry[] {
+): Iterable<ExportPurityEntry> {
     if (!TypeScriptMorphNode.isPropertyAssignment(property)) {
-        return noExportEntries;
+        return;
     }
     const initializer = property.getInitializerOrThrow();
-    return TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)
-        ? functionLikeReturnObjectEntries(propertyPath, initializer, collectObjectEntries)
-        : noExportEntries;
+    if (TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)) {
+        yield* builderReturnObjectEntries(propertyPath, initializer, collectObjectEntries);
+    }
 }
 
-function objectPropertyExportEntries(
-    exportName: string,
+function* objectPropertyExportEntries(
+    exportName: ExportPath,
     property: TypeScriptMorphNode,
     collectObjectEntries: ObjectEntriesCollector
-): readonly ExportPurityEntry[] {
+): Iterable<ExportPurityEntry> {
     const supportedProperty = supportedObjectProperty(property);
     if (supportedProperty === undefined) {
-        return noExportEntries;
+        return;
     }
-    const name = propertyName(supportedProperty);
-    const propertyPath = `${exportName}.${name}`;
-    return [
-        [ propertyPath, propertyPurity(supportedProperty) ],
-        ...methodReturnObjectEntries(propertyPath, supportedProperty, collectObjectEntries),
-        ...propertyAssignmentReturnObjectEntries(propertyPath, supportedProperty, collectObjectEntries)
-    ];
+    const name = objectMemberName(supportedProperty);
+    const propertyPath: ExportPath = [ ...exportName, name ];
+    yield [ propertyPath, propertyPurity(supportedProperty) ];
+    yield* methodReturnObjectEntries(propertyPath, supportedProperty, collectObjectEntries);
+    yield* propertyAssignmentReturnObjectEntries(propertyPath, supportedProperty, collectObjectEntries);
 }
 
-function objectLiteralExportEntries(
-    exportName: string,
-    initializer: ObjectLiteralExpression,
-    selfPurity: ExportPurity | undefined
-): readonly ExportPurityEntry[] {
-    const entries: ExportPurityEntry[] = [];
+function* objectLiteralExportEntries(
+    exportName: ExportPath,
+    initializer: ObjectLiteralExpression
+): Iterable<ExportPurityEntry> {
+    if (!objectDataShapeIsKnown(initializer)) {
+        return;
+    }
     for (const property of initializer.getProperties()) {
-        entries.push(...objectPropertyExportEntries(exportName, property, objectLiteralExportEntries));
+        yield* objectPropertyExportEntries(exportName, property, objectLiteralExportEntries);
     }
-    if (selfPurity !== undefined) {
-        entries.push([ exportName, selfPurity ]);
-    }
-    return entries;
+    yield [ exportName, 'pure-object' ];
 }
 
-function variableExportEntries(declaration: VariableDeclaration): readonly ExportPurityEntry[] {
+function variableExportIsStable(declaration: VariableDeclaration): boolean {
+    const identifier = declaration.getNameNode();
+    if (!TypeScriptMorphNode.isIdentifier(identifier) || !bindingValueIsStable(identifier)) {
+        return false;
+    }
+    return !TypeScriptMorphNode.isObjectLiteralExpression(declaration.getInitializer()) ||
+        bindingShapeIsStable(identifier, constant(false));
+}
+
+function* variableExportEntries(declaration: VariableDeclaration): Iterable<ExportPurityEntry> {
+    if (!variableExportIsStable(declaration)) {
+        return;
+    }
     const initializer = declaration.getInitializer();
     const name = declaration.getName();
     if (TypeScriptMorphNode.isObjectLiteralExpression(initializer)) {
-        return objectLiteralExportEntries(name, initializer, 'pure-object');
+        yield* objectLiteralExportEntries([ name ], initializer);
     }
     if (TypeScriptMorphNode.isFunctionExpression(initializer) || TypeScriptMorphNode.isArrowFunction(initializer)) {
-        return [
-            [ name, callablePurity(initializer) ],
-            ...functionLikeReturnObjectEntries(name, initializer, objectLiteralExportEntries)
-        ];
+        yield [ [ name ], callablePurity(initializer) ];
+        yield* builderReturnObjectEntries([ name ], initializer, objectLiteralExportEntries);
     }
-    return noExportEntries;
 }
 
 function addVariableExport(declaration: VariableDeclaration, context: SummaryContext): void {
@@ -249,26 +192,18 @@ function addVariableExport(declaration: VariableDeclaration, context: SummaryCon
     }
 }
 
-function mergeExports(
-    context: SummaryContext,
-    prefix: string,
-    source: ReadonlyMap<string, ExportPurity>
-): void {
-    for (const [ key, value ] of source) {
-        context.exportPurities.set(prefix === '' ? key : `${prefix}.${key}`, value);
+function mergeExports(context: SummaryContext, prefix: string, source: ReadonlyMap<string, ExportEntry>): void {
+    for (const entry of source.values()) {
+        context.exportPurities.set(prefix === '' ? entry.path : [ prefix, ...entry.path ], entry.purity);
     }
     if (prefix !== '') {
-        context.exportPurities.set(prefix, 'pure-object');
+        context.exportPurities.set([ prefix ], 'pure-object');
     }
 }
 
 function resolvedModuleSummary(context: SummaryContext, moduleSpecifier: string): ExternalPuritySummary | undefined {
     const target = resolveRuntimeModule(moduleSpecifier, context.sourceFile);
     return target === undefined ? undefined : context.buildSummary(target);
-}
-
-function sourceExportPrefix(sourceName: string): string {
-    return `${sourceName}.`;
 }
 
 function importedNamespaceSources(sourceFile: SourceFile): ReadonlyMap<string, string> {
@@ -288,10 +223,9 @@ function mergeNestedNamedExport(
     exportedName: string,
     summary: ExternalPuritySummary
 ): void {
-    const prefix = sourceExportPrefix(sourceName);
-    for (const [ key, value ] of summary.exports) {
-        if (key.startsWith(prefix)) {
-            context.exportPurities.set(`${exportedName}.${key.slice(prefix.length)}`, value);
+    for (const entry of summary.exports.values()) {
+        if (entry.path[0] === sourceName) {
+            context.exportPurities.set([ exportedName, ...entry.path.slice(1) ], entry.purity);
         }
     }
 }
@@ -303,7 +237,6 @@ function mergeNamedExport(
 ): void {
     const sourceName = namedExport.getName();
     const exportedName = namedExport.getAliasNode()?.getText() ?? sourceName;
-    context.exportPurities.set(exportedName, summary.exports.get(sourceName) ?? 'unknown');
     mergeNestedNamedExport(context, sourceName, exportedName, summary);
 }
 
@@ -383,8 +316,17 @@ function addFunctionExport(statement: Statement, context: SummaryContext): void 
         return;
     }
     const name = statement.getNameNode();
-    if (name !== undefined) {
-        context.exportPurities.set(name.getText(), callablePurity(statement));
+    if (name !== undefined && bindingValueIsStable(name)) {
+        context.exportPurities.set([ name.getText() ], callablePurity(statement));
+        for (
+            const [ path, purity ] of builderReturnObjectEntries(
+                [ name.getText() ],
+                statement,
+                objectLiteralExportEntries
+            )
+        ) {
+            context.exportPurities.set(path, purity);
+        }
     }
 }
 
@@ -423,10 +365,14 @@ function createExternalPuritySummary(
     cache: SummaryCache,
     buildSummary: ExternalPuritySummaryBuilder
 ): ExternalPuritySummary {
-    const exportPurities = new Map<string, ExportPurity>();
+    const exportPurities = new Map<string, ExportEntry>();
     const summary: ExternalPuritySummary = { exports: exportPurities };
     cache.set(sourceFile.getFilePath(), summary);
-    const context = summaryContext(sourceFile, exportPurities, buildSummary);
+    const context = summaryContext(sourceFile, {
+        set(path, purity) {
+            exportPurities.set(JSON.stringify(path), { path, purity });
+        }
+    }, buildSummary);
     for (const statement of sourceFile.getStatements()) {
         mergeStatementExports(context, statement);
     }
@@ -440,7 +386,7 @@ function buildExternalPuritySummary(sourceFile: SourceFile): ExternalPuritySumma
 }
 
 function exportKey(origin: ImportedExpressionOrigin): string {
-    return origin.path.join('.');
+    return JSON.stringify(origin.path);
 }
 
 export function exportPurityForOrigin(
@@ -452,7 +398,7 @@ export function exportPurityForOrigin(
     if (sourceFile === undefined) {
         return 'unknown';
     }
-    return buildExternalPuritySummary(sourceFile).exports.get(exportKey(origin)) ?? 'unknown';
+    return buildExternalPuritySummary(sourceFile).exports.get(exportKey(origin))?.purity ?? 'unknown';
 }
 
 export function exportHasPureObjectReturnForOrigin(
@@ -464,11 +410,6 @@ export function exportHasPureObjectReturnForOrigin(
     if (sourceFile === undefined) {
         return false;
     }
-    const nestedExportPrefix = `${exportKey(origin)}.`;
-    for (const key of buildExternalPuritySummary(sourceFile).exports.keys()) {
-        if (key.startsWith(nestedExportPrefix)) {
-            return true;
-        }
-    }
-    return false;
+    return buildExternalPuritySummary(sourceFile).exports.get(JSON.stringify(callResultPath(origin.path)))?.purity ===
+        'pure-object';
 }

@@ -21,7 +21,7 @@ suite('identifier-target-collector namespace', function () {
             const index = buildDeclarationNodeIndex(files);
 
             const declaration = entry.sourceFile.getVariableDeclarationOrThrow('value');
-            assert.ok(collectIdentifierTargets(declaration, index).has('/source/barrel.js::default'));
+            assert.ok(collectIdentifierTargets(declaration, index, undefined).has('/source/barrel.js::default'));
         });
     }
 
@@ -48,7 +48,11 @@ suite('identifier-target-collector namespace', function () {
             const index = buildDeclarationNodeIndex(files);
 
             assert.deepStrictEqual(
-                collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe').getBodyOrThrow(), index),
+                collectIdentifierTargets(
+                    entry.sourceFile.getFunctionOrThrow('probe').getBodyOrThrow(),
+                    index,
+                    undefined
+                ),
                 new Set([
                     '/source/index.ts::ns',
                     ...scenario.exports.map(function (name) {
@@ -58,7 +62,10 @@ suite('identifier-target-collector namespace', function () {
             );
             const [ declaration ] = entry.sourceFile.getImportDeclarations();
             assertDefined(declaration);
-            assert.deepStrictEqual(collectIdentifierTargets(declaration, index), new Set([ '/source/index.ts::ns' ]));
+            assert.deepStrictEqual(
+                collectIdentifierTargets(declaration, index, undefined),
+                new Set([ '/source/index.ts::ns' ])
+            );
         });
     }
 });

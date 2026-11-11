@@ -91,27 +91,37 @@ function packageComputedKeyFiles(
 }
 
 suite('pure-expression computed keys', function () {
-    suite('accepted', function () {
-        test('isPureExpression accepts computed names from relative exported literal object members', function () {
+    suite('exported object reads', function () {
+        test('isPureExpression keeps computed names from pure exported accessors', function () {
             assertProjectInitializerPurity(
-                relativeComputedKeyFiles('export const resultType = { config: "configuration" };', true),
-                true
+                relativeComputedKeyFiles(
+                    'export const resultType = { get config() { return "configuration"; } };',
+                    true
+                ),
+                false
             );
         });
 
-        test('isPureExpression accepts computed names from npm ESM exported literal object members', function () {
+        test('isPureExpression keeps computed names from relative exported literal object members', function () {
+            assertProjectInitializerPurity(
+                relativeComputedKeyFiles('export const resultType = { config: "configuration" };', true),
+                false
+            );
+        });
+
+        test('isPureExpression keeps computed names from npm ESM exported literal object members', function () {
             assertProjectInitializerPurity(
                 packageComputedKeyFiles(
                     '{"name":"schema-lib","type":"module","exports":"./index.js"}',
                     'index.js',
                     'export const resultType = { config: "configuration" };'
                 ),
-                true
+                false
             );
         });
 
-        test('isPureExpression loads computed names from resolved package files', async function () {
-            await assertDiskPackageInitializerPurity(true);
+        test('isPureExpression keeps computed names from resolved package files', async function () {
+            await assertDiskPackageInitializerPurity(false);
         });
     });
 
@@ -251,16 +261,6 @@ suite('pure-expression computed keys', function () {
         test('isPureExpression rejects computed names from exported non-objects', function () {
             assertProjectInitializerPurity(
                 relativeComputedKeyFiles('export const resultType = "configuration";', true),
-                false
-            );
-        });
-
-        test('isPureExpression rejects computed names from exported accessors', function () {
-            assertProjectInitializerPurity(
-                relativeComputedKeyFiles(
-                    'export const resultType = { get config() { return "configuration"; } };',
-                    true
-                ),
                 false
             );
         });

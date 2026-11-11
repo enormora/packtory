@@ -1,7 +1,7 @@
-import type { Node as TypeScriptMorphNode } from 'ts-morph';
+import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
+import type { SourceLineResolver } from '../../source-transformation/source-preparation.ts';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
-import type { DeclarationNodeIndex } from './identifier-target-collector.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 
 export type FileBindingSet = {
@@ -10,6 +10,19 @@ export type FileBindingSet = {
     readonly targetFilePath: string;
     readonly moduleReferences: readonly ArtifactModuleReference[];
     readonly bindings: readonly BindingDescriptor[];
+};
+
+export type FileBindings = FileBindingSet & {
+    readonly sourceFile: Readonly<SourceFile>;
+    readonly originalLineFor: SourceLineResolver;
+};
+
+export type DeclarationNodeIndex = {
+    readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
+    readonly identifiersByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly identifiersByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+    readonly moduleReferencesByTargetFilePath: ReadonlyMap<string, readonly ArtifactModuleReference[]>;
+    readonly targetFilePathByInputFilePath: ReadonlyMap<string, string>;
 };
 
 type BindingIdentifiersByName = ReadonlyMap<string, string>;
@@ -30,19 +43,16 @@ export function bindingIdentifier(filePath: string, name: string): string {
     return `${filePath}::${name}`;
 }
 
+export function localBindingIdentifiers(file: FileBindingSet): BindingIdentifiersByName {
+    return new Map(file.bindings.map(function (binding) {
+        return [ binding.name, bindingIdentifier(file.targetFilePath, binding.name) ];
+    }));
+}
+
 function bindingIdentifiersByFile(files: readonly FileBindingSet[]): Map<string, BindingIdentifiersByName> {
-    const result = new Map<string, BindingIdentifiersByName>();
-    for (const file of files) {
-        result.set(
-            file.targetFilePath,
-            new Map(
-                file.bindings.map(function (binding) {
-                    return [ binding.name, bindingIdentifier(file.targetFilePath, binding.name) ];
-                })
-            )
-        );
-    }
-    return result;
+    return new Map(files.map(function (file) {
+        return [ file.targetFilePath, localBindingIdentifiers(file) ];
+    }));
 }
 
 function companionBindingIdentifier(

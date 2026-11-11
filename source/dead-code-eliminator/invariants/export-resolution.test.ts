@@ -223,12 +223,14 @@ suite('dead code elimination export resolution', function () {
                 'export * as grouped from "./namespace.js";',
                 'export { internal as publicName } from "./named.js";',
                 'export * from "./star.js";',
+                'export {} from "./evaluation.js";',
                 ''
             ]
                 .join('\n'),
             'namespace.js': 'export const member = 1;\n',
             'named.js': 'export const internal = 1;\n',
-            'star.js': 'export const starName = 1;\nexport default 1;\n'
+            'star.js': 'export const starName = 1;\nexport default 1;\n',
+            'evaluation.js': 'export const hiddenName = 1;\n'
         });
 
         assert.deepStrictEqual([
@@ -237,6 +239,7 @@ suite('dead code elimination export resolution', function () {
             hasExportThroughGraph(files, 'publicName'),
             hasExportThroughGraph(files, 'internal'),
             hasExportThroughGraph(files, 'starName'),
+            hasExportThroughGraph(files, 'hiddenName'),
             hasExportThroughGraph(files, 'default'),
             hasExportThroughGraph(files, 'missing')
         ], [
@@ -245,6 +248,7 @@ suite('dead code elimination export resolution', function () {
             true,
             false,
             true,
+            false,
             false,
             false
         ]);

@@ -85,7 +85,14 @@ suite('side-effect-classifier classes and exports', function () {
         });
 
         test('treats an export-equals of a pure identifier as pure', function () {
-            assert.deepStrictEqual(classify('declare const value: number; export = value;'), []);
+            assert.deepStrictEqual(classify('const value = 42; export = value;'), []);
+        });
+
+        test('retains ambient reads that can fail at runtime', function () {
+            assert.deepStrictEqual(classify('declare const value: number; export = value;'), [ {
+                line: 1,
+                kind: 'export assignment'
+            } ]);
         });
 
         test('treats an export-equals of a call as impure', function () {

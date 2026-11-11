@@ -18,7 +18,8 @@ suite('identifier-target-collector direct eval', function () {
             assert.deepStrictEqual(
                 collectIdentifierTargets(
                     entry.sourceFile.getFunctionOrThrow('probe').getBodyOrThrow(),
-                    buildDeclarationNodeIndex(files)
+                    buildDeclarationNodeIndex(files),
+                    undefined
                 ),
                 new Set([ '/source/index.ts::hidden', '/source/index.ts::probe' ])
             );
@@ -35,7 +36,8 @@ suite('identifier-target-collector direct eval', function () {
         assert.deepStrictEqual(
             collectIdentifierTargets(
                 entry.sourceFile.getFunctionOrThrow('probe').getBodyOrThrow(),
-                buildDeclarationNodeIndex([])
+                buildDeclarationNodeIndex([]),
+                undefined
             ),
             new Set()
         );
@@ -64,7 +66,8 @@ suite('identifier-target-collector direct eval', function () {
         assert.deepStrictEqual(
             collectIdentifierTargets(
                 entry.sourceFile.getFunctionOrThrow('probe').getBodyOrThrow(),
-                buildDeclarationNodeIndex(files)
+                buildDeclarationNodeIndex(files),
+                undefined
             ),
             new Set([
                 '/source/index.ts::defaultValue',

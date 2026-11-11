@@ -7,8 +7,12 @@ import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
 
 function resource(inputFilePath: string, targetFilePath: string, content: string): LinkedBundleResource {
+    const artifact = bundleResource(inputFilePath, { content, targetFilePath });
     return {
-        ...bundleResource(inputFilePath, { content, targetFilePath }),
+        ...artifact,
+        directDependencies: new Set(artifact.moduleReferences.flatMap(function (reference) {
+            return reference.type === 'local-code' ? [ reference.targetFilePath ] : [];
+        })),
         isSubstituted: false
     };
 }
@@ -111,7 +115,7 @@ suite('published artifact dead code elimination regressions', function () {
             resource(
                 '/workspace/source/permissions.ts',
                 'dist/permissions.js',
-                'export const allowed = true;\nexport const unused = false;\n'
+                'export function allowed() { return true; }\nexport const unused = false;\n'
             )
         ]);
 
@@ -141,7 +145,7 @@ suite('published artifact dead code elimination regressions', function () {
             resource(
                 '/build/permissions.js',
                 'dist/permissions.js',
-                'export const allowed = true;\nexport const unused = false;\n'
+                'export function allowed() { return true; }\nexport const unused = false;\n'
             ),
             map
         ]);

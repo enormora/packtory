@@ -64,8 +64,11 @@ suite('side-effect-classifier variable initializers', function () {
             } ]);
         });
 
-        test('treats a const with a spread of an array literal as pure', function () {
-            assert.deepStrictEqual(classify('const x = [...[1, 2]];'), []);
+        test('preserves iteration when spreading an array literal', function () {
+            assert.deepStrictEqual(classify('const x = [...[1, 2]];'), [ {
+                line: 1,
+                kind: 'variable initializer'
+            } ]);
         });
 
         test('treats a const with a spread of a call expression as impure', function () {

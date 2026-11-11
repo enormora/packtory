@@ -6,7 +6,7 @@ import { assertDeadCodeEliminationBehaviorEquivalent } from '../test-libraries/d
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
 
-const observer = bundleForCodeFile({
+const observerCode = {
     name: 'observer',
     inputFilePath: '/observer/index.js',
     targetFilePath: 'index.js',
@@ -15,7 +15,7 @@ const observer = bundleForCodeFile({
         'export function api() { return { names: Object.keys(ns), values: ns }; }'
     ]
         .join('\n')
-});
+};
 
 suite('eliminator star reexports', function () {
     const cases = [
@@ -92,6 +92,7 @@ suite('eliminator star reexports', function () {
     for (const scenario of cases) {
         for (const withDeclarations of [ false, true ]) {
             test(`preserves ${scenario.name}, declaration companions: ${withDeclarations}`, async function () {
+                const observer = bundleForCodeFile(observerCode);
                 const modules = Object.entries(scenario.modules);
                 const resources = [
                     ...modules,

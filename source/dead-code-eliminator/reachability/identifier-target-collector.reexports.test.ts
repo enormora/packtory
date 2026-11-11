@@ -11,14 +11,29 @@ function collectEntryReExportTargets(files: Parameters<typeof multiFileBindingsF
     assertDefined(entry);
     const [ declaration ] = entry.sourceFile.getExportDeclarations();
     assertDefined(declaration);
-    return collectIdentifierTargets(declaration, buildDeclarationNodeIndex(bindings));
+    return collectIdentifierTargets(declaration, buildDeclarationNodeIndex(bindings), undefined);
 }
 
 suite('identifier-target-collector reexports', function () {
+    test('follows compiler aliases when emitted binding metadata is unavailable', function () {
+        const files = multiFileBindingsFor([
+            { filePath: '/source/index.js', content: 'import {value} from "./dep.js";export const result=value;' },
+            { filePath: '/source/dep.js', content: 'export const value=1;' }
+        ]);
+        const entry = files[0];
+        assertDefined(entry);
+        const index = buildDeclarationNodeIndex(files);
+        const targets = collectIdentifierTargets(entry.sourceFile.getSourceFile(), {
+            ...index,
+            identifiersByTargetFileAndName: new Map()
+        }, undefined);
+        assert.strictEqual(targets.has('/source/dep.js::value'), true);
+    });
+
     for (
         const scenario of [
-            { declaration: 'export * from "./dep.js";', names: [ 'a' ] },
-            { declaration: 'export * as ns from "./dep.js";', names: [ 'a', 'default' ] },
+            { declaration: 'export * from "./dep.js";', names: [ 'a', 'b' ] },
+            { declaration: 'export * as ns from "./dep.js";', names: [ 'a', 'b', 'default' ] },
             { declaration: 'export { a } from "./dep.js";', names: [ 'a' ] },
             { declaration: 'export * from "external";', names: [] }
         ]
@@ -26,7 +41,10 @@ suite('identifier-target-collector reexports', function () {
         test(`collects exactly the targets of ${scenario.declaration}`, function () {
             const targets = collectEntryReExportTargets([
                 { filePath: '/source/index.js', content: scenario.declaration },
-                { filePath: '/source/dep.js', content: 'export const a = 1; export default 9; const unused = 0;' }
+                {
+                    filePath: '/source/dep.js',
+                    content: 'export const a = 1; export const b = 2; export default 9; const unused = 0;'
+                }
             ]);
             assert.deepStrictEqual(
                 targets,

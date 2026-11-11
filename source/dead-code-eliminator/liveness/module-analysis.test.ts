@@ -10,6 +10,9 @@ function moduleKindFor(targetFilePath: string): string {
         inputFilePath: `/source/${targetFilePath}`,
         targetFilePath,
         sourceFile: undefined,
+        originalLineFor(node) {
+            return node.getStartLineNumber();
+        },
         bindings: [],
         deadCodeElimination: undefined,
         classifySideEffects
@@ -32,6 +35,9 @@ suite('liveness module analysis', function () {
             inputFilePath: '/source/LICENSE',
             targetFilePath: 'LICENSE',
             sourceFile: undefined,
+            originalLineFor(node) {
+                return node.getStartLineNumber();
+            },
             bindings: [],
             deadCodeElimination: undefined,
             classifySideEffects
@@ -52,6 +58,9 @@ suite('liveness module analysis', function () {
             inputFilePath: '/source/index.ts',
             targetFilePath: 'index.ts',
             sourceFile,
+            originalLineFor(node) {
+                return node.getStartLineNumber();
+            },
             bindings: extractTopLevelBindings(sourceFile),
             deadCodeElimination: undefined,
             classifySideEffects

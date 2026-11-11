@@ -6,6 +6,26 @@ import { buildDeclarationNodeIndex } from './binding-identifier.ts';
 import { collectIdentifierTargets } from './identifier-target-collector.ts';
 
 suite('identifier-target-collector dynamic import', function () {
+    test('limits awaited imports to the observed namespace properties', function () {
+        const files = multiFileBindingsFor([
+            {
+                filePath: '/source/index.js',
+                content: 'export async function probe(){const ns=await import("./dep.js");return ns.used;}'
+            },
+            { filePath: '/source/dep.js', content: 'export const used=42;export const unused=13;' }
+        ]);
+        const [ entry ] = files;
+        assertDefined(entry);
+        assert.deepStrictEqual(
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
+            new Set([ '/source/index.js::probe', '/source/dep.js::used' ])
+        );
+    });
+
     for (
         const expression of [
             'import("./dep.js")',
@@ -25,7 +45,8 @@ suite('identifier-target-collector dynamic import', function () {
             assert.deepStrictEqual(
                 collectIdentifierTargets(
                     entry.sourceFile.getFunctionOrThrow('probe'),
-                    buildDeclarationNodeIndex(files)
+                    buildDeclarationNodeIndex(files),
+                    undefined
                 ),
                 new Set([
                     '/source/index.js::probe',
@@ -50,7 +71,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe' ])
         );
     });
@@ -76,7 +101,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe', '/source/dep.js::value' ])
         );
     });
@@ -101,7 +130,7 @@ suite('identifier-target-collector dynamic import', function () {
                     moduleReferencesByTargetFilePath: omitted === 'references'
                         ? new Map()
                         : index.moduleReferencesByTargetFilePath
-                }),
+                }, undefined),
                 new Set([ '/source/index.js::probe' ])
             );
         });
@@ -117,7 +146,11 @@ suite('identifier-target-collector dynamic import', function () {
         const [ entry ] = files;
         assertDefined(entry);
         assert.deepStrictEqual(
-            collectIdentifierTargets(entry.sourceFile.getFunctionOrThrow('probe'), buildDeclarationNodeIndex(files)),
+            collectIdentifierTargets(
+                entry.sourceFile.getFunctionOrThrow('probe'),
+                buildDeclarationNodeIndex(files),
+                undefined
+            ),
             new Set([ '/source/index.js::probe', '/source/a.js::clash', '/source/b.js::clash' ])
         );
     });

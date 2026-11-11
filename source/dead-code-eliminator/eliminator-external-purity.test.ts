@@ -81,7 +81,8 @@ suite('external dependency purity during elimination', function () {
         assertDefined(pure);
         assertDefined(unknown);
         assert.strictEqual(pure.includes('unused'), false);
-        assert.strictEqual(unknown.includes('const unused = make()'), true);
+        assert.strictEqual(unknown.includes('unused'), false);
+        assert.match(unknown, /\bmake\(\)/u);
     });
 
     test('preserves initializers when transformations are disabled', async function () {
@@ -95,7 +96,8 @@ suite('external dependency purity during elimination', function () {
         const [ content ] = await eliminatePackages([ packageInput('/repo/effects/build/index.js') ]);
 
         assertDefined(content);
-        assert.strictEqual(content.includes('const unused = make()'), true);
+        assert.strictEqual(content.includes('unused'), false);
+        assert.match(content, /\bmake\(\)/u);
     });
 
     test('does not use installed dependency summaries for linked sibling imports', async function () {
@@ -116,6 +118,7 @@ suite('external dependency purity during elimination', function () {
         const [ content ] = await eliminatePackages([ { ...input, bundle: { ...input.bundle, contents } } ]);
 
         assertDefined(content);
-        assert.strictEqual(content.includes('const unused = make()'), true);
+        assert.strictEqual(content.includes('unused'), false);
+        assert.match(content, /\bmake\(\)/u);
     });
 });

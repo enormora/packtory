@@ -1,14 +1,11 @@
-import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type Statement } from 'ts-morph';
+import type { ExportGraph } from '../exports/export-graph.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { DeadCodeEliminationTrace, LocalSeedReason } from '../trace.ts';
-import { bindingIdentifier, type FileBindingSet } from './binding-identifier.ts';
-import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
+import { bindingIdentifier, type FileBindings, type DeclarationNodeIndex } from './binding-identifier.ts';
+import { collectIdentifierTargets } from './identifier-target-collector.ts';
 import { collectImpureStatements } from './impure-statements.ts';
-
-export type FileBindings = FileBindingSet & {
-    readonly sourceFile: Readonly<SourceFile>;
-};
 
 type LocalSeed = {
     readonly bindingIdentifier: string;
@@ -18,6 +15,7 @@ type LocalSeed = {
 };
 
 type SeedCollectionContext = {
+    readonly exportGraph: ExportGraph | undefined;
     readonly declarationIndex: DeclarationNodeIndex;
     readonly classifySideEffects: SideEffectClassifier;
     readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
@@ -37,37 +35,50 @@ export type LocalSeedGatheringInput = {
 function statementSeeds(
     file: FileBindings,
     statements: readonly Statement[],
-    declarationIndex: DeclarationNodeIndex,
+    context: Pick<SeedCollectionContext, 'declarationIndex' | 'exportGraph'>,
     reason: LocalSeedReason
 ): readonly LocalSeed[] {
     return statements.flatMap(function (statement) {
-        return Array.from(collectIdentifierTargets(statement, declarationIndex), function (seed) {
-            return {
-                bindingIdentifier: seed,
-                inputFilePath: file.inputFilePath,
-                line: statement.getStartLineNumber(),
-                reason
-            };
-        });
+        const targets = collectIdentifierTargets(statement, context.declarationIndex, context.exportGraph);
+        const seeds = new Set(
+            Array.from(targets).flatMap(function (target) {
+                return [ target, ...context.exportGraph?.bindingDependencies(target) ?? [] ];
+            })
+        );
+        return Array.from(
+            seeds,
+            function (seed) {
+                return {
+                    bindingIdentifier: seed,
+                    inputFilePath: file.inputFilePath,
+                    line: file.originalLineFor(statement),
+                    reason
+                };
+            }
+        );
     });
 }
 
 function entryPointExportDeclarationSeeds(
     file: FileBindings,
-    declarationIndex: DeclarationNodeIndex
+    context: SeedCollectionContext
 ): readonly LocalSeed[] {
     return file.sourceFile.getStatements().flatMap(function (statement) {
         return TypeScriptMorphNode.isExportDeclaration(statement)
-            ? statementSeeds(file, [ statement ], declarationIndex, 'entry-export-declaration')
+            ? statementSeeds(file, [ statement ], context, 'entry-export-declaration')
             : [];
     });
 }
 
-function bindingLine(binding: FileBindings['bindings'][number], trace: DeadCodeEliminationTrace): number {
+function bindingLine(
+    file: FileBindings,
+    binding: FileBindings['bindings'][number],
+    trace: DeadCodeEliminationTrace
+): number {
     if (trace === undefined) {
         return 0;
     }
-    return binding.statement.getStartLineNumber();
+    return file.originalLineFor(binding.statement);
 }
 
 function exportedBindingSeeds(
@@ -84,7 +95,7 @@ function exportedBindingSeeds(
                 {
                     bindingIdentifier: bindingIdentifier(file.targetFilePath, binding.name),
                     inputFilePath: file.inputFilePath,
-                    line: bindingLine(binding, trace),
+                    line: bindingLine(file, binding, trace),
                     reason: 'entry-export'
                 }
             ]
@@ -104,8 +115,8 @@ function seedsForFile(
     );
     return [
         ...exportedBindingSeeds(file, isEntry, context.trace),
-        ...isEntry ? entryPointExportDeclarationSeeds(file, context.declarationIndex) : [],
-        ...statementSeeds(file, impureStatements, context.declarationIndex, 'impure-statement')
+        ...isEntry ? entryPointExportDeclarationSeeds(file, context) : [],
+        ...statementSeeds(file, impureStatements, context, 'impure-statement')
     ];
 }
 
@@ -114,6 +125,7 @@ type AddSeedInput = {
     readonly seed: LocalSeed;
     readonly bundleName: string;
     readonly trace: DeadCodeEliminationTrace;
+    readonly exportGraph: ExportGraph | undefined;
 };
 
 function addSeed(input: AddSeedInput): Set<string> {
@@ -121,7 +133,7 @@ function addSeed(input: AddSeedInput): Set<string> {
     const alreadyAdded = seeds.has(seed.bindingIdentifier);
     const nextSeeds = new Set(seeds);
     nextSeeds.add(seed.bindingIdentifier);
-    if (!alreadyAdded && trace !== undefined) {
+    if (!alreadyAdded && trace !== undefined && input.exportGraph?.nodes.has(seed.bindingIdentifier) !== true) {
         trace.collector.record({
             type: 'local-seed-added',
             bundleName,
@@ -134,11 +146,32 @@ function addSeed(input: AddSeedInput): Set<string> {
     return nextSeeds;
 }
 
-export function gatherLocalSeeds(input: LocalSeedGatheringInput): Set<string> {
+function moduleEvaluationSeeds(input: LocalSeedGatheringInput, graph: ExportGraph): readonly LocalSeed[] {
+    const bindings = new Set(graph.roots().flatMap(graph.bindingDependencies));
+    return input.files.flatMap(function (file) {
+        return file.bindings.flatMap(function (binding): readonly LocalSeed[] {
+            const identifier = bindingIdentifier(file.targetFilePath, binding.name);
+            return bindings.has(identifier)
+                ? [ {
+                    bindingIdentifier: identifier,
+                    inputFilePath: file.inputFilePath,
+                    line: bindingLine(file, binding, input.trace),
+                    reason: 'module-evaluation'
+                } ]
+                : [];
+        });
+    });
+}
+
+export function gatherLocalSeeds(
+    input: LocalSeedGatheringInput,
+    exportGraph: ExportGraph | undefined
+): Set<string> {
     let seeds = new Set<string>();
     for (const file of input.files) {
         const isEntry = input.entryPointFilePaths.has(file.targetFilePath);
         const fileSeeds = seedsForFile(file, isEntry, {
+            exportGraph,
             declarationIndex: input.declarationIndex,
             deadCodeElimination: input.deadCodeElimination,
             classifySideEffects: input.classifySideEffects,
@@ -149,9 +182,14 @@ export function gatherLocalSeeds(input: LocalSeedGatheringInput): Set<string> {
                 seeds,
                 seed,
                 bundleName: input.bundleName,
-                trace: input.trace
+                trace: input.trace,
+                exportGraph
             });
         }
+    }
+    const evaluationSeeds = exportGraph === undefined ? [] : moduleEvaluationSeeds(input, exportGraph);
+    for (const seed of evaluationSeeds) {
+        seeds = addSeed({ seeds, seed, bundleName: input.bundleName, trace: input.trace, exportGraph });
     }
     return seeds;
 }

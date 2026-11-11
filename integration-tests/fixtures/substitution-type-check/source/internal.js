@@ -1,1 +1,1 @@
-export const internal = 'internal';
+export function internal() { return 'internal'; }

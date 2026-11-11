@@ -1,5 +1,5 @@
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import type { FileBindings } from '../reachability/local-seed-gathering.ts';
+import type { FileBindings } from '../reachability/binding-identifier.ts';
 
 export type IndexedBundle = {
     readonly bundle: LinkedBundle;

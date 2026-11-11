@@ -31,18 +31,25 @@ suite('eliminator namespace default export', function () {
     for (
         const statement of [ 'export default ns;', 'export default (ns);', 'const alias = ns; export default alias;' ]
     ) {
-        test(`preserves the namespace through ${statement}`, async function () {
-            const entry = 'import ns from "./barrel.js"; export const value = ns.used;';
-            const modules = {
-                'barrel.js': `import * as ns from "./dep.js"; ${statement}`,
-                'dep.js': 'export const used = 42; export const unused = 9; const dead = 123;'
-            };
-            const original = await observe(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
-            assert.strictEqual(original, 42);
-            const emitted = await eliminateCodeModules(entry, modules);
+        for (
+            const entry of [
+                'import ns from "./barrel.js"; export const value = ns.used;',
+                'import * as wrapped from "./barrel.js"; export const value = wrapped.default.used;'
+            ]
+        ) {
+            test(`preserves the namespace through ${statement} with ${entry}`, async function () {
+                const modules = {
+                    'barrel.js': `import * as ns from "./dep.js"; ${statement}`,
+                    'dep.js': 'export const used = 42; export const unused = 9; const dead = 123;'
+                };
+                const original = await observe(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
+                assert.strictEqual(original, 42);
+                const emitted = await eliminateCodeModules(entry, modules);
 
-            assert.strictEqual(await observe(emitted), original);
-            assert.strictEqual(emitted.get('dep.js')?.includes('dead'), false);
-        });
+                assert.strictEqual(await observe(emitted), original);
+                assert.strictEqual(emitted.get('dep.js')?.includes('dead'), false);
+                assert.strictEqual(emitted.get('dep.js')?.includes('unused'), false);
+            });
+        }
     }
 });

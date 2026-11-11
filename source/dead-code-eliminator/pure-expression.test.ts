@@ -29,6 +29,37 @@ function variableInitializer(content: string, name: string): Expression {
 }
 
 suite('pure-expression', function () {
+    for (
+        const [ expression, expected ] of [
+            [ '({}) === ({})', true ],
+            [ '({}) !== ({})', true ],
+            [ '({}) + ({})', false ],
+            [ '({}) + 1', false ],
+            [ '!{}', true ],
+            [ '+{}', false ],
+            [ '~{}', false ],
+            [ '({}) && ({})', true ],
+            [ '({}) || ({})', true ],
+            [ '({}) ?? ({})', true ],
+            [ 'void missing', false ]
+        ] as const
+    ) {
+        test(`classifies non-coercive expression ${expression}`, function () {
+            assert.strictEqual(
+                isPureExpression(firstVariableInitializerExpression(`const value = ${expression};`), undefined),
+                expected
+            );
+        });
+    }
+
+    test('rejects an accessor spread mixed with ordinary data properties', function () {
+        const expression = variableInitializer(
+            'const source={get value(){effect();return 1;}};const a={...source,extra:1};',
+            'a'
+        );
+        assert.strictEqual(isPureExpression(expression, undefined), false);
+    });
+
     suite('literal and array purity', function () {
         test('isPureExpression returns true for a primitive literal', function () {
             assert.strictEqual(isPureExpression(firstVariableInitializerExpression('const a = 1;'), undefined), true);
@@ -411,10 +442,10 @@ suite('pure-expression', function () {
                 assert.strictEqual(isPureExpression(expression, settings), true);
             });
 
-            test('isPureExpression returns true for a Symbol call with pure arguments', function () {
+            test('isPureExpression keeps an unresolved Symbol call with pure arguments', function () {
                 const expression = firstVariableInitializerExpression('const a = Symbol("x");');
 
-                assert.strictEqual(isPureExpression(expression, undefined), true);
+                assert.strictEqual(isPureExpression(expression, undefined), false);
             });
 
             test('isPureExpression returns false for a Symbol call with an impure argument', function () {

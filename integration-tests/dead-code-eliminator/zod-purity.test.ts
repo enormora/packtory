@@ -26,6 +26,14 @@ function sourceFileWithInstalledPackages(content: string): SourceFile {
 }
 
 suite('Zod purity integration', function () {
+    test('proves typed namespace aliases through runtime ESM declarations', function () {
+        const sourceFile = sourceFileWithInstalledPackages(
+            'import * as mini from "zod/mini"; const z = mini.z; const make = z.object; const schema = make({ value: z.string() });'
+        );
+        const expression = sourceFile.getVariableDeclarationOrThrow('schema').getInitializerOrThrow();
+        assert.strictEqual(createExpressionPurityChecker(undefined, resolveRuntimeModule)(expression), true);
+    });
+
     test('proves Zod mini schema construction pure through runtime ESM resolution', function () {
         const sourceFile = sourceFileWithInstalledPackages(
             'import { z } from "zod/mini";\nconst schema = z.object({ value: z.string() });'

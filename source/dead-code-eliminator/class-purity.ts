@@ -2,6 +2,9 @@ import { Node as TypeScriptMorphNode, type ClassDeclaration, type ClassExpressio
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
+export type ClassPropertyKeyResolver = (expression: Expression) => string | undefined;
+type ComputedClassKey = { readonly expression: Expression; readonly isStatic: boolean; };
+
 function classHeritageIsPure(expression: Expression, isPure: ExpressionPurityChecker): boolean {
     const heritage = unwrapExpression(expression);
     if (TypeScriptMorphNode.isNullLiteral(heritage)) {
@@ -36,34 +39,52 @@ function memberHasImpureStaticInitialization(
     return initializer !== undefined && !isPure(initializer);
 }
 
-function memberHasImpureComputedName(
-    member: TypeScriptMorphNode,
-    isPure: ExpressionPurityChecker
-): boolean {
+export function computedClassKey(member: TypeScriptMorphNode): ComputedClassKey | undefined {
     if (
         !TypeScriptMorphNode.isMethodDeclaration(member) &&
         !TypeScriptMorphNode.isPropertyDeclaration(member) &&
         !TypeScriptMorphNode.isGetAccessorDeclaration(member) &&
         !TypeScriptMorphNode.isSetAccessorDeclaration(member)
     ) {
-        return false;
+        return undefined;
     }
     const name = member.getNameNode();
-    return TypeScriptMorphNode.isComputedPropertyName(name) && !isPure(name.getExpression());
+    return TypeScriptMorphNode.isComputedPropertyName(name)
+        ? { expression: name.getExpression(), isStatic: member.isStatic() }
+        : undefined;
 }
 
-function classMemberIsImpure(member: TypeScriptMorphNode, isPure: ExpressionPurityChecker): boolean {
+function computedClassKeyIsImpure(
+    expression: Expression,
+    isStatic: boolean,
+    propertyKeyFor: ClassPropertyKeyResolver
+): boolean {
+    const key = propertyKeyFor(expression);
+    return key === undefined || isStatic && key === 'prototype';
+}
+
+function memberHasImpureComputedName(member: TypeScriptMorphNode, propertyKeyFor: ClassPropertyKeyResolver): boolean {
+    const key = computedClassKey(member);
+    return key !== undefined && computedClassKeyIsImpure(key.expression, key.isStatic, propertyKeyFor);
+}
+
+function classMemberIsImpure(
+    member: TypeScriptMorphNode,
+    isPure: ExpressionPurityChecker,
+    propertyKeyFor: ClassPropertyKeyResolver
+): boolean {
     if (TypeScriptMorphNode.isClassStaticBlockDeclaration(member)) {
         return true;
     }
     return memberHasDecorators(member) ||
-        memberHasImpureComputedName(member, isPure) ||
+        memberHasImpureComputedName(member, propertyKeyFor) ||
         memberHasImpureStaticInitialization(member, isPure);
 }
 
 export function hasClassImpurity(
     classDeclaration: ClassDeclaration | ClassExpression,
-    isPure: ExpressionPurityChecker
+    isPure: ExpressionPurityChecker,
+    propertyKeyFor: ClassPropertyKeyResolver
 ): boolean {
     if (classDeclaration.getDecorators().length > 0) {
         return true;
@@ -73,6 +94,16 @@ export function hasClassImpurity(
         return true;
     }
     return classDeclaration.getMembers().some(function (member) {
-        return classMemberIsImpure(member, isPure);
+        return classMemberIsImpure(member, isPure, propertyKeyFor);
+    });
+}
+
+export function defaultClassConstructionIsPure(target: ClassDeclaration | ClassExpression): boolean {
+    if (target.getExtends() !== undefined || target.getConstructors().length > 0 || target.getDecorators().length > 0) {
+        return false;
+    }
+    return target.getMembers().every(function (member) {
+        return !(memberHasDecorators(member) ||
+            TypeScriptMorphNode.isPropertyDeclaration(member) && !member.isStatic());
     });
 }

@@ -1,3 +1,5 @@
 import { sharedValue } from '../shared/utilities.js';
 
-export const packageCValue = `C:${sharedValue}`;
+export function packageCValue(value) {
+    return sharedValue(value);
+}

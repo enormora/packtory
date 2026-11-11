@@ -1,30 +1,17 @@
-import type { Project, SourceFile } from 'ts-morph';
+import type { Project } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
-import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { getEntryRootTargetFilePaths } from '../package-surface/root-registry.ts';
 import { createSideEffectClassifier, type SideEffectClassifier } from './side-effect-classifier.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
-import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
 import { buildReachabilityIndex, type ReachabilityIndex, type ReachabilityInput } from './reachability/reachability.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
+import { loadResource, type LoadedResource } from './load-resource.ts';
+import { prepareLoadedResources } from './prepare-loaded-resources.ts';
 
 type FileBindings = ReachabilityInput['files'][number];
 
 export type CreateProject = () => Project;
-
-export type LoadedCodeResource = {
-    readonly resource: LinkedBundleResource;
-    readonly sourceFile: SourceFile;
-    readonly bindings: readonly BindingDescriptor[];
-};
-
-type LoadedNonCodeResource = {
-    readonly resource: LinkedBundleResource;
-    readonly sourceFile?: undefined;
-};
-
-export type LoadedResource = LoadedCodeResource | LoadedNonCodeResource;
 
 export type LoadedBundle = {
     readonly classifySideEffects: SideEffectClassifier;
@@ -33,35 +20,6 @@ export type LoadedBundle = {
     readonly fileBindings: readonly FileBindings[];
     readonly reachability: ReachabilityIndex;
 };
-
-function parseFilePathFor(resource: LinkedBundleResource): string {
-    return `/.packtory-artifacts/${resource.fileDescription.targetFilePath}`;
-}
-
-function projectForResource(
-    runtimeProject: Project,
-    declarationProject: Project,
-    resource: LinkedBundleResource
-): Project {
-    return isDeclarationCodeFile(resource.fileDescription.targetFilePath) ? declarationProject : runtimeProject;
-}
-
-function loadResource(
-    runtimeProject: Project,
-    declarationProject: Project,
-    resource: LinkedBundleResource
-): LoadedResource {
-    if (!isCodeFile(resource.fileDescription.targetFilePath)) {
-        return { resource };
-    }
-    const project = projectForResource(runtimeProject, declarationProject, resource);
-    const sourceFile = project.createSourceFile(
-        parseFilePathFor(resource),
-        resource.fileDescription.content,
-        { overwrite: true }
-    );
-    return { resource, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
-}
 
 function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBindings[] {
     const result: FileBindings[] = [];
@@ -73,6 +31,7 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
                 targetFilePath: entry.resource.fileDescription.targetFilePath,
                 moduleReferences: entry.resource.moduleReferences,
                 sourceFile: entry.sourceFile,
+                originalLineFor: entry.originalLineFor,
                 bindings: entry.bindings
             });
         }
@@ -127,9 +86,13 @@ export function loadBundle(
 ): LoadedBundle {
     const runtimeProject = createProject();
     const declarationProject = createProject();
-    const loaded = input.bundle.contents.map(function (resource) {
-        return loadResource(runtimeProject, declarationProject, resource);
-    });
+    const loaded = prepareLoadedResources(
+        input.bundle.contents.map(function (resource) {
+            return loadResource(runtimeProject, declarationProject, resource, input.transformationsEnabled);
+        }),
+        input,
+        trace
+    );
     const fileBindings = buildFileBindings(loaded);
     const classifySideEffects = createSideEffectClassifier(fileBindings);
     const reachability = buildReachabilityIndex({
