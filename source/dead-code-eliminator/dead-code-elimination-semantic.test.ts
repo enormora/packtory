@@ -11,8 +11,25 @@ import {
     type DeadCodeEliminationSemanticScenario
 } from '../test-libraries/dead-code-elimination-semantic-programs.ts';
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
+import { createSourcePreparation } from '../source-transformation/source-preparation.ts';
+import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
 
 suite('dead code elimination semantic regressions', function () {
+    for (const expression of [ '(0, eval)("typeof hidden")', '-1', '-0', '1 / 0', '-1 / 0', '0 / 0' ]) {
+        test(`preserves ${expression} without source edits`, function () {
+            const content = `export function api() { return ${expression}; }`;
+            const preparation = createSourcePreparation(createProject().createSourceFile('index.js', content));
+            prepareInitialRuntimeSource({
+                ...preparation,
+                applyEdits(edits) {
+                    assert.deepStrictEqual(edits, [], 'canonical runtime expressions must not require source edits');
+                }
+            });
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+        });
+    }
+
     test('negative class heritage reaches a runtime TypeError', async function () {
         const program = deadCodeEliminationSemanticProgram({
             scenario: 'invalid-heritage',

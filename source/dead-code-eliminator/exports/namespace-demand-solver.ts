@@ -10,6 +10,19 @@ export type NamespaceDemandLimits = {
     readonly maximumEvaluations: number;
 };
 
+const maximumDemandQueries = 2048;
+const maximumDemandEvaluations = 32_768;
+
+export function namespaceDemandLimits(syntaxSizes: readonly number[]): NamespaceDemandLimits {
+    const syntaxNodes = syntaxSizes.reduce(function (total, size) {
+        return total + size;
+    }, 1);
+    return {
+        maximumQueries: maximumDemandQueries,
+        maximumEvaluations: Math.min(maximumDemandEvaluations, syntaxNodes * syntaxNodes)
+    };
+}
+
 type DemandJob = {
     readonly evaluate: () => NamespaceDemand;
     readonly demand: NamespaceDemand;

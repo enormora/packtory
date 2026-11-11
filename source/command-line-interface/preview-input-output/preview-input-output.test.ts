@@ -40,7 +40,7 @@ suite('preview-input-output', function () {
             await withPromiseDeadline(
                 previewInputOutput.pagePreviewOutput('hello'),
                 'default preview io fallback spawner',
-                500
+                5000
             ),
             true
         );

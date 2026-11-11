@@ -10,15 +10,13 @@ import { reduceObjectBindings } from './object-binding-reduction.ts';
 import { removeUnusedValues } from './unused-values.ts';
 
 export function prepareInitialRuntimeSource(preparation: SourcePreparation): void {
-    if (hasDynamicScope(preparation.sourceFile)) {
+    if (hasDynamicScope(preparation.sourceFile) || preparation.sourceFile.getFullText() === '') {
         return;
     }
-    let previous = '';
-    for (const pass of preparationPasses(preparation)) {
-        if (preparation.sourceFile.getFullText() === previous) {
-            return;
-        }
-        previous = preparation.sourceFile.getFullText();
+    const passes = preparationPasses(preparation, function () {
+        return preparation.sourceFile.getFullText();
+    });
+    for (const pass of passes) {
         reduceOptionalChains(pass);
         simplifyConstantControlFlow(pass);
         specializeExpressions(pass);

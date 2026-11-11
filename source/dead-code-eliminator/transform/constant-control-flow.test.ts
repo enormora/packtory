@@ -28,11 +28,15 @@ suite('constant control flow', function () {
                     passes += 1;
                     assert.ok(passes <= 32);
                     preparation.applyEdits(edits);
-                    preparation.applyEdits([ { start: 0, end: preparation.sourceFile.getFullText().length, content } ]);
+                    preparation.applyEdits([ {
+                        start: 0,
+                        end: preparation.sourceFile.getFullText().length,
+                        content: content + '\n'.repeat(passes)
+                    } ]);
                 }
             });
             assert.strictEqual(passes, 32);
-            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+            assert.strictEqual(preparation.sourceFile.getFullText(), content + '\n'.repeat(32));
         });
     });
 

@@ -251,11 +251,14 @@ suite('reachability', function () {
                     'function helper() { return pub(); }\nexport function pub() { return helper(); }'
                 )
             ];
+            let bindingChecks = 0;
             const index = buildReachabilityIndex(
                 reachabilityInput(files, new Set<string>()),
                 {
                     visitedHas(visited, value) {
                         if (typeof value === 'string' && value.includes('::')) {
+                            assert.ok(bindingChecks < 100, 'Binding traversal must remain bounded');
+                            bindingChecks += 1;
                             return false;
                         }
                         return visited.has(value);
@@ -353,8 +356,11 @@ console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
                     'function helper() { return pub(); }\nexport function pub() { return helper(); }'
                 )
             ];
+            let bindingChecks = 0;
             const visitedHas = function <T>(visited: ReadonlySet<T>, value: T): boolean {
                 if (typeof value === 'string' && value.includes('::')) {
+                    assert.ok(bindingChecks < 100, 'Binding traversal must remain bounded');
+                    bindingChecks += 1;
                     return false;
                 }
                 return visited.has(value);

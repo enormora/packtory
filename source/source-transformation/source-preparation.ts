@@ -4,10 +4,19 @@ import { applySourceTextEdits, type PositionAtom, type SourceTextEdit, type Text
 
 const maximumPreparationPasses = 32;
 
-export function preparationPasses<Preparation>(preparation: Preparation): readonly Preparation[] {
-    return Array.from({ length: maximumPreparationPasses }, function () {
-        return preparation;
-    });
+export function* preparationPasses<Preparation>(
+    preparation: Preparation,
+    readState: () => string
+): Iterable<Preparation> {
+    const pending = new Map([ [ readState(), preparation ] ]);
+    const passes = pending.values();
+    for (let pass = passes.next(); pass.done !== true; pass = passes.next()) {
+        if (pending.size > maximumPreparationPasses) {
+            return;
+        }
+        yield pass.value;
+        pending.set(readState(), preparation);
+    }
 }
 
 type SourceRange = { readonly start: number; readonly end: number; };
@@ -24,7 +33,10 @@ export function applySourcePreparation(
     preparation: SourcePreparation,
     editsFor: (source: SourceFile) => readonly SourceTextEdit[]
 ): void {
-    for (const pass of preparationPasses(preparation)) {
+    const passes = preparationPasses(preparation, function () {
+        return preparation.sourceFile.getFullText();
+    });
+    for (const pass of passes) {
         const edits = editsFor(pass.sourceFile);
         if (edits.length === 0) {
             return;
