@@ -12,22 +12,18 @@ export function prepareBundleSources(
     resolveModule: RuntimeModuleResolver,
     isPure: ExpressionPurityChecker
 ): void {
-    for (const pass of preparationPasses(preparations)) {
-        const previous = modules.map(function (file) {
+    const passes = preparationPasses(preparations, function () {
+        return JSON.stringify(modules.map(function (file) {
             return file.sourceFile.getFullText();
-        });
+        }));
+    });
+    for (const pass of passes) {
         const evaluateImport = createBundleConstantEvaluator(
             createModuleConstantSnapshot(modules, resolveModule),
             resolveModule
         );
         for (const preparation of pass) {
             prepareResolvedRuntimeSource(preparation, evaluateImport, isPure);
-        }
-        const changed = modules.some(function (file, index) {
-            return file.sourceFile.getFullText() !== previous[index];
-        });
-        if (!changed) {
-            return;
         }
     }
 }

@@ -281,7 +281,7 @@ Impure top-level statements seed reachability along with the bindings they refer
 
 Local expressions can also be simplified by bounded evaluation before building the reachability graph. The evaluator follows primitive values and fresh records through synchronous functions, known branches, local assignments, finite `for`, `while`, and `do...while` loops, and nested calls. Loops support unlabelled `break` and `continue` within the same evaluation budget. Repeated calls with the same primitive arguments can share proven primitive results within an evaluated expression. Arguments still evaluate in order; record arguments and results preserve their mutations and identity. Proven primitive results replace calls, property reads, binary operations, unary operations, and `typeof`, allowing unused implementations to disappear even when their results remain public. Unknown values, observable operations, exceptions, direct eval, and exhausted evaluation budgets preserve the computation. Evaluation interprets supported syntax without running application code or accessing the environment.
 
-Preparation stages and bundle preparation stop after 32 passes each, retaining any remaining computation.
+Preparation stages and bundle preparation process each distinct source state once and stop after 32 passes each, retaining any remaining computation.
 
 Synchronous `using` declarations can disappear when their resources are proven nullish. Other resource declarations retain initialization and disposal, including the suspension of `await using`.
 
