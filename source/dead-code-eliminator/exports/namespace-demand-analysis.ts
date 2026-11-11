@@ -30,11 +30,11 @@ export function createNamespaceDemandAnalysis(
     resolveModule: ExportTargetResolver,
     policy: NamespaceDemandPolicy
 ): NamespaceDemandAnalysis {
-    const syntaxNodes = files.reduce(function (total, source) {
-        return total + source.getDescendants().length;
-    }, 1);
+    const syntaxSizes = files.map(function (source) {
+        return source.getDescendants().length;
+    });
     const solver = createNamespaceDemandSolver<ExportDemandKey | TypeScriptMorphNode>(
-        namespaceDemandLimits(syntaxNodes)
+        namespaceDemandLimits(syntaxSizes)
     );
     const state = {
         analyzedFiles: new Set(files),
