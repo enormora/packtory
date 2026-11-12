@@ -54,10 +54,19 @@ function createSharedProject(dependencies: SharedProjectDependencies, request: P
 }
 
 export function createSharedProjectAnalyzer(dependencies: SharedProjectDependencies): SharedProjectAnalyzer {
-    let projects: readonly SharedProject[] = [];
+    const projects = new Map<string, SharedProject>();
     async function isCurrent(project: SharedProject): Promise<boolean> {
         const snapshot = project.inputs.snapshot();
         return snapshot !== null && await dependencies.inputValidator.isCurrent(snapshot);
+    }
+    function retain(project: SharedProject): void {
+        projects.set(project.identity, project);
+        for (const identity of projects.keys()) {
+            if (projects.size <= maximumRetainedProjects) {
+                break;
+            }
+            projects.delete(identity);
+        }
     }
     return {
         async analyzeProject(folder, options) {
@@ -67,20 +76,12 @@ export function createSharedProjectAnalyzer(dependencies: SharedProjectDependenc
                 currentDirectory: dependencies.fileSystemHost.getCurrentDirectory()
             };
             const identity = valueFingerprint(request);
-            const existing = projects.find(function (candidate) {
-                return candidate.identity === identity;
-            });
+            const existing = projects.get(identity);
             if (existing !== undefined && await isCurrent(existing)) {
                 return existing.project;
             }
             const created = createSharedProject(dependencies, request);
-            projects = [
-                created,
-                ...projects.filter(function (candidate) {
-                    return candidate !== existing;
-                })
-            ]
-                .slice(0, maximumRetainedProjects);
+            retain(created);
             return created.project;
         }
     };

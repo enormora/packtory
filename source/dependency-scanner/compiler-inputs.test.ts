@@ -71,6 +71,30 @@ suite('compiler input freshness', function () {
             });
         });
 
+        test('preserves invalid-path errors without recording invalid compiler inputs', function () {
+            const observed = observeCompilerInputs(new InMemoryFileSystemHost());
+            assert.throws(function () {
+                invoke(observed.fileSystemHost, 'fileExistsSync', []);
+            }, TypeError);
+            assert.deepStrictEqual(observed.snapshot(), []);
+        });
+
+        test('declines reuse when a host returns source contents as binary data', function () {
+            const content = Buffer.from('export const value = 1;');
+            const host = new Proxy(new InMemoryFileSystemHost(), {
+                get(target, property) {
+                    return property === 'readFileSync'
+                        ? function () {
+                            return content;
+                        }
+                        : Reflect.get(target, property) as unknown;
+                }
+            });
+            const observed = observeCompilerInputs(host);
+            assert.strictEqual(invoke(observed.fileSystemHost, 'readFileSync', [ '/source.js' ]), content);
+            assert.strictEqual(observed.snapshot(), null);
+        });
+
         test('preserves host results when their metadata cannot be cached', function () {
             const entries = [ { name: '/virtual/file', isDirectory: false, isSymlink: false } ];
             const host = new Proxy(new InMemoryFileSystemHost(), {
@@ -196,14 +220,20 @@ suite('compiler input freshness', function () {
     });
 
     suite('unsupported observations', function () {
-        test('declines reuse for asynchronous reads', async function () {
-            await withCompilerWorkspace(async function (workspace) {
-                const file = await workspace.write('source.js', 'first');
-                const observed = observeCompilerInputs(workspace.fileSystemHost);
-                assert.strictEqual(await observed.fileSystemHost.readFile(file), 'first');
-                assert.strictEqual(observed.snapshot(), null);
+        for (const method of [ 'readFile', 'fileExists', 'directoryExists' ]) {
+            test(`declines reuse for asynchronous ${method}`, async function () {
+                await withCompilerWorkspace(async function (workspace) {
+                    const file = await workspace.write('source.js', 'first');
+                    const observed = observeCompilerInputs(workspace.fileSystemHost);
+                    const parameters = [ method.toLowerCase().includes('dir') ? workspace.folder : file ];
+                    assert.deepStrictEqual(
+                        await invoke(observed.fileSystemHost, method, parameters),
+                        await invoke(workspace.fileSystemHost, method, parameters)
+                    );
+                    assert.strictEqual(observed.snapshot(), null);
+                });
             });
-        });
+        }
 
         for (const method of [ 'glob', 'globSync' ]) {
             test(`declines reuse for ${method} observations`, async function () {

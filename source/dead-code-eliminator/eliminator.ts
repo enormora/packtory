@@ -55,9 +55,7 @@ export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDepende
     return {
         async eliminate(inputs) {
             const identity = dependencies.trace === undefined ? eliminationInputIdentity(inputs) : null;
-            if (
-                identity !== null && previous?.identity === identity
-            ) {
+            if (previous !== null && previous.identity === identity) {
                 maybeEmitElimination(
                     progressBroadcaster,
                     inputs.map(function (input) {

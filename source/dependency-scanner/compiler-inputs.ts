@@ -6,6 +6,9 @@ import { contentDigest } from '../common/value-fingerprint.ts';
 
 const operations = [ 'readFile', 'fileExists', 'directoryExists', 'readDir', 'realpath' ] as const;
 type Operation = (typeof operations)[number];
+const operationByMethod: ReadonlyMap<string, Operation> = new Map(operations.flatMap(function (operation) {
+    return [ [ operation, operation ], [ `${operation}Sync`, operation ] ];
+}));
 export const compilerInputsSchema = z.array(z.object({
     operation: z.enum(operations),
     filePath: z.string(),
@@ -17,6 +20,7 @@ export type CompilerInputObservation = {
     readonly fileSystemHost: FileSystemHost;
     readonly snapshot: () => CompilerInputs | null;
 };
+const sourceTextSchema = z.string();
 const directoryEntriesSchema = z.array(z.object({
     name: z.string(),
     isDirectory: z.boolean(),
@@ -29,8 +33,8 @@ const directoryFilesSchema = z.array(z.object({
 }));
 
 function observedValue(operation: Operation, value: unknown): string {
-    if (operation === 'readFile' && typeof value === 'string') {
-        return contentDigest(value);
+    if (operation === 'readFile') {
+        return contentDigest(sourceTextSchema.parse(value));
     }
     if (operation === 'readDir') {
         return JSON.stringify(
@@ -95,10 +99,7 @@ export function observeCompilerInputs(fileSystemHost: FileSystemHost): CompilerI
                     return member;
                 }
                 return function (...parameters: readonly unknown[]): unknown {
-                    const method = String(property).replace(/Sync$/u, '');
-                    const operation = operations.find(function (candidate) {
-                        return candidate === method;
-                    });
+                    const operation = operationByMethod.get(String(property));
                     const [ filePath ] = parameters;
                     if (operation === undefined || typeof filePath !== 'string') {
                         reusable = reusable && ![ 'glob', 'globSync' ].includes(String(property));
