@@ -7,10 +7,11 @@ import {
     createDeclarationIntegritySummarizer,
     type DeclarationIntegritySummarizer
 } from './type-script-declaration-integrity.ts';
-import { createDeclarationProjectFactory } from './type-script-declaration-project.ts';
+import { createDeclarationProjectFactory, type DeclarationProjectsFactory } from './type-script-declaration-project.ts';
 
 type ValidationFixture = {
     readonly summarize: DeclarationIntegritySummarizer;
+    readonly createProjects: DeclarationProjectsFactory;
     readonly projectCount: () => number;
 };
 
@@ -35,14 +36,14 @@ function validationFixture(): ValidationFixture {
             return project;
         }
     });
+    const createProjects = createDeclarationProjectFactory({
+        Project: ObservedProject,
+        fileSystemHost: new InMemoryFileSystemHost(),
+        packageResolutionBaseFolder: '/repo'
+    });
     return {
-        summarize: createDeclarationIntegritySummarizer({
-            createDeclarationProjects: createDeclarationProjectFactory({
-                Project: ObservedProject,
-                fileSystemHost: new InMemoryFileSystemHost(),
-                packageResolutionBaseFolder: '/repo'
-            })
-        }),
+        createProjects,
+        summarize: createDeclarationIntegritySummarizer({ createDeclarationProjects: createProjects }),
         projectCount() {
             return projectCount;
         }
@@ -69,7 +70,33 @@ suite('declaration project sessions', function () {
         const changed = checkPublishedPackage('valid', manifest, {
             'index.d.ts': 'export declare const value: Changed;'
         });
-        assertMissingType(summarize('valid', changed, 'all', new Map([ [ 'valid', valid ] ])), 'Changed');
+        const packages = new Map([ [ 'valid', valid ] ]);
+        assertMissingType(summarize('valid', changed, 'all', packages), 'Changed');
+        assert.deepStrictEqual(summarize('valid', valid, 'all', packages), []);
+        assertMissingType(summarize('valid', changed, 'all', packages), 'Changed');
+    });
+
+    test('does not share projects across package names that reuse the same file list', function () {
+        const { createProjects } = validationFixture();
+        const files = [
+            { filePath: 'package.json', content: manifest },
+            { filePath: 'index.d.ts', content: 'export declare const value: import("different").Missing;' }
+        ];
+        const packages = [ { packageName: 'original', packageFiles: files } ];
+        for (const project of createProjects('different', files, packages)) {
+            assert.ok(
+                project.listDiagnostics().some(function (diagnostic) {
+                    return diagnostic.code === 2694;
+                })
+            );
+        }
+        for (const project of createProjects('original', files, packages)) {
+            assert.ok(
+                project.listDiagnostics().some(function (diagnostic) {
+                    return diagnostic.code === 2307;
+                })
+            );
+        }
     });
 
     test('shares both compiler modes and keeps package diagnostics separate', function () {

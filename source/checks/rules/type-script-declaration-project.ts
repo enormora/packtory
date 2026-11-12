@@ -61,11 +61,6 @@ type SharedDeclarationProject = {
     readonly diagnostics: () => readonly DeclarationDiagnostic[];
 };
 
-type CreatedFilePathSet = {
-    readonly add: (filePath: string) => unknown;
-    readonly has: (filePath: string) => boolean;
-};
-
 function declarationCompilerModes(): readonly DeclarationCompilerMode[] {
     return [
         {
@@ -251,8 +246,7 @@ export function createDeclarationProjectFactory(
     function addPackageFiles(
         project: TypeScriptMorphProject,
         packageName: string,
-        packageFiles: readonly PackageFile[],
-        createdFilePaths: CreatedFilePathSet
+        packageFiles: readonly PackageFile[]
     ): void {
         const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
         const sourceFiles = uniqueBy(
@@ -266,12 +260,8 @@ export function createDeclarationProjectFactory(
                 return sourceFile.filePath;
             }
         );
-        const newSourceFiles = sourceFiles.filter(function uncreatedSourceFile(sourceFile) {
-            return !createdFilePaths.has(sourceFile.filePath);
-        });
-        for (const packageFile of newSourceFiles) {
+        for (const packageFile of sourceFiles) {
             const { filePath } = packageFile;
-            createdFilePaths.add(filePath);
             if (path.basename(packageFile.filePath) === 'package.json') {
                 project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
             } else {
@@ -317,10 +307,9 @@ export function createDeclarationProjectFactory(
         compilerMode: DeclarationCompilerMode
     ): SharedDeclarationProject {
         const project = createCompilerProject(compilerMode);
-        const createdFilePaths = new Set<string>();
         for (const { packageName, packageFiles } of packages) {
             const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
-            addPackageFiles(project, packageName, packageFiles, createdFilePaths);
+            addPackageFiles(project, packageName, packageFiles);
             for (const generated of generatedPackageFiles(packageName, packageFiles)) {
                 project.createSourceFile(
                     declarationProjectPackageFilePath(packageFolder, generated.filePath),
