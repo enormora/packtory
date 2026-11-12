@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import {
     classExpressionFact,
     expressionFactIsPure,
@@ -15,6 +16,32 @@ import { resolveRuntimeModule } from './runtime-module-resolution.ts';
 
 suite('expression facts', function () {
     suite('runtime declaration boundaries', function () {
+        for (
+            const content of [
+                'for(const value of [1]){const observed=value;}',
+                'for(let value=0;value<1;value++){const observed=value;}',
+                'try{throw 1;}catch(value){const observed=value;}'
+            ]
+        ) {
+            test(`classifies a binding without a variable statement in ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                const read = source
+                    .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
+                    .find(function (declaration) {
+                        return declaration.getName() === 'observed';
+                    })
+                    ?.getInitializerOrThrow()
+                    .asKindOrThrow(SyntaxKind.Identifier);
+                assertDefined(read);
+                assert.deepStrictEqual(
+                    identifierReadFact(read, function () {
+                        return unknownFact;
+                    }, { settings: undefined, resolveRuntimeModule }),
+                    pureValueFact
+                );
+            });
+        }
+
         test('keeps instantiated namespace reads conservative', function () {
             const source = createProject().createSourceFile(
                 'input.ts',
