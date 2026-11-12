@@ -63,7 +63,7 @@ import {
 import * as inventory from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../software-bill-of-materials/tool-version.ts';
 
-async function importPackageManifest(specifier: string): Promise<unknown> {
+export async function importPackageManifest(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
 }
 

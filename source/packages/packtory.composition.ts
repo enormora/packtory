@@ -6,6 +6,7 @@ import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { buildCheckRunner } from './check-runner.composition.ts';
 import {
     buildPackageProcessorComposition,
+    importPackageManifest,
     type PackageProcessorCompositionOptions
 } from './package-processor.composition.ts';
 
@@ -37,12 +38,7 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
                 fileManager: parts.fileManager,
                 inputValidator: parts.inputValidator,
                 Project,
-                toolIdentity: createPacktoryAnalysisIdentityResolver({
-                    async importPackageManifest(specifier) {
-                        const imported: unknown = await import(specifier, { with: { type: 'json' } });
-                        return imported;
-                    }
-                })
+                toolIdentity: createPacktoryAnalysisIdentityResolver({ importPackageManifest })
             }),
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,
