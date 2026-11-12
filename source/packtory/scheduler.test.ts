@@ -202,6 +202,7 @@ suite('scheduler', function () {
 
         const error = getErrorResult(result, 'Expected result to be an error');
         assertDeepSubset(error, {
+            skipped: [],
             succeeded: [ 'root-result', 'package-a-result' ],
             failures: {
                 length: 1
@@ -233,6 +234,82 @@ suite('scheduler', function () {
                     }
                 ],
                 [ 'error', { packageName: 'package-b', error: new Error('package-b failed') } ]
+            ]
+        );
+    });
+
+    test('runForEachScheduledPackage() reports every later generation as skipped after a failure', async function () {
+        const { scheduler, emit } = createTestScheduler();
+        const executed: string[] = [];
+        const configuration = createValidatedConfiguration([
+            { name: 'root', roots: { main: { javaScript: 'root.js' } } },
+            { name: 'healthy', roots: { main: { javaScript: 'healthy.js' } }, bundleDependencies: [ 'root' ] },
+            { name: 'failed', roots: { main: { javaScript: 'failed.js' } }, bundleDependencies: [ 'root' ] },
+            {
+                name: 'independent',
+                roots: { main: { javaScript: 'independent.js' } },
+                bundleDependencies: [ 'healthy' ]
+            },
+            { name: 'dependent', roots: { main: { javaScript: 'dependent.js' } }, bundleDependencies: [ 'failed' ] },
+            {
+                name: 'transitive',
+                roots: { main: { javaScript: 'transitive.js' } },
+                bundleDependencies: [ 'dependent' ]
+            }
+        ]);
+        const failure = new Error('publication failed');
+
+        const result = await scheduler.runForEachScheduledPackage({
+            configuration,
+            createOptions(context) {
+                return context.packageName;
+            },
+            async execute(packageName) {
+                executed.push(packageName);
+                if (packageName === 'failed') {
+                    throw failure;
+                }
+                return packageName;
+            },
+            selectNext(input) {
+                return input.result;
+            },
+            createProgressEvent() {
+                return { version: '1.0.0', status: 'new-version', publication: noPublication };
+            },
+            emitScheduledEvents: false
+        });
+
+        const skipped = [ 'independent', 'dependent', 'transitive' ].map(function (packageName) {
+            return { packageName, reason: 'An earlier dependency generation failed' };
+        });
+        assert.deepStrictEqual(executed, [ 'root', 'healthy', 'failed' ]);
+        assert.deepStrictEqual(getErrorResult(result, 'Expected a partial failure'), {
+            succeeded: [ 'root', 'healthy' ],
+            failures: [ failure ],
+            skipped
+        });
+        assert.deepStrictEqual(
+            getEmitCallArguments(emit).toSorted(function ([ left ], [ right ]) {
+                return left.localeCompare(right);
+            }),
+            [
+                [ 'done', {
+                    packageName: 'root',
+                    version: '1.0.0',
+                    status: 'new-version',
+                    publication: noPublication
+                } ],
+                [ 'done', {
+                    packageName: 'healthy',
+                    version: '1.0.0',
+                    status: 'new-version',
+                    publication: noPublication
+                } ],
+                [ 'error', { packageName: 'failed', error: failure } ],
+                ...skipped.map(function (entry) {
+                    return [ 'skipped', entry ];
+                })
             ]
         );
     });

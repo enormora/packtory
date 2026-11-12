@@ -42,7 +42,11 @@ async function resolvePackageForInspection(
     const runResult = await resolvePackages(dependencies, validated);
     if (runResult.isErr) {
         const succeeded = await analyzeResolvedPackages(dependencies, validated, runResult.error.succeeded);
-        return Result.err(resolvePartialFailure({ succeeded, failures: runResult.error.failures }));
+        return Result.err(resolvePartialFailure({
+            succeeded,
+            skipped: runResult.error.skipped,
+            failures: runResult.error.failures
+        }));
     }
 
     const resolvedPackages = await analyzeResolvedPackages(dependencies, validated, runResult.value);

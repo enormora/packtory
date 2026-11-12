@@ -1,5 +1,6 @@
 export const spinnerResultStatus = {
     failure: 'failure',
+    skipped: 'skipped',
     success: 'success'
 } as const;
 
@@ -81,8 +82,8 @@ export function createTerminalSpinnerRenderer(
         stop(identifier, status, message) {
             const spinner = getSpinnerByIdentifier(identifier);
             spinners.set(identifier, { ...spinner, message, status });
-            const finalState = status === spinnerResultStatus.success ? 'succeeded' : 'failed';
-            backend.finish(spinner.slotIndex, finalState, spinner.label, message);
+            const finalState = { success: 'succeeded', failure: 'failed', skipped: 'canceled' } as const;
+            backend.finish(spinner.slotIndex, finalState[status], spinner.label, message);
         },
 
         stopAll() {

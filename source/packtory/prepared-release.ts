@@ -44,7 +44,7 @@ async function projectPackages<T>(
             failures.push(ensureError(error));
         }
     }
-    return failures.length === 0 ? Result.ok(succeeded) : Result.err({ failures, succeeded });
+    return failures.length === 0 ? Result.ok(succeeded) : Result.err({ failures, succeeded, skipped: [] });
 }
 
 function createPreparedRelease(
@@ -59,6 +59,7 @@ function createPreparedRelease(
             return Result.err({
                 type: 'partial',
                 succeeded: succeededResultsFrom(result),
+                skipped: preparation.error.skipped,
                 failures: preparation.error.failures
             });
         }

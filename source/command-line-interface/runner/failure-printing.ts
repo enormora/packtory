@@ -91,11 +91,11 @@ function printPartialErrorSummary(
     stage: boolean,
     formatError: ErrorFormatter
 ): void {
-    const total = error.succeeded.length + error.failures.length;
+    const total = error.succeeded.length + error.failures.length + error.skipped.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
     const summary = `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
-        `${successCount} succeeded`;
+        `${successCount} succeeded; ${error.skipped.length} skipped`;
     const details = error.failures.map(formatError);
     log([ summary, ...details ].join('\n'));
     if (stage) {

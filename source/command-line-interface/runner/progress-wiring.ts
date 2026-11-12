@@ -30,6 +30,10 @@ export function registerProgressListeners(
         spinnerRenderer.stop(payload.packageName, 'failure', payload.error.message);
     });
 
+    progressBroadcaster.on('skipped', function (payload) {
+        spinnerRenderer.stop(payload.packageName, 'skipped', `Skipped: ${payload.reason}`);
+    });
+
     progressBroadcaster.on('done', function (payload) {
         spinnerRenderer.stop(
             payload.packageName,

@@ -126,7 +126,7 @@ suite('package-side-effects-handler', function () {
         const message = await renderOutcome({
             result: Result.err({
                 type: 'partial',
-                error: { succeeded: [], failures: [ new Error('resolve failed') ] }
+                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
             })
         }, false);
 
@@ -137,7 +137,7 @@ suite('package-side-effects-handler', function () {
         const message = await renderOutcome({
             result: Result.err({
                 type: 'partial',
-                error: { succeeded: [], failures: [ new Error('resolve failed') ] }
+                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
             })
         }, true);
 

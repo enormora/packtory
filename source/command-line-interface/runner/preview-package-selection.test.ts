@@ -66,7 +66,12 @@ suite('preview package selection', function () {
 
     test('retains workspace failure status and diagnostics with a selected package', async function () {
         const buildAndPublishAll = fake.resolves({
-            result: Result.err({ type: 'partial', succeeded: [], failures: [ new Error('sibling failed') ] }),
+            result: Result.err({
+                skipped: [],
+                type: 'partial',
+                succeeded: [],
+                failures: [ new Error('sibling failed') ]
+            }),
             getReport() {
                 return report;
             }

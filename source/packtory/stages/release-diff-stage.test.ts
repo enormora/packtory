@@ -242,6 +242,7 @@ function registerSchedulerTests(): void {
         const failingScheduler = {
             async runForEachScheduledPackage() {
                 return Result.err({
+                    skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                     succeeded: [],
                     failures: [ failingError ]
                 });
@@ -262,6 +263,7 @@ function registerSchedulerTests(): void {
         }
         assertDeepSubset(result, {
             error: {
+                skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                 failures: [ failingError ],
                 succeeded: []
             }

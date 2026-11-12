@@ -159,12 +159,13 @@ suite('packtory-release-analysis', function () {
             const resolvedPackages: readonly ResolvedPackage[] = [];
             return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
                 type: 'partial',
-                error: { succeeded: resolvedPackages, failures: [ failure ] }
+                error: { skipped: [], succeeded: resolvedPackages, failures: [ failure ] }
             });
         });
 
         const partial = expectPartialFailure(result);
         assertDeepSubset(partial, {
+            skipped: [],
             succeeded: [],
             failures: [ failure ]
         });
@@ -238,6 +239,7 @@ suite('packtory-release-analysis', function () {
             })
         );
         assertDeepSubset(partial, {
+            skipped: [],
             succeeded: {
                 length: 0
             },

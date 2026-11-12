@@ -166,6 +166,24 @@ suite('terminal-spinner-renderer', function () {
             });
         });
 
+        test('stop() finishes skipped packages as canceled without canceling them again on shutdown', function () {
+            const finish = fake();
+            const renderer = terminalSpinnerRendererFactory(createFakeBackend({ finish }));
+            renderer.add('the-id', 'lbl', '');
+
+            renderer.stop('the-id', 'skipped', 'Skipped: An earlier dependency generation failed');
+            renderer.stopAll();
+
+            assert.deepStrictEqual(
+                finish.getCalls().map(function (call) {
+                    return call.args as readonly unknown[];
+                }),
+                [
+                    [ 0, 'canceled', 'lbl', 'Skipped: An earlier dependency generation failed' ]
+                ]
+            );
+        });
+
         test('stop() keeps the stopped spinner addressable for later message updates', function () {
             const update = fake();
             const renderer = terminalSpinnerRendererFactory(createFakeBackend({ update }));

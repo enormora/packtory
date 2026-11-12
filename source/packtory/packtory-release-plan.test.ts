@@ -493,12 +493,13 @@ function registerSourceFileTests(): void {
             await plan(validated, async function () {
                 return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
                     type: 'partial',
-                    error: { succeeded: [], failures: [ failure ] }
+                    error: { skipped: [], succeeded: [], failures: [ failure ] }
                 });
             })
         );
 
         assert.partialDeepStrictEqual(partial, {
+            skipped: [],
             succeeded: [],
             failures: [ failure ]
         });

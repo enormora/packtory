@@ -98,7 +98,7 @@ for (const scenario of scenarios) {
         test('honors trace for package-resolution failures', async function () {
             const failure: PackageInspectionFailure = {
                 type: 'partial',
-                error: { succeeded: [], failures: [ new Error('cannot resolve') ] }
+                error: { skipped: [], succeeded: [], failures: [ new Error('cannot resolve') ] }
             };
             assert.deepStrictEqual(await runFailure(scenario, failure, false), {
                 exitCode: 1,

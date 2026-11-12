@@ -168,6 +168,7 @@ export type Events = {
     readonly packageCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
     readonly workspaceCaptured: { readonly packageName: string; readonly snapshot: WorkspaceSnapshot; };
     readonly scheduled: ScheduledEventPayload;
+    readonly skipped: { readonly packageName: string; readonly reason: string; };
     readonly resolving: ResolvingEventPayload;
     readonly linking: LinkingEventPayload;
     readonly building: ProgressEventPayload;
@@ -197,7 +198,8 @@ type ProgressEventNames = readonly [
     'publishing',
     'rebuilding',
     'resolving',
-    'scheduled'
+    'scheduled',
+    'skipped'
 ];
 
 type ProgressEventName = ProgressEventNames[number];
@@ -240,6 +242,7 @@ function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<
         packageCaptured: new Set(),
         workspaceCaptured: new Set(),
         scheduled: new Set(),
+        skipped: new Set(),
         resolving: new Set(),
         linking: new Set(),
         building: new Set(),

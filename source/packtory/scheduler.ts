@@ -5,7 +5,13 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 import type { PackageConfiguration } from '../configuration/configuration.ts';
 import type { PublishedReleaseStatus } from './package-publication.ts';
 
+export type SkippedPackage = {
+    readonly packageName: string;
+    readonly reason: string;
+};
+
 export type PartialError<TResult> = {
+    readonly skipped: readonly SkippedPackage[];
     readonly succeeded: readonly TResult[];
     readonly failures: readonly Error[];
 };
@@ -63,7 +69,7 @@ function summarizeGenerationResults<TResult, TOptions>(
 ): Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>> {
     const collected = collectPackageSuccesses(results);
     if (collected.failures.length > 0) {
-        return Result.err({ succeeded: collected.succeededResults, failures: collected.failures });
+        return Result.err({ succeeded: collected.succeededResults, failures: collected.failures, skipped: [] });
     }
 
     return Result.ok(collected.succeeded);
@@ -186,9 +192,16 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
 
     function failGeneration<TResult>(
         succeeded: readonly TResult[],
-        generationError: PartialError<TResult>
+        generationError: PartialError<TResult>,
+        remainingGenerations: readonly (readonly string[])[]
     ): GenerationFailure<TResult> {
+        const skipped = remainingGenerations.flat().map(function (packageName): SkippedPackage {
+            const entry = { packageName, reason: 'An earlier dependency generation failed' };
+            progressBroadcastProvider.emit('skipped', entry);
+            return entry;
+        });
         return Result.err({
+            skipped,
             succeeded: [ ...succeeded, ...generationError.succeeded ],
             failures: generationError.failures
         });
@@ -218,10 +231,11 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         const nextItems: TNext[] = [];
         const succeededResults: TResult[] = [];
 
-        for (const generation of getExecutionPlan(configuration)) {
+        const generations = getExecutionPlan(configuration);
+        for (const [ index, generation ] of generations.entries()) {
             const generationResult = await runForGeneration(generation, configuration, nextItems, input);
             if (generationResult.isErr) {
-                return failGeneration(succeededResults, generationResult.error);
+                return failGeneration(succeededResults, generationResult.error, generations.slice(index + 1));
             }
 
             appendGenerationSuccesses(nextItems, succeededResults, generationResult.value, input.selectNext);

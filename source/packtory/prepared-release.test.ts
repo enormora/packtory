@@ -70,6 +70,7 @@ suite('prepared release', function () {
         assert.deepStrictEqual(
             projection,
             Result.err({
+                skipped: [],
                 type: 'partial',
                 succeeded: [ 'package-a', 'package-c' ],
                 failures: [ failure ]
@@ -99,7 +100,7 @@ suite('prepared release', function () {
         });
         assert.deepStrictEqual(
             result,
-            Result.err({ type: 'partial', succeeded: [ 'package-a' ], failures: [ failure ] })
+            Result.err({ skipped: [], type: 'partial', succeeded: [ 'package-a' ], failures: [ failure ] })
         );
     });
 
@@ -112,10 +113,22 @@ suite('prepared release', function () {
             async function (configuration) {
                 return Result.err({
                     type: 'partial',
-                    error: { succeeded: resolvedPackagesFor(configuration).slice(0, 1), failures: [ failure ] }
+                    error: {
+                        skipped: [],
+                        succeeded: resolvedPackagesFor(configuration).slice(0, 1),
+                        failures: [ failure ]
+                    }
                 });
             }
         );
-        assert.deepStrictEqual(prepared, Result.err({ type: 'partial', succeeded: [], failures: [ failure ] }));
+        assert.deepStrictEqual(
+            prepared,
+            Result.err({
+                skipped: [],
+                type: 'partial',
+                succeeded: [],
+                failures: [ failure ]
+            })
+        );
     });
 });

@@ -201,6 +201,7 @@ suite('runner report and preview', function () {
             };
             const buildAndPublishAll = fake.resolves({
                 result: Result.err({
+                    skipped: [],
                     type: 'partial' as const,
                     succeeded: [ createBuildResultFixture({ contents: [] }) ],
                     failures: [ new Error('boom') ]
@@ -229,7 +230,12 @@ suite('runner report and preview', function () {
 
         test('preview treats partial failures with no successful packages as failure-only output', async function () {
             const buildAndPublishAll = fake.resolves(
-                createOutcomeWithReport(Result.err({ type: 'partial', succeeded: [], failures: [ new Error('boom') ] }))
+                createOutcomeWithReport(Result.err({
+                    skipped: [],
+                    type: 'partial',
+                    succeeded: [],
+                    failures: [ new Error('boom') ]
+                }))
             );
             const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
 

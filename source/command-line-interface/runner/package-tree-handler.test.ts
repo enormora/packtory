@@ -131,6 +131,7 @@ suite('package-tree-handler', function () {
             result: Result.err({
                 type: 'partial',
                 error: {
+                    skipped: [],
                     succeeded: [],
                     failures: [ new Error('resolve failed') ]
                 }
@@ -161,7 +162,7 @@ suite('package-tree-handler', function () {
         const { dependencies, log } = setup({
             result: Result.err({
                 type: 'partial',
-                error: { succeeded: [], failures: [ new Error('resolve failed') ] }
+                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
             })
         });
         assert.strictEqual(await runPackageTreeHandler(dependencies), 1);

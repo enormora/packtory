@@ -2,7 +2,7 @@ import { Result } from 'true-myth';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageProcessor } from '../packtory/package-processor.ts';
 import type { ProgressBroadcaster } from '../packtory/packtory-results.ts';
-import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
+import type { PartialError, Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
 import { createLinkedBundle } from './package-processor-test-support.ts';
 
 const emptyEliminatorValue = {
@@ -65,10 +65,7 @@ export const stubPackageProcessor = stubProcessorValue as unknown as PackageProc
 export const stubProgressBroadcaster = stubBroadcasterValue as unknown as ProgressBroadcaster;
 export const emptyScheduler = okSchedulerValue as unknown as PackageScheduler;
 
-type FailingSchedulerError = {
-    readonly succeeded: readonly never[];
-    readonly failures: readonly Error[];
-};
+type FailingSchedulerError = PartialError<never>;
 
 type FailingDependencies = {
     readonly packageProcessor: PackageProcessor;
@@ -89,7 +86,7 @@ export function failingScheduler(error: FailingSchedulerError): PackageScheduler
 export function failingDependencies(message: string): FailingDependencies {
     return {
         packageProcessor: stubPackageProcessor,
-        scheduler: failingScheduler({ succeeded: [], failures: [ new Error(message) ] }),
+        scheduler: failingScheduler({ skipped: [], succeeded: [], failures: [ new Error(message) ] }),
         progressBroadcaster: stubProgressBroadcaster,
         repositoryFolder: '/'
     };

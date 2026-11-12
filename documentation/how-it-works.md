@@ -503,6 +503,8 @@ Publish preparation reuses a single current-version lookup for version selection
 
 Publication, diff, release analysis, and release planning share the preparation stage. Publication waits for every package to prepare successfully before publishing. The other operations project prepared package results and preserve successful projections when preparation or projection partially fails. Preparation failures retain precedence over projection failures.
 
+If a dependency generation fails, packages in later generations are skipped, even when they do not depend on the failed package. Progress output names each skipped package and its reason; the failure summary includes skipped packages in its total.
+
 Each reported operation owns its report collector through an asynchronous scope. Stage observations feed that collector directly; public progress listeners continue to receive events independently. Report collection ends when the operation settles, including on failure. Reports remain lazy and memoized.
 
 ### The algorithm
