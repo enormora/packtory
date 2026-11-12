@@ -10,10 +10,13 @@ export type SkippedPackage = {
     readonly reason: string;
 };
 
-export type PartialError<TResult> = {
-    readonly skipped: readonly SkippedPackage[];
+type GenerationError<TResult> = {
     readonly succeeded: readonly TResult[];
     readonly failures: readonly Error[];
+};
+
+export type PartialError<TResult> = GenerationError<TResult> & {
+    readonly skipped: readonly SkippedPackage[];
 };
 
 export type Scheduler = {
@@ -66,10 +69,10 @@ function collectPackageSuccesses<TResult, TOptions>(
 
 function summarizeGenerationResults<TResult, TOptions>(
     results: readonly PromiseSettledResult<PackageSuccess<TResult, TOptions>>[]
-): Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>> {
+): Result<readonly PackageSuccess<TResult, TOptions>[], GenerationError<TResult>> {
     const collected = collectPackageSuccesses(results);
     if (collected.failures.length > 0) {
-        return Result.err({ succeeded: collected.succeededResults, failures: collected.failures, skipped: [] });
+        return Result.err({ succeeded: collected.succeededResults, failures: collected.failures });
     }
 
     return Result.ok(collected.succeeded);
@@ -154,7 +157,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         configuration: ConfigurationWithGraph<TConfiguration>,
         existingItems: readonly TNext[],
         input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>
-    ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
+    ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], GenerationError<TResult>>> {
         const executePackage = async function (packageName: string): Promise<PackageSuccess<TResult, TOptions>> {
             const options = input.createOptions({ packageName, existing: existingItems, configuration });
             const result = await executeAndReportError(packageName, options, input.execute);
@@ -192,7 +195,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
 
     function failGeneration<TResult>(
         succeeded: readonly TResult[],
-        generationError: PartialError<TResult>,
+        generationError: GenerationError<TResult>,
         remainingGenerations: readonly (readonly string[])[]
     ): GenerationFailure<TResult> {
         const skipped = remainingGenerations.flat().map(function (packageName): SkippedPackage {
