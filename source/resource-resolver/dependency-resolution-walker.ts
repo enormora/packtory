@@ -56,7 +56,7 @@ export async function resolveDependenciesForAllRoots(
         dependencies,
         options,
         Object.values(roots).flatMap(function (root) {
-            return root.json === undefined && root.javaScript !== undefined ? [ root.javaScript ] : [];
+            return root.javaScript === undefined ? [] : [ root.javaScript ];
         }),
         false
     );
