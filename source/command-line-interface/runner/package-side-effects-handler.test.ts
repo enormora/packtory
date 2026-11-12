@@ -122,30 +122,25 @@ suite('package-side-effects-handler', function () {
         assert.strictEqual(message, 'Packtory side effects [Dry run]\nConfiguration issues\n- bad config');
     });
 
-    test('prints partial failures without trace', async function () {
-        const message = await renderOutcome({
-            result: Result.err({
-                type: 'partial',
-                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
-            })
-        }, false);
+    for (const trace of [ false, true ]) {
+        test(`prints partial failures with trace=${trace}`, async function () {
+            const message = await renderOutcome({
+                result: Result.err({
+                    type: 'partial',
+                    error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
+                })
+            }, trace);
 
-        assert.strictEqual(message, 'Packtory side effects [Dry run]\nPackage failures\n- resolve failed');
-    });
-
-    test('prints partial failures with trace', async function () {
-        const message = await renderOutcome({
-            result: Result.err({
-                type: 'partial',
-                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
-            })
-        }, true);
-
-        assert.match(
-            message,
-            /^Packtory side effects \[Dry run\]\nPackage failures\n- resolve failed\n {2}Stack trace: Error: resolve failed/u
-        );
-    });
+            if (trace) {
+                assert.match(
+                    message,
+                    /^Packtory side effects \[Dry run\]\nPackage failures\n- resolve failed\n {2}Stack trace: Error: resolve failed/u
+                );
+            } else {
+                assert.strictEqual(message, 'Packtory side effects [Dry run]\nPackage failures\n- resolve failed');
+            }
+        });
+    }
 
     test('prints package-not-found failures', async function () {
         const message = await renderOutcome({

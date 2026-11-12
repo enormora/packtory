@@ -79,6 +79,23 @@ async function publishWithFailureAt(failureStage: FailureStage, dryRun: boolean)
     return { failure: getErrorResult(result, 'Expected a partial failure'), events, published };
 }
 
+function assertTerminalStatusForEveryPackage(
+    events: readonly PackageTerminalStatus[],
+    preparedStatus: 'done' | 'skipped'
+): void {
+    assert.deepStrictEqual(
+        events.toSorted(function (left, right) {
+            return left.packageName.localeCompare(right.packageName);
+        }),
+        [
+            { packageName: 'dependent', status: 'skipped' },
+            { packageName: 'failed', status: 'error' },
+            { packageName: 'healthy', status: preparedStatus },
+            { packageName: 'root', status: preparedStatus }
+        ]
+    );
+}
+
 suite('publish-stage skipped packages', function () {
     for (const dryRun of [ true, false ]) {
         test(`accounts for every package after preparation fails with dryRun=${dryRun}`, async function () {
@@ -104,17 +121,7 @@ suite('publish-stage skipped packages', function () {
                         { packageName: 'dependent', reason: 'An earlier dependency generation failed' }
                     ]
             );
-            assert.deepStrictEqual(
-                events.toSorted(function (left, right) {
-                    return left.packageName.localeCompare(right.packageName);
-                }),
-                [
-                    { packageName: 'dependent', status: 'skipped' },
-                    { packageName: 'failed', status: 'error' },
-                    { packageName: 'healthy', status: dryRun ? 'done' : 'skipped' },
-                    { packageName: 'root', status: dryRun ? 'done' : 'skipped' }
-                ]
-            );
+            assertTerminalStatusForEveryPackage(events, dryRun ? 'done' : 'skipped');
         });
     }
 
@@ -132,16 +139,6 @@ suite('publish-stage skipped packages', function () {
         assert.deepStrictEqual(failure.skipped, [
             { packageName: 'dependent', reason: 'An earlier dependency generation failed' }
         ]);
-        assert.deepStrictEqual(
-            events.toSorted(function (left, right) {
-                return left.packageName.localeCompare(right.packageName);
-            }),
-            [
-                { packageName: 'dependent', status: 'skipped' },
-                { packageName: 'failed', status: 'error' },
-                { packageName: 'healthy', status: 'done' },
-                { packageName: 'root', status: 'done' }
-            ]
-        );
+        assertTerminalStatusForEveryPackage(events, 'done');
     });
 });

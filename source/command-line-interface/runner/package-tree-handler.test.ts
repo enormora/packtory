@@ -126,27 +126,30 @@ suite('package-tree-handler', function () {
         assert.strictEqual(log.firstCall.args[0], 'Package could not be inspected');
     });
 
-    test('prints partial failure stack traces when trace is enabled', async function () {
-        const { dependencies, log } = setup({
-            result: Result.err({
-                type: 'partial',
-                error: {
-                    skipped: [],
-                    succeeded: [],
-                    failures: [ new Error('resolve failed') ]
-                }
-            })
-        }, true);
+    for (const trace of [ false, true ]) {
+        test(`prints partial failures with trace=${trace}`, async function () {
+            const { dependencies, log } = setup({
+                result: Result.err({
+                    type: 'partial',
+                    error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
+                })
+            }, trace);
 
-        const code = await runPackageTreeHandler(dependencies);
-
-        assert.strictEqual(code, 1);
-        assert.match(String(log.firstCall.args[0]), /^Packtory tree \[Dry run\]/u);
-        assert.match(
-            String(log.firstCall.args[0]),
-            /Package failures\n- resolve failed\n {2}Stack trace: Error: resolve failed/u
-        );
-    });
+            assert.strictEqual(await runPackageTreeHandler(dependencies), 1);
+            if (trace) {
+                assert.match(String(log.firstCall.args[0]), /^Packtory tree \[Dry run\]/u);
+                assert.match(
+                    String(log.firstCall.args[0]),
+                    /Package failures\n- resolve failed\n {2}Stack trace: Error: resolve failed/u
+                );
+            } else {
+                assert.strictEqual(
+                    log.firstCall.args[0],
+                    'Packtory tree [Dry run]\nPackage failures\n- resolve failed'
+                );
+            }
+        });
+    }
 
     test('stops spinners both after the call and in the finally block', async function () {
         const { dependencies, stopAll } = setup({
@@ -156,16 +159,5 @@ suite('package-tree-handler', function () {
         await runPackageTreeHandler(dependencies);
 
         assert.strictEqual(stopAll.callCount, 2);
-    });
-
-    test('prints partial failure messages without stack traces by default', async function () {
-        const { dependencies, log } = setup({
-            result: Result.err({
-                type: 'partial',
-                error: { skipped: [], succeeded: [], failures: [ new Error('resolve failed') ] }
-            })
-        });
-        assert.strictEqual(await runPackageTreeHandler(dependencies), 1);
-        assert.strictEqual(log.firstCall.args[0], 'Packtory tree [Dry run]\nPackage failures\n- resolve failed');
     });
 });
