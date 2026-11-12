@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { dim } from 'yoctocolors';
 import { noPublication, stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
@@ -39,32 +40,35 @@ suite('failure-printing', function () {
         });
     });
 
-    test('printPublishFailure formats config issues with bullet list when type is config', function () {
-        const sink = captureLogger();
-        const failure: PublishFailure = { type: 'configuration', issues: [ 'issue A', 'issue B' ] };
+    suite('validation failures', function () {
+        test('printPublishFailure formats config issues with bullet list when type is config', function () {
+            const sink = captureLogger();
+            const failure: PublishFailure = { type: 'configuration', issues: [ 'issue A', 'issue B' ] };
 
-        printPublishFailure(sink.log, failure, false, false);
+            printPublishFailure(sink.log, failure, false, false);
 
-        assert.strictEqual(sink.messages.length, 1);
-        const message = sink.messages[0] ?? '';
-        assert.match(message, /The provided config is invalid, there are 2 issue\(s\)/u);
-        assert.match(message, /- issue A\n- issue B/u);
-    });
+            assert.strictEqual(sink.messages.length, 1);
+            const message = sink.messages[0] ?? '';
+            assert.match(message, /The provided config is invalid, there are 2 issue\(s\)/u);
+            assert.match(message, /- issue A\n- issue B/u);
+        });
 
-    test('printPublishFailure formats check issues with bullet list when type is checks', function () {
-        const sink = captureLogger();
-        const failure: PublishFailure = { type: 'checks', issues: [ 'check X' ] };
+        test('printPublishFailure formats check issues with bullet list when type is checks', function () {
+            const sink = captureLogger();
+            const failure: PublishFailure = { type: 'checks', issues: [ 'check X' ] };
 
-        printPublishFailure(sink.log, failure, false, false);
+            printPublishFailure(sink.log, failure, false, false);
 
-        const message = sink.messages[0] ?? '';
-        assert.match(message, /Checks failed, there are 1 issue\(s\)/u);
-        assert.match(message, /- check X/u);
+            const message = sink.messages[0] ?? '';
+            assert.match(message, /Checks failed, there are 1 issue\(s\)/u);
+            assert.match(message, /- check X/u);
+        });
     });
 
     test('printPublishFailure summarises partial failures with recursive cause messages when type is partial', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
+            skipped: [],
             type: 'partial',
             succeeded: [
                 { bundle: { name: 'package-a', version: '1.0.0' }, publication: stagedForApproval('stage-a') },
@@ -86,9 +90,26 @@ suite('failure-printing', function () {
         assert.deepStrictEqual(sink.messages[1], 'Staged packages:\n- package-a@1.0.0: stage-a');
     });
 
+    test('printPublishFailure includes skipped packages in the total and reports their count', function () {
+        const sink = captureLogger();
+        const failure: PublishFailure = {
+            type: 'partial',
+            succeeded: [ { bundle: { name: 'package-a' } } ] as never,
+            failures: [ new Error('package-b failed') ],
+            skipped: [ { packageName: 'package-c', reason: 'An earlier dependency generation failed' } ]
+        };
+
+        printPublishFailure(sink.log, failure, false, false);
+
+        assert.deepStrictEqual(sink.messages.map(stripVTControlCharacters), [
+            '✖ 1 from 3 package(s) failed; 1 succeeded; 1 skipped\n- package-b failed'
+        ]);
+    });
+
     test('printPublishFailure appends stack traces for partial failures when trace is enabled', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
+            skipped: [],
             type: 'partial',
             succeeded: [] as never,
             failures: [
@@ -109,6 +130,7 @@ suite('failure-printing', function () {
     test('printPublishFailure omits the staged package list when no partial successes were staged', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
+            skipped: [],
             type: 'partial',
             succeeded: [ { bundle: { name: 'package-a', version: '1.0.0' }, publication: noPublication } ] as never,
             failures: [ { message: 'package-b failed' } ] as never

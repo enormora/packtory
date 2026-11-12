@@ -38,6 +38,7 @@ suite('packtory-results', function () {
     test('publishPartialFailure tags a PartialError as a publish-partial failure', function () {
         assertTaggedPartialFailure(
             publishPartialFailure({
+                skipped: [],
                 succeeded: [] as readonly BuildAndPublishResult[],
                 failures: createFailureStub()
             })
@@ -45,10 +46,10 @@ suite('packtory-results', function () {
     });
 
     test('resolvePartialFailure wraps a PartialError under the partial discriminator', function () {
-        const partial = resolvePartialFailure({ succeeded: [], failures: [] });
+        const partial = resolvePartialFailure({ skipped: [], succeeded: [], failures: [] });
         assert.partialDeepStrictEqual(partial, {
             type: 'partial',
-            error: { succeeded: [], failures: [] }
+            error: { skipped: [], succeeded: [], failures: [] }
         });
     });
 

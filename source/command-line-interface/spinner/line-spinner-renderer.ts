@@ -1,4 +1,4 @@
-import { bold, green, red } from 'yoctocolors';
+import { bold, green, red, yellow } from 'yoctocolors';
 import { spinnerResultStatus, type TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 
 type Status = (typeof spinnerResultStatus)[keyof typeof spinnerResultStatus];
@@ -18,6 +18,9 @@ function getSuccessSymbol(): string {
 function getStatusSymbol(status: Status): string {
     if (status === spinnerResultStatus.success) {
         return getSuccessSymbol();
+    }
+    if (status === spinnerResultStatus.skipped) {
+        return yellow('⊘');
     }
     return getErrorSymbol();
 }

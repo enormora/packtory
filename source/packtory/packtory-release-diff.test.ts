@@ -225,11 +225,12 @@ suite('packtory-release-diff', function () {
         const resolveFailures = [ new Error('resolve a'), new Error('resolve b') ];
 
         const result = await diff(configurationFor([]), async function () {
-            return Result.err({ type: 'partial', error: { succeeded: [], failures: resolveFailures } });
+            return Result.err({ type: 'partial', error: { skipped: [], succeeded: [], failures: resolveFailures } });
         });
 
         const partial = expectPartialError(result);
         assert.partialDeepStrictEqual(partial, {
+            skipped: [],
             succeeded: [],
             failures: resolveFailures
         });
@@ -251,7 +252,7 @@ suite('packtory-release-diff', function () {
         const diff = createDiff(
             staged(
                 function () {
-                    return Result.err({ succeeded: [], failures: [ publishError ] });
+                    return Result.err({ skipped: [], succeeded: [], failures: [ publishError ] });
                 },
                 function () {
                     return Result.ok([]);
@@ -261,6 +262,7 @@ suite('packtory-release-diff', function () {
 
         const partial = expectPartialError(await diff(configurationFor([ 'package-a' ]), okResolve));
         assert.partialDeepStrictEqual(partial, {
+            skipped: [],
             failures: [ publishError ],
             succeeded: []
         });
@@ -279,16 +281,17 @@ suite('packtory-release-diff', function () {
         const diff = createDiff(
             staged(
                 function () {
-                    return Result.err({ succeeded: [], failures: [ publishError ] });
+                    return Result.err({ skipped: [], succeeded: [], failures: [ publishError ] });
                 },
                 function () {
-                    return Result.err({ succeeded: [ partialStageSuccess ], failures: [ stageError ] });
+                    return Result.err({ skipped: [], succeeded: [ partialStageSuccess ], failures: [ stageError ] });
                 }
             )
         );
 
         const partial = expectPartialError(await diff(configurationFor([ 'package-a' ]), okResolve));
         assert.partialDeepStrictEqual(partial, {
+            skipped: [],
             failures: [ publishError ],
             succeeded: [ partialStageSuccess ]
         });
@@ -302,7 +305,7 @@ suite('packtory-release-diff', function () {
                     return Result.ok([]);
                 },
                 function () {
-                    return Result.err({ succeeded: [], failures: [ stageError ] });
+                    return Result.err({ skipped: [], succeeded: [], failures: [ stageError ] });
                 }
             )
         );

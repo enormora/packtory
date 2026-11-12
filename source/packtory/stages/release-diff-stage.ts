@@ -101,7 +101,7 @@ function toReleaseDiffs(entries: readonly ExecuteResult[]): readonly PackageRele
 }
 
 function toPartialFailure(error: PartialError<ExecuteResult>): PartialError<PackageReleaseDiff> {
-    return { succeeded: toReleaseDiffs(error.succeeded), failures: error.failures };
+    return { succeeded: toReleaseDiffs(error.succeeded), skipped: error.skipped, failures: error.failures };
 }
 
 export async function runReleaseDiffStage(

@@ -5,9 +5,18 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 import type { PackageConfiguration } from '../configuration/configuration.ts';
 import type { PublishedReleaseStatus } from './package-publication.ts';
 
-export type PartialError<TResult> = {
+export type SkippedPackage = {
+    readonly packageName: string;
+    readonly reason: string;
+};
+
+type GenerationError<TResult> = {
     readonly succeeded: readonly TResult[];
     readonly failures: readonly Error[];
+};
+
+export type PartialError<TResult> = GenerationError<TResult> & {
+    readonly skipped: readonly SkippedPackage[];
 };
 
 export type Scheduler = {
@@ -60,7 +69,7 @@ function collectPackageSuccesses<TResult, TOptions>(
 
 function summarizeGenerationResults<TResult, TOptions>(
     results: readonly PromiseSettledResult<PackageSuccess<TResult, TOptions>>[]
-): Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>> {
+): Result<readonly PackageSuccess<TResult, TOptions>[], GenerationError<TResult>> {
     const collected = collectPackageSuccesses(results);
     if (collected.failures.length > 0) {
         return Result.err({ succeeded: collected.succeededResults, failures: collected.failures });
@@ -148,7 +157,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         configuration: ConfigurationWithGraph<TConfiguration>,
         existingItems: readonly TNext[],
         input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfiguration>
-    ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
+    ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], GenerationError<TResult>>> {
         const executePackage = async function (packageName: string): Promise<PackageSuccess<TResult, TOptions>> {
             const options = input.createOptions({ packageName, existing: existingItems, configuration });
             const result = await executeAndReportError(packageName, options, input.execute);
@@ -186,9 +195,16 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
 
     function failGeneration<TResult>(
         succeeded: readonly TResult[],
-        generationError: PartialError<TResult>
+        generationError: GenerationError<TResult>,
+        remainingGenerations: readonly (readonly string[])[]
     ): GenerationFailure<TResult> {
+        const skipped = remainingGenerations.flat().map(function (packageName): SkippedPackage {
+            const entry = { packageName, reason: 'An earlier dependency generation failed' };
+            progressBroadcastProvider.emit('skipped', entry);
+            return entry;
+        });
         return Result.err({
+            skipped,
             succeeded: [ ...succeeded, ...generationError.succeeded ],
             failures: generationError.failures
         });
@@ -218,10 +234,11 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         const nextItems: TNext[] = [];
         const succeededResults: TResult[] = [];
 
-        for (const generation of getExecutionPlan(configuration)) {
+        const generations = getExecutionPlan(configuration);
+        for (const [ index, generation ] of generations.entries()) {
             const generationResult = await runForGeneration(generation, configuration, nextItems, input);
             if (generationResult.isErr) {
-                return failGeneration(succeededResults, generationResult.error);
+                return failGeneration(succeededResults, generationResult.error, generations.slice(index + 1));
             }
 
             appendGenerationSuccesses(nextItems, succeededResults, generationResult.value, input.selectNext);

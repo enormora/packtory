@@ -114,6 +114,17 @@ suite('line-spinner-renderer', function () {
         });
     });
 
+    test('stop() logs a distinct skipped line with its reason', function () {
+        const { log, renderer } = createRendererWithLog();
+        renderer.add('the-id', 'package-a', 'Scheduled ...');
+
+        renderer.stop('the-id', 'skipped', 'Skipped: An earlier dependency generation failed');
+
+        assert.deepStrictEqual(log.secondCall.args, [
+            '⊘ package-a: Skipped: An earlier dependency generation failed'
+        ]);
+    });
+
     test('stop() throws when trying to stop a spinner that does not exist', function () {
         const renderer = createRendererWithoutLog();
 

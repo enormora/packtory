@@ -73,7 +73,7 @@ suite('packtory package symbols', function () {
         const error = new Error('missing resource');
         const { packtory } = createPacktoryUnderTest({
             async resolveStage() {
-                return Result.err({ succeeded: [], failures: [ error ] });
+                return Result.err({ skipped: [], succeeded: [], failures: [ error ] });
             }
         });
         const outcome = await packtory.inspectPackageSymbols(createConfigurationWithoutRegistry(), 'package-a');
@@ -81,6 +81,9 @@ suite('packtory package symbols', function () {
             outcome.result,
             'expected resolution failure'
         );
-        assert.deepStrictEqual(failure, { type: 'partial', error: { succeeded: [], failures: [ error ] } });
+        assert.deepStrictEqual(failure, {
+            type: 'partial',
+            error: { skipped: [], succeeded: [], failures: [ error ] }
+        });
     });
 });

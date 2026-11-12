@@ -96,6 +96,7 @@ suite('runner publish feedback', function () {
 
         const partialResultWithTwoFailures = toOutcome(
             Result.err({
+                skipped: [],
                 type: 'partial' as const,
                 succeeded: [ 'foo' ],
                 failures: [ new Error('first'), new Error('second') ]
@@ -109,7 +110,7 @@ suite('runner publish feedback', function () {
                 callCount: 2,
                 firstCall: {
                     arguments: [
-                        '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
+                        '✖ 2 from 3 package(s) failed; 1 succeeded; 0 skipped\n- first\n- second'
                     ]
                 },
                 secondCall: {
@@ -125,7 +126,7 @@ suite('runner publish feedback', function () {
                 callCount: 1,
                 firstCall: {
                     arguments: [
-                        '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
+                        '✖ 2 from 3 package(s) failed; 1 succeeded; 0 skipped\n- first\n- second'
                     ]
                 }
             });

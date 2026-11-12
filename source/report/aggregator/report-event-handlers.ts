@@ -181,6 +181,7 @@ function createOutcomeReportHandlers(
 export function createReportEventHandlers(state: AggregatorState): ProgressBroadcastProvider {
     const handlers: ReportHandlers = {
         scheduled: undefined,
+        skipped: undefined,
         resolving: undefined,
         linking: undefined,
         building: undefined,

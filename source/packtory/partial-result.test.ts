@@ -68,6 +68,7 @@ suite('partial-result', function () {
     test('partialFailureMessages returns each failure message', function () {
         assert.deepStrictEqual(
             partialFailureMessages({
+                skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                 succeeded: [ 'a' ],
                 failures: [ new Error('first'), new Error('second') ]
             }),
@@ -82,11 +83,13 @@ suite('partial-result', function () {
             mapResolvePartialFailure<string>({
                 type: 'partial',
                 error: {
+                    skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                     succeeded: [],
                     failures
                 }
             }),
             {
+                skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                 type: 'partial',
                 succeeded: [],
                 failures

@@ -305,6 +305,7 @@ suite('github-release-gate-cli-runner', function () {
                         applicationProgrammingInterfaceBaseAddress,
                         expectedError: /boom-a\nboom-b/u,
                         result: Result.err({
+                            skipped: [],
                             type: 'partial' as const,
                             succeeded: [],
                             failures: [ new Error('boom-a'), new Error('boom-b') ]

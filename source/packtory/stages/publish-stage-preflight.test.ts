@@ -100,7 +100,7 @@ function createMissingPreparedScheduler(): PublishStageScheduler {
                 const result = await input.execute(options);
                 return Result.ok([ result ]);
             } catch (error: unknown) {
-                return Result.err({ succeeded: [], failures: [ toError(error) ] });
+                return Result.err({ skipped: [], succeeded: [], failures: [ toError(error) ] });
             }
         }
     };

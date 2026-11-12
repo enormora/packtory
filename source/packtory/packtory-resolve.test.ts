@@ -44,7 +44,11 @@ suite('packtory-resolve', function () {
     test('createResolveAndLinkAllValidated wraps scheduler failures into a resolve-partial failure', async function () {
         const dependencies = {
             ...happyDependencies(),
-            scheduler: failingScheduler({ succeeded: [], failures: [ new Error('boom') ] })
+            scheduler: failingScheduler({
+                skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
+                succeeded: [],
+                failures: [ new Error('boom') ]
+            })
         };
         const resolve = createResolveAndLinkAllValidated(dependencies);
 
@@ -56,6 +60,7 @@ suite('packtory-resolve', function () {
         assertDeepSubset(result, {
             error: {
                 error: {
+                    skipped: [ { packageName: 'later', reason: 'An earlier dependency generation failed' } ],
                     succeeded: [],
                     failures: {
                         length: 1

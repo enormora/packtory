@@ -126,6 +126,7 @@ suite('publish-handler', function () {
             buildOutcome({
                 result: Result.err(
                     publishPartialFailure({
+                        skipped: [],
                         succeeded: [
                             createBuildResultFixture({
                                 publication: stagedForApproval('stage-123')

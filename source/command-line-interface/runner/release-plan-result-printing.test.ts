@@ -8,6 +8,7 @@ suite('release-plan-result-printing', function () {
         printReleasePlanFailure(function (message) {
             messages.push(message);
         }, {
+            skipped: [],
             type: 'partial',
             succeeded: [],
             failures: [ new Error('planning failed') ]

@@ -28,7 +28,7 @@ suite('packtory package files', function () {
         });
         const failing = createPacktoryUnderTest({
             async resolveStage() {
-                return Result.err({ succeeded: [], failures: [ new Error('cannot resolve') ] });
+                return Result.err({ skipped: [], succeeded: [], failures: [ new Error('cannot resolve') ] });
             }
         });
         const failure = await failing.packtory.inspectPackageFiles(createConfigurationWithoutRegistry(), 'package-a');

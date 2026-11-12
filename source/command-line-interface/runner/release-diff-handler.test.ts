@@ -135,6 +135,7 @@ suite('release-diff-handler', function () {
                 isOk: false,
                 isErr: true,
                 error: {
+                    skipped: [],
                     type: 'partial',
                     succeeded: [
                         {

@@ -355,7 +355,11 @@ suite('packtory-package-dependencies', function () {
         }
         assert.deepStrictEqual(partialResult.error, {
             type: 'partial',
-            error: { succeeded: [], failures: [ failure, failure ] }
+            error: {
+                skipped: [ { packageName: 'package-a', reason: 'An earlier dependency generation failed' } ],
+                succeeded: [],
+                failures: [ failure, failure ]
+            }
         });
     });
 
