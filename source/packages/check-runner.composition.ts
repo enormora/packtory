@@ -1,5 +1,5 @@
+import { createRequire } from 'node:module';
 import { checkPackage, Package } from '@arethetypeswrong/core';
-import { versions as resolutionVersions } from '@arethetypeswrong/core/versions';
 import {
     problemAffectsEntrypointResolution,
     problemAffectsResolutionKind,
@@ -25,6 +25,7 @@ type CheckRunnerCompositionOptions = {
 
 export function buildCheckRunner(options: CheckRunnerCompositionOptions): CheckRunner {
     const { repositoryFolder, fileManager, inputValidator, Project, toolIdentity } = options;
+    const resolutionVersions: unknown = createRequire(import.meta.url)('@arethetypeswrong/core/versions');
     const storage = createAnalysisStorage({
         repositoryFolder,
         fileManager,
