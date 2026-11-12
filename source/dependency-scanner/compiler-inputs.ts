@@ -6,9 +6,6 @@ import { contentDigest } from '../common/value-fingerprint.ts';
 
 const operations = [ 'readFile', 'fileExists', 'directoryExists', 'readDir', 'realpath' ] as const;
 type Operation = (typeof operations)[number];
-const operationByMethod: ReadonlyMap<string, Operation> = new Map(operations.flatMap(function (operation) {
-    return [ [ operation, operation ], [ `${operation}Sync`, operation ] ];
-}));
 export const compilerInputsSchema = z.array(z.object({
     operation: z.enum(operations),
     filePath: z.string(),
@@ -47,6 +44,9 @@ function observedValue(operation: Operation, value: unknown): string {
 }
 
 export function observeCompilerInputs(fileSystemHost: FileSystemHost): CompilerInputObservation {
+    const operationByMethod: ReadonlyMap<string, Operation> = new Map(operations.flatMap(function (operation) {
+        return [ [ operation, operation ], [ `${operation}Sync`, operation ] ];
+    }));
     const inputs = new Map<string, CompilerInput>();
     let reusable = true;
     function record(operation: Operation, filePath: string, value: string): void {
