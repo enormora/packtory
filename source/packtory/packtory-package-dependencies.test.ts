@@ -357,7 +357,8 @@ suite('packtory-package-dependencies', function () {
             type: 'partial',
             error: {
                 skipped: [ { packageName: 'package-a', reason: 'An earlier dependency generation failed' } ],
-                succeeded: [], failures: [ failure, failure ]
+                succeeded: [],
+                failures: [ failure, failure ]
             }
         });
     });
