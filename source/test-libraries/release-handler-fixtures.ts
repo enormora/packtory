@@ -98,6 +98,7 @@ export function failedPublish(): SinonSpy {
 export function failedPartialPublish(): SinonSpy {
     return fake.resolves({
         result: Result.err({
+            skipped: [],
             type: 'partial',
             succeeded: [
                 {

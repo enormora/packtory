@@ -54,7 +54,7 @@ suite('packtory-publish', function () {
     test('createRunBuildAndPublishValidated wraps publish-stage partial failures into the publish-partial variant', async function () {
         const dependencies = {
             ...happyDependencies(),
-            scheduler: failingScheduler({ succeeded: [], failures: [ new Error('boom') ] })
+            scheduler: failingScheduler({ skipped: [], succeeded: [], failures: [ new Error('boom') ] })
         };
 
         const run = createRunBuildAndPublishValidated(dependencies);

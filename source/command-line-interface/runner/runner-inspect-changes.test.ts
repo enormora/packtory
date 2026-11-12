@@ -106,6 +106,7 @@ suite('inspect changes command', function () {
     test('shows workspace failures alongside the selected successful package', async function () {
         const pageOutput = fake.resolves(undefined);
         const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.err({
+            skipped: [],
             type: 'partial',
             succeeded: [
                 createPackageReleaseDiff({ name: 'package-a' }),

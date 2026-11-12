@@ -28,7 +28,10 @@ export function createRunBuildAndPublishValidated(
     ): Promise<PublishAllResult> {
         const resolvedBundlesResult = await resolveAndLinkAllValidated(validated);
         if (resolvedBundlesResult.isErr) {
-            return Result.err(mapResolveFailureToPublishFailure(resolvedBundlesResult.error));
+            return Result.err(mapResolveFailureToPublishFailure(
+                resolvedBundlesResult.error,
+                dependencies.progressBroadcaster.provider
+            ));
         }
 
         const publishResult = await determineVersionAndPublishAll(

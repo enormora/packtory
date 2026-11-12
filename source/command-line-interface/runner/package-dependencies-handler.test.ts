@@ -100,6 +100,7 @@ suite('package-dependencies-handler', function () {
             result: Result.err({
                 type: 'partial',
                 error: {
+                    skipped: [],
                     succeeded: [],
                     failures: [ new Error('resolve failed') ]
                 }

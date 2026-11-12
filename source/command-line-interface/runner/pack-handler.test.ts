@@ -327,6 +327,7 @@ suite('pack-handler', function () {
                 {
                     type: 'partial',
                     error: {
+                        skipped: [],
                         succeeded: [],
                         failures: [
                             new Error('resolve A', { cause: new Error('read failed') }),
@@ -349,6 +350,7 @@ suite('pack-handler', function () {
                     error: {
                         type: 'partial',
                         error: {
+                            skipped: [],
                             succeeded: [],
                             failures: [ new Error('resolve A', { cause: new Error('read failed') }) ]
                         }

@@ -26,7 +26,11 @@ export function createResolveAndLinkAllValidated(
         const runResult = await resolvePackages(dependencies, configuration);
         if (runResult.isErr) {
             const succeeded = await analyzeResolvedPackages(dependencies, configuration, runResult.error.succeeded);
-            return Result.err(resolvePartialFailure({ succeeded, failures: runResult.error.failures }));
+            return Result.err(resolvePartialFailure({
+                succeeded,
+                skipped: runResult.error.skipped,
+                failures: runResult.error.failures
+            }));
         }
 
         const resolvedPackages = await analyzeResolvedPackages(dependencies, configuration, runResult.value);

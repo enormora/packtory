@@ -68,7 +68,12 @@ suite('preview-document package state', function () {
         test('buildPreviewDocument marks a partial run with succeeded packages as previewable', async function () {
             const document = await buildPreviewDocument({
                 report: baseReport(),
-                result: Result.err({ type: 'partial', succeeded: [ buildResult() ], failures: [ new Error('boom') ] }),
+                result: Result.err({
+                    skipped: [],
+                    type: 'partial',
+                    succeeded: [ buildResult() ],
+                    failures: [ new Error('boom') ]
+                }),
                 dryRun: true,
                 fileManager: workspaceFileManager(async function () {
                     return 'export {};\n';
@@ -133,7 +138,12 @@ suite('preview-document package state', function () {
                         }
                     }
                 }),
-                result: Result.err({ type: 'partial', succeeded: [], failures: [ new Error('boom') ] }),
+                result: Result.err({
+                    skipped: [],
+                    type: 'partial',
+                    succeeded: [],
+                    failures: [ new Error('boom') ]
+                }),
                 dryRun: false,
                 fileManager: workspaceFileManager(async function () {
                     return 'export {};\n';

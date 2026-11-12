@@ -22,6 +22,7 @@ function registerPreviewableResultTests(): void {
         assert.strictEqual(
             isPreviewableResult(
                 errorResult({
+                    skipped: [],
                     type: 'partial',
                     succeeded: [ { name: 'package-a' } ],
                     failures: []
@@ -39,6 +40,7 @@ function registerPreviewableResultTests(): void {
         assert.strictEqual(
             isPreviewableResult(
                 errorResult({
+                    skipped: [],
                     type: 'partial',
                     succeeded: [],
                     failures: [ { message: 'boom' } ]
@@ -58,6 +60,7 @@ function registerPreviewableResultTests(): void {
         assert.deepStrictEqual(
             getSucceededResults(
                 errorResult({
+                    skipped: [],
                     type: 'partial',
                     succeeded: [ { name: 'package-a' } ],
                     failures: []
@@ -85,6 +88,7 @@ function registerIssueAndTypeTests(): void {
         assert.deepStrictEqual(
             getIssues(
                 errorResult({
+                    skipped: [],
                     type: 'partial',
                     succeeded: [],
                     failures: [ { message: 'boom' }, { message: 'bang' } ]
@@ -110,7 +114,7 @@ function registerIssueAndTypeTests(): void {
 
     test('getResultType returns the underlying error type for an err result', function () {
         assert.strictEqual(
-            getResultType(errorResult({ type: 'partial', succeeded: [], failures: [] } as never)),
+            getResultType(errorResult({ skipped: [], type: 'partial', succeeded: [], failures: [] } as never)),
             'partial'
         );
     });

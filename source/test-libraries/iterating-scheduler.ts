@@ -96,7 +96,7 @@ export function createIteratingScheduler(
                 await runPackage(packageName);
             }
             if (state.failures.length > 0) {
-                return Result.err({ succeeded: state.results, failures: state.failures });
+                return Result.err({ skipped: [], succeeded: state.results, failures: state.failures });
             }
             return Result.ok(state.results);
         }

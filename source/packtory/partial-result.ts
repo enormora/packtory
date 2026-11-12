@@ -36,6 +36,7 @@ export function mapResolvePartialFailure<T>(error: PartialErrorResult): PartialF
     return {
         type: partialFailureType,
         succeeded: [],
+        skipped: error.error.skipped,
         failures: error.error.failures
     };
 }

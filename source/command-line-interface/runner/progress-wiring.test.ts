@@ -97,6 +97,24 @@ suite('progress-wiring', function () {
         } ]);
     });
 
+    test('registerProgressListeners stops a skipped package with its reason', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
+
+        broadcaster.provider.emit('skipped', {
+            packageName: 'package-a',
+            reason: 'An earlier dependency generation failed'
+        });
+
+        assert.deepStrictEqual(sink.calls, [ {
+            kind: 'stop',
+            identifier: 'package-a',
+            status: 'skipped',
+            message: 'Skipped: An earlier dependency generation failed'
+        } ]);
+    });
+
     test('registerProgressListeners reports already-published status on a done event', function () {
         const broadcaster = createProgressBroadcaster();
         const sink = captureSpinner();

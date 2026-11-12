@@ -11,7 +11,7 @@ import {
 import type { PackageProcessor } from '../package-processor.ts';
 import type { BuildAndPublishAllOptions, ProgressBroadcaster } from '../packtory-results.ts';
 import type { ResolvedPackage } from '../resolved-package.ts';
-import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
+import type { PartialError, Scheduler as PacktoryScheduler, SkippedPackage } from '../scheduler.ts';
 
 type BuildAndPublishResult = Awaited<ReturnType<PackageProcessor['tryBuildAndPublish']>>;
 type DetermineVersionAndPublishOptions = Parameters<PackageProcessor['tryBuildAndPublish']>[0];
@@ -170,14 +170,28 @@ function publishResultFromPreparationDryRun(
         succeeded: result.error.succeeded.map(function (input) {
             return input.result;
         }),
+        skipped: result.error.skipped,
         failures: result.error.failures
     });
 }
 
 function publishResultFromPreparationFailure(
-    result: Extract<Awaited<ReturnType<typeof preparePublishes>>, { readonly isErr: true; }>
+    result: Extract<Awaited<ReturnType<typeof preparePublishes>>, { readonly isErr: true; }>,
+    progressBroadcaster: ProgressBroadcaster
 ): PublishStageResult {
-    return Result.err({ succeeded: [], failures: result.error.failures });
+    const skipped = result.error.succeeded.map(function (entry): SkippedPackage {
+        const skippedPackage = {
+            packageName: entry.buildOptions.name,
+            reason: 'Publishing stopped because package preparation failed'
+        };
+        progressBroadcaster.provider.emit('skipped', skippedPackage);
+        return skippedPackage;
+    });
+    return Result.err({
+        succeeded: [],
+        skipped: [ ...skipped, ...result.error.skipped ],
+        failures: result.error.failures
+    });
 }
 
 async function publishPreparedResults(
@@ -256,7 +270,7 @@ export async function prepareReleasePackages(
             })),
         async publish() {
             if (prepared.isErr) {
-                return publishResultFromPreparationFailure(prepared);
+                return publishResultFromPreparationFailure(prepared, dependencies.progressBroadcaster);
             }
             return publishPreparedResults({
                 dependencies,

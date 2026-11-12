@@ -83,7 +83,7 @@ export type PartialFailureOutcomeSpecification = {
 
 export function partialFailureOutcome(input: PartialFailureOutcomeSpecification): ReleasePlanOutcome {
     return releasePlanOutcomeFrom(
-        Result.err({ type: 'partial', succeeded: input.succeeded, failures: input.failures })
+        Result.err({ skipped: [], type: 'partial', succeeded: input.succeeded, failures: input.failures })
     );
 }
 
