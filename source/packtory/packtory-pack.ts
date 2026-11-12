@@ -17,6 +17,7 @@ import type { ValidConfigurationWithoutRegistryResult } from '../configuration/v
 import {
     vendorMaterializerFailureType,
     type VendorMaterializer,
+    type VendorMaterializationSession,
     type VendorMaterializerFailure,
     type ExternalDependencySource,
     type MaterializedExternals
@@ -52,11 +53,15 @@ type ResolveAndLinkAllValidated = (
     configuration: ValidConfigurationWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>>;
 
-export type PackRunDependencies = {
+type ArtifactDependencies = {
     readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
-    readonly vendorMaterializer: VendorMaterializer;
+    readonly vendorMaterializer: VendorMaterializationSession;
     readonly fileManager: Pick<FileManager, 'checkDirectory' | 'checkReadability'>;
+};
+
+export type PackRunDependencies = ArtifactDependencies & {
+    readonly vendorMaterializer: VendorMaterializer;
 };
 
 const manifestSchema = z.record(z.string(), z.unknown());
@@ -318,7 +323,7 @@ function prepareVendoredArtifactSuccess(
 }
 
 async function prepareVendoredArtifact(
-    dependencies: PackRunDependencies,
+    dependencies: ArtifactDependencies,
     inputs: VendoredInputs
 ): Promise<Result<PreparedArtifact, PackPackageFailure>> {
     const { target, resolved, built, version } = inputs;
@@ -351,7 +356,7 @@ type PreparedPackageArtifact = PreparedArtifact & {
 type PrepareArtifactOptions = Pick<PackOptions, 'packageName' | 'vendorDependencies' | 'version'>;
 
 async function prepareArtifact(
-    dependencies: PackRunDependencies,
+    dependencies: ArtifactDependencies,
     target: ResolvedPackage,
     resolved: readonly ResolvedPackage[],
     options: PrepareArtifactOptions
@@ -435,7 +440,7 @@ async function packWithResolved(
 }
 
 async function prepareBatchArtifacts(
-    dependencies: PackRunDependencies,
+    dependencies: ArtifactDependencies,
     resolved: readonly ResolvedPackage[],
     targets: readonly BatchOutputTarget[],
     options: PackAllOptions
@@ -482,7 +487,15 @@ async function packAllWithResolved(
     outputTargets: readonly BatchOutputTarget[],
     options: PackAllOptions
 ): Promise<Result<PackAllSuccess, InternalPackFailure>> {
-    const prepared = await prepareBatchArtifacts(dependencies, resolved, outputTargets, options);
+    const prepared = await prepareBatchArtifacts(
+        {
+            ...dependencies,
+            vendorMaterializer: dependencies.vendorMaterializer.createSession()
+        },
+        resolved,
+        outputTargets,
+        options
+    );
     if (prepared.isErr) {
         return Result.err(prepared.error);
     }

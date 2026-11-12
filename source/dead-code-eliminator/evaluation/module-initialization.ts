@@ -11,41 +11,37 @@ import {
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { pureDeclarationKinds } from '../syntax-kind-sets.ts';
-import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createSourceEvaluation, createSourceEvaluations, type SourceEvaluation } from './constant-evaluation.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { runtimeImportBindings } from './runtime-import-bindings.ts';
 
 type InitializationProof = (expression: Expression) => boolean;
 
-function variableInitializationIsSafe(
+function variableInitializationBoundary(
     statement: VariableStatement,
-    limit: number,
     prove: InitializationProof
-): boolean {
+): number {
     const kinds = [ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Var ];
     if (!kinds.includes(statement.getDeclarationKind())) {
-        return false;
+        return statement.getStart() + 1;
     }
-    return statement
-        .getDeclarations()
-        .filter(function (declaration) {
-            return declaration.getEnd() <= limit;
-        })
-        .every(function (declaration) {
-            const initializer = declaration.getInitializer();
-            return TypeScriptMorphNode.isIdentifier(declaration.getNameNode()) &&
-                (initializer === undefined || prove(initializer));
-        });
+    const unsafe = statement.getDeclarations().find(function (declaration) {
+        const initializer = declaration.getInitializer();
+        return !TypeScriptMorphNode.isIdentifier(declaration.getNameNode()) ||
+            initializer !== undefined && !prove(initializer);
+    });
+    return unsafe?.getEnd() ?? Number.POSITIVE_INFINITY;
 }
 
-function statementInitializationIsSafe(statement: Statement, limit: number, prove: InitializationProof): boolean {
+function statementInitializationBoundary(statement: Statement, prove: InitializationProof): number {
     if (TypeScriptMorphNode.isVariableStatement(statement)) {
-        return variableInitializationIsSafe(statement, limit, prove);
+        return variableInitializationBoundary(statement, prove);
     }
-    if (TypeScriptMorphNode.isExpressionStatement(statement) || TypeScriptMorphNode.isExportAssignment(statement)) {
-        return prove(statement.getExpression());
-    }
-    return pureDeclarationKinds.has(statement.getKind()) || TypeScriptMorphNode.isImportDeclaration(statement);
+    const safe =
+        TypeScriptMorphNode.isExpressionStatement(statement) || TypeScriptMorphNode.isExportAssignment(statement)
+            ? prove(statement.getExpression())
+            : pureDeclarationKinds.has(statement.getKind()) || TypeScriptMorphNode.isImportDeclaration(statement);
+    return safe ? Number.POSITIVE_INFINITY : statement.getStart() + 1;
 }
 
 function initializedImports(source: SourceFile): ReadonlySet<TypeScriptMorphNode> {
@@ -58,23 +54,24 @@ function initializedImports(source: SourceFile): ReadonlySet<TypeScriptMorphNode
     return bindings;
 }
 
-function initializationPrefixIsSafe(sourceFile: SourceFile, limit: number): boolean {
+type SourceEvaluator = (source: SourceFile) => SourceEvaluation;
+
+function initializationBoundary(sourceFile: SourceFile, evaluateSource: SourceEvaluator): number {
     if (sourceFile.isDeclarationFile()) {
-        return false;
+        return 0;
     }
-    const evaluation = createSourceEvaluation(sourceFile);
+    const evaluation = evaluateSource(sourceFile);
     const imports = initializedImports(sourceFile);
     const prove: InitializationProof = function (expression) {
         return evaluation.canDiscard(expression) || returnCreationIsPure(expression, imports);
     };
-    return sourceFile
-        .getStatements()
-        .filter(function (statement) {
-            return statement.getStart() < limit;
-        })
-        .every(function (statement) {
-            return statementInitializationIsSafe(statement, limit, prove);
-        });
+    for (const statement of sourceFile.getStatements()) {
+        const boundary = statementInitializationBoundary(statement, prove);
+        if (boundary !== Number.POSITIVE_INFINITY) {
+            return boundary;
+        }
+    }
+    return Number.POSITIVE_INFINITY;
 }
 
 function initializationDependencies(sourceFile: SourceFile): readonly string[] {
@@ -99,10 +96,16 @@ function initializationDependencies(sourceFile: SourceFile): readonly string[] {
     ];
 }
 
+type InitializationGraph = {
+    readonly dependenciesOf: (source: SourceFile) => readonly string[];
+    readonly resolveModule: RuntimeModuleResolver;
+    readonly prefixIsSafe: (source: SourceFile, limit: number) => boolean;
+};
+
 function initializationReaches(
     root: SourceFile,
     initializedThrough: number,
-    resolveModule: RuntimeModuleResolver
+    graph: InitializationGraph
 ): boolean {
     const completed = new Set<SourceFile>();
     function visit(sourceFile: SourceFile, limit: number, ancestors: ReadonlySet<SourceFile>): boolean {
@@ -113,13 +116,13 @@ function initializationReaches(
             return true;
         }
         const next = new Set([ ...ancestors, sourceFile ]);
-        const initialized = initializationDependencies(sourceFile).every(function (specifier) {
+        const initialized = graph.dependenciesOf(sourceFile).every(function (specifier) {
             if (specifier.startsWith('node:')) {
                 return true;
             }
-            const dependency = resolveModule(specifier, sourceFile);
+            const dependency = graph.resolveModule(specifier, sourceFile);
             return dependency !== undefined && visit(dependency, dependency.getEnd(), next);
-        }) && initializationPrefixIsSafe(sourceFile, limit);
+        }) && graph.prefixIsSafe(sourceFile, limit);
         if (!initialized) {
             return false;
         }
@@ -129,13 +132,53 @@ function initializationReaches(
     return visit(root, initializedThrough, new Set());
 }
 
+type ModuleInitialization = {
+    readonly initializesBinding: (declaration: ExportAssignment | VariableDeclaration) => boolean;
+    readonly dependenciesInitialize: (source: SourceFile) => boolean;
+};
+
+export function createModuleInitialization(
+    resolveModule: RuntimeModuleResolver,
+    evaluateSource: SourceEvaluator
+): ModuleInitialization {
+    const boundaries = new WeakMap<SourceFile, number>();
+    const dependencies = new WeakMap<SourceFile, readonly string[]>();
+    const graph: InitializationGraph = {
+        resolveModule,
+        dependenciesOf(source) {
+            const specifiers = dependencies.get(source) ?? initializationDependencies(source);
+            dependencies.set(source, specifiers);
+            return specifiers;
+        },
+        prefixIsSafe(source, limit) {
+            const boundary = boundaries.get(source) ?? initializationBoundary(source, evaluateSource);
+            boundaries.set(source, boundary);
+            return limit < boundary;
+        }
+    };
+    return {
+        initializesBinding(declaration) {
+            return initializationReaches(
+                declaration.getSourceFile(),
+                declaration.getEnd(),
+                graph
+            );
+        },
+        dependenciesInitialize(source) {
+            return initializationReaches(source, source.getStart(), graph);
+        }
+    };
+}
+
 export function moduleInitializesBinding(
     declaration: ExportAssignment | VariableDeclaration,
     resolveModule: RuntimeModuleResolver
 ): boolean {
-    return initializationReaches(declaration.getSourceFile(), declaration.getEnd(), resolveModule);
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+        .initializesBinding(declaration);
 }
 
 export function moduleDependenciesInitialize(sourceFile: SourceFile, resolveModule: RuntimeModuleResolver): boolean {
-    return initializationReaches(sourceFile, sourceFile.getStart(), resolveModule);
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+        .dependenciesInitialize(sourceFile);
 }

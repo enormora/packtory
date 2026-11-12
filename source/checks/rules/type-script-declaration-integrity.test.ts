@@ -106,6 +106,13 @@ suite('type-script-declaration-integrity', function () {
             ],
             [
                 {
+                    packageName: 'package',
+                    packageFiles: [
+                        { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
+                        { filePath: 'index.d.ts', content: 'export {};\n' }
+                    ]
+                },
+                {
                     packageName: 'dependency',
                     packageFiles: [
                         { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },

@@ -149,6 +149,9 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
         addVersion,
         progressBroadcaster,
         packtory: createPacktory({
+            async withAnalysisInputs(analyze) {
+                return analyze();
+            },
             inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor: {
                 resolveAndLink,
@@ -174,7 +177,10 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
             },
             runChecks: fakeCheckRunner(),
             packEmitter: { pack: unusedPacktoryMethod as never },
-            vendorMaterializer: { materializeExternals: unusedPacktoryMethod as never },
+            vendorMaterializer: {
+                createSession: fake.throws(new Error('unused vendor session')) as never,
+                materializeExternals: unusedPacktoryMethod as never
+            },
             async readCurrentGitHead() {
                 return undefined;
             }

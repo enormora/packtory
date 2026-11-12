@@ -29,8 +29,11 @@ import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '..
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedModules } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
-import { createFileSystemAdapters } from '../dependency-scanner/typescript-file-host.ts';
-import { createTypescriptProjectAnalyzer } from '../dependency-scanner/typescript-project-analyzer.ts';
+import { createSharedProjectAnalyzer } from '../dependency-scanner/shared-project-analyzer.ts';
+import {
+    createCompilerInputValidator,
+    type CompilerInputValidator
+} from '../dependency-scanner/compiler-input-validator.ts';
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
@@ -141,6 +144,7 @@ async function removeFolder(folderPath: string): Promise<void> {
 }
 
 export type PackageProcessorComposition = {
+    readonly inputValidator: CompilerInputValidator;
     readonly fileManager: FileManager;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
@@ -165,13 +169,16 @@ function getEnvironmentVariable(variableName: string): string | undefined {
     return environment === undefined || environment.length === 0 ? undefined : environment;
 }
 
-function createDependencyScannerWith(fileManager: FileManager): DependencyScanner {
+function createDependencyScannerWith(
+    fileManager: FileManager,
+    inputValidator: CompilerInputValidator
+): DependencyScanner {
     const sourceMapFileLocator = createSourceMapFileLocator({ fileManager });
-    const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
-    const typescriptProjectAnalyzer = createTypescriptProjectAnalyzer({
+    const typescriptProjectAnalyzer = createSharedProjectAnalyzer({
         Project,
         getReferencedModules,
-        fileSystemAdapters
+        inputValidator,
+        fileSystemHost: new RealFileSystemHost()
     });
     return createDependencyScanner({ sourceMapFileLocator, typescriptProjectAnalyzer });
 }
@@ -249,6 +256,7 @@ function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): Insp
 }
 
 type CompositionParts = {
+    readonly inputValidator: CompilerInputValidator;
     readonly fileManager: FileManager;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: ArtifactsBuilder;
@@ -268,7 +276,8 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
         repositoryFolder,
         runGitCommand
     });
-    const dependencyScanner = createDependencyScannerWith(fileManager);
+    const inputValidator = createCompilerInputValidator(fileManager);
+    const dependencyScanner = createDependencyScannerWith(fileManager, inputValidator);
     const progressBroadcaster = createProgressBroadcaster();
     const artifactsBuilder = createArtifactsBuilder({
         fileManager,
@@ -277,6 +286,7 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
         progressBroadcaster: progressBroadcaster.provider
     });
     return {
+        inputValidator,
         fileManager,
         progressBroadcaster,
         artifactsBuilder,
@@ -337,6 +347,7 @@ export function buildPackageProcessorComposition(
     const vendorMaterializer = createVendorMaterializer({ fileManager: parts.fileManager });
 
     return {
+        inputValidator: parts.inputValidator,
         fileManager: parts.fileManager,
         packageProcessor,
         progressBroadcaster: parts.progressBroadcaster,

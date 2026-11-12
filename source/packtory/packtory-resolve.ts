@@ -1,5 +1,6 @@
 import { Result } from 'true-myth';
 import type { CheckRunner } from '../checks/check-runner.ts';
+import type { AnalysisInputScope } from '../dependency-scanner/compiler-input-validator.ts';
 import type { ValidConfigurationWithoutRegistryResult } from '../configuration/validation.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
@@ -11,6 +12,7 @@ export type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
 type ResolveDependencies = PackageAnalysisDependencies & PackageResolutionDependencies;
 export type CheckDependencies = ResolveDependencies & {
+    readonly withAnalysisInputs: AnalysisInputScope;
     readonly versionManager: Pick<VersionManager, 'addVersion'>;
     readonly runChecks: CheckRunner;
 };
@@ -20,7 +22,7 @@ export function createResolveAndLinkAllValidated(
 ): (
     configuration: ValidConfigurationWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
-    return async function resolveAndLinkAllValidated(
+    async function resolveAndLinkAllValidated(
         configuration: ValidConfigurationWithoutRegistryResult
     ): Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
         const runResult = await resolvePackages(dependencies, configuration);
@@ -31,5 +33,10 @@ export function createResolveAndLinkAllValidated(
 
         const resolvedPackages = await analyzeResolvedPackages(dependencies, configuration, runResult.value);
         return await buildChecksResult(dependencies, configuration, resolvedPackages);
+    }
+    return async function (configuration) {
+        return dependencies.withAnalysisInputs(async function () {
+            return resolveAndLinkAllValidated(configuration);
+        });
     };
 }

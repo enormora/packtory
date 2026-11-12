@@ -21,7 +21,11 @@ type ScanOptionsInput = {
 
 export type DependencyScannerDependencies = {
     readonly sourceMapFileLocator: SourceMapFileLocator;
-    readonly typescriptProjectAnalyzer: TypescriptProjectAnalyzer;
+    readonly typescriptProjectAnalyzer: {
+        readonly analyzeProject: (
+            ...parameters: Parameters<TypescriptProjectAnalyzer['analyzeProject']>
+        ) => Promise<TypescriptProject> | TypescriptProject;
+    };
 };
 
 export type DependencyScanner = {
@@ -185,11 +189,12 @@ export function createDependencyScanner(
         };
 
         const graph = createDependencyGraph();
-        const project = typescriptProjectAnalyzer.analyzeProject(folder, {
+        const project = await typescriptProjectAnalyzer.analyzeProject(folder, {
             resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
             mainPackageManifest: scanOptions.mainPackageManifest
         });
 
+        project.includeEntryFiles(entryPointFiles);
         await scanEntryReferences(entryPointFiles, {
             folder,
             graph,

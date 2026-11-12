@@ -1,5 +1,5 @@
-import path from 'node:path';
 import type { Project as _Project, SourceFile } from 'ts-morph';
+import { isDeclarationCompanionFilePath } from '../common/declaration-companion-paths.ts';
 import { packageManifestPathIn } from '../common/package-layout.ts';
 import type { ModuleReference } from './source-file-references.ts';
 import { analyzationOptionsToCompilerOptions, type AnalyzationOptions } from './typescript-compiler-options.ts';
@@ -15,6 +15,7 @@ export type TypescriptProjectAnalyzerDependencies = {
 };
 
 export type TypescriptProject = {
+    includeEntryFiles: (entryFilePaths: readonly string[]) => void;
     getReferencedModules: (containingInputFilePath: string) => readonly Readonly<ModuleReference>[];
     getProject: () => _Project;
 };
@@ -42,13 +43,18 @@ export function createTypescriptProjectAnalyzer(
                 )
             });
 
-            const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.{js,mjs,cjs}';
-            const filesPattern = path.join(folder, `**/*${fileExtension}`);
-            project.addSourceFilesAtPaths([ filesPattern ]);
-
             return {
+                includeEntryFiles(entryFilePaths) {
+                    for (const entryFilePath of entryFilePaths) {
+                        project.addSourceFileAtPathIfExists(entryFilePath);
+                    }
+                },
                 getReferencedModules(containingInputFilePath) {
-                    const currentSourceFile = project.getSourceFile(containingInputFilePath);
+                    if (options.resolveDeclarationFiles && !isDeclarationCompanionFilePath(containingInputFilePath)) {
+                        return [];
+                    }
+                    const currentSourceFile = project.getSourceFile(containingInputFilePath) ??
+                        project.addSourceFileAtPathIfExists(containingInputFilePath);
 
                     if (currentSourceFile === undefined) {
                         return [];

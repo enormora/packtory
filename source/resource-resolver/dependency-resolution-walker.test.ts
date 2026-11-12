@@ -254,9 +254,8 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/source/shared.d.ts' ], resolveDeclarationFiles: true },
-            { entries: [ '/source/other.js' ], resolveDeclarationFiles: false }
+            { entries: [ '/source/index.js', '/source/other.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/shared.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 
@@ -307,10 +306,8 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entries: [ '/source/index.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/source/index.d.ts' ], resolveDeclarationFiles: true },
-            { entries: [ '/source/other.js' ], resolveDeclarationFiles: false },
-            { entries: [ '/source/internal.d.ts' ], resolveDeclarationFiles: true }
+            { entries: [ '/source/index.js', '/source/other.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/source/index.d.ts', '/source/internal.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 });

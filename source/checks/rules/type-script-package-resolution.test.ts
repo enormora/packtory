@@ -34,6 +34,14 @@ function analyzerFor(overrides: Overrides = {}): PackageResolutionAnalyzer {
         problemAffectsEntrypointResolution = fake.returns(true)
     } = overrides;
     const fakeDependencies = {
+        storage: {
+            async read() {
+                return null;
+            },
+            async write() {
+                return false;
+            }
+        },
         Package: TypesPackage,
         checkPackage,
         problemKindInformation,

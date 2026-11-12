@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
-import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import {
     createTypescriptProjectAnalyzer,
     type TypescriptProjectAnalyzer,
@@ -33,7 +32,8 @@ function createFakeTypeScriptMorphProject(overrides: TypeScriptMorphProjectOverr
 
     return stub().returns({
         addSourceFilesAtPaths,
-        getSourceFile
+        getSourceFile,
+        addSourceFileAtPathIfExists: fake.returns(undefined)
     });
 }
 
@@ -54,7 +54,6 @@ type AnalyzeProjectExpectation = {
     readonly fileSystemAdapters: Readonly<Record<string, unknown>>;
     readonly expectedModule: number;
     readonly expectedFileSystem: string;
-    readonly expectedFilesGlob: string;
     readonly expectedExtra?: Readonly<Record<string, unknown>>;
 };
 
@@ -119,16 +118,11 @@ function runAnalyzeProjectExpectingArguments(testArguments: AnalyzeProjectExpect
             extra: testArguments.expectedExtra
         })
     );
-    assertDeepSubset(addSourceFilesAtPaths, {
-        callCount: 1,
-        firstCall: {
-            arguments: [ [ testArguments.expectedFilesGlob ] ]
-        }
-    });
+    assert.strictEqual(addSourceFilesAtPaths.callCount, 0);
 }
 
 suite('typescript-project-analyzer', function () {
-    test('creates a project for all runtime JavaScript files in the given folder with module resolution', function () {
+    test('creates a runtime project without eagerly reading sources', function () {
         const withVirtualPackageManifest = fake.returns('virtualized-filtering-declaration-files');
         runAnalyzeProjectExpectingArguments({
             resolveDeclarationFiles: false,
@@ -138,12 +132,11 @@ suite('typescript-project-analyzer', function () {
             },
             expectedModule: 100,
             expectedFileSystem: 'virtualized-filtering-declaration-files',
-            expectedFilesGlob: '/foo/**/*.{js,mjs,cjs}',
             expectedExtra: { typeRoots: [], types: [] }
         });
     });
 
-    test('creates a project for all d.ts files in the given folder', function () {
+    test('creates a declaration project without eagerly reading sources', function () {
         const withVirtualPackageManifest = fake.returns('virtualized-no-filtering');
         runAnalyzeProjectExpectingArguments({
             resolveDeclarationFiles: true,
@@ -152,8 +145,7 @@ suite('typescript-project-analyzer', function () {
                 withVirtualPackageManifest
             },
             expectedModule: 100,
-            expectedFileSystem: 'virtualized-no-filtering',
-            expectedFilesGlob: '/foo/**/*.d.ts'
+            expectedFileSystem: 'virtualized-no-filtering'
         });
     });
 

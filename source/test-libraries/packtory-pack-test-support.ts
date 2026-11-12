@@ -169,6 +169,9 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
             })
         );
     const vendorMaterializer = {
+        createSession() {
+            return { materializeExternals: materializeExternals as never };
+        },
         materializeExternals:
             materializeExternals as unknown as PackRunDependencies['vendorMaterializer']['materializeExternals']
     };
@@ -198,6 +201,13 @@ export function buildDependenciesWith(
         },
         packEmitter: { pack: packEmitterPackFake as never },
         vendorMaterializer: {
+            createSession() {
+                return {
+                    materializeExternals: (materializerOverride ?? fake
+                        .resolves(Result
+                            .ok({ entries: [], packageNames: [], peerRequirements: new Map() }))) as never
+                };
+            },
             materializeExternals: (materializerOverride ??
                 fake.resolves(
                     Result.ok({

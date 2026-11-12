@@ -1,103 +1,48 @@
 import { mergeDependencyFiles, type DependencyFiles } from '../dependency-scanner/dependency-graph.ts';
 import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
-import {
-    type ResolvedRootsAndSurface,
-    resolveRootsAndSurface,
-    type ResourceResolveOptions
-} from './resource-resolve-options.ts';
+import { resolveRootsAndSurface, type ResourceResolveOptions } from './resource-resolve-options.ts';
 
 type DependencyResolutionDependencies = {
     readonly dependencyScanner: DependencyScanner;
     readonly fileManager: Pick<FileManager, 'checkReadability'>;
 };
 
-type DeclarationScanTracker = {
-    readonly has: (filePath: string) => boolean;
-    readonly add: (filePath: string) => unknown;
-};
-type RootResolutionContext = {
-    readonly dependencies: DependencyResolutionDependencies;
-    readonly options: ResourceResolveOptions;
-    readonly scannedDeclarationFiles: DeclarationScanTracker;
-};
-
 function emptyDependencyFiles(): DependencyFiles {
     return { externalDependencies: new Map(), localFiles: [] };
 }
 
-async function scanDeclarationGraph(
+async function scanRootFiles(
     dependencies: DependencyResolutionDependencies,
     options: ResourceResolveOptions,
-    entryFiles: readonly string[],
-    scannedDeclarationFiles: DeclarationScanTracker
+    entries: readonly string[],
+    resolveDeclarationFiles: boolean
 ): Promise<DependencyFiles> {
-    const pendingEntryFiles = entryFiles.filter(function (entryFile) {
-        return !scannedDeclarationFiles.has(entryFile);
-    });
-    if (pendingEntryFiles.length === 0) {
+    const uniqueEntries = Array.from(new Set(entries));
+    if (uniqueEntries.length === 0) {
         return emptyDependencyFiles();
     }
-    pendingEntryFiles.forEach(function (entryFile) {
-        scannedDeclarationFiles.add(entryFile);
+    const graph = await dependencies.dependencyScanner.scanEntries(uniqueEntries, options.sourcesFolder, {
+        includeSourceMapFiles: options.includeSourceMapFiles,
+        resolveDeclarationFiles,
+        mainPackageManifest: options.mainPackageManifest
     });
-
-    const declarationDependencyGraph = await dependencies.dependencyScanner.scanEntries(
-        pendingEntryFiles,
-        options.sourcesFolder,
-        {
-            includeSourceMapFiles: options.includeSourceMapFiles,
-            resolveDeclarationFiles: true,
-            mainPackageManifest: options.mainPackageManifest
-        }
-    );
-    return pendingEntryFiles.reduce(function (result, entryFile) {
-        return mergeDependencyFiles(result, declarationDependencyGraph.flatten(entryFile));
+    return uniqueEntries.reduce(function (files, entry) {
+        return mergeDependencyFiles(files, graph.flatten(entry));
     }, emptyDependencyFiles());
 }
 
-async function resolveRuntimeDependencies(
-    context: RootResolutionContext,
-    root: ResolvedRootsAndSurface['roots'][string]
-): Promise<DependencyFiles> {
-    if (root.json !== undefined) {
+function jsonRootFiles(roots: ResourceResolveOptions['roots']): DependencyFiles {
+    const localFiles = Object.values(roots).flatMap(function (root) {
+        if (root.json === undefined) {
+            return [];
+        }
         if (!root.json.endsWith('.json')) {
             throw new Error('JSON roots must use the .json extension');
         }
-        return {
-            externalDependencies: new Map(),
-            localFiles: [ {
-                filePath: root.json,
-                directDependencies: new Set(),
-                moduleReferences: []
-            } ]
-        };
-    }
-    if (root.javaScript === undefined) {
-        return emptyDependencyFiles();
-    }
-    const { dependencies, options } = context;
-    const { sourcesFolder, includeSourceMapFiles, mainPackageManifest } = options;
-    const javaScriptDependencyGraph = await dependencies.dependencyScanner.scan(root.javaScript, sourcesFolder, {
-        includeSourceMapFiles,
-        resolveDeclarationFiles: false,
-        mainPackageManifest
+        return [ { filePath: root.json, directDependencies: new Set<string>(), moduleReferences: [] } ];
     });
-    return javaScriptDependencyGraph.flatten(root.javaScript);
-}
-
-async function resolveDependenciesForRoot(
-    context: RootResolutionContext,
-    root: ResolvedRootsAndSurface['roots'][string]
-): Promise<DependencyFiles> {
-    const javaScriptDependencies = await resolveRuntimeDependencies(context, root);
-    const declarationDependencies = await scanDeclarationGraph(
-        context.dependencies,
-        context.options,
-        root.declarationFile === undefined ? [] : [ root.declarationFile ],
-        context.scannedDeclarationFiles
-    );
-    return mergeDependencyFiles(javaScriptDependencies, declarationDependencies);
+    return { externalDependencies: new Map(), localFiles };
 }
 
 export async function resolveDependenciesForAllRoots(
@@ -106,26 +51,20 @@ export async function resolveDependenciesForAllRoots(
     promotedDeclarationEntryFiles: readonly string[]
 ): Promise<DependencyFiles> {
     const { roots } = resolveRootsAndSurface(options);
-    const rootValues = Object.values(roots);
-    const context: RootResolutionContext = {
+    const jsonFiles = jsonRootFiles(roots);
+    const runtimeFiles = await scanRootFiles(
         dependencies,
         options,
-        scannedDeclarationFiles: new Set<string>()
-    };
-    let dependencyFiles = emptyDependencyFiles();
-
-    for (const root of rootValues) {
-        dependencyFiles = mergeDependencyFiles(dependencyFiles, await resolveDependenciesForRoot(context, root));
-    }
-
-    const promotedDeclarationDependencies = await scanDeclarationGraph(
-        dependencies,
-        options,
-        promotedDeclarationEntryFiles,
-        context.scannedDeclarationFiles
+        Object.values(roots).flatMap(function (root) {
+            return root.json === undefined && root.javaScript !== undefined ? [ root.javaScript ] : [];
+        }),
+        false
     );
-
-    dependencyFiles = mergeDependencyFiles(dependencyFiles, promotedDeclarationDependencies);
-
-    return dependencyFiles;
+    const declarationFiles = await scanRootFiles(dependencies, options, [
+        ...Object.values(roots).flatMap(function (root) {
+            return root.declarationFile === undefined ? [] : [ root.declarationFile ];
+        }),
+        ...promotedDeclarationEntryFiles
+    ], true);
+    return mergeDependencyFiles(mergeDependencyFiles(jsonFiles, runtimeFiles), declarationFiles);
 }

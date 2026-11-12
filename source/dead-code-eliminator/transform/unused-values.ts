@@ -120,18 +120,16 @@ function unusedStatementEdits(
 
 function unusedValueEdits(sourceFile: SourceFile, isPure: ExpressionPurityChecker): readonly SourceTextEdit[] {
     const resolveUnused = createUnusedValueResolver(sourceFile);
-    let previousEnd = 0;
-    return sourceFile.getDescendants().flatMap(function (node) {
-        if (node.getStart() < previousEnd) {
-            return [];
-        }
+    const changes: SourceTextEdit[] = [];
+    sourceFile.forEachDescendant(function (node, traversal) {
         const edits = unusedStatementEdits(node, resolveUnused, isPure);
         if (edits.length === 0) {
-            return [];
+            return;
         }
-        previousEnd = node.getEnd();
-        return edits;
+        changes.push(...edits);
+        traversal.skip();
     });
+    return changes;
 }
 
 export function removeUnusedValues(preparation: SourcePreparation, isPure: ExpressionPurityChecker): void {

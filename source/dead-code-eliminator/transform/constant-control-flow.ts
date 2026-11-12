@@ -128,18 +128,16 @@ function replacementSource(
 
 function controlFlowEdits(sourceFile: SourceFile): readonly SourceTextEdit[] {
     const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
-    let previousEnd = 0;
-    return sourceFile.getDescendants().flatMap(function (node) {
-        if (node.getStart() < previousEnd) {
-            return [];
-        }
+    const edits: SourceTextEdit[] = [];
+    sourceFile.forEachDescendant(function (node, traversal) {
         const content = replacementSource(node, evaluate);
         if (content === undefined) {
-            return [];
+            return;
         }
-        previousEnd = node.getEnd();
-        return sourceReplacement(node, content);
+        edits.push(...sourceReplacement(node, content));
+        traversal.skip();
     });
+    return edits;
 }
 
 export function simplifyConstantControlFlow(preparation: SourcePreparation): void {

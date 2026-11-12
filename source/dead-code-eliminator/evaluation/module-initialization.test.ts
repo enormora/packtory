@@ -320,6 +320,21 @@ suite('module initialization proof', function () {
         });
     }
 
+    test('separates dependency initialization from resource acquisition', function () {
+        const project = createProject({
+            withFiles: [ {
+                filePath: '/repo/index.js',
+                content: 'using resource = acquire();'
+            } ]
+        });
+        const source = project.getSourceFileOrThrow('/repo/index.js');
+        assert.strictEqual(moduleDependenciesInitialize(source, resolveRuntimeModule), true);
+        assert.strictEqual(
+            moduleInitializesBinding(source.getVariableDeclarationOrThrow('resource'), resolveRuntimeModule),
+            false
+        );
+    });
+
     test('rejects declaration-only initialization facts', function () {
         const project = createProject({
             withFiles: [ {

@@ -41,23 +41,24 @@ function isSpecializableExpression(node: TypeScriptMorphNodeType): node is Expre
 }
 
 function expressionSpecializationEdits(sourceFile: SourceFile): readonly SourceTextEdit[] {
-    let previousEnd = 0;
     const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
     const resolveCall = createPureCallResolver(sourceFile);
-    return sourceFile.getDescendants().filter(isSpecializableExpression).flatMap(function (expression) {
-        if (expression.getStart() < previousEnd || expressionIsWriteTarget(expression)) {
-            return [];
+    const changes: SourceTextEdit[] = [];
+    sourceFile.forEachDescendant(function (expression, traversal) {
+        if (!isSpecializableExpression(expression) || expressionIsWriteTarget(expression)) {
+            return;
         }
         const edit = editForExpression(expression, evaluate);
         const edits = edit === undefined
             ? identityExpressionEdits(expression, resolveCall)
             : [ edit ];
         if (edits.length === 0) {
-            return [];
+            return;
         }
-        previousEnd = expression.getEnd();
-        return edits;
+        changes.push(...edits);
+        traversal.skip();
     });
+    return changes;
 }
 
 export function specializeExpressions(preparation: SourcePreparation): void {

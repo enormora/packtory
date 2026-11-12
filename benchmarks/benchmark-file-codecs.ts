@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { PerformanceThresholds, PerformanceWorkload } from './performance-benchmark-types.ts';
 import {
     commandLineInterfaceWorkloadSizes,
     workloadSizes,
@@ -98,11 +99,44 @@ function parseThroughputThresholds(value: unknown): Record<WorkloadSize, Through
     };
 }
 
+export function parsePerformanceWorkload(value: unknown): PerformanceWorkload {
+    assert.ok(isRecord(value), 'Performance workload must be an object');
+    return {
+        sourceFileCount: readNumberField(value, 'sourceFileCount'),
+        exportsPerFile: readNumberField(value, 'exportsPerFile'),
+        entryPointCount: readNumberField(value, 'entryPointCount'),
+        integrityPackageCount: readNumberField(value, 'integrityPackageCount'),
+        deadExportsPerFile: readNumberField(value, 'deadExportsPerFile'),
+        dependencyCount: readNumberField(value, 'dependencyCount'),
+        filesPerDependency: readNumberField(value, 'filesPerDependency'),
+        payloadBytes: readNumberField(value, 'payloadBytes')
+    };
+}
+
+function parsePerformanceThresholds(value: unknown): PerformanceThresholds {
+    assert.ok(isRecord(value), 'Performance thresholds must be an object');
+    return {
+        maximumAnalysisGrowthMultiplier: readNumberField(value, 'maximumAnalysisGrowthMultiplier'),
+        maximumPackageGrowthMultiplier: readNumberField(value, 'maximumPackageGrowthMultiplier'),
+        maximumValidationSequenceMultiplier: readNumberField(value, 'maximumValidationSequenceMultiplier'),
+        maximumSourceReadAmplification: readNumberField(value, 'maximumSourceReadAmplification'),
+        maximumMetadataReadAmplification: readNumberField(value, 'maximumMetadataReadAmplification'),
+        maximumInventoryPayloadBytes: readNumberField(value, 'maximumInventoryPayloadBytes'),
+        maximumRepeatedAnalysisFraction: readNumberField(value, 'maximumRepeatedAnalysisFraction'),
+        maximumAdditionalResidentMiB: readNumberField(value, 'maximumAdditionalResidentMiB'),
+        analysisMedianMilliseconds: readNumberField(value, 'analysisMedianMilliseconds'),
+        vendoringMedianMilliseconds: readNumberField(value, 'vendoringMedianMilliseconds'),
+        packingMedianMilliseconds: readNumberField(value, 'packingMedianMilliseconds'),
+        publishingMedianMilliseconds: readNumberField(value, 'publishingMedianMilliseconds')
+    };
+}
+
 export function parseWorkloadsFile(value: unknown): WorkloadsFile {
     assert.ok(isRecord(value), 'Workloads file must be an object');
     assert.ok(typeof value.seedFixture === 'string', 'Workloads file seedFixture must be a string');
 
     return {
+        performanceWorkload: parsePerformanceWorkload(value.performanceWorkload),
         seedFixture: value.seedFixture,
         workloads: parseWorkloadDefinitions(value.workloads),
         commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(value.commandLineInterfaceWorkloads)
@@ -122,6 +156,7 @@ export function parseThresholdsFile(value: unknown): ThresholdsFile {
     const publishCommandLineInterfaceThresholds = value.responsiveness['publish-command-line-interface'];
 
     return {
+        performance: parsePerformanceThresholds(value.performance),
         normalization: {
             baselineMilliseconds: readNumberField(value.normalization, 'baselineMilliseconds')
         },

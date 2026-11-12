@@ -102,8 +102,23 @@ export function createResolver(overrides: Overrides = {}): ResolverFixture {
         if (entry === undefined) {
             throw new Error('Expected at least one scanner entry');
         }
-        const result: unknown = await scan(entry, sourcesFolder, options);
-        return result as DependencyGraph;
+        const firstResult: unknown = await scan(entry, sourcesFolder, options);
+        const graph = firstResult as DependencyGraph;
+        const graphs = new Map<string, DependencyGraph>([ [ entry, graph ] ]);
+        for (const entryFile of entries.slice(1)) {
+            const result: unknown = await scan(entryFile, sourcesFolder, options);
+            graphs.set(entryFile, result as DependencyGraph);
+        }
+        return {
+            ...graph,
+            flatten(entryFile: string) {
+                const entryGraph = graphs.get(entryFile);
+                if (entryGraph === undefined) {
+                    throw new Error('Missing entry graph');
+                }
+                return entryGraph.flatten(entryFile);
+            }
+        };
     });
     const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
     const baseFileManager = createFakeFileManager({

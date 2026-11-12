@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { firstStatement, withSource } from '../../test-libraries/transform-test-support.ts';
-import { processStatement, repairImportDeclarations, type RemovalPlan } from './declaration-removal.ts';
+import { withSource } from '../../test-libraries/transform-test-support.ts';
+import { processStatements, repairImportDeclarations, type RemovalPlan } from './declaration-removal.ts';
 
 function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
     return {
@@ -19,10 +19,7 @@ suite('declaration-removal', function () {
     suite('change reporting', function () {
         test('reports no change when every declarator survives', function () {
             const source = withSource('const first=1,second=2;');
-            assert.strictEqual(
-                processStatement(firstStatement(source), removalPlan(new Set([ 'first', 'second' ]))),
-                false
-            );
+            processStatements(source, removalPlan(new Set([ 'first', 'second' ])));
             assert.strictEqual(source.getFullText(), 'const first=1,second=2;');
         });
         for (const content of [ 'export {};', 'const value=1;' ]) {
@@ -49,7 +46,8 @@ suite('declaration-removal', function () {
                     }
                 }
             };
-            assert.strictEqual(processStatement(firstStatement(source), plan), true);
+            processStatements(source, plan);
+            assert.strictEqual(source.getFullText(), '');
             assert.deepStrictEqual(removed, [
                 {
                     type: 'binding-removed',
@@ -67,39 +65,34 @@ suite('declaration-removal', function () {
         });
     });
 
-    test('processStatement removes a named declaration when its name is not in the surviving set', function () {
+    test('processStatements removes a named declaration when its name is not in the surviving set', function () {
         const sourceFile = withSource('function keep() {}\nfunction drop() {}');
 
-        const dropStatement = sourceFile.getFunctionOrThrow('drop');
-        const mutated = processStatement(dropStatement, removalPlan(new Set([ 'keep' ])));
+        processStatements(sourceFile, removalPlan(new Set([ 'keep' ])));
 
-        assert.strictEqual(mutated, true);
+        assert.strictEqual(sourceFile.getFullText(), 'function keep() {}');
         assert.strictEqual(sourceFile.getFunction('drop'), undefined);
     });
 
-    test('processStatement leaves a named declaration in place when it is in the surviving set', function () {
+    test('processStatements leaves a named declaration in place when it is in the surviving set', function () {
         const sourceFile = withSource('function keep() {}');
 
-        const mutated = processStatement(sourceFile.getFunctionOrThrow('keep'), removalPlan(new Set([ 'keep' ])));
+        processStatements(sourceFile, removalPlan(new Set([ 'keep' ])));
 
-        assert.strictEqual(mutated, false);
+        assert.strictEqual(sourceFile.getFullText(), 'function keep() {}');
         assertDefined(sourceFile.getFunction('keep'));
     });
 
-    test('processStatement drops only the non-surviving declarators inside a variable statement', function () {
+    test('processStatements drops only the non-surviving declarators inside a variable statement', function () {
         const sourceFile = withSource('const a = 1, b = 2;');
-        const statement = firstStatement(sourceFile);
+        processStatements(sourceFile, removalPlan(new Set([ 'a' ])));
 
-        const mutated = processStatement(statement, removalPlan(new Set([ 'a' ])));
-
-        assert.strictEqual(mutated, true);
         assert.strictEqual(sourceFile.getFullText(), 'const a = 1;');
     });
 
-    test('processStatement returns false for an expression statement that is neither named nor a variable declaration', function () {
+    test('keeps expression statements unchanged', function () {
         const sourceFile = withSource('console.log("hi");');
-        const statement = firstStatement(sourceFile);
-
-        assert.strictEqual(processStatement(statement, removalPlan(new Set<string>())), false);
+        processStatements(sourceFile, removalPlan(new Set<string>()));
+        assert.strictEqual(sourceFile.getFullText(), 'console.log("hi");');
     });
 });

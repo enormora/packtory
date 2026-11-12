@@ -1,3 +1,5 @@
+import type { PerformanceThresholds, PerformanceWorkload } from './performance-benchmark-types.ts';
+
 export const workloadSizes = [ 'small', 'medium', 'large' ] as const;
 export const commandLineInterfaceWorkloadSizes = [ 'medium', 'large' ] as const;
 
@@ -22,6 +24,7 @@ export type CommandLineInterfaceWorkloadDefinition = {
 };
 
 export type WorkloadsFile = {
+    readonly performanceWorkload: PerformanceWorkload;
     readonly seedFixture: string;
     readonly workloads: Readonly<Record<WorkloadSize, WorkloadDefinition>>;
     readonly commandLineInterfaceWorkloads: Readonly<
@@ -39,6 +42,7 @@ export type ResponsivenessThreshold = {
 };
 
 export type ThresholdsFile = {
+    readonly performance: PerformanceThresholds;
     readonly normalization: {
         readonly baselineMilliseconds: number;
     };

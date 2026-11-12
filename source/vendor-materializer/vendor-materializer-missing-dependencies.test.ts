@@ -16,16 +16,7 @@ suite('vendor-materializer missing dependencies and modes', function () {
                 realPaths: [ { value: '/repo/node_modules/leaf' } ],
                 listings: [ { value: [ { name: 'bin.js', isDirectory: false, isSymbolicLink: false } ] } ],
                 fileReads: [ { value: '{}' } ],
-                transferableFileDescriptions: [
-                    {
-                        value: {
-                            inputFilePath: '/repo/node_modules/leaf/bin.js',
-                            targetFilePath: 'node_modules/leaf/bin.js',
-                            content: '',
-                            isExecutable: true
-                        }
-                    }
-                ]
+                executableStatuses: [ true ]
             },
             { initialDependencyNames: [ 'leaf' ], projectFolder: '/repo' }
         );

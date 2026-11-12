@@ -39,7 +39,9 @@ export const typeScriptIntegritySchemas: Pick<TypeScriptIntegrityRule, 'globalSc
 
 export type TypeScriptIntegrityDependencies = {
     readonly analyzePackageResolution: PackageResolutionAnalyzer;
-    readonly summarizeDeclarationIntegrity: DeclarationIntegritySummarizer;
+    readonly summarizeDeclarationIntegrity: (
+        ...arguments_: Parameters<DeclarationIntegritySummarizer>
+    ) => Promise<readonly string[]> | readonly string[];
 };
 
 function isExecutableOnlyPackage(bundle: CheckBundle): bundle is ExplicitBundle {
@@ -97,8 +99,27 @@ export function createTypeScriptIntegrityRule(
 
         return [
             ...await summarizePackageResolution(name, publishedPackage),
-            ...summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)
+            ...await summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)
         ];
+    }
+
+    async function runConfiguredBundle(
+        bundle: CheckBundle,
+        publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>,
+        declarationMode: DeclarationMode
+    ): Promise<readonly string[]> {
+        const publishedPackage = publishedPackages.get(bundle.name);
+        if (publishedPackage === undefined) {
+            throw new Error(`Published package missing for "${bundle.name}"`);
+        }
+        return runForPackage(bundle, publishedPackage, publishedPackages, declarationMode);
+    }
+
+    function publishedPackagesFor(input: RunInput): ReadonlyMap<string, PublishedPackageWithManifest> {
+        if (input.publishedPackages === undefined) {
+            throw new Error('Published packages missing for TypeScript integrity');
+        }
+        return input.publishedPackages;
     }
 
     async function run(input: RunInput): Promise<readonly string[]> {
@@ -107,22 +128,18 @@ export function createTypeScriptIntegrityRule(
             return [];
         }
 
-        const declarationMode = globalConfiguration.declarations ?? defaultDeclarationMode;
-        const { publishedPackages } = input;
-        if (publishedPackages === undefined) {
-            throw new Error('Published packages missing for TypeScript integrity');
+        const publishedPackages = publishedPackagesFor(input);
+        const issues: string[] = [];
+        for (const bundle of input.bundles) {
+            issues.push(
+                ...await runConfiguredBundle(
+                    bundle,
+                    publishedPackages,
+                    globalConfiguration.declarations ?? defaultDeclarationMode
+                )
+            );
         }
-        const issuesByBundle = await Promise.all(
-            input.bundles.map(async function (bundle) {
-                const publishedPackage = publishedPackages.get(bundle.name);
-                if (publishedPackage === undefined) {
-                    throw new Error(`Published package missing for "${bundle.name}"`);
-                }
-
-                return await runForPackage(bundle, publishedPackage, publishedPackages, declarationMode);
-            })
-        );
-        return issuesByBundle.flat();
+        return issues;
     }
 
     return {

@@ -19,6 +19,7 @@ function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): Readonly<Si
     const { getReferencedModules = fake.returns([]), getProject = fake.returns({}) } = overrides;
 
     return fake.returns({
+        includeEntryFiles: fake(),
         getReferencedModules,
         getProject
     });

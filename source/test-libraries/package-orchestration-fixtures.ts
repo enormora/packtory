@@ -279,6 +279,9 @@ export function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}
     const progressBroadcaster = createTestProgressBroadcaster();
     return {
         packtory: createPacktory({
+            async withAnalysisInputs(analyze) {
+                return analyze();
+            },
             inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor,
             scheduler: scheduler as never,
@@ -312,6 +315,13 @@ export function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}
                 ) as never
             },
             vendorMaterializer: {
+                createSession() {
+                    return {
+                        async materializeExternals() {
+                            return Result.ok({ entries: [], packageNames: [], peerRequirements: new Map() });
+                        }
+                    };
+                },
                 async materializeExternals() {
                     return Result.ok({
                         entries: [],

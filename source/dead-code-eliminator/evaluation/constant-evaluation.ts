@@ -26,7 +26,7 @@ export function createSourceEvaluations(
     };
 }
 
-export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
+function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
     const values = new Map<VariableDeclaration, EvaluatedValue>();
     const evaluate = createBoundedEvaluator(sourceFile, values);
     const primitiveValue: PrimitiveEvaluator = function (expression) {
@@ -40,6 +40,20 @@ export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation
         primitiveValue,
         canDiscard(expression) {
             return evaluate(expression) !== undefined;
+        }
+    };
+}
+
+export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
+    let evaluation: SourceEvaluation | null = null;
+    return {
+        primitiveValue(expression) {
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            return evaluation.primitiveValue(expression);
+        },
+        canDiscard(expression) {
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            return evaluation.canDiscard(expression);
         }
     };
 }

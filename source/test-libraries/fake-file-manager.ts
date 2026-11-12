@@ -241,6 +241,10 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
     const calls = createFileManagerCallLog();
 
     return {
+        async isExecutable() {
+            return false;
+        },
+
         async readFile(filePath) {
             const response = resolvedOptions.simulatedReadFileResponses[calls.readFile.length] ??
                 defaultReadFileResponse;
