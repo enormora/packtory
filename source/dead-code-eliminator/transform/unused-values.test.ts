@@ -6,6 +6,55 @@ import { createExpressionPurityChecker } from '../pure-expression.ts';
 import { removeUnusedValues } from './unused-values.ts';
 
 suite('unused uninitialized bindings', function () {
+    for (
+        const [ statement, expected ] of [
+            [ 'pure(first(),second());', '(first());(second());' ],
+            [ 'if(condition)pure(first(),second());', 'if(condition){ (first());(second()); }' ]
+        ]
+    ) {
+        test(`preserves ordered argument effects in ${statement}`, function () {
+            const declaration = 'function pure(value){return value;}';
+            const source = createProject().createSourceFile('input.ts', declaration + statement);
+            removeUnusedValues(
+                createSourcePreparation(source),
+                createExpressionPurityChecker(undefined, function () {
+                    return undefined;
+                })
+            );
+            assert.strictEqual(source.getFullText(), declaration + expected);
+        });
+    }
+
+    for (
+        const content of [
+            'const hidden=effect();eval("hidden");',
+            '"use strict";export function value(){return 42;}'
+        ]
+    ) {
+        test(`preserves dynamic bindings and directives in ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', content);
+            removeUnusedValues(
+                createSourcePreparation(source),
+                createExpressionPurityChecker(undefined, function () {
+                    return undefined;
+                })
+            );
+            assert.strictEqual(source.getFullText(), content);
+        });
+    }
+
+    test('removes unused values inside an exported function body', function () {
+        const source = createProject().createSourceFile('input.ts', 'export function use(){const unused=1;return 42;}');
+        removeUnusedValues(
+            createSourcePreparation(source),
+            createExpressionPurityChecker(undefined, function () {
+                return undefined;
+            })
+        );
+        assert.doesNotMatch(source.getFullText(), /unused/u);
+        assert.match(source.getFullText(), /return 42/u);
+    });
+
     test('does not plan edits inside a removed function initializer', function () {
         const source = createProject().createSourceFile(
             'input.ts',

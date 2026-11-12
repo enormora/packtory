@@ -15,6 +15,62 @@ function removalPlan(survivingNames: ReadonlySet<string>): RemovalPlan {
     };
 }
 
+type RemovalEvents = {
+    readonly plan: RemovalPlan;
+    readonly events: readonly unknown[];
+};
+
+function recordingPlan(survivingNames: ReadonlySet<string>): RemovalEvents {
+    const events: unknown[] = [];
+    return {
+        events,
+        plan: {
+            ...removalPlan(survivingNames),
+            trace: {
+                collector: {
+                    record(event: unknown) {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+    };
+}
+
+type CompilerWork = { readonly modifications: number; readonly batches: number; };
+type ObservedSource = {
+    readonly source: ReturnType<typeof withSource>;
+    readonly work: () => CompilerWork;
+};
+
+function observeSource(content: string): ObservedSource {
+    const source = withSource(content);
+    let modifications = 0;
+    let batches = 0;
+    source.onModified(function () {
+        modifications += 1;
+    });
+    return {
+        source: new Proxy(source, {
+            get(target, property) {
+                const member: unknown = Reflect.get(target, property);
+                if (typeof member !== 'function') {
+                    return member;
+                }
+                return function (...parameters: readonly unknown[]): unknown {
+                    if (property === 'removeStatements') {
+                        batches += 1;
+                    }
+                    return Reflect.apply(member, target, parameters);
+                };
+            }
+        }),
+        work() {
+            return { modifications, batches };
+        }
+    };
+}
+
 suite('declaration-removal', function () {
     suite('change reporting', function () {
         test('reports no change when every declarator survives', function () {
@@ -35,17 +91,7 @@ suite('declaration-removal', function () {
 
         test('records every removed declarator', function () {
             const source = withSource('const first=1,second=2;');
-            const removed: unknown[] = [];
-            const plan = {
-                ...removalPlan(new Set()),
-                trace: {
-                    collector: {
-                        record(event: unknown) {
-                            removed.push(event);
-                        }
-                    }
-                }
-            };
+            const { plan, events: removed } = recordingPlan(new Set());
             processStatements(source, plan);
             assert.strictEqual(source.getFullText(), '');
             assert.deepStrictEqual(removed, [
@@ -63,6 +109,47 @@ suite('declaration-removal', function () {
                 }
             ]);
         });
+    });
+
+    test('bounds compiler edits by contiguous removal groups while preserving binding traces', function () {
+        const { source, work } = observeSource([
+            'const dropFirst=1;',
+            'const dropSecond=2;',
+            'function dropFunction(){}',
+            'const keepFirst=3;',
+            'const dropThird=4;',
+            'const dropFourth=5;',
+            'const keepSecond=6;',
+            'const dropFifth=7;',
+            'const dropSixth=8;'
+        ]
+            .join('\n'));
+        const { plan, events } = recordingPlan(new Set([ 'keepFirst', 'keepSecond' ]));
+        processStatements(source, plan);
+        assert.deepStrictEqual(
+            source.getStatements().map(function (statement) {
+                return statement.getText();
+            }),
+            [
+                'const keepFirst=3;',
+                'const keepSecond=6;'
+            ]
+        );
+        assert.deepStrictEqual(
+            events,
+            [ 'dropFirst', 'dropSecond', 'dropFunction', 'dropThird', 'dropFourth', 'dropFifth', 'dropSixth' ].map(
+                function (name) {
+                    return {
+                        type: 'binding-removed',
+                        bundleName: 'package',
+                        bindingIdentifier: `index.ts::${name}`,
+                        inputFilePath: 'index.ts'
+                    };
+                }
+            )
+        );
+        assert.ok(work().modifications <= 3);
+        assert.ok(work().batches <= 3);
     });
 
     test('processStatements removes a named declaration when its name is not in the surviving set', function () {
@@ -85,9 +172,16 @@ suite('declaration-removal', function () {
 
     test('processStatements drops only the non-surviving declarators inside a variable statement', function () {
         const sourceFile = withSource('const a = 1, b = 2;');
-        processStatements(sourceFile, removalPlan(new Set([ 'a' ])));
+        const { plan, events } = recordingPlan(new Set([ 'a' ]));
+        processStatements(sourceFile, plan);
 
         assert.strictEqual(sourceFile.getFullText(), 'const a = 1;');
+        assert.deepStrictEqual(events, [ {
+            type: 'binding-removed',
+            bundleName: 'package',
+            bindingIdentifier: 'index.ts::b',
+            inputFilePath: 'index.ts'
+        } ]);
     });
 
     test('keeps expression statements unchanged', function () {

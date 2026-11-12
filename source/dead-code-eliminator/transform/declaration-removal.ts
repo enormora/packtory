@@ -53,9 +53,9 @@ function removedStatementBindings(statement: Statement, plan: RemovalPlan): read
     return [ name ];
 }
 
-function processVariableStatement(statement: Statement, plan: RemovalPlan): boolean {
+function processVariableStatement(statement: Statement, plan: RemovalPlan): void {
     if (!TypeScriptMorphNode.isVariableStatement(statement)) {
-        return false;
+        return;
     }
     const removedDeclarators = statement.getDeclarations().filter(function (declarator) {
         return !variableDeclarationSurvives(declarator, plan.survivingNames);
@@ -66,7 +66,6 @@ function processVariableStatement(statement: Statement, plan: RemovalPlan): bool
         }
         declarator.remove();
     }
-    return removedDeclarators.length > 0;
 }
 
 export function processStatements(sourceFile: SourceFile, plan: RemovalPlan): void {
