@@ -4,13 +4,6 @@ import { hasDynamicScope } from '../dynamic-scope.ts';
 import { sourceReplacement } from './source-replacement.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
-const abruptStatements = new Set([
-    SyntaxKind.ReturnStatement,
-    SyntaxKind.ThrowStatement,
-    SyntaxKind.BreakStatement,
-    SyntaxKind.ContinueStatement
-]);
-
 type AbruptCompletionProof = (statement: Statement) => boolean;
 
 function branchesCompleteAbruptly(statement: IfStatement, abrupt: AbruptCompletionProof): boolean {
@@ -28,7 +21,15 @@ function tryCompletesAbruptly(statement: TryStatement, abrupt: AbruptCompletionP
 }
 
 function completesAbruptly(statement: Statement): boolean {
-    if (abruptStatements.has(statement.getKind())) {
+    if (
+        [
+            SyntaxKind.ReturnStatement,
+            SyntaxKind.ThrowStatement,
+            SyntaxKind.BreakStatement,
+            SyntaxKind.ContinueStatement
+        ]
+            .includes(statement.getKind())
+    ) {
         return true;
     }
     if (TypeScriptMorphNode.isBlock(statement)) {
