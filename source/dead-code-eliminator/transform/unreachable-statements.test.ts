@@ -12,6 +12,7 @@ suite('unreachable statements', function () {
         const source = createProject().createSourceFile('input.js', content);
         const preparation = createSourcePreparation(source);
         removeUnreachableStatements(preparation);
+        assert.strictEqual(source.getFullText(), 'function probe(){return 42;}\nexport const kept=42;');
         assert.strictEqual(preparation.originalLineFor(source.getVariableDeclarationOrThrow('kept')), 2);
         const [ transformation ] = preparation.transformations;
         assertDefined(transformation);

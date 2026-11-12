@@ -1,5 +1,5 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Statement, type TryStatement, type IfStatement } from 'ts-morph';
-import { applySourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { sourceReplacement } from './source-replacement.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
@@ -65,24 +65,25 @@ export function removeUnreachableStatements(preparation: SourcePreparation): voi
     if (hasDynamicScope(preparation.sourceFile)) {
         return;
     }
-    applySourcePreparation(preparation, function (source) {
-        let previousEnd = 0;
-        return source.getDescendants().flatMap(function (node) {
-            if (node.getStart() < previousEnd) {
+    let previousEnd = 0;
+    const edits = preparation.sourceFile.getDescendants().flatMap(function (node) {
+        if (node.getStart() < previousEnd) {
+            return [];
+        }
+        const statements = statementSequence(node);
+        const termination = statements.findIndex(completesAbruptly);
+        if (termination === -1) {
+            return [];
+        }
+        return statements.slice(termination + 1).flatMap(function (statement) {
+            if (declaresBinding(statement) || TypeScriptMorphNode.isEmptyStatement(statement)) {
                 return [];
             }
-            const statements = statementSequence(node);
-            const termination = statements.findIndex(completesAbruptly);
-            if (termination === -1) {
-                return [];
-            }
-            return statements.slice(termination + 1).flatMap(function (statement) {
-                if (declaresBinding(statement) || TypeScriptMorphNode.isEmptyStatement(statement)) {
-                    return [];
-                }
-                previousEnd = statement.getEnd();
-                return sourceReplacement(statement, []);
-            });
+            previousEnd = statement.getEnd();
+            return sourceReplacement(statement, []);
         });
     });
+    if (edits.length > 0) {
+        preparation.applyEdits(edits);
+    }
 }
