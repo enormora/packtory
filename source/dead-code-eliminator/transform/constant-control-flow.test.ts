@@ -53,7 +53,25 @@ suite('constant control flow', function () {
             [ 'export const result=0||2;', 'export const result=(2);' ],
             [ 'export const result=1&&2;', 'export const result=(2);' ],
             [ 'export const result=1||2;', 'export const result=(1);' ],
+            [ 'export const result={} ? 1 : 2;', 'export const result=(1);' ],
+            [ 'export const result=({})&&2;', 'export const result=(2);' ],
+            [ 'export const result=({})||2;', 'export const result=(0, ({}));' ],
+            [ 'export const result=({})??2;', 'export const result=(0, ({}));' ],
+            [ 'class Empty{}export const result=new Empty()?1:2;', 'class Empty{}export const result=(1);' ],
+            [ 'export const result=new class {}?1:2;', 'export const result=(1);' ],
+            [ 'export const result={value:missing}?1:2;', 'export const result=({value:missing}, (1));' ],
+            [ 'if({}){effect();}else{unreachable();}', '{effect();}' ],
             [ '1+1;', ';' ],
+            [ 'do{}while(false);', ';' ],
+            [ 'do;while(false);', ';' ],
+            [ 'do{{;;}}while(false);', ';' ],
+            [ 'do{;effect();}while(false);', 'do{;effect();}while(false);' ],
+            [ 'do{}while(true);', 'do{}while(true);' ],
+            [ 'do{}while(missing);', 'do{}while(missing);' ],
+            [
+                'export const result={__proto__:null,__proto__:null}?1:2;',
+                'export const result={__proto__:null,__proto__:null}?1:2;'
+            ],
             [ 'if(false){let value=1;}else{effect();}', '{effect();}' ]
         ]
     ) {

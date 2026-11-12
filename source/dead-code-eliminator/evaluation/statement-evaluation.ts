@@ -23,6 +23,19 @@ import { evaluateSwitch } from './switch-evaluation.ts';
 
 type LoopStatement = DoStatement | ForStatement | WhileStatement;
 
+function initializeHoistedDeclaration(declaration: VariableDeclaration, context: EvaluationContext): boolean {
+    const reference = context.locals.get(declaration);
+    if (reference === undefined) {
+        return false;
+    }
+    const initializer = declaration.getInitializer();
+    if (initializer === undefined) {
+        return true;
+    }
+    const value = context.evaluate(initializer, context);
+    return value !== undefined && reference.assign(value) !== undefined;
+}
+
 function declareLocal(
     declaration: VariableDeclaration,
     kind: VariableDeclarationKind,
@@ -45,10 +58,17 @@ function declareLocal(
 
 function declareLocals(list: VariableDeclarationList, context: EvaluationContext): boolean {
     const kind = list.getDeclarationKind();
-    const kinds = [ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Using ];
+    const kinds = [
+        VariableDeclarationKind.Const,
+        VariableDeclarationKind.Let,
+        VariableDeclarationKind.Using,
+        VariableDeclarationKind.Var
+    ];
     return kinds.includes(kind) &&
         list.getDeclarations().every(function (declaration) {
-            return declareLocal(declaration, kind, context);
+            return kind === VariableDeclarationKind.Var
+                ? initializeHoistedDeclaration(declaration, context)
+                : declareLocal(declaration, kind, context);
         });
 }
 
@@ -193,7 +213,10 @@ export function evaluateStatement(statement: Statement, context: EvaluationConte
         [SyntaxKind.BreakStatement]: executeBreak,
         [SyntaxKind.ContinueStatement]: executeContinue,
         [SyntaxKind.VariableStatement]: executeVariable,
-        [SyntaxKind.ExpressionStatement]: executeExpression
+        [SyntaxKind.ExpressionStatement]: executeExpression,
+        [SyntaxKind.EmptyStatement]() {
+            return normalCompletion;
+        }
     };
     return context.consume() ? evaluators[statement.getKind()]?.(statement, context) : undefined;
 }

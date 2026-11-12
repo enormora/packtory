@@ -61,7 +61,7 @@ suite('bundle preparation convergence', function () {
 
     test('retains remaining computation when dependencies keep changing', function () {
         const [ file, dependency ] = multiFileBindingsFor([
-            { filePath: '/repo/index.js', content: 'const unused=unknown();export{};' },
+            { filePath: '/repo/index.js', content: 'const unused=unknown.property;export{};' },
             { filePath: '/repo/dependency.js', content: 'export const value=0;' }
         ]);
         assertDefined(file);
@@ -75,7 +75,7 @@ suite('bundle preparation convergence', function () {
             }),
             resolveRuntimeModule,
             function (expression) {
-                assert.strictEqual(expression.getText(), 'unknown()');
+                assert.strictEqual(expression.getText(), 'unknown.property');
                 observations += 1;
                 assert.ok(observations <= 32);
                 dependency.sourceFile.replaceWithText(`export const value=${observations};`);
@@ -83,7 +83,7 @@ suite('bundle preparation convergence', function () {
             }
         );
         assert.strictEqual(observations, 32);
-        assert.strictEqual(preparation.sourceFile.getFullText(), 'const unused=unknown();export{};');
+        assert.strictEqual(preparation.sourceFile.getFullText(), 'const unused=unknown.property;export{};');
     });
 
     test('folds imported computations through successive bundle passes', function () {

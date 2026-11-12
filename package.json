@@ -29,6 +29,7 @@
     },
     "dependencies": {
         "@arethetypeswrong/core": "0.18.5",
+        "@babel/parser": "7.29.12",
         "@cyclonedx/cyclonedx-library": "10.4.0",
         "@jridgewell/trace-mapping": "0.3.31",
         "@octokit/core": "7.0.8",

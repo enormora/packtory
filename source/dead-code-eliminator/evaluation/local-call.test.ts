@@ -9,6 +9,13 @@ import { createPureCallResolver } from './pure-local-call.ts';
 import type { PrimitiveValue } from './primitive-value.ts';
 
 suite('bounded local evaluation values', function () {
+    test('does not evaluate a call in a module with an early error elsewhere', function () {
+        const content = 'function compute(){return 42;}const invalid={__proto__:null,__proto__:null};' +
+            'const result=compute();export{};';
+        const call = variableInitializer(content, 'result').asKindOrThrow(SyntaxKind.CallExpression);
+        assert.strictEqual(evaluateLocalCall(call), undefined);
+    });
+
     suite('evaluation limits', function () {
         for (const [ depth, expected ] of [ [ 31, { value: 42 } ], [ 32, undefined ] ] as const) {
             test(`bounds recursive evaluation at input depth ${String(depth)}`, function () {

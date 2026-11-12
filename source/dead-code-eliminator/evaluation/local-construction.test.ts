@@ -52,7 +52,6 @@ suite('local construction evaluation', function () {
             'declare class Empty{}const result=new Empty();export {};',
             'let Empty=class{};const result=new Empty();export {};',
             'class Empty{value=1;}const result=new Empty();export {};',
-            'class Empty{constructor(){}}const result=new Empty();export {};',
             'class Empty{}const result=new Empty(...[]);export {};',
             'class Empty{}const result=new Empty().missing;export {};',
             'const holder={Empty:class{}};const result=new holder.Empty();export {};',
@@ -65,6 +64,16 @@ suite('local construction evaluation', function () {
             assert.strictEqual(createSourceEvaluation(initializer.getSourceFile()).canDiscard(initializer), false);
         });
     }
+
+    test('proves empty explicit construction without serializing the instance', function () {
+        const initializer = variableInitializer(
+            'class Empty{constructor(){}}const result=new Empty();export {};',
+            'result'
+        );
+        const evaluation = createSourceEvaluation(initializer.getSourceFile());
+        assert.strictEqual(evaluation.canDiscard(initializer), true);
+        assert.strictEqual(evaluation.primitiveValue(initializer), undefined);
+    });
 
     test('does not infer runtime constructors from another script file', function () {
         const initializer = initializerFromProjectFiles([

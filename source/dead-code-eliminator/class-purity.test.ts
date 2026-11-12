@@ -4,7 +4,7 @@ import { SyntaxKind, type ClassDeclaration, type Expression } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { resolveRuntimeModule } from './runtime-module-resolution.ts';
 import { createExpressionPurityChecker } from './pure-expression.ts';
-import { defaultClassConstructionIsPure, hasClassImpurity } from './class-purity.ts';
+import { classConstructionIsPure, hasClassImpurity } from './class-purity.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 
 function classDeclaration(content: string): ClassDeclaration {
@@ -19,7 +19,7 @@ const propertyKeyFor = function (expression: Expression): string | undefined {
 
 suite('class-purity', function () {
     test('does not infer default construction for decorated classes', function () {
-        assert.strictEqual(defaultClassConstructionIsPure(classDeclaration('@decorate class Example {}')), false);
+        assert.strictEqual(classConstructionIsPure(classDeclaration('@decorate class Example {}')), false);
     });
 
     suite('heritage', function () {
@@ -60,20 +60,22 @@ suite('class-purity', function () {
         assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), false);
     });
 
-    test('hasClassImpurity returns true when the class itself is decorated', function () {
-        const declaration = classDeclaration(
-            'function dec(_: unknown): void {}\n@dec\nclass Foo { method() { return 1; } }'
-        );
+    suite('decorators', function () {
+        test('hasClassImpurity returns true when the class itself is decorated', function () {
+            const declaration = classDeclaration(
+                'function dec(_: unknown): void {}\n@dec\nclass Foo { method() { return 1; } }'
+            );
 
-        assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
-    });
+            assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
+        });
 
-    test('hasClassImpurity returns true when a method member is decorated', function () {
-        const declaration = classDeclaration(
-            'function dec(_: unknown, __: unknown): void {}\nclass Foo { @dec method() { return 1; } }'
-        );
+        test('hasClassImpurity returns true when a method member is decorated', function () {
+            const declaration = classDeclaration(
+                'function dec(_: unknown, __: unknown): void {}\nclass Foo { @dec method() { return 1; } }'
+            );
 
-        assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
+            assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
+        });
     });
 
     test('hasClassImpurity returns true when a static field has an impure initializer', function () {
@@ -94,11 +96,11 @@ suite('class-purity', function () {
         assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
     });
 
-    test('hasClassImpurity returns false when a static field has a pure literal initializer', function () {
-        const declaration = classDeclaration('class Foo { static items = 1; }');
-
-        assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), false);
-    });
+    for (const content of [ 'class Foo { static items = 1; }', 'class Local{static value;}' ]) {
+        test(`hasClassImpurity permits harmless static fields in ${content}`, function () {
+            assert.strictEqual(hasClassImpurity(classDeclaration(content), isPure, propertyKeyFor), false);
+        });
+    }
 
     test('hasClassImpurity returns true when the class declares a static initialization block', function () {
         const declaration = classDeclaration('class Foo { static { console.log("init"); } }');

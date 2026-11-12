@@ -1,9 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { specializeExpressions } from './expression-specialization.ts';
-import { prepareInitialRuntimeSource } from './runtime-source-preparation.ts';
+import { prepareInitialRuntimeSource, prepareResolvedRuntimeSource } from './runtime-source-preparation.ts';
 
 suite('runtime preparation convergence', function () {
     for (const literal of [ '-0', '-1' ]) {
@@ -16,13 +17,20 @@ suite('runtime preparation convergence', function () {
         });
     }
 
-    for (const content of [ '', 'eval("unknown()");(()=>42)();' ]) {
+    for (
+        const content of [
+            '',
+            'eval("unknown()");(()=>42)();',
+            'function identity(value){return value;}const invalid={__proto__:null,__proto__:null};' +
+            'export const result=identity(42);'
+        ]
+    ) {
         test(`keeps ineligible preparation unchanged for ${content}`, function () {
             const preparation = createSourcePreparation(createProject().createSourceFile('input.ts', content));
             prepareInitialRuntimeSource({
                 ...preparation,
                 applyEdits() {
-                    assert.fail('empty or dynamically scoped sources must not schedule transformations');
+                    assert.fail('ineligible sources must not schedule transformations');
                 }
             });
             assert.strictEqual(preparation.sourceFile.getFullText(), content);
@@ -63,5 +71,42 @@ suite('runtime preparation convergence', function () {
         };
         prepareInitialRuntimeSource(changingPreparation);
         assert.strictEqual(applications, 64);
+    });
+
+    suite('runtime source preparation', function () {
+        test('does not request imported values for a source with early errors', function () {
+            const content = 'import {answer} from "./dependency.js";' +
+                'const invalid={__proto__:null,__proto__:null};export const value=answer;';
+            const source = createProject().createSourceFile('index.js', content);
+            prepareResolvedRuntimeSource(createSourcePreparation(source), function () {
+                return assert.fail('Invalid sources cannot supply imported value proofs');
+            }, function () {
+                return assert.fail('Invalid sources cannot supply purity proofs');
+            });
+            assert.strictEqual(source.getFullText(), content);
+        });
+
+        test('specializes imported values before local evaluation', function () {
+            const source = createProject().createSourceFile(
+                'index.js',
+                'import {answer} from "./dependency.js";export const value=answer*2;'
+            );
+            prepareResolvedRuntimeSource(createSourcePreparation(source), function (expression) {
+                return expression.getText() === 'answer' ? { value: 21 } : undefined;
+            }, function () {
+                return false;
+            });
+            assert.strictEqual(source.getVariableDeclarationOrThrow('value').getInitializerOrThrow().getText(), '(42)');
+        });
+
+        test('folds local calls before reachability analysis', function () {
+            const source = createProject().createSourceFile(
+                'index.js',
+                'function compute(){return 21*2;}export const value=compute();'
+            );
+            prepareInitialRuntimeSource(createSourcePreparation(source));
+            assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.CallExpression).length, 0);
+            assert.strictEqual(source.getVariableDeclarationOrThrow('value').getInitializerOrThrow().getText(), '(42)');
+        });
     });
 });
