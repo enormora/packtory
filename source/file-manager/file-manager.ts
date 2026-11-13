@@ -27,6 +27,7 @@ type DirectoryStatus = {
 export type FileManager = {
     checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
     checkDirectory: (fileOrFolderPath: string) => Promise<DirectoryStatus>;
+    isExecutable: (filePath: string) => Promise<boolean>;
     readFile: (filePath: string) => Promise<string>;
     readFileBytes: (filePath: string) => Promise<Buffer>;
     writeFile: (filePath: string, content: string) => Promise<void>;
@@ -44,6 +45,15 @@ export type FileManager = {
 
 const executableFileMode = 0o755;
 const regularFileMode = 0o644;
+
+export function reuseFileRead<Value>(read: (filePath: string) => Promise<Value>): (filePath: string) => Promise<Value> {
+    const reads = new Map<string, Promise<Value>>();
+    return async function (filePath) {
+        const result = reads.get(filePath) ?? read(filePath);
+        reads.set(filePath, result);
+        return result;
+    };
+}
 
 async function checkDirectoryStatus(
     hostFileSystem: Readonly<FileManagerDependencies['hostFileSystem']>,
@@ -120,6 +130,10 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         setExecutable,
 
         readFile,
+
+        async isExecutable(filePath) {
+            return isExecutableFileMode(await getFileMode(filePath));
+        },
 
         readFileBytes,
 

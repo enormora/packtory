@@ -7,6 +7,9 @@ import type {
     ResolutionKind
 } from '@arethetypeswrong/core';
 import type { problemKindInfo as ProblemKindInformation } from '@arethetypeswrong/core/problems';
+import { z } from 'zod/mini';
+import type { AnalysisStorage } from '../analysis-storage.ts';
+import { createPackageAnalysisIdentity } from '../package-analysis-identity.ts';
 import { installedPackageFilePath } from '../../common/package-layout.ts';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
 
@@ -35,6 +38,7 @@ export type PackageResolutionAnalyzer = (
 ) => Promise<PackageResolutionReport>;
 
 export type PackageResolutionDependencies = {
+    readonly storage: AnalysisStorage;
     readonly Package: typeof TypesPackage;
     readonly checkPackage: (typesPackage: TypesPackage) => Promise<CheckResult>;
     readonly problemKindInformation: typeof ProblemKindInformation;
@@ -78,6 +82,22 @@ export function createPackageResolutionAnalyzer(
         problemAffectsResolutionKind,
         problemAffectsEntrypointResolution
     } = dependencies;
+    const identities = createPackageAnalysisIdentity();
+    const reportSchema = z.union([
+        z.object({ kind: z.literal('missing-declarations') }),
+        z.object({
+            kind: z.literal('analyzed'),
+            entrypoints: z.array(z.string()),
+            problems: z.array(z.object({
+                kind: z.custom<ProblemKind>(function (value) {
+                    return typeof value === 'string' && Object.hasOwn(problemKindInformation, value);
+                }),
+                shortDescription: z.string(),
+                affectedResolutionKinds: z.array(z.enum([ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ])),
+                affectedEntrypoints: z.array(z.string())
+            }))
+        })
+    ]);
 
     function toProblemReport(
         problem: Problem,
@@ -98,7 +118,10 @@ export function createPackageResolutionAnalyzer(
         };
     }
 
-    return async function analyzePackageResolution(publishedPackage, resolutionKinds) {
+    async function analyzePackageResolution(
+        publishedPackage: Readonly<PublishedPackageWithManifest>,
+        resolutionKinds: readonly ResolutionKind[]
+    ): Promise<PackageResolutionReport> {
         const result = await checkPackage(
             new Package(packageFileContents(publishedPackage), publishedPackage.name, publishedPackage.version)
         );
@@ -114,5 +137,20 @@ export function createPackageResolutionAnalyzer(
                 return toProblemReport(problem, result, resolutionKinds);
             })
         };
+    }
+    return async function (publishedPackage, resolutionKinds) {
+        const key = [
+            publishedPackage.name,
+            publishedPackage.version,
+            resolutionKinds,
+            identities.package(publishedPackage)
+        ];
+        const cached = await dependencies.storage.read(key, reportSchema);
+        if (cached !== null) {
+            return cached;
+        }
+        const report = await analyzePackageResolution(publishedPackage, resolutionKinds);
+        await dependencies.storage.write(key, report);
+        return report;
     };
 }

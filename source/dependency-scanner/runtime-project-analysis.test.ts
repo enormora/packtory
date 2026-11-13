@@ -26,6 +26,39 @@ async function analyzeSources(
 }
 
 suite('runtime project analysis', function () {
+    test('loads the requested entry files together without adding unrelated sources', async function () {
+        const project = await analyzeSources({
+            '/source/first.js': 'export const first = 1;',
+            '/source/second.js': 'export const second = 2;',
+            '/source/unreachable.js': 'import "missing-package";'
+        }, false);
+        project.includeEntryFiles([ '/source/first.js', '/source/second.js' ]);
+        assert.deepStrictEqual(
+            project.getProject().getSourceFiles().map(function (source) {
+                return source.getFilePath();
+            }),
+            [ '/source/first.js', '/source/second.js' ]
+        );
+        assert.deepStrictEqual(project.getReferencedModules('/source/first.js'), []);
+        assert.deepStrictEqual(project.getReferencedModules('/source/second.js'), []);
+    });
+
+    test('loads requested sources without retaining unrelated syntax trees', async function () {
+        const project = await analyzeSources({
+            '/source/entry.js': 'export const live = 42;',
+            '/source/unreachable.js': 'import "missing-package";'
+        }, false);
+        assert.deepStrictEqual(project.getProject().getSourceFiles(), []);
+        assert.deepStrictEqual(project.getReferencedModules('/source/entry.js'), []);
+        assert.deepStrictEqual(
+            project.getProject().getSourceFiles().map(function (source) {
+                return source.getFilePath();
+            }),
+            [ '/source/entry.js' ]
+        );
+        assert.deepStrictEqual(project.getReferencedModules('/source/missing.js'), []);
+    });
+
     for (const extension of [ 'js', 'mjs', 'cjs' ]) {
         test(`records external dependencies in standalone .${extension} roots`, async function () {
             const filePath = `/source/entry.${extension}`;
@@ -94,6 +127,8 @@ suite('runtime project analysis', function () {
             '/source/entry.d.ts': 'export declare const value: string;'
         }, true);
 
+        assert.deepStrictEqual(project.getProject().getSourceFiles(), []);
+        assert.deepStrictEqual(project.getReferencedModules('/source/entry.d.ts'), []);
         assert.deepStrictEqual(
             project.getProject().getSourceFiles().map(function (sourceFile) {
                 return sourceFile.getFilePath();

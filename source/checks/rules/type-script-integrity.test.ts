@@ -254,62 +254,87 @@ suite('type-script-integrity', function () {
         });
     });
 
-    test('analyzes package resolution for the checked resolution kinds', async function () {
-        const analyzePackageResolution = fake.resolves(noProblemsReport);
-        const publishedPackages = publishedPackagesFor('package');
-
-        await runRule({
-            rule: ruleFor({ analyzePackageResolution }),
-            settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages,
-            bundleNames: [ 'package' ]
+    suite('package resolution', function () {
+        test('bounds concurrent compiler checks while validating every package', async function () {
+            let active = 0;
+            let maximumActive = 0;
+            const analyzePackageResolution = fake(async function () {
+                active += 1;
+                maximumActive = Math.max(maximumActive, active);
+                await Promise.resolve();
+                active -= 1;
+                return noProblemsReport;
+            });
+            const issues = await runRule({
+                rule: ruleFor({ analyzePackageResolution }),
+                settings: { typeScriptIntegrity: { enabled: true } },
+                publishedPackages: publishedPackagesFor('first', 'second'),
+                bundleNames: [ 'first', 'second' ]
+            });
+            assert.deepStrictEqual(issues, []);
+            assert.strictEqual(analyzePackageResolution.callCount, 2);
+            assert.strictEqual(maximumActive, 1);
         });
 
-        assert.deepStrictEqual(analyzePackageResolution.args, [
-            [ publishedPackages.get('package'), [ 'node16-esm', 'bundler' ] ]
-        ]);
-    });
+        test('analyzes package resolution for the checked resolution kinds', async function () {
+            const analyzePackageResolution = fake.resolves(noProblemsReport);
+            const publishedPackages = publishedPackagesFor('package');
 
-    test('summarizes the reported resolution problems', async function () {
-        const issues = await runRule({
-            rule: ruleFor({
-                analyzePackageResolution: fake.resolves({
-                    kind: 'analyzed',
-                    entrypoints: [ '.' ],
-                    problems: [
-                        {
-                            kind: 'CommonJavaScriptResolvesToEcmaScriptModule',
-                            shortDescription: 'Missing `export =`',
-                            affectedResolutionKinds: [ 'bundler' ],
-                            affectedEntrypoints: [ '.' ]
-                        }
-                    ]
-                })
-            }),
-            settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages: publishedPackagesFor('package'),
-            bundleNames: [ 'package' ]
+            await runRule({
+                rule: ruleFor({ analyzePackageResolution }),
+                settings: { typeScriptIntegrity: { enabled: true } },
+                publishedPackages,
+                bundleNames: [ 'package' ]
+            });
+
+            assert.deepStrictEqual(analyzePackageResolution.args, [
+                [ publishedPackages.get('package'), [ 'node16-esm', 'bundler' ] ]
+            ]);
         });
 
-        assert.deepStrictEqual(issues, [
-            'Package "package" failed TypeScript integrity: Missing `export =` ' +
-            'affecting entrypoints "." in resolutions "bundler"'
-        ]);
-    });
+        test('summarizes the reported resolution problems', async function () {
+            const issues = await runRule({
+                rule: ruleFor({
+                    analyzePackageResolution: fake.resolves({
+                        kind: 'analyzed',
+                        entrypoints: [ '.' ],
+                        problems: [
+                            {
+                                kind: 'CommonJavaScriptResolvesToEcmaScriptModule',
+                                shortDescription: 'Missing `export =`',
+                                affectedResolutionKinds: [ 'bundler' ],
+                                affectedEntrypoints: [ '.' ]
+                            }
+                        ]
+                    })
+                }),
+                settings: { typeScriptIntegrity: { enabled: true } },
+                publishedPackages: publishedPackagesFor('package'),
+                bundleNames: [ 'package' ]
+            });
 
-    test('turns a failing package-resolution analysis into a check issue', async function () {
-        const issues = await runRule({
-            rule: ruleFor({
-                analyzePackageResolution: fake.rejects(new Error('File not found: /node_modules/package/package.json'))
-            }),
-            settings: { typeScriptIntegrity: { enabled: true } },
-            publishedPackages: publishedPackagesFor('package'),
-            bundleNames: [ 'package' ]
+            assert.deepStrictEqual(issues, [
+                'Package "package" failed TypeScript integrity: Missing `export =` ' +
+                'affecting entrypoints "." in resolutions "bundler"'
+            ]);
         });
 
-        assert.deepStrictEqual(issues, [
-            'Package "package" failed TypeScript integrity: Error: File not found: /node_modules/package/package.json'
-        ]);
+        test('turns a failing package-resolution analysis into a check issue', async function () {
+            const issues = await runRule({
+                rule: ruleFor({
+                    analyzePackageResolution: fake.rejects(
+                        new Error('File not found: /node_modules/package/package.json')
+                    )
+                }),
+                settings: { typeScriptIntegrity: { enabled: true } },
+                publishedPackages: publishedPackagesFor('package'),
+                bundleNames: [ 'package' ]
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "package" failed TypeScript integrity: Error: File not found: /node_modules/package/package.json'
+            ]);
+        });
     });
 
     test('checks all packaged declarations by default', async function () {

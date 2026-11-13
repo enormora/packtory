@@ -1,4 +1,18 @@
 {
+    "performance": {
+        "maximumAnalysisGrowthMultiplier": 2,
+        "maximumPackageGrowthMultiplier": 3,
+        "maximumValidationSequenceMultiplier": 1.25,
+        "maximumSourceReadAmplification": 2,
+        "maximumMetadataReadAmplification": 2,
+        "maximumInventoryPayloadBytes": 0,
+        "maximumRepeatedAnalysisFraction": 0.25,
+        "maximumAdditionalResidentMiB": 128,
+        "analysisMedianMilliseconds": 2500,
+        "vendoringMedianMilliseconds": 1000,
+        "packingMedianMilliseconds": 5000,
+        "publishingMedianMilliseconds": 8000
+    },
     "normalization": {
         "baselineMilliseconds": 150
     },

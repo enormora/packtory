@@ -206,8 +206,8 @@ suite('resource-resolver', function () {
         test('scans promoted companions when one root among many has declarations', async function () {
             const scan = configureScanForFourGraphs(
                 createGraph({ rootFile: '/source/index.js' }),
-                createGraph({ rootFile: '/source/index.d.ts' }),
                 createGraph({ rootFile: '/source/other.js' }),
+                createGraph({ rootFile: '/source/index.d.ts' }),
                 createGraph({ rootFile: '/source/feature.d.ts' })
             );
             const { resolver } = createResolver({ readableFiles: [ '/source/feature.d.ts' ], scan });

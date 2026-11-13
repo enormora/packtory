@@ -1,19 +1,22 @@
-import path from 'node:path';
+import {
+    loadBenchmarkConfiguration,
+    type BenchmarkConfiguration,
+    type BenchmarkFiles
+} from './benchmark-configuration.ts';
 import {
     commandLineInterfaceWorkloadSizes,
     workloadSizes,
     type CommandLineInterfaceResponsivenessMeasurement,
-    type ThresholdsFile,
-    type ThroughputBenchmarkMeasurement,
-    type WorkloadsFile
+    type ThroughputBenchmarkMeasurement
 } from './benchmark-types.ts';
-import { formatMilliseconds, formatMultiplier } from './benchmark-formatting.ts';
-import { readJavaScriptObjectNotationFile } from './benchmark-structured-data.ts';
-import { parseThresholdsFile, parseWorkloadsFile } from './benchmark-file-codecs.ts';
-import { measureNormalization } from './measure-normalization.ts';
+import { formatMilliseconds } from './benchmark-formatting.ts';
 import { runResolveAndLinkBenchmark } from './resolve-and-link.benchmark.ts';
 import { runBuildArtifactsBenchmark } from './build-artifacts.benchmark.ts';
 import { runCommandLineInterfaceResponsivenessBenchmark } from './command-line-interface-responsiveness.benchmark.ts';
+import { runReleaseAnalysisMemoryBenchmark } from './release-analysis-memory.benchmark.ts';
+import { createBenchmarkChecks, type BenchmarkCheck } from './benchmark-checks.ts';
+import { runConsumerPerformanceBenchmarks } from './consumer-performance.benchmark.ts';
+import { runPublicModuleUsageBenchmark } from './public-module-usage.benchmark.ts';
 
 function writeLine(message: string): void {
     process.stdout.write(`${message}\n`);
@@ -22,10 +25,6 @@ function writeLine(message: string): void {
 function writeHeading(title: string): void {
     writeLine('');
     writeLine(title);
-}
-
-function getThresholdMultiplier(currentNormalizationMilliseconds: number, baselineMilliseconds: number): number {
-    return currentNormalizationMilliseconds / baselineMilliseconds;
 }
 
 function formatThroughputRow(measurement: ThroughputBenchmarkMeasurement, effectiveThreshold: number): string {
@@ -95,57 +94,50 @@ function validateCommandLineInterfaceMeasurement(
     }
 }
 
-type BenchmarkFiles = {
-    readonly thresholds: ThresholdsFile;
-    readonly workloads: WorkloadsFile;
-};
-
-async function loadBenchmarkFiles(benchmarksDirectory: string): Promise<BenchmarkFiles> {
-    const workloadsPath = path.join(benchmarksDirectory, 'workloads.json');
-    const thresholdsPath = path.join(benchmarksDirectory, 'thresholds.json');
-
-    const [ rawWorkloads, rawThresholds ] = await Promise.all([
-        readJavaScriptObjectNotationFile(workloadsPath),
-        readJavaScriptObjectNotationFile(thresholdsPath)
-    ]);
-
-    return {
-        thresholds: parseThresholdsFile(rawThresholds),
-        workloads: parseWorkloadsFile(rawWorkloads)
-    };
-}
-
-async function runResolveBenchmarks(thresholdMultiplier: number, benchmarkFiles: BenchmarkFiles): Promise<void> {
+async function runResolveBenchmarks(
+    thresholdMultiplier: number,
+    benchmarkFiles: BenchmarkFiles,
+    check: BenchmarkCheck
+): Promise<void> {
     const { thresholds, workloads } = benchmarkFiles;
 
     writeHeading('Throughput Benchmarks');
 
     for (const size of workloadSizes) {
-        const measurement = await runResolveAndLinkBenchmark(size, workloads);
-        const configuredThresholdMilliseconds = thresholds.throughput['resolve-and-link'][size].medianMilliseconds *
-            thresholdMultiplier;
+        await check(`resolve-and-link/${size}`, async function () {
+            const measurement = await runResolveAndLinkBenchmark(size, workloads);
+            const configuredThresholdMilliseconds = thresholds.throughput['resolve-and-link'][size].medianMilliseconds *
+                thresholdMultiplier;
 
-        writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
-        validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
+            writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
+            validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
+        });
     }
 }
 
-async function runBuildBenchmarks(thresholdMultiplier: number, benchmarkFiles: BenchmarkFiles): Promise<void> {
+async function runBuildBenchmarks(
+    thresholdMultiplier: number,
+    benchmarkFiles: BenchmarkFiles,
+    check: BenchmarkCheck
+): Promise<void> {
     const { thresholds, workloads } = benchmarkFiles;
 
     for (const size of workloadSizes) {
-        const measurement = await runBuildArtifactsBenchmark(size, workloads);
-        const configuredThresholdMilliseconds = thresholds.throughput['build-artifacts'][size].medianMilliseconds *
-            thresholdMultiplier;
+        await check(`build-artifacts/${size}`, async function () {
+            const measurement = await runBuildArtifactsBenchmark(size, workloads);
+            const configuredThresholdMilliseconds = thresholds.throughput['build-artifacts'][size].medianMilliseconds *
+                thresholdMultiplier;
 
-        writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
-        validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
+            writeLine(formatThroughputRow(measurement, configuredThresholdMilliseconds));
+            validateThroughputMeasurement(measurement, configuredThresholdMilliseconds);
+        });
     }
 }
 
 async function runCommandLineInterfaceBenchmarks(
     thresholdMultiplier: number,
-    benchmarkFiles: BenchmarkFiles
+    benchmarkFiles: BenchmarkFiles,
+    check: BenchmarkCheck
 ): Promise<void> {
     const { thresholds, workloads } = benchmarkFiles;
 
@@ -155,35 +147,39 @@ async function runCommandLineInterfaceBenchmarks(
     );
 
     for (const size of commandLineInterfaceWorkloadSizes) {
-        const measurement = await runCommandLineInterfaceResponsivenessBenchmark(size, workloads);
-        const configuredThresholds = thresholds.responsiveness['publish-command-line-interface'][size];
-        const scaledP99Milliseconds = configuredThresholds.p99Milliseconds * thresholdMultiplier;
-        const scaledMaximumMilliseconds = configuredThresholds.maximumMilliseconds * thresholdMultiplier;
+        await check(`publish-command-line-interface/${size}`, async function () {
+            const measurement = await runCommandLineInterfaceResponsivenessBenchmark(size, workloads);
+            const configuredThresholds = thresholds.responsiveness['publish-command-line-interface'][size];
+            const scaledP99Milliseconds = configuredThresholds.p99Milliseconds * thresholdMultiplier;
+            const scaledMaximumMilliseconds = configuredThresholds.maximumMilliseconds * thresholdMultiplier;
 
-        writeLine(formatCommandLineInterfaceRow(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds));
-        validateCommandLineInterfaceMeasurement(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds);
+            writeLine(formatCommandLineInterfaceRow(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds));
+            validateCommandLineInterfaceMeasurement(measurement, scaledP99Milliseconds, scaledMaximumMilliseconds);
+        });
     }
 }
 
-function printNormalization(normalizationMilliseconds: number, thresholdMultiplier: number): void {
-    writeHeading('Benchmark Normalization');
-    writeLine(`- baseline workload median: ${formatMilliseconds(normalizationMilliseconds)}`);
-    writeLine(`- threshold multiplier: ${formatMultiplier(thresholdMultiplier)}`);
+async function runConfiguredBenchmarks(configuration: BenchmarkConfiguration, check: BenchmarkCheck): Promise<void> {
+    const { files: benchmarkFiles, thresholdMultiplier } = configuration;
+    writeHeading('Release Analysis Memory Benchmark');
+    await check('release-analysis-memory', async function () {
+        await runReleaseAnalysisMemoryBenchmark(benchmarkFiles.thresholds.performance.maximumAdditionalResidentMiB);
+    });
+    writeHeading('Analysis, Vendoring, Packing and Publishing Benchmarks');
+    await check('public-module-usage/repeated-lookups', async function () {
+        await runPublicModuleUsageBenchmark(benchmarkFiles.workloads.performanceWorkload, writeLine);
+    });
+    await runConsumerPerformanceBenchmarks(configuration, check, writeLine);
+    await runResolveBenchmarks(thresholdMultiplier, benchmarkFiles, check);
+    await runBuildBenchmarks(thresholdMultiplier, benchmarkFiles, check);
+    await runCommandLineInterfaceBenchmarks(thresholdMultiplier, benchmarkFiles, check);
 }
 
 async function main(): Promise<void> {
-    const benchmarksDirectory = path.join(process.cwd(), 'benchmarks');
-    const benchmarkFiles = await loadBenchmarkFiles(benchmarksDirectory);
-    const normalizationMilliseconds = await measureNormalization();
-    const thresholdMultiplier = getThresholdMultiplier(
-        normalizationMilliseconds,
-        benchmarkFiles.thresholds.normalization.baselineMilliseconds
-    );
-
-    printNormalization(normalizationMilliseconds, thresholdMultiplier);
-    await runResolveBenchmarks(thresholdMultiplier, benchmarkFiles);
-    await runBuildBenchmarks(thresholdMultiplier, benchmarkFiles);
-    await runCommandLineInterfaceBenchmarks(thresholdMultiplier, benchmarkFiles);
+    const checks = createBenchmarkChecks(writeLine);
+    const configuration = await loadBenchmarkConfiguration(writeLine);
+    await runConfiguredBenchmarks(configuration, checks.check);
+    checks.finish();
 }
 
 await main().catch(function (error: unknown) {

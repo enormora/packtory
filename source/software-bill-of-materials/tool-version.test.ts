@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
-import { createPacktoryToolVersionResolver } from './tool-version.ts';
+import { createPacktoryToolVersionResolver, createPacktoryAnalysisIdentityResolver } from './tool-version.ts';
 
 const unresolvableExpectedMessage =
     'Cannot determine packtory tool version: neither "@packtory/cli" nor "packtory" is resolvable.' +
@@ -89,6 +89,41 @@ async function expectResolutionError(expectedResolutionError: ExpectedResolution
 }
 
 suite('tool-version', function () {
+    suite('analysis tool identity', function () {
+        test('changes when the core changes while the CLI version stays unchanged', async function () {
+            let coreVersion = '1.0.0';
+            const resolve = createPacktoryAnalysisIdentityResolver({
+                async importPackageManifest(specifier) {
+                    return specifier === 'packtory/package.json'
+                        ? { name: 'packtory', version: coreVersion }
+                        : { name: '@packtory/cli', version: '2.0.0' };
+                }
+            });
+            const before = await resolve();
+            coreVersion = '1.0.1';
+            const after = await resolve();
+            assert.notStrictEqual(after, before);
+            assert.match(after, /packtory@1\.0\.1/u);
+            assert.match(after, /@packtory\/cli@2\.0\.0/u);
+        });
+
+        test('supports a standalone core installation', async function () {
+            const resolve = createPacktoryAnalysisIdentityResolver({
+                importPackageManifest: createPacktoryFallbackImporter()
+            });
+            assert.match(await resolve(), /packtory@4\.5\.6/u);
+        });
+
+        test('rejects an identity when neither package can be resolved', async function () {
+            const resolve = createPacktoryAnalysisIdentityResolver({
+                importPackageManifest: fake.rejects(
+                    Object.assign(new Error('missing'), { code: 'ERR_MODULE_NOT_FOUND' })
+                )
+            });
+            await assert.rejects(resolve(), { message: unresolvableExpectedMessage });
+        });
+    });
+
     suite('successful resolution', function () {
         test('returns the version from @packtory/cli when its package.json resolves inside node_modules', async function () {
             await expectResolvedVersion({

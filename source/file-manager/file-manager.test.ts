@@ -263,6 +263,23 @@ suite('file-manager', function () {
     });
 
     suite('text reads and metadata', function () {
+        for (const [ mode, executable ] of [ [ 0o644, false ], [ 0o755, true ] ] as const) {
+            test(`reads executable status without reading file contents for mode ${mode}`, async function () {
+                const readFile = fake.rejects(new Error('File contents must not be read'));
+                const fileStatus = fake.resolves({ mode });
+                const fileManager = fileManagerFactory({ fileStatus, readFile });
+                assert.strictEqual(await fileManager.isExecutable('/binary'), executable);
+                assert.deepStrictEqual(fileStatus.firstCall.args, [ '/binary' ]);
+                assert.strictEqual(readFile.callCount, 0);
+            });
+        }
+
+        test('propagates permission lookup failures', async function () {
+            const error = new Error('File was removed');
+            const fileManager = fileManagerFactory({ fileStatus: fake.rejects(error) });
+            await assert.rejects(fileManager.isExecutable('/missing'), error);
+        });
+
         test('readFile() reads the given file and returns its content', async function () {
             const readFile = fake.resolves('the-content');
             const fileManager = fileManagerFactory({ readFile });

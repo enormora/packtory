@@ -1,5 +1,4 @@
 import assert from 'node:assert';
-import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import {
     createVendorMaterializer,
     type MaterializedExternals,
@@ -11,9 +10,7 @@ import { createFakeFileManager, type FakeFileManager } from './fake-file-manager
 
 type ReadabilityResponse = { readonly value: { readonly isReadable: boolean; }; };
 export type StringResponse = { readonly error: Error; } | { readonly value: string; };
-type TransferableFileDescriptionResponse = { readonly error: Error; } | {
-    readonly value: TransferableFileDescription;
-};
+
 type DirectoryEntriesResponse = {
     readonly value: readonly {
         readonly name: string;
@@ -27,19 +24,25 @@ export type FakeSetup = {
     readonly realPaths: readonly StringResponse[];
     readonly listings: readonly DirectoryEntriesResponse[];
     readonly fileReads: readonly StringResponse[];
-    readonly transferableFileDescriptions?: readonly TransferableFileDescriptionResponse[];
+    readonly executableStatuses?: readonly boolean[];
 };
 
 export function setupFileManager(setup: FakeSetup): FakeFileManager {
-    return createFakeFileManager({
+    const fileManager = createFakeFileManager({
         simulatedCheckReadabilityResponses: setup.readabilities,
         simulatedRealPathResponses: setup.realPaths,
         simulatedListDirectoryResponses: setup.listings,
-        simulatedReadFileResponses: setup.fileReads,
-        ...setup.transferableFileDescriptions === undefined
-            ? {}
-            : { simulatedTransferableFileDescriptionResponses: setup.transferableFileDescriptions }
+        simulatedReadFileResponses: setup.fileReads
     });
+    let index = 0;
+    return {
+        ...fileManager,
+        async isExecutable() {
+            const executable = setup.executableStatuses?.[index] ?? false;
+            index += 1;
+            return executable;
+        }
+    };
 }
 
 export function expectOk(

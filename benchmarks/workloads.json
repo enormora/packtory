@@ -1,4 +1,14 @@
 {
+    "performanceWorkload": {
+        "sourceFileCount": 48,
+        "exportsPerFile": 24,
+        "entryPointCount": 6,
+        "integrityPackageCount": 3,
+        "deadExportsPerFile": 192,
+        "dependencyCount": 12,
+        "filesPerDependency": 8,
+        "payloadBytes": 4096
+    },
     "seedFixture": "integration-tests/fixtures/multiple-packages-with-substitution",
     "workloads": {
         "small": {

@@ -146,6 +146,9 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
     return {
         packEmitterPack,
         packtory: createPacktory({
+            async withAnalysisInputs(analyze) {
+                return analyze();
+            },
             inspectSymbols: createTestEliminator().inspectSymbols,
             packageProcessor: {
                 resolveAndLink,
@@ -173,6 +176,10 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
             },
             packEmitter: { pack: packEmitterPack as never },
             vendorMaterializer: {
+                createSession: fake.returns({
+                    materializeExternals: fake.resolves(Result
+                        .ok({ entries: [], packageNames: [], peerRequirements: new Map() }))
+                }) as never,
                 materializeExternals: fake.resolves(
                     Result.ok({
                         entries: [],

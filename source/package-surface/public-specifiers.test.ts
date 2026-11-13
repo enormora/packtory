@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import type { BundleLike } from './package-shape.ts';
-import { getPublicModuleSpecifierForSourcePath, resolvePublicModuleInputFilePath } from './public-specifiers.ts';
+import { getPublicModuleSpecifierForSourcePath } from './public-specifiers.ts';
+import { indexPublicModules } from './package-surface-index.ts';
 
 const mainRoots = { main: rootWithSource('/source/index.js', 'index.js') };
 
@@ -35,16 +36,25 @@ suite('public-specifiers', function () {
         assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/source/index.js'), 'package-a');
     });
 
-    test('resolvePublicModuleInputFilePath dispatches to the explicit resolver for explicit surfaces', function () {
-        assert.strictEqual(resolvePublicModuleInputFilePath(explicitBundle, 'package-a/entry'), '/source/index.js');
+    test('public module indexes resolve explicit specifiers', function () {
+        assert.strictEqual(
+            indexPublicModules(explicitBundle).inputFilePathBySpecifier.get('package-a/entry'),
+            '/source/index.js'
+        );
     });
 
-    test('resolvePublicModuleInputFilePath dispatches to the implicit resolver for implicit surfaces', function () {
-        assert.strictEqual(resolvePublicModuleInputFilePath(implicitBundle, 'package-a'), '/source/index.js');
+    test('public module indexes resolve implicit specifiers', function () {
+        assert.strictEqual(
+            indexPublicModules(implicitBundle).inputFilePathBySpecifier.get('package-a'),
+            '/source/index.js'
+        );
     });
 
     test('explicit and implicit dispatch keep different public-specifier shapes', function () {
-        assert.strictEqual(resolvePublicModuleInputFilePath(explicitBundle, 'package-a'), undefined);
-        assert.strictEqual(resolvePublicModuleInputFilePath(implicitBundle, 'package-a/entry'), undefined);
+        assert.strictEqual(indexPublicModules(explicitBundle).inputFilePathBySpecifier.get('package-a'), undefined);
+        assert.strictEqual(
+            indexPublicModules(implicitBundle).inputFilePathBySpecifier.get('package-a/entry'),
+            undefined
+        );
     });
 });

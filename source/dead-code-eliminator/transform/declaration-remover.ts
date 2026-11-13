@@ -1,7 +1,7 @@
 import type { SourceFile } from 'ts-morph';
 import { buildTextTransformMap, type PositionAtom } from '../../source-transformation/text-edits.ts';
 import {
-    processStatement,
+    processStatements,
     repairImportDeclarations,
     hasModuleSyntax,
     type RemovalPlan
@@ -18,10 +18,7 @@ export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): Rem
     const originalCode = sourceFile.getFullText();
     const wasModule = hasModuleSyntax(sourceFile);
     removeUnusedExports(sourceFile, plan);
-    const statements = sourceFile.getStatements();
-    for (const statement of statements) {
-        processStatement(statement, plan);
-    }
+    processStatements(sourceFile, plan);
     repairImportDeclarations(sourceFile, plan, wasModule);
     removeRedundantEmptyStatements(sourceFile);
     const transformedCode = sourceFile.getFullText();

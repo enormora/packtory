@@ -25,22 +25,37 @@ export function recordBindingRemoved(plan: RemovalPlan, name: string): void {
     }
 }
 
-function processNamedDeclaration(statement: Statement, plan: RemovalPlan): boolean {
+function removedVariableBindings(statement: Statement, plan: RemovalPlan): readonly string[] | undefined {
+    if (TypeScriptMorphNode.isVariableStatement(statement)) {
+        const declarations = statement.getDeclarations();
+        if (
+            declarations.some(function (declaration) {
+                return variableDeclarationSurvives(declaration, plan.survivingNames);
+            })
+        ) {
+            return undefined;
+        }
+        return declarations.flatMap(collectVariableDeclarationBindings).map(function (binding) {
+            return binding.name;
+        });
+    }
+    return undefined;
+}
+
+function removedStatementBindings(statement: Statement, plan: RemovalPlan): readonly string[] | undefined {
     if (!isNamedDeclaration(statement)) {
-        return false;
+        return removedVariableBindings(statement, plan);
     }
     const name = statement.getName();
     if (name === undefined || plan.survivingNames.has(name)) {
-        return false;
+        return undefined;
     }
-    recordBindingRemoved(plan, name);
-    statement.remove();
-    return true;
+    return [ name ];
 }
 
-function processVariableStatement(statement: Statement, plan: RemovalPlan): boolean {
+function processVariableStatement(statement: Statement, plan: RemovalPlan): void {
     if (!TypeScriptMorphNode.isVariableStatement(statement)) {
-        return false;
+        return;
     }
     const removedDeclarators = statement.getDeclarations().filter(function (declarator) {
         return !variableDeclarationSurvives(declarator, plan.survivingNames);
@@ -51,14 +66,29 @@ function processVariableStatement(statement: Statement, plan: RemovalPlan): bool
         }
         declarator.remove();
     }
-    return removedDeclarators.length > 0;
 }
 
-export function processStatement(statement: Statement, plan: RemovalPlan): boolean {
-    if (processNamedDeclaration(statement, plan)) {
-        return true;
+export function processStatements(sourceFile: SourceFile, plan: RemovalPlan): void {
+    const ranges: [number, number][] = [];
+    sourceFile.getStatements().forEach(function (statement, index) {
+        const bindings = removedStatementBindings(statement, plan);
+        if (bindings === undefined) {
+            processVariableStatement(statement, plan);
+            return;
+        }
+        bindings.forEach(function (name) {
+            recordBindingRemoved(plan, name);
+        });
+        const previous = ranges.at(-1);
+        if (previous?.[1] === index - 1) {
+            previous[1] = index;
+        } else {
+            ranges.push([ index, index ]);
+        }
+    });
+    for (const range of ranges.toReversed()) {
+        sourceFile.removeStatements(range);
     }
-    return processVariableStatement(statement, plan);
 }
 
 function importName(binding: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {

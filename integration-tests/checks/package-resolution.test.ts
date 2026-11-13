@@ -14,6 +14,14 @@ import { manifest, publishedPackage } from './published-package-fixtures.ts';
 const checkedResolutionKinds: readonly ResolutionKind[] = [ 'node16-esm', 'bundler' ];
 
 const analyzePackageResolution = createPackageResolutionAnalyzer({
+    storage: {
+        async read() {
+            return null;
+        },
+        async write() {
+            return false;
+        }
+    },
     Package,
     checkPackage,
     problemKindInformation,

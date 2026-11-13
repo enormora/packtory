@@ -1,23 +1,12 @@
-import { checkPackage, Package } from '@arethetypeswrong/core';
-import {
-    problemAffectsEntrypointResolution,
-    problemAffectsResolutionKind,
-    problemKindInfo as problemKindInformation
-} from '@arethetypeswrong/core/problems';
-import { RealFileSystemHost } from '@ts-morph/common';
 import { Project } from 'ts-morph';
-import type { FileManager } from '../file-manager/file-manager.ts';
-import { createCheckRunner, type CheckRunner } from '../checks/check-runner.ts';
-import { createAllRules } from '../checks/rules/registry.ts';
-import { createDeclarationIntegritySummarizer } from '../checks/rules/type-script-declaration-integrity.ts';
-import { createDeclarationProjectFactory } from '../checks/rules/type-script-declaration-project.ts';
-import { createPackageResolutionAnalyzer } from '../checks/rules/type-script-package-resolution.ts';
-import { createFileSystemAdapters } from '../dependency-scanner/typescript-file-host.ts';
+import { createPacktoryAnalysisIdentityResolver } from '../software-bill-of-materials/tool-version.ts';
 import { createPacktory, type Packtory } from '../packtory/packtory.ts';
 import { createScheduler } from '../packtory/scheduler.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { buildCheckRunner } from './check-runner.composition.ts';
 import {
     buildPackageProcessorComposition,
+    importPackageManifest,
     type PackageProcessorCompositionOptions
 } from './package-processor.composition.ts';
 
@@ -25,29 +14,6 @@ export type PacktoryComposition = {
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcaster;
 };
-
-function buildCheckRunner(repositoryFolder: string, fileManager: FileManager): CheckRunner {
-    const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
-    const rules = createAllRules({
-        fileManager,
-        analyzePackageResolution: createPackageResolutionAnalyzer({
-            Package,
-            checkPackage,
-            problemKindInformation,
-            problemAffectsResolutionKind,
-            problemAffectsEntrypointResolution
-        }),
-        summarizeDeclarationIntegrity: createDeclarationIntegritySummarizer({
-            createDeclarationProjects: createDeclarationProjectFactory({
-                Project,
-                fileSystemHost: fileSystemAdapters.fileSystemHostWithoutFilter,
-                packageResolutionBaseFolder: repositoryFolder
-            })
-        })
-    });
-
-    return createCheckRunner({ rules });
-}
 
 export function buildPacktoryComposition(options: PackageProcessorCompositionOptions): PacktoryComposition {
     const parts = buildPackageProcessorComposition(options);
@@ -57,6 +23,7 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
 
     return {
         packtory: createPacktory({
+            withAnalysisInputs: parts.inputValidator.run,
             scheduler,
             packageProcessor: parts.packageProcessor,
             deadCodeEliminator: parts.deadCodeEliminator,
@@ -66,7 +33,13 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             fileManager: parts.fileManager,
             repositoryFolder: parts.repositoryFolder,
             versionManager: parts.versionManager,
-            runChecks: buildCheckRunner(parts.repositoryFolder, parts.fileManager),
+            runChecks: buildCheckRunner({
+                repositoryFolder: parts.repositoryFolder,
+                fileManager: parts.fileManager,
+                inputValidator: parts.inputValidator,
+                Project,
+                toolIdentity: createPacktoryAnalysisIdentityResolver({ importPackageManifest })
+            }),
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,
             readCurrentGitHead: parts.readCurrentGitHead,

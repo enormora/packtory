@@ -15,12 +15,37 @@ import {
     packageSchemaWithPartialCommonSettings
 } from './package-schemas.ts';
 
-const topLevelSettingsSchemaShape = {
+const topLevelSettingsSchemaShape: {
+    readonly changelog: z.ZodMiniOptional<typeof changelogSettingsSchema>;
+    readonly checks: z.ZodMiniOptional<typeof checksSchema>;
+} = {
     changelog: z.optional(changelogSettingsSchema),
     checks: z.optional(checksSchema)
 };
 
-const packageConfigurationWithOptionalCommonPackageSettingsSchema = z.readonly(
+type CommonSettingsSchema<Common extends z.ZodMiniObject> = Readonly<
+    z.ZodMiniObject<
+        z.util.Extend<Common['shape'], z.util.Writeable<typeof optionalPackageSettingsSchema.shape>>,
+        Common['_zod']['config']
+    >
+>;
+type ConfigurationSchema<Common extends z.ZodMiniType, Package extends z.ZodMiniType> = Readonly<
+    z.ZodMiniReadonly<
+        z.ZodMiniObject<
+            z.util.Writeable<
+                typeof topLevelSettingsSchemaShape & {
+                    readonly commonPackageSettings: Common;
+                    readonly packages: z.ZodMiniReadonly<z.ZodMiniTuple<readonly [Package], Package>>;
+                }
+            >
+        >
+    >
+>;
+
+const packageConfigurationWithOptionalCommonPackageSettingsSchema: ConfigurationSchema<
+    z.ZodMiniOptional<CommonSettingsSchema<typeof optionalCommonPackageSettingsSchema>>,
+    typeof packageSchemaWithAllCommonSettings
+> = z.readonly(
     z.object({
         ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.optional(
@@ -30,7 +55,10 @@ const packageConfigurationWithOptionalCommonPackageSettingsSchema = z.readonly(
     })
 );
 
-const packageConfigurationWithRequiredCommonPackageSettingsSchema = z.readonly(
+const packageConfigurationWithRequiredCommonPackageSettingsSchema: ConfigurationSchema<
+    CommonSettingsSchema<typeof requiredCommonPackageSettingsSchema>,
+    typeof packageSchemaWithPartialCommonSettings
+> = z.readonly(
     z.object({
         ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
@@ -40,7 +68,10 @@ const packageConfigurationWithRequiredCommonPackageSettingsSchema = z.readonly(
     })
 );
 
-const packageConfigurationWithRequiredMainPackageManifestSchema = z.readonly(
+const packageConfigurationWithRequiredMainPackageManifestSchema: ConfigurationSchema<
+    CommonSettingsSchema<typeof commonPackageSettingsMainPackageManifestRequiredSchema>,
+    typeof packageSchemaWithMandatorySourcesFolder
+> = z.readonly(
     z.object({
         ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(
@@ -53,7 +84,10 @@ const packageConfigurationWithRequiredMainPackageManifestSchema = z.readonly(
     })
 );
 
-const packageConfigurationWithRequiredSourcesFolderSchema = z.readonly(
+const packageConfigurationWithRequiredSourcesFolderSchema: ConfigurationSchema<
+    CommonSettingsSchema<typeof commonPackageSettingsSourcesFolderRequiredSchema>,
+    typeof packageSchemaWithMandatoryMainPackageManifest
+> = z.readonly(
     z.object({
         ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(
@@ -66,7 +100,14 @@ const packageConfigurationWithRequiredSourcesFolderSchema = z.readonly(
     })
 );
 
-export const packtoryConfigurationWithoutRegistrySchema = z.union([
+export const packtoryConfigurationWithoutRegistrySchema: z.ZodMiniUnion<
+    readonly [
+        typeof packageConfigurationWithOptionalCommonPackageSettingsSchema,
+        typeof packageConfigurationWithRequiredCommonPackageSettingsSchema,
+        typeof packageConfigurationWithRequiredMainPackageManifestSchema,
+        typeof packageConfigurationWithRequiredSourcesFolderSchema
+    ]
+> = z.union([
     packageConfigurationWithOptionalCommonPackageSettingsSchema,
     packageConfigurationWithRequiredCommonPackageSettingsSchema,
     packageConfigurationWithRequiredMainPackageManifestSchema,

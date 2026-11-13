@@ -55,19 +55,17 @@ function collectDeclarationPaths(packageFiles: readonly PackageFile[]): Readonly
     );
 }
 
+type PackageFileCollector = (publishedPackage: PublishedPackageWithManifest) => readonly PackageFile[];
+
 function collectResolutionPackageFiles(
-    packageName: string,
-    publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>
+    publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>,
+    packageFilesFor: PackageFileCollector
 ): readonly ResolutionPackageFiles[] {
     return Array
-        .from(publishedPackages)
-        .filter(function ([ candidateName ]) {
-            return candidateName !== packageName;
-        })
-        .map(function ([ candidateName, publishedPackage ]) {
+        .from(publishedPackages, function ([ candidateName, publishedPackage ]) {
             return {
                 packageName: candidateName,
-                packageFiles: collectPackageFiles(publishedPackage)
+                packageFiles: packageFilesFor(publishedPackage)
             };
         });
 }
@@ -104,12 +102,24 @@ export function createDeclarationIntegritySummarizer(
     dependencies: DeclarationIntegrityDependencies
 ): DeclarationIntegritySummarizer {
     const { createDeclarationProjects } = dependencies;
+    const filesByPackage = new WeakMap<PublishedPackageWithManifest, readonly PackageFile[]>();
+    function packageFilesFor(publishedPackage: PublishedPackageWithManifest): readonly PackageFile[] {
+        const files = filesByPackage.get(publishedPackage) ?? collectPackageFiles(publishedPackage);
+        filesByPackage.set(publishedPackage, files);
+        return files;
+    }
+    const resolutionFiles = new WeakMap<
+        ReadonlyMap<string, PublishedPackageWithManifest>,
+        readonly ResolutionPackageFiles[]
+    >();
 
     return function summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, resolutionPackages) {
-        const packageFiles = collectPackageFiles(publishedPackage);
+        const resolutionPackageFiles = resolutionFiles.get(resolutionPackages) ??
+            collectResolutionPackageFiles(resolutionPackages, packageFilesFor);
+        resolutionFiles.set(resolutionPackages, resolutionPackageFiles);
+        const packageFiles = packageFilesFor(publishedPackage);
         const declarationPaths = collectDeclarationPaths(packageFiles);
         const rootPaths = declarationRootsFromManifest(publishedPackage.manifestFile.content);
-        const resolutionPackageFiles = collectResolutionPackageFiles(packageName, resolutionPackages);
 
         return createDeclarationProjects(packageName, packageFiles, resolutionPackageFiles).flatMap(function (project) {
             const checkedPaths = checkedDeclarationPaths({

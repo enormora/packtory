@@ -1,6 +1,11 @@
 import { zip } from 'remeda';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { AnalyzedBundle, DeadCodeEliminator, SymbolEliminationInspector } from './analyzed-bundle.ts';
+import { eliminationInputIdentity } from './elimination-input-identity.ts';
+import type {
+    AnalyzedBundle,
+    DeadCodeEliminator,
+    SymbolEliminationInspector
+} from './analyzed-bundle.ts';
 import { analyzeBundleWithSeeds, crossBundleInputFrom } from './bundle-analysis.ts';
 import { buildCrossBundleSeeds } from './cross-bundle/cross-bundle-seeds.ts';
 import { maybeEmitElimination } from './elimination-emitter.ts';
@@ -22,8 +27,14 @@ export type InspectableDeadCodeEliminator = DeadCodeEliminator & {
     readonly inspectSymbols: SymbolEliminationInspector;
 };
 
+type EliminationSnapshot = {
+    readonly identity: string;
+    readonly outputs: readonly AnalyzedBundle[];
+};
+
 export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDependencies): InspectableDeadCodeEliminator {
     const { createProject, progressBroadcaster } = dependencies;
+    let previous: EliminationSnapshot | null = null;
     function analyze(
         loadedBundles: readonly LoadedBundle[],
         trace: DeadCodeEliminationTrace
@@ -43,10 +54,23 @@ export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDepende
     }
     return {
         async eliminate(inputs) {
+            const identity = dependencies.trace === undefined ? eliminationInputIdentity(inputs) : null;
+            if (previous !== null && previous.identity === identity) {
+                maybeEmitElimination(
+                    progressBroadcaster,
+                    inputs.map(function (input) {
+                        return input.bundle;
+                    }),
+                    previous.outputs
+                );
+                return previous.outputs;
+            }
             const loaded = inputs.map(function (input) {
                 return loadBundle(createProject, input, dependencies.trace);
             });
-            return analyze(loaded, dependencies.trace);
+            const outputs = analyze(loaded, dependencies.trace);
+            previous = identity === null ? null : { identity, outputs };
+            return outputs;
         },
         async inspectSymbols(inputs) {
             const retention = createSymbolRetentionCollector();

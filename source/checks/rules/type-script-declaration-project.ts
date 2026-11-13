@@ -55,9 +55,10 @@ type DeclarationCompilerMode = {
     readonly moduleResolution: ModuleResolutionKind;
 };
 
-type CreatedFilePathSet = {
-    readonly add: (filePath: string) => unknown;
-    readonly has: (filePath: string) => boolean;
+type SharedDeclarationProject = {
+    readonly moduleSpecifiersOf: (filePath: string) => readonly string[];
+    readonly modeLabel: string;
+    readonly diagnostics: () => readonly DeclarationDiagnostic[];
 };
 
 function declarationCompilerModes(): readonly DeclarationCompilerMode[] {
@@ -188,7 +189,6 @@ function declarationProjectPackageRelativeFilePath(packageFolder: string, filePa
 }
 
 function toDeclarationDiagnostic(
-    packageFolder: string,
     diagnostic: Readonly<Diagnostic>
 ): DeclarationDiagnostic | undefined {
     const sourceFile = diagnostic.getSourceFile();
@@ -198,7 +198,7 @@ function toDeclarationDiagnostic(
     }
 
     return {
-        declarationPath: declarationProjectPackageRelativeFilePath(packageFolder, sourceFile.getFilePath()),
+        declarationPath: sourceFile.getFilePath(),
         line: sourceFile.getLineAndColumnAtPos(start).line,
         code: diagnostic.getCode(),
         message: typescript.flattenDiagnosticMessageText(diagnostic.compilerObject.messageText, '\n')
@@ -210,28 +210,30 @@ function isDeclarationDiagnostic(diagnostic: DeclarationDiagnostic | undefined):
 }
 
 function createModeProject(
-    project: Readonly<TypeScriptMorphProject>,
+    mode: SharedDeclarationProject,
     packageFolder: string,
-    modeLabel: string,
     publicEntrypointPaths: readonly string[]
 ): DeclarationProject {
     return {
-        modeLabel,
+        modeLabel: mode.modeLabel,
         publicEntrypointPaths,
 
         moduleSpecifiersOf(declarationPath) {
-            return moduleSpecifiersIn(
-                project.getSourceFileOrThrow(declarationProjectPackageFilePath(packageFolder, declarationPath))
-            );
+            return mode.moduleSpecifiersOf(declarationProjectPackageFilePath(packageFolder, declarationPath));
         },
 
         listDiagnostics() {
-            return project
-                .getPreEmitDiagnostics()
+            return mode
+                .diagnostics()
                 .map(function (diagnostic) {
-                    return toDeclarationDiagnostic(packageFolder, diagnostic);
-                })
-                .filter(isDeclarationDiagnostic);
+                    return {
+                        ...diagnostic,
+                        declarationPath: declarationProjectPackageRelativeFilePath(
+                            packageFolder,
+                            diagnostic.declarationPath
+                        )
+                    };
+                });
         }
     };
 }
@@ -244,8 +246,7 @@ export function createDeclarationProjectFactory(
     function addPackageFiles(
         project: TypeScriptMorphProject,
         packageName: string,
-        packageFiles: readonly PackageFile[],
-        createdFilePaths: CreatedFilePathSet
+        packageFiles: readonly PackageFile[]
     ): void {
         const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
         const sourceFiles = uniqueBy(
@@ -259,12 +260,8 @@ export function createDeclarationProjectFactory(
                 return sourceFile.filePath;
             }
         );
-        const newSourceFiles = sourceFiles.filter(function uncreatedSourceFile(sourceFile) {
-            return !createdFilePaths.has(sourceFile.filePath);
-        });
-        for (const packageFile of newSourceFiles) {
+        for (const packageFile of sourceFiles) {
             const { filePath } = packageFile;
-            createdFilePaths.add(filePath);
             if (path.basename(packageFile.filePath) === 'package.json') {
                 project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
             } else {
@@ -289,63 +286,78 @@ export function createDeclarationProjectFactory(
         });
     }
 
-    function addGeneratedFile(
-        project: TypeScriptMorphProject,
-        packageFolder: string,
-        filePath: string,
-        source: string
-    ): readonly string[] {
-        if (source.length === 0) {
-            return [];
-        }
-
-        project.createSourceFile(
-            declarationProjectPackageFilePath(packageFolder, filePath),
-            `${source}\n`
-        );
-        return [ filePath ];
+    function generatedPackageFiles(packageName: string, packageFiles: readonly PackageFile[]): readonly PackageFile[] {
+        return [
+            {
+                filePath: '.packtory-consumer-entrypoints.ts',
+                content: publicEntrypointSource(packageName, packageFiles)
+            },
+            { filePath: '.packtory-javascript-imports.ts', content: javaScriptPackageImportSource(packageFiles) }
+        ]
+            .filter(function (file) {
+                return file.content.length > 0;
+            })
+            .map(function (file) {
+                return { filePath: file.filePath, content: `${file.content}\n` };
+            });
     }
 
     function createProjectForMode(
-        packageName: string,
-        packageFiles: readonly PackageFile[],
-        resolutionPackages: readonly ResolutionPackageFiles[],
+        packages: readonly ResolutionPackageFiles[],
         compilerMode: DeclarationCompilerMode
-    ): DeclarationProject {
-        const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
+    ): SharedDeclarationProject {
         const project = createCompilerProject(compilerMode);
-        const createdFilePaths = new Set<string>();
-
-        addPackageFiles(project, packageName, packageFiles, createdFilePaths);
-        const publicEntrypointPaths = [
-            ...addGeneratedFile(
-                project,
-                packageFolder,
-                '.packtory-consumer-entrypoints.ts',
-                publicEntrypointSource(packageName, packageFiles)
-            ),
-            ...addGeneratedFile(
-                project,
-                packageFolder,
-                '.packtory-javascript-imports.ts',
-                javaScriptPackageImportSource(packageFiles)
-            )
-        ];
-        for (const resolutionPackage of resolutionPackages) {
-            addPackageFiles(
-                project,
-                resolutionPackage.packageName,
-                resolutionPackage.packageFiles,
-                createdFilePaths
-            );
+        for (const { packageName, packageFiles } of packages) {
+            const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
+            addPackageFiles(project, packageName, packageFiles);
+            for (const generated of generatedPackageFiles(packageName, packageFiles)) {
+                project.createSourceFile(
+                    declarationProjectPackageFilePath(packageFolder, generated.filePath),
+                    generated.content
+                );
+            }
         }
-
-        return createModeProject(project, packageFolder, compilerMode.label, publicEntrypointPaths);
+        let diagnostics: readonly DeclarationDiagnostic[] | null = null;
+        return {
+            moduleSpecifiersOf(filePath) {
+                return moduleSpecifiersIn(project.getSourceFileOrThrow(filePath));
+            },
+            modeLabel: compilerMode.label,
+            diagnostics() {
+                diagnostics = diagnostics ??
+                    project.getPreEmitDiagnostics().map(toDeclarationDiagnostic).filter(isDeclarationDiagnostic);
+                return diagnostics;
+            }
+        };
     }
 
+    const sessions = new WeakMap<readonly ResolutionPackageFiles[], readonly SharedDeclarationProject[]>();
     return function createDeclarationProjects(packageName, packageFiles, resolutionPackages) {
-        return declarationCompilerModes().map(function (compilerMode) {
-            return createProjectForMode(packageName, packageFiles, resolutionPackages, compilerMode);
+        const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
+        const shared = resolutionPackages.some(function (candidate) {
+            return candidate.packageName === packageName && candidate.packageFiles === packageFiles;
+        });
+        const projects = (shared ? sessions.get(resolutionPackages) : undefined) ??
+            declarationCompilerModes().map(function (compilerMode) {
+                const packages = uniqueBy(
+                    [ { packageName, packageFiles }, ...resolutionPackages ],
+                    function (candidate) {
+                        return candidate.packageName;
+                    }
+                );
+                return createProjectForMode(packages, compilerMode);
+            });
+        if (shared) {
+            sessions.set(resolutionPackages, projects);
+        }
+        return projects.map(function (mode) {
+            return createModeProject(
+                mode,
+                packageFolder,
+                generatedPackageFiles(packageName, packageFiles).map(function (file) {
+                    return file.filePath;
+                })
+            );
         });
     };
 }

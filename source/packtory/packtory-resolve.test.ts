@@ -12,6 +12,9 @@ import { createResolveAndLinkAllValidated, type CheckDependencies } from './pack
 
 function happyDependencies(): CheckDependencies {
     return {
+        async withAnalysisInputs(analyze) {
+            return analyze();
+        },
         deadCodeEliminator: emptyDeadCodeEliminator,
         packageProcessor: stubPackageProcessor,
         scheduler: emptyScheduler,

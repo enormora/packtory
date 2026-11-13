@@ -20,7 +20,7 @@ function resolverForGraph(graph: DependencyGraph): ResourceResolver {
     return createResourceResolver({
         dependencyScanner: {
             scan: fake.resolves(graph),
-            scanEntries: fake.resolves(createDependencyGraph())
+            scanEntries: fake.resolves(graph)
         },
         fileManager: createFakeFileManager({
             transferableFileDescriptionResponder(inputFilePath, targetFilePath) {

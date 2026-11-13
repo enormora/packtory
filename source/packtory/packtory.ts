@@ -3,6 +3,7 @@ import { Result } from 'true-myth';
 import type { SymbolEliminationInspector, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
+import type { AnalysisInputScope } from '../dependency-scanner/compiler-input-validator.ts';
 import {
     validateConfiguration,
     validateConfigurationWithoutRegistry,
@@ -126,6 +127,7 @@ export type ResolveAndLinkFailure = ResolveAndLinkFailureBase;
 export type Packtory = PacktoryBase;
 
 export type PacktoryDependencies = {
+    readonly withAnalysisInputs: AnalysisInputScope;
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
     readonly deadCodeEliminator: DeadCodeEliminator;

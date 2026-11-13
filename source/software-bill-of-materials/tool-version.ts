@@ -45,6 +45,21 @@ function parseToolPackageManifest(specifier: string, importedModule: unknown): s
     return parsed.version;
 }
 
+async function resolveCandidateVersion(
+    importPackageManifest: ToolVersionResolverDependencies['importPackageManifest'],
+    candidatePackageName: CandidatePackageName
+): Promise<string | undefined> {
+    const specifier = `${candidatePackageName}/package.json`;
+    try {
+        return parseToolPackageManifest(specifier, await importPackageManifest(specifier));
+    } catch (error: unknown) {
+        if (!isImportResolutionError(error)) {
+            throw error;
+        }
+        return undefined;
+    }
+}
+
 export function createPacktoryToolVersionResolver(
     dependencies: ToolVersionResolverDependencies
 ): () => Promise<string> {
@@ -52,15 +67,29 @@ export function createPacktoryToolVersionResolver(
 
     return async function resolvePacktoryToolVersion(): Promise<string> {
         for (const candidatePackageName of candidatePackageNames) {
-            const specifier = `${candidatePackageName}/package.json`;
-            try {
-                return parseToolPackageManifest(specifier, await importPackageManifest(specifier));
-            } catch (error: unknown) {
-                if (!isImportResolutionError(error)) {
-                    throw error;
-                }
+            const version = await resolveCandidateVersion(importPackageManifest, candidatePackageName);
+            if (version !== undefined) {
+                return version;
             }
         }
         throw new Error(buildUnresolvableMessage());
+    };
+}
+
+export function createPacktoryAnalysisIdentityResolver(
+    dependencies: ToolVersionResolverDependencies
+): () => Promise<string> {
+    return async function () {
+        const identities: string[] = [];
+        for (const candidate of candidatePackageNames) {
+            const version = await resolveCandidateVersion(dependencies.importPackageManifest, candidate);
+            if (version !== undefined) {
+                identities.push(`${candidate}@${version}`);
+            }
+        }
+        if (identities.length === 0) {
+            throw new Error(buildUnresolvableMessage());
+        }
+        return JSON.stringify(identities);
     };
 }

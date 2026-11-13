@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { multiFileBindingsFor } from '../../test-libraries/reachability-test-support.ts';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { createModuleExportIndex } from '../exports/module-export-index.ts';
@@ -17,6 +18,24 @@ function preparedFiles(
 }
 
 suite('module constant snapshots', function () {
+    test('rebuilds initialization dependencies after source transformations', function () {
+        const files = preparedFiles([ { filePath: 'index.js', content: 'export const value=1;' } ]);
+        const [ entry ] = files;
+        assertDefined(entry);
+        const before = createModuleConstantSnapshot(files, function () {
+            return undefined;
+        });
+        assert.deepStrictEqual(before.modules.get(entry.sourceFile), {
+            initialized: true,
+            exports: new Map([ [ 'value', { kind: 'constant', value: { value: 1 } } ] ])
+        });
+        entry.sourceFile.insertStatements(0, 'import "external";');
+        const after = createModuleConstantSnapshot(files, function () {
+            return undefined;
+        });
+        assert.deepStrictEqual(after.modules.get(entry.sourceFile), { initialized: false, exports: new Map() });
+    });
+
     test('captures constants, aliases, and namespace exports across prepared modules', function () {
         const files = preparedFiles([
             {

@@ -7,9 +7,9 @@ import {
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { ModuleExportModel } from '../exports/module-export-model.ts';
-import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
 import { createModuleBindingEvaluator, type ModuleBindingEvaluator } from './module-binding-evaluation.ts';
-import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
+import { createModuleInitialization } from './module-initialization.ts';
 import { exportedModuleValue, type ModuleValue } from './module-export-value.ts';
 
 type ModuleConstants = {
@@ -46,11 +46,11 @@ export function createModuleConstantSnapshot(
     const resolveModule: RuntimeModuleResolver = function (specifier, source) {
         return resolveLocal(source, specifier) ?? resolveExternal(specifier, source);
     };
+    const evaluateSource = createSourceEvaluations(createSourceEvaluation);
+    const initialization = createModuleInitialization(resolveModule, evaluateSource);
     const evaluate = createModuleBindingEvaluator({
-        evaluateSource: createSourceEvaluation,
-        initializesBinding(declaration) {
-            return moduleInitializesBinding(declaration, resolveModule);
-        }
+        evaluateSource,
+        initializesBinding: initialization.initializesBinding
     });
     return {
         resolveModule,
@@ -58,7 +58,7 @@ export function createModuleConstantSnapshot(
             const { source } = model;
             return [ source, {
                 initialized: model.closed &&
-                    moduleDependenciesInitialize(source, resolveModule),
+                    initialization.dependenciesInitialize(source),
                 exports: exportValues(model, graph, evaluate)
             } ];
         }))
