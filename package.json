@@ -112,10 +112,10 @@
     "overrides": {
         "@schema-hub/zod-error-formatter": "0.0.20",
         "@ts-morph/common": {
-            "minimatch": "11.0.4"
+            "minimatch": "11.0.8"
         },
         "@tufjs/models": {
-            "minimatch": "11.0.4"
+            "minimatch": "11.0.8"
         },
         "eslint-plugin-functional": {
             "deepmerge-ts": "8.0.2"
