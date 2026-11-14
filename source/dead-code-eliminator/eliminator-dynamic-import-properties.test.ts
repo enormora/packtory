@@ -286,6 +286,55 @@ const cases: readonly NamespaceCase[] = [
         retainsUnused: true
     },
     {
+        name: 'then resolves a separate object',
+        files: {
+            'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
+            'lazy.js': 'export const unused=9;export function then(resolve){console.log("then");resolve({used:42});}'
+        },
+        retainsUnused: false
+    },
+    {
+        name: 'then arrow resolves a separate object',
+        files: {
+            'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
+            'lazy.js': 'export const unused=9;export const then=resolve=>resolve({used:42});'
+        },
+        retainsUnused: false
+    },
+    {
+        name: 'then observes the namespace receiver',
+        files: {
+            'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
+            'lazy.js': 'export const unused=9;export function then(resolve){resolve({used:Object.keys(this)});}'
+        },
+        retainsUnused: true
+    },
+    {
+        name: 'then observes the namespace receiver through eval',
+        files: {
+            'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
+            'lazy.js': 'export const unused=9;export function then(resolve){resolve({used:eval("Object.keys(this)")});}'
+        },
+        retainsUnused: true
+    },
+    {
+        name: 'noncallable then still exposes the namespace',
+        files: {
+            'index.js': 'export async function probe(){return Object.keys(await import("./lazy.js"));}',
+            'lazy.js': 'export const unused=9;export const then=42;'
+        },
+        retainsUnused: true
+    },
+    {
+        name: 'reassigned then observes the namespace receiver',
+        files: {
+            'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
+            'lazy.js': 'export const unused=9;export let then=resolve=>resolve({used:42});' +
+                'then=function(resolve){resolve({used:Object.keys(this)});};'
+        },
+        retainsUnused: true
+    },
+    {
         name: 'unused',
         files: {
             'index.js': 'export async function probe(){await import("./lazy.js");return 7;}',

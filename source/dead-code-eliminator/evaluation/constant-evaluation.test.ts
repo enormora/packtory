@@ -4,6 +4,21 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
 
 suite('shared source evaluations', function () {
+    for (
+        const [ content, expected ] of [ [ '{}', true ], [ '({value:1})', true ], [ 'effect()', false ], [
+            '({value:effect()})',
+            false
+        ] ] as const
+    ) {
+        test(`separates discarded effects from a public primitive result in ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', `const observed=${content};`);
+            const expression = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow();
+            const evaluation = createSourceEvaluation(source);
+            assert.strictEqual(evaluation.primitiveValue(expression), undefined);
+            assert.strictEqual(evaluation.canDiscard(expression), expected);
+        });
+    }
+
     test('evaluates each source once and keeps separate modules distinct', function () {
         const project = createProject();
         const sources = [
@@ -19,6 +34,10 @@ suite('shared source evaluations', function () {
         for (const { source, value } of sources) {
             const evaluation = evaluations(source);
             assert.strictEqual(evaluations(source), evaluation);
+            assert.deepStrictEqual(
+                evaluation.knownValue(source.getVariableDeclarationOrThrow('value').getInitializerOrThrow()),
+                { value }
+            );
             assert.deepStrictEqual(
                 evaluation.primitiveValue(source.getVariableDeclarationOrThrow('value').getInitializerOrThrow()),
                 { value }

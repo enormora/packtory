@@ -80,32 +80,32 @@ const evaluationGuards: readonly SingleFileEvaluationCase[] = [
         remainingCalls: 0
     },
     {
-        name: 'retains null conversion on the left of concatenation',
+        name: 'folds null conversion on the left of concatenation',
         content: 'function compute(){return null+" value";}export const value=compute();',
-        result: undefined,
+        result: { value: 'null value' },
         native: { error: null, value: 'null value' },
-        remainingCalls: 1
+        remainingCalls: 0
     },
     {
-        name: 'retains null conversion on the right of concatenation',
+        name: 'folds null conversion on the right of concatenation',
         content: 'function compute(){return "value "+null;}export const value=compute();',
-        result: undefined,
+        result: { value: 'value null' },
         native: { error: null, value: 'value null' },
-        remainingCalls: 1
+        remainingCalls: 0
     },
     {
-        name: 'retains numeric conversion in string subtraction',
+        name: 'folds numeric conversion in string subtraction',
         content: 'function compute(){return "2"-"1";}export const value=compute();',
-        result: undefined,
+        result: { value: 1 },
         native: { error: null, value: 1 },
-        remainingCalls: 1
+        remainingCalls: 0
     },
     {
-        name: 'retains unsupported numeric operations',
+        name: 'folds numeric exponentiation',
         content: 'function compute(){return 2**3;}export const value=compute();',
-        result: undefined,
+        result: { value: 8 },
         native: { error: null, value: 8 },
-        remainingCalls: 1
+        remainingCalls: 0
     },
     {
         name: 'retains unsupported compound assignments',
@@ -115,11 +115,11 @@ const evaluationGuards: readonly SingleFileEvaluationCase[] = [
         remainingCalls: 1
     },
     {
-        name: 'retains unsupported unary operations',
+        name: 'folds numeric complement',
         content: 'function compute(){return ~1;}export const value=compute();',
-        result: undefined,
+        result: { value: -2 },
         native: { error: null, value: -2 },
-        remainingCalls: 1
+        remainingCalls: 0
     },
     {
         name: 'selects nullish fallbacks for undefined',
@@ -183,7 +183,7 @@ const evaluationGuards: readonly SingleFileEvaluationCase[] = [
     {
         name: 'retains resource initialization syntax errors',
         content: 'using resource;export const value=42;',
-        result: { value: 42 },
+        result: undefined,
         native: { error: { name: 'SyntaxError' } },
         remainingCalls: 0
     },

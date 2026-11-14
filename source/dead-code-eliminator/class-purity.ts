@@ -1,6 +1,7 @@
 import { Node as TypeScriptMorphNode, type ClassDeclaration, type ClassExpression, type Expression } from 'ts-morph';
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
+import { constructorBodyIsEmpty } from './evaluation/empty-constructor.ts';
 
 export type ClassPropertyKeyResolver = (expression: Expression) => string | undefined;
 type ComputedClassKey = { readonly expression: Expression; readonly isStatic: boolean; };
@@ -98,8 +99,11 @@ export function hasClassImpurity(
     });
 }
 
-export function defaultClassConstructionIsPure(target: ClassDeclaration | ClassExpression): boolean {
-    if (target.getExtends() !== undefined || target.getConstructors().length > 0 || target.getDecorators().length > 0) {
+export function classConstructionIsPure(target: ClassDeclaration | ClassExpression): boolean {
+    if (
+        target.getExtends() !== undefined || !target.getConstructors().every(constructorBodyIsEmpty) ||
+        target.getDecorators().length > 0
+    ) {
         return false;
     }
     return target.getMembers().every(function (member) {

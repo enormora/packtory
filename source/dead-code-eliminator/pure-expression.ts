@@ -24,6 +24,7 @@ import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { arePureCallArguments, type PurityContext } from './imported-expression-origin.ts';
+import { hasPureCallAnnotation } from './call-annotation.ts';
 import {
     importedCallResultFact,
     originForCallTarget,
@@ -112,16 +113,12 @@ function createdObjectPropertyIsSafeToSpread(
         spreadAssignmentSourceIsSafe(property, factFor);
 }
 
-function hasPureAnnotation(expression: Expression): boolean {
-    const text = expression.getFullText();
-    return text.includes('@__PURE__') || text.includes('#__PURE__');
-}
-
 function pureAnnotationMakesCallPure(
     expression: CallExpression | NewExpression,
     factFor: ExpressionFactResolver
 ): boolean {
-    return hasPureAnnotation(expression) && arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
+    return hasPureCallAnnotation(expression) &&
+        arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
 }
 
 function callExpressionFact(

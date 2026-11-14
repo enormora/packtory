@@ -1,15 +1,24 @@
-import { Node as TypeScriptMorphNode, type ParameterDeclaration } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type CallExpression, type ParameterDeclaration, type SourceFile } from 'ts-morph';
+import { isDefined } from 'remeda';
 import { isPrimitiveResult, primitiveResult, type AbstractValue } from './abstract-value.ts';
-import { parameterBindingIsStable, runtimeParameters, type LocalFunction } from './call-target.ts';
+import {
+    createCallTargetResolver,
+    parameterBindingIsStable,
+    runtimeParameters,
+    type CallTargetResolver,
+    type LocalFunction
+} from './call-target.ts';
 import {
     createBindingReference,
     createLocalScope,
+    maximumEvaluationDepth,
     type Completion,
     type EvaluationContext
 } from './evaluation-context.ts';
 import { evaluated, type EvaluatedValue, type PrimitiveValue } from './primitive-value.ts';
+import { initializeHoistedLocals } from './hoisted-locals.ts';
 
-export type CalleeEvaluation = (
+type CalleeEvaluation = (
     target: LocalFunction,
     argumentValues: readonly AbstractValue[],
     context: EvaluationContext
@@ -74,7 +83,9 @@ function evaluateIsolatedFunction(
     context: EvaluationContext
 ): AbstractValue | undefined {
     const local = { ...context, locals: createLocalScope(new Map()), depth: context.depth + 1 };
-    return bindParameters(target, values, local) ? invokeFunction(target, local) : undefined;
+    return bindParameters(target, values, local) && initializeHoistedLocals(target, local)
+        ? invokeFunction(target, local)
+        : undefined;
 }
 
 function primitiveArguments(values: readonly AbstractValue[]): readonly PrimitiveValue[] | undefined {
@@ -109,7 +120,7 @@ function createCallResults(numberIdentity: NumberIdentity): CallResults {
     };
 }
 
-export function createCalleeEvaluation(): CalleeEvaluation {
+function createCalleeEvaluation(): CalleeEvaluation {
     const functions = new WeakMap<LocalFunction, CallResults>();
     const numberIdentity = createNumberIdentity();
     return function (target, values, context) {
@@ -127,5 +138,41 @@ export function createCalleeEvaluation(): CalleeEvaluation {
                 return current.argument(value);
             }, root)
             .evaluate(invoke);
+    };
+}
+
+function functionIsSynchronous(target: LocalFunction): boolean {
+    return !target.isAsync() && (TypeScriptMorphNode.isArrowFunction(target) || !target.isGenerator());
+}
+
+function evaluateCall(
+    call: CallExpression,
+    context: EvaluationContext,
+    resolveTarget: CallTargetResolver,
+    evaluateResult: CalleeEvaluation
+): AbstractValue | undefined {
+    if (context.depth >= maximumEvaluationDepth) {
+        return undefined;
+    }
+    const values = call.getArguments().map(function (argument) {
+        return context.evaluate(argument, context);
+    });
+    if (!values.every(isDefined)) {
+        return undefined;
+    }
+    const target = resolveTarget(call);
+    if (target === undefined) {
+        return undefined;
+    }
+    return evaluateResult(target, values, context);
+}
+
+export function createCallEvaluator(sourceFile: SourceFile): () => EvaluationContext['call'] {
+    const resolveTarget = createCallTargetResolver(sourceFile, functionIsSynchronous);
+    return function () {
+        const evaluateResult = createCalleeEvaluation();
+        return function (call, context) {
+            return evaluateCall(call, context, resolveTarget, evaluateResult);
+        };
     };
 }

@@ -29,6 +29,7 @@
     },
     "dependencies": {
         "@arethetypeswrong/core": "0.18.5",
+        "@babel/parser": "7.29.12",
         "@cyclonedx/cyclonedx-library": "10.4.0",
         "@jridgewell/trace-mapping": "0.3.31",
         "@octokit/core": "7.0.8",
@@ -120,7 +121,7 @@
             "deepmerge-ts": "8.0.2"
         },
         "get-uri": {
-            "basic-ftp": "6.2.3"
+            "basic-ftp": "6.2.6"
         },
         "glob": "14.0.3",
         "micromark-extension-math": {

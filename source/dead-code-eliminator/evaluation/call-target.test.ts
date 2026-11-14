@@ -3,10 +3,46 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { createCallTargetResolver } from './call-target.ts';
+import { createCallTargetResolver, parameterBindingIsStable } from './call-target.ts';
 import { evaluateLocalCall } from './local-call.ts';
 
 suite('conditional function bindings', function () {
+    suite('parameter bindings', function () {
+        test('keeps nested function parameters in their own binding scope', function () {
+            const source = createProject().createSourceFile(
+                'input.cjs',
+                'function compute(value){return value;function nested(value){}}compute(42);'
+            );
+            assert.deepStrictEqual(
+                evaluateLocalCall(source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression)),
+                { value: 42 }
+            );
+        });
+
+        test('does not propagate values through duplicate parameter bindings', function () {
+            const source = createProject().createSourceFile(
+                'input.cjs',
+                'function compute(value,value){return value;}compute(1,42);'
+            );
+            const parameters = source.getFunctionOrThrow('compute').getParameters();
+            for (const parameter of parameters) {
+                assert.strictEqual(parameterBindingIsStable(parameter), false);
+            }
+            assert.strictEqual(
+                evaluateLocalCall(source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression)),
+                undefined
+            );
+        });
+
+        test('retains a parameter replaced by a hoisted function declaration', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'function compute(value){function value(){}return value;}'
+            );
+            const parameter = source.getFirstDescendantByKindOrThrow(SyntaxKind.Parameter);
+            assert.strictEqual(parameterBindingIsStable(parameter), false);
+        });
+    });
     for (
         const content of [
             'function selected(){return 1;}if(flag){function unrelated(){return 2;}}selected();',

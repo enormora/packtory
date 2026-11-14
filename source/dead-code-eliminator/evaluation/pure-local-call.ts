@@ -1,6 +1,13 @@
-import { Node as TypeScriptMorphNode, type Expression, type CallExpression, type SourceFile } from 'ts-morph';
+import {
+    Node as TypeScriptMorphNode,
+    type Expression,
+    type CallExpression,
+    type NewExpression,
+    type SourceFile
+} from 'ts-morph';
 import { builderBodyIsPure, builderReturnExpression } from '../liveness/builder-return.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import { hasPureCallAnnotation } from '../call-annotation.ts';
 import {
     createCallTargetResolver,
     parameterBindingIsStable,
@@ -12,7 +19,7 @@ type PureCall = {
     readonly arguments: readonly Expression[];
     readonly returnedArgument: Expression | undefined;
 };
-export type PureCallResolver = (call: CallExpression) => PureCall | undefined;
+export type PureCallResolver = (call: CallExpression | NewExpression) => PureCall | undefined;
 
 function returnsSoleParameter(target: LocalFunction): boolean {
     const [ parameter, additional ] = runtimeParameters(target);
@@ -21,22 +28,31 @@ function returnsSoleParameter(target: LocalFunction): boolean {
         TypeScriptMorphNode.isIdentifier(returned) && parameterBindingIsStable(parameter);
 }
 
+function returnedIdentityArgument(
+    target: LocalFunction | undefined,
+    argumentsToEvaluate: readonly Expression[]
+): Expression | undefined {
+    if (target === undefined || argumentsToEvaluate.length !== 1) {
+        return undefined;
+    }
+    return returnsSoleParameter(target) ? argumentsToEvaluate[0] : undefined;
+}
+
 export function createPureCallResolver(sourceFile: SourceFile): PureCallResolver {
     const resolveTarget = createCallTargetResolver(sourceFile, builderBodyIsPure);
     return function (call) {
         const argumentsToEvaluate = call.getArguments();
-        const target = resolveTarget(call);
+        const target = TypeScriptMorphNode.isCallExpression(call) ? resolveTarget(call) : undefined;
         if (
-            target === undefined || argumentsToEvaluate.some(TypeScriptMorphNode.isSpreadElement) ||
+            target === undefined && !hasPureCallAnnotation(call) ||
+            argumentsToEvaluate.some(TypeScriptMorphNode.isSpreadElement) ||
             !argumentsToEvaluate.every(TypeScriptMorphNode.isExpression)
         ) {
             return undefined;
         }
         return {
             arguments: argumentsToEvaluate,
-            returnedArgument: argumentsToEvaluate.length === 1 && returnsSoleParameter(target)
-                ? argumentsToEvaluate[0]
-                : undefined
+            returnedArgument: returnedIdentityArgument(target, argumentsToEvaluate)
         };
     };
 }

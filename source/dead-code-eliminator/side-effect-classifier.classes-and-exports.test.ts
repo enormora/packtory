@@ -48,6 +48,10 @@ suite('side-effect-classifier classes and exports', function () {
     });
 
     suite('side-effect-classifier pure classes', function () {
+        test('treats a class with a literal computed method name as pure', function () {
+            assert.deepStrictEqual(classify('class Foo{["method"](){}}'), []);
+        });
+
         test('treats a top-level debugger statement as an impure unknown statement', function () {
             assert.deepStrictEqual(classify('debugger;'), [ { line: 1, kind: 'unknown statement' } ]);
         });

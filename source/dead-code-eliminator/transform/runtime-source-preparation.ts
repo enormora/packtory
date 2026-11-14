@@ -2,15 +2,20 @@ import { preparationPasses, type SourcePreparation } from '../../source-transfor
 import type { PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
+import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import { specializeExpressions } from './expression-specialization.ts';
 import { simplifyConstantControlFlow } from './constant-control-flow.ts';
 import { reduceOptionalChains } from './optional-chain-reduction.ts';
 import { specializeImportedValues } from './imported-value-specialization.ts';
 import { reduceObjectBindings } from './object-binding-reduction.ts';
+// eslint-disable-next-line import/max-dependencies -- Runtime preparation composes the source passes and syntax validation.
 import { removeUnusedValues } from './unused-values.ts';
 
 export function prepareInitialRuntimeSource(preparation: SourcePreparation): void {
-    if (hasDynamicScope(preparation.sourceFile) || preparation.sourceFile.getFullText() === '') {
+    if (
+        hasDynamicScope(preparation.sourceFile) || preparation.sourceFile.getFullText() === '' ||
+        !runtimeSourceIsValid(preparation.sourceFile)
+    ) {
         return;
     }
     const passes = preparationPasses(preparation, function () {
@@ -28,6 +33,9 @@ export function prepareResolvedRuntimeSource(
     evaluateImport: PrimitiveEvaluator,
     isPure: ExpressionPurityChecker
 ): void {
+    if (!runtimeSourceIsValid(preparation.sourceFile)) {
+        return;
+    }
     specializeImportedValues(preparation, evaluateImport);
     prepareInitialRuntimeSource(preparation);
     reduceObjectBindings(preparation);

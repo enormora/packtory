@@ -18,7 +18,7 @@ import { resolveNamespaceImport } from './namespace-export-value.ts';
 type ReceiverFunction = ArrowFunction | FunctionDeclaration | FunctionExpression;
 export type BindingStability = (name: Identifier) => boolean;
 
-function bindingFunction(declaration: TypeScriptMorphNode): ReceiverFunction | undefined {
+function bindingFunction(declaration: TypeScriptMorphNode | undefined): ReceiverFunction | undefined {
     if (TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
         return declaration;
     }
@@ -31,15 +31,20 @@ function bindingFunction(declaration: TypeScriptMorphNode): ReceiverFunction | u
         : undefined;
 }
 
-function receiverIsUnused(binding: BindingDescriptor, bindingIsStable: BindingStability): boolean {
-    const declaration = binding.declarationNode;
+export function bindingIgnoresReceiver(
+    declaration: TypeScriptMorphNode | undefined,
+    bindingIsStable: BindingStability
+): boolean {
     const target = bindingFunction(declaration);
     if (target === undefined) {
         return false;
     }
     const name = TypeScriptMorphNode.isFunctionDeclaration(target)
-        ? target.getNameNodeOrThrow()
-        : declaration.getFirstChildByKindOrThrow(SyntaxKind.Identifier);
+        ? target.getNameNode()
+        : target.getFirstAncestorByKindOrThrow(SyntaxKind.VariableDeclaration).getNameNode();
+    if (!TypeScriptMorphNode.isIdentifier(name)) {
+        return false;
+    }
     return bindingIsStable(name) && target.getBody() !== undefined &&
         target.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
 }
@@ -69,7 +74,7 @@ export function createNamespaceReceiverAnalysis(
         }
         let unused = proven.get(binding.declarationNode);
         if (unused === undefined) {
-            unused = receiverIsUnused(binding, bindingIsStable);
+            unused = bindingIgnoresReceiver(binding.declarationNode, bindingIsStable);
             proven.set(binding.declarationNode, unused);
         }
         return unused;
