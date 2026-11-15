@@ -140,8 +140,8 @@ type ClosableServer = {
     readonly close: (callback: (error?: Error) => void) => void;
 };
 
-export function getRouteKey(requestAddress: string | undefined): string {
-    return requestAddress ?? '/';
+export function getRouteKey(requestAddress = '/'): string {
+    return requestAddress;
 }
 
 export function getServerPort(server: AddressableServer): number {
