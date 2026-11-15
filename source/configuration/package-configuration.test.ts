@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageConfigurationFixture } from '../test-libraries/configuration-fixtures.ts';
-import { getBundledDependencies } from './package-configuration.ts';
+import { getBundledDependencies } from './configuration.ts';
 
 suite('package-config', function () {
     test('getBundledDependencies returns an empty list when both fields are absent', function () {
