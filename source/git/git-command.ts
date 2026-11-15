@@ -1,6 +1,6 @@
 /// <reference lib="es2024.promise" />
 
-import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
+import { execFile as executeFile, type ExecException as ExecuteFileException } from 'node:child_process';
 
 type GitCommandResult = {
     readonly standardOutput: string;

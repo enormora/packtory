@@ -1,4 +1,4 @@
-import type { ExecFileException as ExecuteFileException } from 'node:child_process';
+import type { ExecException as ExecuteFileException } from 'node:child_process';
 import path from 'node:path';
 import { errorMessage } from '../../common/error-normalization.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
