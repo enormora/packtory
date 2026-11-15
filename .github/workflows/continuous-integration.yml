@@ -92,7 +92,7 @@ jobs:
                       bytes: Buffer.byteLength(await fileManager.readFile(file), 'utf8')
                   })));
                   weighted.sort((left, right) => right.bytes - left.bytes || left.file.localeCompare(right.file));
-                  const shards = Array.from({ length: 32 }, () => ({ files: [], bytes: 0 }));
+                  const shards = Array.from({ length: 64 }, () => ({ files: [], bytes: 0 }));
                   for (const file of weighted) {
                       const shard = shards.reduce((lightest, current) => current.bytes < lightest.bytes ? current : lightest);
                       shard.files.push(file.file);
@@ -214,12 +214,13 @@ jobs:
               id: changes
               env:
                   BEFORE_SHA: ${{ github.event.before }}
-                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  BASE_REF: ${{ github.base_ref }}
                   CANARY_NAME: ${{ matrix.canary }}
                   EVENT_NAME: ${{ github.event_name }}
               run: |
                   if [ "$EVENT_NAME" = "pull_request" ]; then
-                    changed_files="$(git diff --name-only "${BASE_SHA}...HEAD")"
+                    git fetch --no-tags origin "$BASE_REF"
+                    changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
                   elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
                     changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"
                   else

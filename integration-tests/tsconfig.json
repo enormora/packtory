@@ -9,6 +9,7 @@
     "include": [
         "./**/*.ts",
         "../source/test-libraries/bundle-fixtures.ts",
+        "../source/test-libraries/compiler-workspace.ts",
         "../source/test-libraries/dead-code-elimination-trace-fixtures.ts",
         "../source/test-libraries/dead-code-elimination-export-resolution.ts",
         "../source/test-libraries/dead-code-elimination-invariant-assertions.ts",

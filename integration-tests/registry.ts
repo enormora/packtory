@@ -1,10 +1,12 @@
 import path from 'node:path';
-import type { Server } from 'node:http';
+import assert from 'node:assert';
+import { request as requestRegistry, type Server } from 'node:http';
 import fileSystem from 'node:fs/promises';
 import operatingSystem from 'node:os';
 import getPort from 'get-port';
 import type { AsyncFunc as AsynchronousTestFunction } from 'mocha';
 import { runServer } from 'verdaccio';
+import { withRegistryServer } from './bundle-emitter/registry-server-test-support.ts';
 
 const username = 'foo';
 const password = 'top-secret';
@@ -29,7 +31,7 @@ const configuration = {
             rounds: 10
         }
     },
-    logs: {
+    log: {
         type: 'stdout',
         level: 'fatal'
     },
@@ -99,12 +101,11 @@ async function startRegistry(server: Server, storageDirectory: string): Promise<
     const credentials = `${username}:${password}`;
 
     await startServer(server, port);
-    const response = await fetch(`${registryAddress}/-/npm/v1/tokens`, {
-        method: 'POST',
+    const response = await fetch(`${registryAddress}/-/user/org.couchdb.user:${username}`, {
+        method: 'PUT',
         body: JSON.stringify({
-            password,
-            readonly: false,
-            cidr_whitelist: [ '0.0.0.0/0', '::1/128' ]
+            name: username,
+            password
         }),
         headers: { 'content-type': 'application/json', Authorization: `Basic ${btoa(credentials)}` }
     });
@@ -134,4 +135,43 @@ export function checkWithRegistry(
             }
         }
     };
+}
+
+export function checkWithBasicAuthenticationRegistry(
+    run: (registryDetails: RegistryDetails) => Promise<void>
+): AsynchronousTestFunction {
+    return checkWithRegistry(async function (registryDetails) {
+        const credentials = `${registryDetails.username}:${registryDetails.password}`;
+        const authorization = `Basic ${btoa(credentials)}`;
+        const publicationCredentials: (string | undefined)[] = [];
+        await withRegistryServer(function (request, response) {
+            if (request.method === 'PUT') {
+                publicationCredentials.push(request.headers.authorization);
+                if (request.headers.authorization !== authorization) {
+                    response.writeHead(401, { 'www-authenticate': 'Basic' });
+                    response.end();
+                    return;
+                }
+            }
+            const registryRequestAddress = new URL(request.url ?? '/', registryDetails.registryAddress);
+            const forwardedRequest = requestRegistry(registryRequestAddress, {
+                method: request.method,
+                headers: {
+                    authorization: `Bearer ${registryDetails.token}`,
+                    host: request.headers.host ?? registryRequestAddress.host,
+                    'content-type': request.headers['content-type'] ?? 'application/json'
+                }
+            }, function (registryResponse) {
+                response.writeHead(registryResponse.statusCode ?? 502, registryResponse.headers);
+                registryResponse.pipe(response);
+            });
+            forwardedRequest.once('error', function (error) {
+                response.destroy(error);
+            });
+            request.pipe(forwardedRequest);
+        }, async function (registryAddress) {
+            await run({ ...registryDetails, registryAddress });
+        });
+        assert.deepStrictEqual(publicationCredentials, [ authorization ]);
+    });
 }

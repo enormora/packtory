@@ -36,7 +36,7 @@
         "low": 100,
         "break": 100
     },
-    "reporters": ["clear-text", "html", "json"],
+    "reporters": ["progress-append-only", "clear-text", "html", "json"],
     "clearTextReporter": {
         "reportMutants": true,
         "reportScoreTable": false,
