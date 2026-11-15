@@ -30,12 +30,11 @@ export type PackageTreeHandlerDependencies = {
     readonly flags: PackageTreeFlags;
 };
 
-const issueTitleByType = {
-    [configurationErrorType]: 'Configuration issues',
-    [checksErrorType]: 'Check failures'
-} as const;
-
 function formatIssueFailure(error: IssuePackageTreeFailure): string {
+    const issueTitleByType = {
+        [configurationErrorType]: 'Configuration issues',
+        [checksErrorType]: 'Check failures'
+    } as const;
     return [
         'Packtory tree [Dry run]',
         issueTitleByType[error.type],
