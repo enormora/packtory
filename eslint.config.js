@@ -26,19 +26,11 @@ export default [
     },
     {
         ...typescriptConfiguration,
-        files: [ '**/*.ts' ],
-        rules: {
-            ...typescriptConfiguration.rules,
-            'unicorn/prefer-default-parameters': 'off'
-        }
+        files: [ '**/*.ts' ]
     },
     {
         ...mochaNodeAssertConfiguration,
-        files: [ '**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts' ],
-        rules: {
-            ...mochaNodeAssertConfiguration.rules,
-            'sonarjs/composite-assertions': 'error'
-        }
+        files: [ '**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts' ]
     },
     {
         ...testSupportConfiguration,
