@@ -7,16 +7,5 @@
     "ignorePaths": [
         "**/node_modules/**",
         "**/integration-tests/**"
-    ],
-    "packageRules": [
-        {
-            "matchManagers": [
-                "npm"
-            ],
-            "matchPackageNames": [
-                "@enormora/eslint-config-*"
-            ],
-            "constraintsFiltering": "strict"
-        }
     ]
 }
