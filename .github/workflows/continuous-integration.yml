@@ -219,7 +219,7 @@ jobs:
                   EVENT_NAME: ${{ github.event_name }}
               run: |
                   if [ "$EVENT_NAME" = "pull_request" ]; then
-                    git fetch --no-tags --depth 1 origin "$BASE_REF"
+                    git fetch --no-tags origin "$BASE_REF"
                     changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
                   elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
                     changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"

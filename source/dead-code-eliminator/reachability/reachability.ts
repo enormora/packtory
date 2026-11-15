@@ -12,7 +12,7 @@ import {
     type DeclarationNodeIndex,
     type FileBindings
 } from './binding-identifier.ts';
-import { collectIdentifierTargets } from './identifier-target-collector.ts';
+import { collectIdentifierTargets, survivingDeclarationExports } from './identifier-target-collector.ts';
 import { gatherLocalSeeds } from './local-seed-gathering.ts';
 
 export type ReachabilityInput = {
@@ -143,7 +143,13 @@ function refineReachability(
         );
     const graph = createBindingGraph(input, observed);
     const closure = traverseBindings(input, graph, externalSeeds, dependencies);
-    return { bindings: graph.bindingTargets(closure), exports: graph.exportGraph.survivingExports(closure) };
+    return {
+        bindings: graph.bindingTargets(closure),
+        exports: new Map([
+            ...graph.exportGraph.survivingExports(closure),
+            ...survivingDeclarationExports(input.files, closure)
+        ])
+    };
 }
 
 export function buildReachabilityIndex(
