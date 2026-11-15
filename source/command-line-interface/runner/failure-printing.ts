@@ -24,10 +24,6 @@ type DryRunFlags = {
 type PublishSuccessFlags = {
     readonly stage: boolean;
 };
-const issueTitleByType = {
-    [configurationErrorType]: 'The provided config is invalid',
-    [checksErrorType]: 'Checks failed'
-} as const;
 
 export function printDryRunNote(log: Logger, flags: DryRunFlags): void {
     if (flags.noDryRun) {
@@ -110,6 +106,10 @@ export function printPublishFailure(log: Logger, error: PublishFailure, stage: b
             printPartialErrorSummary(log, partialError, stage, formatError);
         })
         .otherwise(function (issueError) {
+            const issueTitleByType = {
+                [configurationErrorType]: 'The provided config is invalid',
+                [checksErrorType]: 'Checks failed'
+            } as const;
             printIssueSummary(log, issueTitleByType[issueError.type], issueError.issues);
         });
 }
