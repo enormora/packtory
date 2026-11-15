@@ -1,12 +1,12 @@
+import { bundledDependenciesFrom } from '../common/bundled-dependency-groups.ts';
 import type {
     ChecksSettings as ChecksSettingsBase,
     PackageChecksSettings as PackageChecksSettingsBase
 } from './checks-schema.ts';
-import {
-    getBundledDependencies as getBundledDependenciesBase,
-    type CommonPackageSettings as CommonPackageSettingsBase,
-    type PackageConfiguration as PackageConfigurationBase,
-    type PackageConfigurationsByName as PackageConfigurationsByNameBase
+import type {
+    CommonPackageSettings as CommonPackageSettingsBase,
+    PackageConfiguration as PackageConfigurationBase,
+    PackageConfigurationsByName as PackageConfigurationsByNameBase
 } from './package-configuration.ts';
 import type { ChangelogSettings } from './changelog-settings.ts';
 import type { RegistrySettings } from './registry-settings.ts';
@@ -26,5 +26,4 @@ export type PacktoryConfiguration = PacktoryConfigurationWithoutRegistry & {
     readonly registrySettings?: RegistrySettings | undefined;
 };
 
-const packageConfigurationOperations = { getBundledDependencies: getBundledDependenciesBase };
-export const { getBundledDependencies } = packageConfigurationOperations;
+export const getBundledDependencies = bundledDependenciesFrom<string>;

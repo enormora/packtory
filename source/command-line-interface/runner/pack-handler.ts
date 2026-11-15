@@ -13,10 +13,6 @@ import { getErrorSymbol, getSuccessSymbol } from './runner-symbols.ts';
 import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
-const issuePrefixByType = {
-    [configurationErrorType]: 'The provided config is invalid',
-    [checksErrorType]: 'Checks failed'
-} as const;
 
 type PackFlags = {
     readonly all: boolean;
@@ -183,6 +179,10 @@ function formatPackageFailure(error: Exclude<PackFailure, IssuePackFailure | Par
 
 function formatPackFailure(error: PackFailure, trace: boolean): string {
     if (isIssueFailure(error)) {
+        const issuePrefixByType = {
+            [configurationErrorType]: 'The provided config is invalid',
+            [checksErrorType]: 'Checks failed'
+        } as const;
         return formatIssueList(issuePrefixByType[error.type], error.issues);
     }
 
