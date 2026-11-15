@@ -207,7 +207,7 @@ export async function publishFixturePackages(input: PublishFixturePackagesInput)
         }
     };
     const configuration = await createPublishConfiguration(configurationInput);
-    const registrySettings = createRegistrySettings(input.registryDetails, input.authenticationMode ?? 'basic');
+    const registrySettings = createRegistrySettings(input.registryDetails, input.authenticationMode ?? 'bearer');
 
     const outcome = await buildAndPublishAll(
         { ...configuration, registrySettings },
