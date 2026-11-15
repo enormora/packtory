@@ -27,11 +27,10 @@ type ResolvedContentDescription = {
 };
 
 function buildInputGraph(
-    contents: readonly ResolvedContentDescription[],
-    entryPath = '/entry.js'
+    contents: readonly ResolvedContentDescription[]
 ): ResourceGraph {
     const root = {
-        javaScript: { content: '', isExecutable: false, inputFilePath: entryPath, targetFilePath: 'entry.js' },
+        javaScript: { content: '', isExecutable: false, inputFilePath: '/entry.js', targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createGraphFromResolvedBundle({

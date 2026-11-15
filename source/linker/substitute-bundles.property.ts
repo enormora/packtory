@@ -213,7 +213,7 @@ function assertSubstitutionResult(assertion: SubstitutionAssertion): void {
     const expectedBundleDependencies = assertion
         .importPaths
         .flatMap(function (_unusedValue, index) {
-            return assertion.selectedFlags[index] ?? false ? [ `package-${index}` ] : [];
+            return assertion.selectedFlags[index] ?? false ? `package-${index}` : [];
         })
         .toSorted(compareText);
     assert.deepStrictEqual(referencedBundleDependencies, expectedBundleDependencies);

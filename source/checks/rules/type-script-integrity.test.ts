@@ -80,8 +80,8 @@ function publishedPackagesFor(...names: readonly string[]): ReadonlyMap<string, 
     );
 }
 
-function executableOnlyBundle(name: string, hasDeclaration: boolean): CheckBundle {
-    const base = checkBundle(name, hasDeclaration ? [ 'cli.js', 'cli.d.ts' ] : [ 'cli.js' ]);
+function executableOnlyBundle(hasDeclaration: boolean): CheckBundle {
+    const base = checkBundle('package', hasDeclaration ? [ 'cli.js', 'cli.d.ts' ] : [ 'cli.js' ]);
     return {
         ...base,
         roots: {
@@ -106,7 +106,7 @@ function executableOnlyBundle(name: string, hasDeclaration: boolean): CheckBundl
         },
         surface: {
             mode: 'explicit',
-            packageInterface: { executables: [ { root: 'commandLineInterface', name } ] }
+            packageInterface: { executables: [ { root: 'commandLineInterface', name: 'package' } ] }
         }
     };
 }
@@ -395,7 +395,7 @@ suite('type-script-integrity', function () {
 
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
-                [ executableOnlyBundle('package', false) ],
+                [ executableOnlyBundle(false) ],
                 new Map([ [
                     'package',
                     checkPublishedPackage('package', '{"bin":{"package":"./cli.js"}}', { 'cli.js': '' })
@@ -418,7 +418,7 @@ suite('type-script-integrity', function () {
 
             const issues = await runRuleForBundles(
                 ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
-                [ executableOnlyBundle('package', true) ],
+                [ executableOnlyBundle(true) ],
                 new Map([ [ 'package', publishedPackage ] ])
             );
 
@@ -432,7 +432,7 @@ suite('type-script-integrity', function () {
         test('runs declaration integrity when any bin-only root has declarations', async function () {
             const summarizeDeclarationIntegrity = fake.returns([ 'declaration issue' ]);
             const bundle = {
-                ...executableOnlyBundle('package', true),
+                ...executableOnlyBundle(true),
                 surface: {
                     mode: 'explicit' as const,
                     packageInterface: {
@@ -457,7 +457,7 @@ suite('type-script-integrity', function () {
             const analyzePackageResolution = fake.resolves({ kind: 'missing-declarations' });
             const summarizeDeclarationIntegrity = fake.returns([ 'declaration issue' ]);
             const bundle = {
-                ...executableOnlyBundle('package', false),
+                ...executableOnlyBundle(false),
                 surface: {
                     mode: 'explicit' as const,
                     packageInterface: {}

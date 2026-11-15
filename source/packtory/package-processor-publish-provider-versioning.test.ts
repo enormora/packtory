@@ -18,11 +18,11 @@ type VersionedBundleBuilder = {
     readonly versions: readonly string[];
 };
 
-function publishedArtifacts(version: string, gitHead: string): BuildAndPublishResult['previousReleaseArtifacts'] {
+function publishedArtifacts(): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
-        version,
+        version: '1.2.3',
         publishedAt: undefined,
-        gitHead,
+        gitHead: 'published-head',
         files: []
     });
 }
@@ -51,7 +51,7 @@ suite('package-processor publish provider versioning', function () {
         const addVersion = fake.returns(currentVersionedBundle);
         const checkBundleAlreadyPublished = fake.resolves({
             alreadyPublishedAsLatest: true,
-            previousReleaseArtifacts: publishedArtifacts('1.2.3', 'published-head')
+            previousReleaseArtifacts: publishedArtifacts()
         });
         const { processor, determineCurrentVersion } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
@@ -80,7 +80,7 @@ suite('package-processor publish provider versioning', function () {
             addVersion,
             checkBundleAlreadyPublished: fake.resolves({
                 alreadyPublishedAsLatest: false,
-                previousReleaseArtifacts: publishedArtifacts('1.2.3', 'published-head')
+                previousReleaseArtifacts: publishedArtifacts()
             })
         });
 

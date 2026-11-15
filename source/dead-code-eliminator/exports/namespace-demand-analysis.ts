@@ -52,17 +52,9 @@ export function createNamespaceDemandAnalysis(
         return key;
     }
 
-    function exportedDemand(key: ExportDemandKey, observers: NamespaceExpressionContext): NamespaceDemand {
-        if (!state.analyzedFiles.has(key.source) || publicFiles.has(key.source) || state.incoming.unknownDynamic) {
-            return allNamespaceProperties;
-        }
-        const consumers = state.incoming.consumers.get(key.source) ?? [];
-        return consumers.reduce<NamespaceDemand>(function (demand, consumer) {
-            return mergeNamespaceDemand(demand, namespaceConsumerDemand(consumer, key.name, observers));
-        }, noNamespaceProperties);
-    }
-
-    const context: NamespaceBindingContext & NamespaceExpressionContext = {
+    const context: NamespaceBindingContext & NamespaceExpressionContext & {
+        readonly exportedConsumers: (key: ExportDemandKey) => NamespaceDemand;
+    } = {
         ...policy,
         analyzedFiles: state.analyzedFiles,
         binding(declaration) {
@@ -78,8 +70,17 @@ export function createNamespaceDemandAnalysis(
         exported(source, name) {
             const key = exportKey(source, name);
             return solver.read(key, function () {
-                return exportedDemand(key, context);
+                return context.exportedConsumers(key);
             });
+        },
+        exportedConsumers(key) {
+            if (!state.analyzedFiles.has(key.source) || publicFiles.has(key.source) || state.incoming.unknownDynamic) {
+                return allNamespaceProperties;
+            }
+            const consumers = state.incoming.consumers.get(key.source) ?? [];
+            return consumers.reduce<NamespaceDemand>(function (demand, consumer) {
+                return mergeNamespaceDemand(demand, namespaceConsumerDemand(consumer, key.name, context));
+            }, noNamespaceProperties);
         },
         primitive(expression) {
             return evaluations(expression.getSourceFile()).primitiveValue(expression);
@@ -96,7 +97,7 @@ export function createNamespaceDemandAnalysis(
         exportProperties(source, name) {
             const key = exportKey(source, name);
             return namespaceProperties(solver.resolve(key, function () {
-                return exportedDemand(key, context);
+                return context.exportedConsumers(key);
             }));
         }
     };

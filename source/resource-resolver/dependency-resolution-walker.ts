@@ -40,7 +40,7 @@ function jsonRootFiles(roots: ResourceResolveOptions['roots']): DependencyFiles 
         if (!root.json.endsWith('.json')) {
             throw new Error('JSON roots must use the .json extension');
         }
-        return [ { filePath: root.json, directDependencies: new Set<string>(), moduleReferences: [] } ];
+        return { filePath: root.json, directDependencies: new Set<string>(), moduleReferences: [] };
     });
     return { externalDependencies: new Map(), localFiles };
 }
@@ -56,13 +56,13 @@ export async function resolveDependenciesForAllRoots(
         dependencies,
         options,
         Object.values(roots).flatMap(function (root) {
-            return root.javaScript === undefined ? [] : [ root.javaScript ];
+            return root.javaScript ?? [];
         }),
         false
     );
     const declarationFiles = await scanRootFiles(dependencies, options, [
         ...Object.values(roots).flatMap(function (root) {
-            return root.declarationFile === undefined ? [] : [ root.declarationFile ];
+            return root.declarationFile ?? [];
         }),
         ...promotedDeclarationEntryFiles
     ], true);

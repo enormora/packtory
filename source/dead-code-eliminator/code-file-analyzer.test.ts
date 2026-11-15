@@ -12,11 +12,11 @@ const statementStub = { identifier: 'stmt' };
 const declarationStub = { identifier: 'decl' };
 const referenceStub = { identifier: 'ref' };
 
-function loadedCodeResource(targetFilePath: string, content: string): LoadedCodeResource {
+function loadedCodeResource(content: string): LoadedCodeResource {
     const loaded = loadResource(createProject(), createProject(), {
         fileDescription: {
-            inputFilePath: `/source/${targetFilePath}`,
-            targetFilePath,
+            inputFilePath: '/source/a.ts',
+            targetFilePath: 'a.ts',
             content,
             isExecutable: false
         },
@@ -78,7 +78,7 @@ suite('code-file-analyzer', function () {
     });
 
     test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', function () {
-        const loaded = loadedCodeResource('a.ts', 'import { dead } from "./b";\nexport const foo = 1;\n');
+        const loaded = loadedCodeResource('import { dead } from "./b";\nexport const foo = 1;\n');
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
@@ -93,7 +93,7 @@ suite('code-file-analyzer', function () {
     });
 
     test('buildAnalyzedResource includes side-effect statements in the analysis when transformations are disabled', function () {
-        const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
+        const loaded = loadedCodeResource('console.log(1);\nexport const foo = 1;\n');
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
@@ -102,7 +102,6 @@ suite('code-file-analyzer', function () {
 
     test('buildAnalyzedResource removes dead declarations while retaining side-effect statements', function () {
         const loaded = loadedCodeResource(
-            'a.ts',
             'import { dead } from "./b";\nconsole.log(1);\nexport const foo = 1;\n'
         );
 
@@ -124,7 +123,7 @@ suite('code-file-analyzer', function () {
 
     test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {
         const loaded: LoadedCodeResource = {
-            ...loadedCodeResource('a.ts', 'export const foo = 1;\n'),
+            ...loadedCodeResource('export const foo = 1;\n'),
             bindings: [
                 {
                     name: 'foo',

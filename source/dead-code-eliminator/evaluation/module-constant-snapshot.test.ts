@@ -48,7 +48,12 @@ suite('module constant snapshots', function () {
             assert.fail('prepared local modules must resolve without external lookup');
         });
         const [ entry, library ] = files;
-        assert.ok(entry !== undefined && library !== undefined);
+        if (entry === undefined) {
+            assert.fail('Expected entry module');
+        }
+        if (library === undefined) {
+            assert.fail('Expected library module');
+        }
         assert.deepStrictEqual(snapshot.modules.get(entry.sourceFile), {
             initialized: true,
             exports: new Map([

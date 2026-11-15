@@ -185,7 +185,7 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
             if (node.type !== 'file' || node.artifact.diff === undefined) {
                 return [];
             }
-            return [ { ...node.artifact, diff: node.artifact.diff } ];
+            return { ...node.artifact, diff: node.artifact.diff };
         });
     const artifactCounts = overrideArtifactCounts ??
         tree.reduce(

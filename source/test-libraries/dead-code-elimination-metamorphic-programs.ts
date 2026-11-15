@@ -157,11 +157,10 @@ function caseName(input: DeadCodeEliminationMetamorphicInput, state: 'original' 
 }
 
 function directModuleProgram(
-    input: DeadCodeEliminationMetamorphicInput,
-    state: 'original' | 'transformed'
+    input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationProgramSet {
     return singleBaseProgram(
-        caseName(input, state),
+        caseName(input, 'original'),
         namedImportIndex(),
         moduleAWithDirectExport(input.expression, input.eventName),
         emptyAdditionalFiles()
@@ -181,7 +180,7 @@ function directModuleTransformedProgram(
 }
 
 function importAliasingCase(input: DeadCodeEliminationMetamorphicInput): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformed = singleBaseProgram(
         caseName(input, 'transformed'),
         baseIndexFile(
@@ -198,7 +197,7 @@ function importAliasingCase(input: DeadCodeEliminationMetamorphicInput): Generat
 function localBindingRenameCase(
     input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformedModuleA = runtimeFile(
         'module-a.js',
         [
@@ -216,7 +215,7 @@ function localBindingRenameCase(
 function directExportConversionCase(
     input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformedModuleA = runtimeFile(
         'module-a.js',
         [
@@ -234,7 +233,7 @@ function directExportConversionCase(
 function unusedRuntimeSurfaceCase(
     input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformedModuleA = runtimeFile(
         'module-a.js',
         [
@@ -250,7 +249,7 @@ function unusedRuntimeSurfaceCase(
 }
 
 function unusedModulesCase(input: DeadCodeEliminationMetamorphicInput): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformed = singleBaseProgram(
         caseName(input, 'transformed'),
         namedImportIndex(),
@@ -321,7 +320,7 @@ function topLevelUnusedReorderCase(
 function intermediateReexportCase(
     input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const bridge = runtimeFile(
         'bridge.js',
         [
@@ -358,7 +357,7 @@ function intermediateReexportCase(
 function pureSideEffectImportCase(
     input: DeadCodeEliminationMetamorphicInput
 ): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     const transformedIndex = runtimeFile(
         'index.js',
         [
@@ -391,7 +390,7 @@ function pureSideEffectImportCase(
 }
 
 function eliminateTwiceCase(input: DeadCodeEliminationMetamorphicInput): GeneratedDeadCodeEliminationMetamorphicCase {
-    const original = directModuleProgram(input, 'original');
+    const original = directModuleProgram(input);
     return metamorphicCase(input, original, original);
 }
 

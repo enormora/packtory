@@ -35,18 +35,18 @@ function walkContent(
     });
 }
 
-function indexedBundleWithFiles(name: string, files: readonly string[]): ReadonlyMap<string, IndexedBundle> {
+function indexedBundleWithFiles(files: readonly string[]): ReadonlyMap<string, IndexedBundle> {
     const project = createProject({
         withFiles: files.map(function (targetFilePath) {
-            return { filePath: `/${name}/${targetFilePath}`, content: 'export const remote = 1;' };
+            return { filePath: `/package-b/${targetFilePath}`, content: 'export const remote = 1;' };
         })
     });
     const fileBindings = files.map(function (targetFilePath): FileBindings {
-        const sourceFile = project.getSourceFileOrThrow(`/${name}/${targetFilePath}`);
+        const sourceFile = project.getSourceFileOrThrow(`/package-b/${targetFilePath}`);
         const declaration = sourceFile.getVariableDeclarationOrThrow('remote');
         return {
-            inputFilePath: `/${name}/${targetFilePath}`,
-            parsedInputFilePath: `/${name}/${targetFilePath}`,
+            inputFilePath: `/package-b/${targetFilePath}`,
+            parsedInputFilePath: `/package-b/${targetFilePath}`,
             targetFilePath,
             moduleReferences: [],
             bindings: [
@@ -64,7 +64,7 @@ function indexedBundleWithFiles(name: string, files: readonly string[]): Readonl
             }
         };
     });
-    return indexBundles([ { bundle: linkedBundle({ name }), fileBindings } ]);
+    return indexBundles([ { bundle: linkedBundle({ name: 'package-b' }), fileBindings } ]);
 }
 
 function indexedBundleWithMissingBindings(name: string, targetFilePath: string): ReadonlyMap<string, IndexedBundle> {
@@ -101,7 +101,7 @@ suite('import-export-walker', function () {
             'function helper() { return 1; }\nexport { helper };',
             new Set(),
             {
-                indexed: indexedBundleWithFiles('package-b', [ 'remote.js' ]),
+                indexed: indexedBundleWithFiles([ 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'linked-code',
@@ -142,7 +142,7 @@ suite('import-export-walker', function () {
             'import { remote } from "package-b/missing.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
-                indexed: indexedBundleWithFiles('package-b', [ 'remote.js' ]),
+                indexed: indexedBundleWithFiles([ 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'linked-code',
@@ -184,7 +184,7 @@ suite('import-export-walker', function () {
             'import { remote } from "package-b/remote.js";\nconsole.log(remote);',
             new Set([ 'index.ts::remote' ]),
             {
-                indexed: indexedBundleWithFiles('package-b', [ 'wrong.js', 'remote.js' ]),
+                indexed: indexedBundleWithFiles([ 'wrong.js', 'remote.js' ]),
                 moduleReferences: [
                     {
                         type: 'external-package',

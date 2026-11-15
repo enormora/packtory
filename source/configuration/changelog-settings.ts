@@ -190,7 +190,7 @@ function collectPackageFileDestinationPaths(
         if (sourcesFolder === undefined) {
             return [];
         }
-        return [ normalizeFilePath(sourcesFolder, output.path) ];
+        return normalizeFilePath(sourcesFolder, output.path);
     });
 }
 
@@ -218,7 +218,7 @@ function collectChangelogOutputIssues(
         : [];
     const repositoryFileIssues = collectDuplicateValueIssues(
         outputs.flatMap(function (output) {
-            return output.kind === 'repository-file' ? [ normalizeRelativePath(output.path) ] : [];
+            return output.kind === 'repository-file' ? normalizeRelativePath(output.path) : [];
         }),
         function (duplicatePath) {
             return `changelog.outputs must not contain duplicate repository-file path "${duplicatePath}"`;

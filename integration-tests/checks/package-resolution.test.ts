@@ -62,9 +62,8 @@ function typedPackage(packageName: string, entrypoint: EntrypointSources): Publi
     });
 }
 
-function twoEntrypointPackage(
+function packageWithBrokenRoot(
     packageName: string,
-    rootEntrypoint: EntrypointSources,
     featureEntrypoint: EntrypointSources
 ): PublishedPackageWithManifest {
     return publishedPackage(
@@ -76,8 +75,8 @@ function twoEntrypointPackage(
             }
         }),
         {
-            'index.js': rootEntrypoint.javascriptSource,
-            'index.d.ts': rootEntrypoint.declarationSource,
+            'index.js': brokenCommonJavaScriptEntrypoint.javascriptSource,
+            'index.d.ts': brokenCommonJavaScriptEntrypoint.declarationSource,
             'feature.js': featureEntrypoint.javascriptSource,
             'feature.d.ts': featureEntrypoint.declarationSource
         }
@@ -106,9 +105,8 @@ suite('package resolution against the real types checker', function () {
     });
 
     test('groups a repeated problem kind of several entrypoints into one summary', async function () {
-        const issues = await checkPackageResolution(twoEntrypointPackage(
+        const issues = await checkPackageResolution(packageWithBrokenRoot(
             'multi-entrypoint-package',
-            brokenCommonJavaScriptEntrypoint,
             {
                 javascriptSource: 'module.exports = function feature() {};\nmodule.exports.default = module.exports;\n',
                 declarationSource: 'declare function feature(): void;\nexport default feature;\n'
@@ -124,9 +122,8 @@ suite('package resolution against the real types checker', function () {
     });
 
     test('reports only the entrypoints a problem affects', async function () {
-        const issues = await checkPackageResolution(twoEntrypointPackage(
+        const issues = await checkPackageResolution(packageWithBrokenRoot(
             'mixed-entrypoint-package',
-            brokenCommonJavaScriptEntrypoint,
             {
                 javascriptSource: 'export const feature = 1;\n',
                 declarationSource: 'export declare const feature: number;\n'

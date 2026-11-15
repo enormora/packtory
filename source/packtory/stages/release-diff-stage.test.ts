@@ -48,8 +48,7 @@ function artifactsBuilderReturning(files: readonly FileDescription[]): Artifacts
 }
 
 async function runPackageAStage(
-    files: readonly FileDescription[],
-    buildResultOverrides: Partial<BuildAndPublishResult> = {}
+    files: readonly FileDescription[]
 ): ReturnType<typeof runReleaseDiffStage> {
     return runReleaseDiffStage(
         {
@@ -57,7 +56,7 @@ async function runPackageAStage(
             scheduler: createIteratingScheduler([ 'package-a' ])
         },
         configurationFor([ 'package-a' ]),
-        [ buildResultFor('package-a', buildResultOverrides) ]
+        [ buildResultFor('package-a', {}) ]
     );
 }
 

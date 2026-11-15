@@ -39,10 +39,9 @@ function diagnostic(declarationPath: string): DeclarationDiagnostic {
 
 function projectWith(
     modeLabel: string,
-    diagnostics: readonly DeclarationDiagnostic[],
-    specifiers: Readonly<Record<string, readonly string[]>> = {}
+    diagnostics: readonly DeclarationDiagnostic[]
 ): DeclarationProject {
-    return fakeProject({ modeLabel, diagnostics, specifiers, publicEntrypointPaths: [] });
+    return fakeProject({ modeLabel, diagnostics, specifiers: {}, publicEntrypointPaths: [] });
 }
 
 type SummarizeOptions = {

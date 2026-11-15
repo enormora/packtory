@@ -109,10 +109,10 @@ async function analyzePartialPublishFailure(
     );
 }
 
-function dependencyOnlyFiles(version: string): readonly DependencyOnlyFile[] {
+function dependencyOnlyFiles(): readonly DependencyOnlyFile[] {
     return [ {
         filePath: 'package.json',
-        content: `{"name":"package-a","version":"${version}"}`,
+        content: '{"name":"package-a","version":"1.0.1"}',
         isExecutable: false
     } ];
 }
@@ -192,7 +192,7 @@ suite('packtory-release-analysis', function () {
         const result = await analyzePublishedBuildResult({
             collectContents(_bundle, prefix) {
                 receivedPrefixes.push(prefix);
-                return dependencyOnlyFiles('1.0.1');
+                return dependencyOnlyFiles();
             }
         });
 
@@ -267,9 +267,7 @@ suite('packtory-release-analysis', function () {
     });
 
     test('keeps analyzed successes when publish later fails after at least one package was analyzed', async function () {
-        const partial = await analyzePartialPublishFailure(function collectContents() {
-            return dependencyOnlyFiles('1.0.1');
-        });
+        const partial = await analyzePartialPublishFailure(dependencyOnlyFiles);
 
         assert.strictEqual(partial.succeeded.length, 1);
         assert.match(partial.failures[0]?.message ?? '', /publish failed/u);

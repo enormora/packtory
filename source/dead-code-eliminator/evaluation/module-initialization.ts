@@ -91,7 +91,7 @@ function initializationDependencies(sourceFile: SourceFile): readonly string[] {
             })
             .flatMap(function (declaration) {
                 const specifier = declaration.getModuleSpecifierValue();
-                return specifier === undefined ? [] : [ specifier ];
+                return specifier ?? [];
             })
     ];
 }

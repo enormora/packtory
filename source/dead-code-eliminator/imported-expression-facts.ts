@@ -61,11 +61,8 @@ function externalCallResultFact(
         !expressionBindingShapeIsStable(
             expression.getExpression(),
             createRuntimeCallablePurityProof(context.resolveRuntimeModule)
-        )
+        ) || exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule) !== 'pure-callable'
     ) {
-        return unknownFact;
-    }
-    if (exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule) !== 'pure-callable') {
         return unknownFact;
     }
     return exportHasPureObjectReturnForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule)

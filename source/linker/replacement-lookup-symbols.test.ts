@@ -74,8 +74,8 @@ function namedRequest(inputFilePath: string, requiredExportNames: readonly strin
     return request(inputFilePath, requiredExportNames, false);
 }
 
-function namespaceRequest(inputFilePath: string): ImportPathReplacementRequest {
-    return request(inputFilePath, [], true);
+function namespaceRequest(): ImportPathReplacementRequest {
+    return request('/b/internal.d.ts', [], true);
 }
 
 function assertReplacement(requests: readonly ImportPathReplacementRequest[], bundle: BundleSubstitutionSource): void {
@@ -113,7 +113,7 @@ describe('replacement-lookup symbol reachability', function () {
 
         it('accepts namespace imports through export stars', function () {
             assertReplacement(
-                [ namespaceRequest('/b/internal.d.ts') ],
+                [ namespaceRequest() ],
                 peerEntryBundle('export * from "./internal.js";\n')
             );
         });
@@ -208,7 +208,7 @@ describe('replacement-lookup symbol reachability', function () {
                 testResource('/b/internal.d.ts', 'internal.d.ts', '')
             ]);
 
-            assertReplacement([ namespaceRequest('/b/internal.d.ts') ], bundle);
+            assertReplacement([ namespaceRequest() ], bundle);
         });
 
         it('accepts namespace imports through the first matching export declaration', function () {
@@ -222,7 +222,7 @@ describe('replacement-lookup symbol reachability', function () {
                 testResource('/b/internal.d.ts', 'internal.d.ts', '')
             ]);
 
-            assertReplacement([ namespaceRequest('/b/internal.d.ts') ], bundle);
+            assertReplacement([ namespaceRequest() ], bundle);
         });
     });
 
@@ -243,7 +243,7 @@ describe('replacement-lookup symbol reachability', function () {
 
         it('rejects namespace imports without export star reachability', function () {
             assertRejected(
-                [ namespaceRequest('/b/internal.d.ts') ],
+                [ namespaceRequest() ],
                 peerEntryBundle('export type { Internal } from "./internal.js";\n')
             );
         });
@@ -332,7 +332,7 @@ describe('replacement-lookup symbol reachability', function () {
                 testResource('/b/internal.d.ts', 'internal.d.ts', '')
             ]);
 
-            assertRejected([ namespaceRequest('/b/internal.d.ts') ], bundle);
+            assertRejected([ namespaceRequest() ], bundle);
         });
     });
 });

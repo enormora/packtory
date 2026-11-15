@@ -113,9 +113,9 @@ function publicEntrypointSpecifiers(packageName: string, manifestContent: string
         });
     }
 
-    return manifest.types !== undefined || manifest.typings !== undefined || manifest.main !== undefined
-        ? [ packageName ]
-        : [];
+    return manifest.types === undefined && manifest.typings === undefined && manifest.main === undefined
+        ? []
+        : [ packageName ];
 }
 
 function importSource(specifiers: Iterable<string>): string {

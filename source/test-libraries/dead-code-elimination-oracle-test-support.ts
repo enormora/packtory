@@ -212,11 +212,11 @@ function observedEntries(input: DeadCodeEliminationBehaviorInput): readonly Dead
             if (root.javaScript === undefined) {
                 return [];
             }
-            return [ {
+            return {
                 bundleName: bundle.name,
                 targetFilePath: root.javaScript.targetFilePath,
                 exportName: input.entry.exportName
-            } ];
+            };
         });
     });
     const otherRoots = roots.filter(function (entry) {

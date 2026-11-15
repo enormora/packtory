@@ -44,7 +44,7 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
         if (replacement === undefined) {
             return [];
         }
-        return [ {
+        return {
             start: literal.getStart() + 1,
             end: literal.getEnd() - 1,
             reference: {
@@ -52,7 +52,7 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
                 sourceSpecifier: literal.getLiteralValue(),
                 emittedSpecifier: replacement.emittedSpecifier
             }
-        } ];
+        };
     });
     return edits.toSorted(function (left, right) {
         return left.start - right.start;

@@ -62,7 +62,7 @@ const dependencyFilesArbitrary: fastCheck.Arbitrary<DependencyFiles> = fastCheck
                             dependencyIndex
                         ) {
                             return dependencyIndex % filePaths.length === index % filePaths.length
-                                ? [ dependencyName ]
+                                ? dependencyName
                                 : [];
                         }),
                         moduleReferences: [],

@@ -46,8 +46,8 @@ function createSymbolAwareProject(): SymbolAwareProject {
     };
 }
 
-function duplicateIssue(filePath: string, owners: readonly string[]): readonly string[] {
-    return [ `File "${filePath}" is included in multiple packages: ${owners.join(', ')}` ];
+function duplicateIssue(owners: readonly string[]): readonly string[] {
+    return [ `File "${sharedFilePath}" is included in multiple packages: ${owners.join(', ')}` ];
 }
 
 function sharedDeclarationIssue(
@@ -156,7 +156,7 @@ suite('no-duplicated-files', function () {
                 name: 'reports every duplicate when no per-package consent is configured',
                 bundles: [ bundle('b'), bundle('a') ],
                 consenters: [],
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             },
             {
                 name: 'ignores duplicates when every owning package consents via its allowList',
@@ -171,7 +171,7 @@ suite('no-duplicated-files', function () {
                 name: 'reports a duplicate when only one owner consents',
                 bundles: [ bundle('a'), bundle('b') ],
                 consenters: [ [ 'a', [ sharedFilePath ] ] ],
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             },
             {
                 name: 'reports a duplicate when a third owner did not consent',
@@ -180,7 +180,7 @@ suite('no-duplicated-files', function () {
                     [ 'a', [ sharedFilePath ] ],
                     [ 'b', [ sharedFilePath ] ]
                 ],
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b', 'c' ])
+                expected: duplicateIssue([ 'a', 'b', 'c' ])
             },
             {
                 name: 'does not match consent for a different file path',
@@ -189,7 +189,7 @@ suite('no-duplicated-files', function () {
                     [ 'a', [ 'other.ts' ] ],
                     [ 'b', [ 'other.ts' ] ]
                 ],
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             },
             {
                 name: 'returns no issues when there are no duplicates',
@@ -213,12 +213,12 @@ suite('no-duplicated-files', function () {
             {
                 name: 'reports a duplicate when an owner has per-package settings without a noDuplicatedFiles key',
                 secondOwnerSettings: {},
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             },
             {
                 name: 'reports a duplicate when an owner has noDuplicatedFiles without an allowList',
                 secondOwnerSettings: { noDuplicatedFiles: {} },
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             }
         ] as const;
 
@@ -242,7 +242,7 @@ suite('no-duplicated-files', function () {
             {
                 name: 'reports a duplicate that is not present in the global allowList',
                 settings: { noDuplicatedFiles: { enabled: true, allowList: [ 'other.ts' ] } },
-                expected: duplicateIssue(sharedFilePath, [ 'a', 'b' ])
+                expected: duplicateIssue([ 'a', 'b' ])
             }
         ] as const;
 
@@ -345,6 +345,6 @@ suite('no-duplicated-files', function () {
             ...emptyCheckContext()
         });
 
-        assert.deepStrictEqual(result, duplicateIssue(sharedFilePath, [ 'a', 'b' ]));
+        assert.deepStrictEqual(result, duplicateIssue([ 'a', 'b' ]));
     });
 });

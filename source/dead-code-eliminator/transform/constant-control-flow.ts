@@ -114,7 +114,7 @@ function emptyDoSource(node: TypeScriptMorphNodeType, evaluate: SourceEvaluation
         return undefined;
     }
     const condition = evaluate.knownValue(node.getExpression());
-    return condition !== undefined && !isTruthy(condition.value) ? [ ';' ] : undefined;
+    return condition === undefined || isTruthy(condition.value) ? undefined : [ ';' ];
 }
 
 function pureStatementSource(

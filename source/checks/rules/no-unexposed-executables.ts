@@ -30,13 +30,10 @@ function findUnexposedExecutables(
     const executableTargets = explicitExecutableTargetPaths(publishedPackage);
 
     return bundle.contents.flatMap(function (resource) {
-        if (!resource.fileDescription.isExecutable) {
+        if (!resource.fileDescription.isExecutable || executableTargets.has(resource.fileDescription.targetFilePath)) {
             return [];
         }
-        if (executableTargets.has(resource.fileDescription.targetFilePath)) {
-            return [];
-        }
-        return [ reportExecutable(bundle.name, resource) ];
+        return reportExecutable(bundle.name, resource);
     });
 }
 

@@ -86,12 +86,12 @@ function hasExportThroughGraph(
     });
 }
 
-function hasExportThroughUnparsedTarget(content: string, exportName: string): boolean {
+function hasExportThroughUnparsedTarget(content: string): boolean {
     return hasDeadCodeEliminationExportedName({
         maximumDepth: 2,
         mode: 'runtime',
         targetPath: 'index.js',
-        exportName,
+        exportName: 'value',
         sourceFile: sourceFile(content),
         resolver: {
             resolve(_importerTargetPath, _resolverMode, specifier) {
@@ -304,8 +304,8 @@ suite('dead code elimination export resolution', function () {
 
     test('rejects re-exports from unparsed source targets', function () {
         assert.deepStrictEqual([
-            hasExportThroughUnparsedTarget('export { value } from "./target.js";\n', 'value'),
-            hasExportThroughUnparsedTarget('export * from "./target.js";\n', 'value')
+            hasExportThroughUnparsedTarget('export { value } from "./target.js";\n'),
+            hasExportThroughUnparsedTarget('export * from "./target.js";\n')
         ], [
             false,
             false

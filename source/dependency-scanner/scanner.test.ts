@@ -44,8 +44,14 @@ function localCode(filePath: string): ModuleReference {
     return { kind: 'local-code', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
 }
 
-function localAsset(filePath: string): ModuleReference {
-    return { kind: 'local-asset', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
+function localAsset(): ModuleReference {
+    const filePath = '/dir/data.json';
+    return {
+        kind: 'local-asset',
+        filePath,
+        sourceSpecifier: filePath,
+        emittedSpecifier: filePath
+    };
 }
 
 function externalPackage(packageName: string): ModuleReference {
@@ -57,8 +63,14 @@ function externalPackage(packageName: string): ModuleReference {
     };
 }
 
-function generatedManifest(filePath: string): ModuleReference {
-    return { kind: 'generated-manifest', filePath, sourceSpecifier: filePath, emittedSpecifier: filePath };
+function generatedManifest(): ModuleReference {
+    const filePath = '/dir/package.json';
+    return {
+        kind: 'generated-manifest',
+        filePath,
+        sourceSpecifier: filePath,
+        emittedSpecifier: filePath
+    };
 }
 
 function localFileShapes(localFiles: DependencyFiles['localFiles']): readonly Record<string, unknown>[] {
@@ -200,7 +212,7 @@ suite('scanner', function () {
                 .onFirstCall()
                 .returns([ localCode('/dir/foo.js') ])
                 .onSecondCall()
-                .returns([ localAsset('/dir/data.json'), generatedManifest('/dir/package.json') ])
+                .returns([ localAsset(), generatedManifest() ])
                 .onThirdCall()
                 .returns([]);
             const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
@@ -417,8 +429,8 @@ suite('scanner', function () {
                     .onFirstCall()
                     .returns([
                         localCode('/dir/foo.js'),
-                        localAsset('/dir/data.json'),
-                        generatedManifest('/dir/package.json'),
+                        localAsset(),
+                        generatedManifest(),
                         externalPackage('any-module')
                     ])
                     .onSecondCall()
@@ -453,7 +465,7 @@ suite('scanner', function () {
             });
 
             test('returns local asset files without a project', async function () {
-                const result = await scanWithReferencedModules([ localAsset('/dir/data.json') ]);
+                const result = await scanWithReferencedModules([ localAsset() ]);
 
                 assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/data.json' ]), filePath: '/dir/entry.js', project: {} },
@@ -462,7 +474,7 @@ suite('scanner', function () {
             });
 
             test('returns generated manifest files with the generated-manifest marker', async function () {
-                const result = await scanWithReferencedModules([ generatedManifest('/dir/package.json') ]);
+                const result = await scanWithReferencedModules([ generatedManifest() ]);
 
                 assert.deepStrictEqual(localFileShapes(result.localFiles), [
                     { directDependencies: new Set([ '/dir/package.json' ]), filePath: '/dir/entry.js', project: {} },
@@ -478,7 +490,7 @@ suite('scanner', function () {
             test('doesn’t scan nested references for assets or generated manifests', async function () {
                 const getReferencedModules = stub()
                     .onFirstCall()
-                    .returns([ localAsset('/dir/data.json'), generatedManifest('/dir/package.json') ]);
+                    .returns([ localAsset(), generatedManifest() ]);
                 const result = await scanWithReferencedModuleStub(getReferencedModules);
 
                 assert.strictEqual(getReferencedModules.callCount, 1);

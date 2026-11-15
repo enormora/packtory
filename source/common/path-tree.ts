@@ -136,7 +136,7 @@ function toFileChildren<T>(entries: readonly PathEntry<T>[], depth: number): rea
             depth,
             item: entry.item
         };
-        return [ { node } ];
+        return { node };
     });
 }
 

@@ -54,13 +54,13 @@ function findSideEffectsInBundle(
     perPackageSettings: NoSideEffectsRunInput['perPackageSettings']
 ): readonly string[] {
     return bundle.contents.flatMap(function (resource) {
-        if (resource.analysis.sideEffectStatements.length === 0) {
+        if (
+            resource.analysis.sideEffectStatements.length === 0 ||
+            isAllowedFor(resource.fileDescription.inputFilePath, bundle.name, globalAllowList, perPackageSettings)
+        ) {
             return [];
         }
-        if (isAllowedFor(resource.fileDescription.inputFilePath, bundle.name, globalAllowList, perPackageSettings)) {
-            return [];
-        }
-        return [ reportResource(bundle.name, resource) ];
+        return reportResource(bundle.name, resource);
     });
 }
 

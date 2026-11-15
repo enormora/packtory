@@ -134,10 +134,10 @@ function requireFirstCall(calls: readonly FakeSpawnResult[]): FakeSpawnResult {
     return firstCall;
 }
 
-function closeProcess(code: number): NonNullable<PreviewInputOutputFactoryOverrides['spawnHook']> {
+function closeProcess(): NonNullable<PreviewInputOutputFactoryOverrides['spawnHook']> {
     return function ({ child }: FakeSpawnResult) {
         queueMicrotask(function () {
-            child.listeners.close?.(code);
+            child.listeners.close?.(0);
         });
     };
 }
@@ -178,7 +178,7 @@ suite('preview-io-shared', function () {
         test('uses the configured pager when it succeeds', async function () {
             const { previewInputOutput: inputOutput, calls } = previewInputOutputFactory({
                 pager: 'bat',
-                spawnHook: closeProcess(0)
+                spawnHook: closeProcess()
             });
 
             assert.strictEqual(
@@ -229,7 +229,7 @@ suite('preview-io-shared', function () {
 
         test('uses less directly when no pager is configured', async function () {
             const { previewInputOutput: inputOutput, calls } = previewInputOutputFactory({
-                spawnHook: closeProcess(0)
+                spawnHook: closeProcess()
             });
 
             assert.strictEqual(
@@ -247,7 +247,7 @@ suite('preview-io-shared', function () {
         test('falls back to less when the pager is empty', async function () {
             const { previewInputOutput: inputOutput, calls } = previewInputOutputFactory({
                 pager: '',
-                spawnHook: closeProcess(0)
+                spawnHook: closeProcess()
             });
 
             assert.strictEqual(

@@ -104,12 +104,12 @@ export function createLinkedBundle(name: string, inputFilePath = `/${name}/index
     });
 }
 
-function createVersionedBundle(name: string, version = '1.0.0'): BundleFixtureVersionedBundleWithManifest {
+function createVersionedBundle(name: string): BundleFixtureVersionedBundleWithManifest {
     return versionedBundleWithManifest({
         name,
-        version,
+        version: '1.0.0',
         mainFile: { inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
-        packageManifest: { name, version },
+        packageManifest: { name, version: '1.0.0' },
         manifestFile: { filePath: 'package.json', content: '{}' }
     });
 }

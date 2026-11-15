@@ -20,8 +20,8 @@ function readGitHubErrorPath(error: unknown): string {
     return `${parsedAddress.pathname}${parsedAddress.search}`;
 }
 
-function readStringProperty(value: unknown, property: string): string | undefined {
-    const propertyValue = readReflectedProperty(value, property);
+function readStringProperty(value: unknown): string | undefined {
+    const propertyValue = readReflectedProperty(value, 'message');
     return typeof propertyValue === 'string' && propertyValue.length > 0 ? propertyValue : undefined;
 }
 
@@ -29,9 +29,7 @@ function readGitHubErrorMessages(value: unknown): readonly (string | undefined)[
     if (!Array.isArray(value)) {
         return [];
     }
-    return value.map(function (item) {
-        return readStringProperty(item, 'message');
-    });
+    return value.map(readStringProperty);
 }
 
 function uniqueMessages(messages: readonly (string | undefined)[]): readonly string[] {
@@ -48,8 +46,8 @@ function readGitHubErrorDetails(error: unknown): readonly string[] {
     const response = readReflectedProperty(error, 'response');
     const responseData = readReflectedProperty(response, 'data');
     return uniqueMessages([
-        readStringProperty(error, 'message'),
-        readStringProperty(responseData, 'message'),
+        readStringProperty(error),
+        readStringProperty(responseData),
         ...readGitHubErrorMessages(readReflectedProperty(error, 'errors')),
         ...readGitHubErrorMessages(readReflectedProperty(response, 'errors')),
         ...readGitHubErrorMessages(readReflectedProperty(responseData, 'errors'))

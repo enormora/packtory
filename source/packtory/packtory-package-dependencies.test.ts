@@ -21,11 +21,10 @@ function targetPath(filePath: string): string {
 
 function dependency(
     name: string,
-    filePath: string,
     sourceSpecifier = name,
     emittedSpecifier = sourceSpecifier
 ): ExternalDependency {
-    const targetFilePath = targetPath(filePath);
+    const targetFilePath = targetPath('/repo/package-a/index.js');
     return {
         name,
         referencedFrom: [ targetFilePath ],
@@ -69,16 +68,16 @@ function linkedBundle(name: string): LinkedBundle {
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         linkedBundleDependencies: name === 'package-a'
             ? new Map([
-                [ 'package-b', dependency('package-b', '/repo/package-a/index.js', './package-b.js', 'package-b') ],
-                [ 'package-c', dependency('package-c', '/repo/package-a/index.js', './package-c.js', 'package-c') ],
-                [ 'shared', dependency('shared', '/repo/package-a/index.js', './shared.js', 'shared') ]
+                [ 'package-b', dependency('package-b', './package-b.js', 'package-b') ],
+                [ 'package-c', dependency('package-c', './package-c.js', 'package-c') ],
+                [ 'shared', dependency('shared', './shared.js', 'shared') ]
             ])
             : new Map(),
         substitutedInputFilePathsByPackageName: new Map(),
         sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: name === 'package-a'
             ? new Map([
-                [ 'aliased', dependency('aliased', '/repo/package-a/index.js') ],
+                [ 'aliased', dependency('aliased') ],
                 [ 'ordered', orderedDependency() ],
                 [ 'path-tiebreak', {
                     name: 'path-tiebreak',
@@ -88,11 +87,11 @@ function linkedBundle(name: string): LinkedBundle {
                         { targetFilePath: 'package-a/a.js', sourceSpecifier: 'same', emittedSpecifier: 'z' }
                     ]
                 } ],
-                [ 'peer-lib', dependency('peer-lib', '/repo/package-a/index.js') ],
-                [ 'react', dependency('react', '/repo/package-a/index.js', 'react/jsx-runtime') ],
+                [ 'peer-lib', dependency('peer-lib') ],
+                [ 'react', dependency('react', 'react/jsx-runtime') ],
                 [ 'shared', legacyDependency('shared', '/repo/package-a/legacy.js') ],
-                [ 'tarball', dependency('tarball', '/repo/package-a/index.js') ],
-                [ 'missing', dependency('missing', '/repo/package-a/index.js') ]
+                [ 'tarball', dependency('tarball') ],
+                [ 'missing', dependency('missing') ]
             ])
             : new Map()
     };

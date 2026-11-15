@@ -116,7 +116,7 @@ function collectInvalidCollapseRuleIssues(rules: PullRequestLogSettings['collaps
     }
     return rules.flatMap(function (rule, index) {
         const issue = `changelog.pullRequestLog.collapseRules[${index}].pattern must be a valid regular expression`;
-        return isValidRegularExpression(rule.pattern) === false ? [ issue ] : [];
+        return isValidRegularExpression(rule.pattern) === false ? issue : [];
     });
 }
 
@@ -154,9 +154,7 @@ function collectInvalidVersionBumpLabelIssues(
         return (versionBumps?.[level] ?? []).flatMap(function (label) {
             return validLabels.has(label)
                 ? []
-                : [
-                    `changelog.pullRequestLog.versionBumps.${level} label "${label}" must be configured in validLabels`
-                ];
+                : `changelog.pullRequestLog.versionBumps.${level} label "${label}" must be configured in validLabels`;
         });
     });
 }

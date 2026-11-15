@@ -180,10 +180,10 @@ function collectRepositoryDestinations(
         if (output.kind !== 'repository-file') {
             return [];
         }
-        return [ {
+        return {
             filePath: resolveRepositoryPath(dependencies, output.path),
             generatedMarkdown: changelog.groupedMarkdown
-        } ];
+        };
     });
 }
 
@@ -195,7 +195,7 @@ function collectRepositoryOutputFilePaths(
         if (output.kind !== 'repository-file') {
             return [];
         }
-        return [ { filePath: resolveRepositoryPath(dependencies, output.path), packageName: undefined } ];
+        return { filePath: resolveRepositoryPath(dependencies, output.path), packageName: undefined };
     });
 }
 

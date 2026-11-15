@@ -82,10 +82,10 @@ function exportDeclaration(
 
 function moduleSpecifierText(statement: Readonly<typescript.ExportDeclaration>): string | undefined {
     const { moduleSpecifier } = statement;
-    if (moduleSpecifier === undefined) {
-        return undefined;
-    }
-    if (!typescript.isStringLiteral(moduleSpecifier) || !moduleSpecifier.text.startsWith('.')) {
+    if (
+        moduleSpecifier === undefined || !typescript.isStringLiteral(moduleSpecifier) ||
+        !moduleSpecifier.text.startsWith('.')
+    ) {
         return undefined;
     }
     return moduleSpecifier.text;
@@ -371,7 +371,7 @@ function findReplacement(
             const emittedSpecifier = specifierByInputFilePath.get(request.inputFilePath);
             return emittedSpecifier === undefined
                 ? []
-                : [ { bundle, replacement: { emittedSpecifier, packageName: bundle.name } } ];
+                : { bundle, replacement: { emittedSpecifier, packageName: bundle.name } };
         })[0];
     if (dependencyReplacement !== undefined) {
         return dependencyReplacement;

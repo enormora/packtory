@@ -11,7 +11,7 @@ function resource(inputFilePath: string, targetFilePath: string, content: string
     return {
         ...artifact,
         directDependencies: new Set(artifact.moduleReferences.flatMap(function (reference) {
-            return reference.type === 'local-code' ? [ reference.targetFilePath ] : [];
+            return reference.type === 'local-code' ? reference.targetFilePath : [];
         })),
         isSubstituted: false
     };

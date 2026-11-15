@@ -37,10 +37,7 @@ function resolveRuntimeModuleFrom(
         containingFilePath,
         resolutionMode: 'runtime'
     });
-    if (filePath === undefined) {
-        return undefined;
-    }
-    if (!isRuntimeModule(filePath, containingSourceFile)) {
+    if (filePath === undefined || !isRuntimeModule(filePath, containingSourceFile)) {
         return undefined;
     }
     const project = containingSourceFile.getProject();

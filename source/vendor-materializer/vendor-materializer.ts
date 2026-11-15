@@ -173,15 +173,7 @@ async function checkSymlinkInsidePackage(
     const normalizedEntryRelativePath = relativeEntryPath.split(path.sep).join('/');
     const resolvedTarget = await getResolvedTargetPath(walker, absoluteEntryPath);
     const resolvedTargetPath = resolvedTarget.isOk ? resolvedTarget.value : resolvedTarget.error;
-    if (resolvedTarget.isErr) {
-        return Result.err({
-            type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
-            packageName,
-            entryRelativePath: normalizedEntryRelativePath,
-            resolvedTargetPath
-        });
-    }
-    if (!isPathInsideRoot(rootDirectory, resolvedTargetPath)) {
+    if (resolvedTarget.isErr || !isPathInsideRoot(rootDirectory, resolvedTargetPath)) {
         return Result.err({
             type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
             packageName,

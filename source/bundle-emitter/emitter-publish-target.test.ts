@@ -45,11 +45,11 @@ function createSpy<TSpy extends SinonSpy>(spy: Readonly<TSpy> | undefined, fallb
     return spy as TSpy;
 }
 
-function versionedNamedBundle(version: string): VersionedBundleWithManifest {
+function versionedNamedBundle(): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         name: 'the-name',
-        version,
-        packageManifest: { name: 'the-name', version }
+        version: '1.2.4',
+        packageManifest: { name: 'the-name', version: '1.2.4' }
     });
 }
 
@@ -98,7 +98,7 @@ async function verifyTarget(input: TargetVerificationInput): ReturnType<BundleEm
 
     return emitter.verifyBundlePublishTarget({
         registrySettings,
-        bundle: versionedNamedBundle('1.2.4')
+        bundle: versionedNamedBundle()
     });
 }
 
@@ -109,7 +109,7 @@ suite('emitter publish target verification', function () {
 
         await emitter.verifyBundlePublishTarget({
             registrySettings,
-            bundle: versionedNamedBundle('1.2.4')
+            bundle: versionedNamedBundle()
         });
 
         assert.deepStrictEqual(fetchVersionReleaseMetadata.firstCall.args, [
@@ -127,7 +127,7 @@ suite('emitter publish target verification', function () {
 
         const result = await emitter.verifyBundlePublishTarget({
             registrySettings,
-            bundle: versionedNamedBundle('1.2.4')
+            bundle: versionedNamedBundle()
         });
 
         assert.deepStrictEqual(result, {

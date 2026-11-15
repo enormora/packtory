@@ -70,7 +70,7 @@ suite('symbol inspection', function () {
         ]);
         assert.deepStrictEqual(
             trace.events.flatMap(function (event) {
-                return event.type === 'local-seed-added' && event.reason === 'entry-export' ? [ event.line ] : [];
+                return event.type === 'local-seed-added' && event.reason === 'entry-export' ? event.line : [];
             }),
             [ 5 ]
         );
@@ -175,7 +175,7 @@ suite('symbol inspection', function () {
         assert.deepStrictEqual(
             trace.events.flatMap(function (event) {
                 return event.type === 'cross-bundle-seed-added' && event.reason === 'named-import'
-                    ? [ event.line ]
+                    ? event.line
                     : [];
             }),
             [ 4 ]

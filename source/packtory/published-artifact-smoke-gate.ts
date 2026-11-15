@@ -342,14 +342,14 @@ async function linkInstalledDependencies(
     }
 }
 
-function formatSmokeGateIssues(packageName: string, issues: readonly string[]): string {
-    return `Package "${packageName}" published artifact smoke check failed:\n${
+function createPublishedArtifactSmokeError(packageName: string, issues: readonly string[]): Error {
+    return new Error(`Package "${packageName}" published artifact smoke check failed:\n${
         issues
             .map(function (issue) {
                 return `- ${issue}`;
             })
             .join('\n')
-    }`;
+    }`);
 }
 
 async function writePackageFiles(
@@ -393,7 +393,7 @@ async function verifyRuntimeExportsInTemporaryFolder(
         smokeTargets(input.bundle).runtimeExports
     );
     if (probeIssues.length > 0) {
-        throw new Error(formatSmokeGateIssues(input.bundle.name, probeIssues));
+        throw createPublishedArtifactSmokeError(input.bundle.name, probeIssues);
     }
 }
 
@@ -437,7 +437,7 @@ export function createPublishedArtifactSmokeGate(
         ];
 
         if (issues.length > 0) {
-            throw new Error(formatSmokeGateIssues(input.bundle.name, issues));
+            throw createPublishedArtifactSmokeError(input.bundle.name, issues);
         }
 
         if (targets.runtimeExports.length > 0) {

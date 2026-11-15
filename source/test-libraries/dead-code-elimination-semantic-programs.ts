@@ -97,7 +97,7 @@ export function deadCodeEliminationSemanticProgram(
         return {
             ...resource,
             directDependencies: new Set(resource.moduleReferences.flatMap(function (reference) {
-                return reference.type === 'local-code' ? [ reference.targetFilePath ] : [];
+                return reference.type === 'local-code' ? reference.targetFilePath : [];
             })),
             isSubstituted: false
         };
