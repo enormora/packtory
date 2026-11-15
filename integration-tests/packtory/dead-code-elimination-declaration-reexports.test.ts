@@ -1,21 +1,35 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
+import { z } from 'zod/mini';
+import { withCompilerWorkspace, type CompilerWorkspace } from '../../source/test-libraries/compiler-workspace.ts';
 import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { assertDefined } from '../../source/test-libraries/deep-subset-assertion.ts';
 import { loadPackageManifest } from '../load-package-manifest.ts';
 
-async function resolveFixture(entry: string): Promise<ResolvedPackage> {
-    const fixturePath = path.join(
-        process.cwd(),
-        'integration-tests/fixtures/dead-code-elimination-declaration-reexports'
+async function writeFixture(workspace: CompilerWorkspace): Promise<void> {
+    const readFixtureText = workspace.fileManager.readFile;
+    const content = await readFixtureText(
+        path.join(
+            process.cwd(),
+            'integration-tests/fixtures/dead-code-elimination-declaration-reexports/sources.json'
+        )
     );
+    const files = z.record(z.string(), z.string()).parse(JSON.parse(content));
+    await Promise.all(
+        Object.entries(files).map(async function ([ name, source ]) {
+            await workspace.write(name, source);
+        })
+    );
+}
+
+async function resolveFixture(sourcesFolder: string, entry: string): Promise<ResolvedPackage> {
     const outcome = await resolveAndLinkAll({
         checks: { typeScriptIntegrity: { enabled: true, declarations: 'all' } },
         commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'source'),
-            mainPackageManifest: await loadPackageManifest(fixturePath),
+            sourcesFolder,
+            mainPackageManifest: await loadPackageManifest(sourcesFolder),
             publishSettings: { access: 'public' }
         },
         packages: [ {
@@ -56,8 +70,11 @@ suite('dead-code-elimination declaration reexports', function () {
         ]
     ) {
         test(`keeps declaration reexports consistent for ${scenario.entry}`, async function () {
-            const resolvedPackage = await resolveFixture(scenario.entry);
-            assertDeclarationExports(resolvedPackage, scenario.requiresReader);
+            await withCompilerWorkspace(async function (workspace) {
+                await writeFixture(workspace);
+                const resolvedPackage = await resolveFixture(workspace.folder, scenario.entry);
+                assertDeclarationExports(resolvedPackage, scenario.requiresReader);
+            });
         });
     }
 });

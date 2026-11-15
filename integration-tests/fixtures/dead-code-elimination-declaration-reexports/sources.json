@@ -1,0 +1,15 @@
+{
+    "package.json": "{\n    \"name\": \"declaration-reexports-fixture\",\n    \"version\": \"1.0.0\",\n    \"type\": \"module\"\n}\n",
+    "context.js": "export function readContext() {\n    return \"context\";\n}\n",
+    "context.d.ts": "export type Context = { value: string };\nexport declare function readContext(): string;\n",
+    "barrel.js": "export { readContext } from \"./context.js\";\nexport function keep() {\n    return 1;\n}\n",
+    "barrel.d.ts": "export { readContext } from \"./context.ts\";\nexport type { Context } from \"./context.ts\";\nexport declare function keep(): number;\n",
+    "index.js": "import { keep } from \"./barrel.js\";\nexport function run(context) {\n    return keep() + context.value.length;\n}\n",
+    "index.d.ts": "import type { Context } from \"./barrel.ts\";\nexport declare function run(context: Context): number;\n",
+    "with-typeof.js": "export { run } from \"./index.js\";\n",
+    "with-typeof.d.ts": "export { run } from \"./index.ts\";\nimport type { readContext } from \"./barrel.ts\";\nexport type Reader = typeof readContext;\n",
+    "with-value.js": "export { run } from \"./index.js\";\nexport { readContext } from \"./barrel.js\";\n",
+    "with-value.d.ts": "export { run } from \"./index.ts\";\nexport { readContext } from \"./barrel.ts\";\n",
+    "with-internal-value.js": "import { readContext } from \"./barrel.js\";\nexport { run } from \"./index.js\";\nexport function read() {\n    return readContext();\n}\n",
+    "with-internal-value.d.ts": "export { run } from \"./index.ts\";\nexport declare function read(): string;\n"
+}
