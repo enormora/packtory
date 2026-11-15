@@ -92,7 +92,7 @@ jobs:
                       bytes: Buffer.byteLength(await fileManager.readFile(file), 'utf8')
                   })));
                   weighted.sort((left, right) => right.bytes - left.bytes || left.file.localeCompare(right.file));
-                  const shards = Array.from({ length: 32 }, () => ({ files: [], bytes: 0 }));
+                  const shards = Array.from({ length: 64 }, () => ({ files: [], bytes: 0 }));
                   for (const file of weighted) {
                       const shard = shards.reduce((lightest, current) => current.bytes < lightest.bytes ? current : lightest);
                       shard.files.push(file.file);
