@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
+import { execFile as executeFile, type ExecException as ExecuteFileException } from 'node:child_process';
 import {
     ModuleKind,
     ModuleResolutionKind,
