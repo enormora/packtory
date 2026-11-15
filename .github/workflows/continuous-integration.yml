@@ -214,13 +214,12 @@ jobs:
               id: changes
               env:
                   BEFORE_SHA: ${{ github.event.before }}
-                  BASE_REF: ${{ github.base_ref }}
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
                   CANARY_NAME: ${{ matrix.canary }}
                   EVENT_NAME: ${{ github.event_name }}
               run: |
                   if [ "$EVENT_NAME" = "pull_request" ]; then
-                    git fetch --no-tags --depth 1 origin "$BASE_REF"
-                    changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+                    changed_files="$(git diff --name-only "${BASE_SHA}...HEAD")"
                   elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
                     changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"
                   else
