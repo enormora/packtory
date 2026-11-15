@@ -1,4 +1,3 @@
-import { bundledDependenciesFrom } from '../common/bundled-dependency-groups.ts';
 import type { AdditionalFileDescription } from './additional-files.ts';
 import type { PackageChecksSettings } from './checks-schema.ts';
 import type { DeadCodeEliminationSettings } from './dead-code-elimination-settings.ts';
@@ -54,5 +53,3 @@ type ExplicitPackageConfiguration = PackageConfigurationBase & {
 export type PackageConfiguration = ExplicitPackageConfiguration | ImplicitPackageConfiguration;
 
 export type PackageConfigurationsByName = Readonly<Record<string, PackageConfiguration>>;
-
-export const getBundledDependencies = bundledDependenciesFrom<string>;
