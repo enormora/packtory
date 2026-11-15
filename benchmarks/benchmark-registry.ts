@@ -98,12 +98,11 @@ function getRegistryToken(responseBody: unknown): string {
 
 async function createToken(registryAddress: string): Promise<string> {
     const credentials = `${username}:${password}`;
-    const response = await fetch(`${registryAddress}/-/npm/v1/tokens`, {
-        method: 'POST',
+    const response = await fetch(`${registryAddress}/-/user/org.couchdb.user:${username}`, {
+        method: 'PUT',
         body: JSON.stringify({
-            password,
-            readonly: false,
-            cidr_whitelist: [ '0.0.0.0/0' ]
+            name: username,
+            password
         }),
         headers: {
             'content-type': 'application/json',

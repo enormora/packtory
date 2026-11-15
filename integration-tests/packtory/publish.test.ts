@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { checkWithRegistry } from '../registry.ts';
+import { checkWithBasicAuthenticationRegistry, checkWithRegistry } from '../registry.ts';
 import {
     assertFirstPackageSoftwareBillOfMaterials,
     assertFixturePublishResult,
@@ -149,7 +149,7 @@ suite('publish', function () {
 
         test(
             'publishes successfully with explicit basic auth against the registry',
-            checkWithRegistry(async function (registryDetails) {
+            checkWithBasicAuthenticationRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');
                 const packages = createPackageConfigurationList(
                     createPackageConfiguration(fixturePathValue, 'first', 'entry1')
