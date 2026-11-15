@@ -7,6 +7,41 @@ import { constantDominatesRead, constantValueFor, evaluateConstantBindings } fro
 import { evaluated } from './primitive-value.ts';
 
 suite('constant-binding', function () {
+    suite('captured and intrinsic bindings', function () {
+        test('uses a module constant when the invocation follows its initialization', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'const value=42;function read(){return value;}const observed=read();export{};'
+            );
+            const declaration = source.getVariableDeclarationOrThrow('value');
+            const read = source
+                .getFunctionOrThrow('read')
+                .getFirstDescendantByKindOrThrow(SyntaxKind.ReturnStatement)
+                .getExpressionOrThrow()
+                .asKindOrThrow(SyntaxKind.Identifier);
+            const root = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow();
+            assert.deepStrictEqual(
+                constantValueFor(read, new Map([ [ declaration, evaluated(42) ] ]), root),
+                evaluated(42)
+            );
+        });
+
+        test('uses the local binding when undefined is shadowed', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'const undefined=7;const observed=undefined;export{};'
+            );
+            const declaration = source.getVariableDeclarationOrThrow('undefined');
+            const read = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow().asKindOrThrow(
+                SyntaxKind.Identifier
+            );
+            assert.deepStrictEqual(
+                constantValueFor(read, new Map([ [ declaration, evaluated(7) ] ]), read),
+                evaluated(7)
+            );
+        });
+    });
+
     test('does not prove a parser placeholder at the end of an incomplete declaration', function () {
         const source = createProject().createSourceFile('incomplete.ts', 'const value=;');
         const declaration = source.getVariableDeclarationOrThrow('value');

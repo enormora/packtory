@@ -208,15 +208,17 @@ suite('imported constant evaluation', function () {
         }
 
         for (
-            const [ content, expected ] of [
-                [ 'export default 42;', { value: 42 } ],
-                [ 'export default 42;export default 43;', undefined ]
+            const [ fileName, content, expected ] of [
+                [ 'provider.js', 'export default 42;', { value: 42 } ],
+                [ 'provider.js', 'export default 42;export default 43;', undefined ],
+                [ 'provider.ts', 'export default 42;', { value: 42 } ],
+                [ 'provider.ts', 'export default 42;export default 43;', undefined ]
             ] as const
         ) {
-            test(`requires an unambiguous default in ${content}`, function () {
+            test(`requires an unambiguous default in ${fileName}: ${content}`, function () {
                 const project = createProject({
                     withFiles: [
-                        { filePath: '/source/provider.js', content },
+                        { filePath: `/source/${fileName}`, content },
                         {
                             filePath: '/source/index.js',
                             content: 'import value from "./provider.js";export const result=value;'
@@ -226,7 +228,7 @@ suite('imported constant evaluation', function () {
                 const source = project.getSourceFileOrThrow('/source/index.js');
                 const expression = source.getVariableDeclarationOrThrow('result').getInitializerOrThrow();
                 const value = evaluateImportedConstant(expression, function () {
-                    return project.getSourceFileOrThrow('/source/provider.js');
+                    return project.getSourceFileOrThrow(`/source/${fileName}`);
                 });
                 assert.deepStrictEqual(value, expected);
             });

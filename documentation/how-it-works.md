@@ -373,6 +373,14 @@ Soundness policy:
 
 Unknown code is live by default. Unknown imports preserve affected declarations or fail before publish. More aggressive removal needs a static proof or explicit trust configuration.
 
+Preparation removes unreachable statements after unconditional abrupt completion, including branches and `try`/`finally` blocks. Declarations remain when needed to preserve hoisting and lexical scope. Conditions on proven fresh objects and local instances simplify without invoking coercion hooks. Discarded object literals reduce to their ordered initializer effects, honoring existing purity proofs and leading call annotations. Spreads, unknown key coercion, and class name inference remain observable. Annotation text inside arguments or function bodies does not mark an outer call pure.
+
+Number arithmetic, exponentiation, bitwise operations, and shifts preserve native numeric conversion. Concatenation, relational comparisons, and coercive equality fold only proven primitive operands, including exact BigInt/string comparisons. Object coercion hooks remain at runtime. Bounded partial evaluation folds BigInt arithmetic, including local recursive computations. Mixed number/BigInt arithmetic, BigInt division by zero, and computations exceeding the magnitude budget remain at runtime. Dynamic imports can prune sibling exports when a stable callable `then` export provably ignores its namespace receiver; receiver-dependent and unknown `then` exports retain the namespace.
+
+Function-local `var` evaluation initializes bindings before executing the body and shares their state across blocks and loops. Duplicate variable or parameter declarations and `arguments` aliasing remain unknown. Empty base constructors can disappear while argument and class-definition effects remain. Conditions with proven outcomes can select branches even when evaluating the condition has effects; those effects and exceptions stay in order. Empty `do...while` loops disappear only when the condition is proven harmless and false.
+
+Runtime preparation first validates syntax with `@babel/parser`, including early errors that TypeScript's AST can represent. Preparation leaves invalid sources unchanged. Sources whose module format is ambiguous must parse as both modules and CommonJS before preparation can change them.
+
 The same classifier serves three purposes:
 
 1. **Gating tree-shaking** per file (above).

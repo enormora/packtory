@@ -4,7 +4,7 @@ import { SyntaxKind } from 'ts-morph';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
 import { createModuleExportIndex } from './module-export-index.ts';
-import { createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
+import { bindingIgnoresReceiver, createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
 
 function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
     const fixture = createExportModuleFixture(files, []);
@@ -19,6 +19,21 @@ function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
 const entry = 'import * as ns from "./library.js";export function probe(){return ns.used();}';
 
 suite('namespace receiver analysis', function () {
+    test('does not prove the binding stability of an unnamed default function', function () {
+        const fixture = createExportModuleFixture({
+            'index.js': 'export default function(){return 42;}'
+        }, []);
+        assert.strictEqual(
+            bindingIgnoresReceiver(
+                fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.FunctionDeclaration),
+                function () {
+                    return true;
+                }
+            ),
+            false
+        );
+    });
+
     test('requires an implementation body for a declared function', function () {
         assert.strictEqual(
             ignoresReceiver({

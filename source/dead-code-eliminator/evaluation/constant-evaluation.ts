@@ -4,13 +4,15 @@ import {
     type SourceFile,
     type VariableDeclaration
 } from 'ts-morph';
-import { evaluateConstantBindings } from './constant-binding.ts';
+import { unwrapExpression } from '../expression-unwrapping.ts';
+import { evaluateConstantBindings, localReadHasNoEffects } from './constant-binding.ts';
 import { createBoundedEvaluator } from './local-call.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
-import { primitiveResult } from './abstract-value.ts';
+import { primitiveResult, type AbstractValue } from './abstract-value.ts';
 
 export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
+    readonly knownValue: (expression: Expression) => AbstractValue | undefined;
     readonly primitiveValue: PrimitiveEvaluator;
     readonly canDiscard: (expression: Expression) => boolean;
 };
@@ -37,9 +39,10 @@ function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
         values.set(declaration, value);
     }
     return {
+        knownValue: evaluate,
         primitiveValue,
         canDiscard(expression) {
-            return evaluate(expression) !== undefined;
+            return localReadHasNoEffects(unwrapExpression(expression)) || evaluate(expression) !== undefined;
         }
     };
 }
@@ -47,6 +50,10 @@ function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
 export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
     let evaluation: SourceEvaluation | null = null;
     return {
+        knownValue(expression) {
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            return evaluation.knownValue(expression);
+        },
         primitiveValue(expression) {
             evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
             return evaluation.primitiveValue(expression);

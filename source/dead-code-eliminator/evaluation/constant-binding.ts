@@ -4,6 +4,7 @@ import {
     VariableDeclarationKind,
     type Expression,
     type Identifier,
+    type ParameterDeclaration,
     type VariableDeclaration,
     type VariableStatement
 } from 'ts-morph';
@@ -13,9 +14,20 @@ import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 
 export type KnownConstants = ReadonlyMap<VariableDeclaration, EvaluatedValue>;
 
-export function constantStatement(declaration: VariableDeclaration): VariableStatement | undefined {
+function lexicalStatement(declaration: VariableDeclaration): VariableStatement | undefined {
     const statement = declaration.getVariableStatement();
-    return statement?.getDeclarationKind() === VariableDeclarationKind.Const && !statement.isAmbient()
+    if (
+        statement === undefined || statement.isAmbient() ||
+        ![ VariableDeclarationKind.Const, VariableDeclarationKind.Let ].includes(statement.getDeclarationKind())
+    ) {
+        return undefined;
+    }
+    return statement;
+}
+
+export function constantStatement(declaration: VariableDeclaration): VariableStatement | undefined {
+    const statement = lexicalStatement(declaration);
+    return statement?.getDeclarationKind() === VariableDeclarationKind.Const
         ? statement
         : undefined;
 }
@@ -41,22 +53,44 @@ export function* evaluateConstantBindings(
     }
 }
 
-function sameActivation(declaration: VariableDeclaration, read: Expression): boolean {
+function sameActivation(declaration: ParameterDeclaration | VariableDeclaration, read: Expression): boolean {
     const declarationScope = declaration.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     const readScope = read.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     return declarationScope === readScope;
 }
 
-function constantDeclarationScope(declaration: VariableDeclaration): TypeScriptMorphNode | undefined {
-    const scope = constantStatement(declaration)?.getParent();
+function lexicalDeclarationScope(declaration: VariableDeclaration): TypeScriptMorphNode | undefined {
+    const scope = lexicalStatement(declaration)?.getParent();
     return TypeScriptMorphNode.isSourceFile(scope) || TypeScriptMorphNode.isBlock(scope) ? scope : undefined;
 }
 
-export function constantDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
-    const scope = constantDeclarationScope(declaration);
+function lexicalBindingDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
+    const scope = lexicalDeclarationScope(declaration);
     const ancestors = read.getAncestors();
     return sameActivation(declaration, read) && read.getStart() > declaration.getEnd() &&
         isIncludedIn(scope, ancestors);
+}
+
+export function constantDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
+    return constantStatement(declaration) !== undefined && lexicalBindingDominatesRead(declaration, read);
+}
+
+function parameterIsInitializedAtRead(declaration: ParameterDeclaration, read: Expression): boolean {
+    const initializingParameter = read.getFirstAncestorByKind(SyntaxKind.Parameter);
+    return sameActivation(declaration, read) &&
+        (initializingParameter === undefined || declaration.getChildIndex() < initializingParameter.getChildIndex());
+}
+
+export function localReadHasNoEffects(expression: Expression): boolean {
+    if (!TypeScriptMorphNode.isIdentifier(expression)) {
+        return false;
+    }
+    const declaration = declarationOf(expression);
+    if (TypeScriptMorphNode.isParameterDeclaration(declaration)) {
+        return parameterIsInitializedAtRead(declaration, expression);
+    }
+    return TypeScriptMorphNode.isVariableDeclaration(declaration) &&
+        lexicalBindingDominatesRead(declaration, expression);
 }
 
 function intrinsicUndefined(read: Identifier): boolean {

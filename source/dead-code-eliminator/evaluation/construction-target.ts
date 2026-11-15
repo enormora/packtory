@@ -7,13 +7,15 @@ import {
     type Identifier,
     type NewExpression
 } from 'ts-morph';
-import { defaultClassConstructionIsPure } from '../class-purity.ts';
+import { classConstructionIsPure } from '../class-purity.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { collectBindingDependencies } from '../exports/binding-dependencies.ts';
 import { constantDominatesRead } from './constant-binding.ts';
 import { declarationOf } from './evaluation-context.ts';
+import { createCallTargetResolver } from './call-target.ts';
+import { functionConstructionIsPure } from './empty-constructor.ts';
 
 export type LocalConstruction = {
     readonly definition: ClassExpression | undefined;
@@ -94,18 +96,28 @@ function constructionArguments(expression: NewExpression): readonly Expression[]
     return argumentsToEvaluate;
 }
 
-export function resolveLocalConstruction(expression: NewExpression): LocalConstruction | undefined {
-    const argumentsToEvaluate = constructionArguments(expression);
-    if (argumentsToEvaluate === undefined || hasDynamicScope(expression.getSourceFile())) {
-        return undefined;
-    }
+function resolveClassConstruction(
+    expression: NewExpression,
+    argumentsToEvaluate: readonly Expression[]
+): LocalConstruction | undefined {
     const constructorValue = unwrapExpression(expression.getExpression());
     const target = constructionClass(constructorValue);
-    if (target === undefined || !defaultClassConstructionIsPure(target)) {
+    if (target === undefined || !classConstructionIsPure(target)) {
         return undefined;
     }
     return {
         definition: TypeScriptMorphNode.isClassExpression(constructorValue) ? constructorValue : undefined,
         arguments: argumentsToEvaluate
     };
+}
+
+export function resolveLocalConstruction(expression: NewExpression): LocalConstruction | undefined {
+    const argumentsToEvaluate = constructionArguments(expression);
+    if (argumentsToEvaluate === undefined || hasDynamicScope(expression.getSourceFile())) {
+        return undefined;
+    }
+    const functionTarget = createCallTargetResolver(expression.getSourceFile(), functionConstructionIsPure)(expression);
+    return functionTarget === undefined
+        ? resolveClassConstruction(expression, argumentsToEvaluate)
+        : { definition: undefined, arguments: argumentsToEvaluate };
 }

@@ -6,6 +6,24 @@ import { namespaceConsumerDemand } from './namespace-consumer-demand.ts';
 import { allNamespaceProperties, noNamespaceProperties } from './namespace-demand.ts';
 
 suite('namespace consumer demand', function () {
+    test('does not request a default binding from a named-only import', function () {
+        const source = createProject().createSourceFile('input.ts', 'import {value} from "library";');
+        const declaration = source.getImportDeclarations()[0];
+        assertDefined(declaration);
+        const demand = namespaceConsumerDemand({ type: 'import', declaration }, 'default', {
+            binding() {
+                return assert.fail('Named-only imports cannot request a default binding');
+            },
+            exported() {
+                return assert.fail('Import demand must not request exported values');
+            },
+            expression() {
+                return assert.fail('Import demand must not request dynamic expressions');
+            }
+        });
+        assert.strictEqual(demand, noNamespaceProperties);
+    });
+
     for (
         const [ name, expected ] of [
             [ 'value', [ 'value as chosen' ] ],

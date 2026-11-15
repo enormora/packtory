@@ -40,6 +40,24 @@ function loadInput(
 }
 
 suite('load-bundle', function () {
+    test('loadBundle() leaves declaration literal types unchanged during runtime preparation', function () {
+        const declaration = {
+            ...bundleResource('/source/index.d.ts', {
+                content: 'export declare const value: 1 | - 1;',
+                targetFilePath: 'index.d.ts'
+            }),
+            isSubstituted: false
+        };
+        const bundle = packageABundle({
+            contents: [ indexResource(), declaration ],
+            roots: { main: { javaScript: indexFile, declarationFile: declaration.fileDescription } }
+        });
+
+        const result = loadBundle(createProject, loadInput(bundle), undefined);
+
+        assert.strictEqual(result.loaded[1]?.sourceFile?.getFullText(), declaration.fileDescription.content);
+    });
+
     test('loadBundle() keeps non-code resources out of source-file analysis', function () {
         const resource = {
             ...bundleResource('/source/readme.md', {

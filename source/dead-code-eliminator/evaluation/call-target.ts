@@ -7,6 +7,7 @@ import {
     type Expression,
     type FunctionDeclaration,
     type FunctionExpression,
+    type NewExpression,
     type SourceFile,
     type ParameterDeclaration,
     type Statement
@@ -18,7 +19,7 @@ import { bindingValueIsStable } from '../binding-stability.ts';
 import { declarationOf } from './evaluation-context.ts';
 
 export type LocalFunction = ArrowFunction | FunctionDeclaration | FunctionExpression;
-export type CallTargetResolver = (call: CallExpression) => LocalFunction | undefined;
+export type CallTargetResolver = (call: CallExpression | NewExpression) => LocalFunction | undefined;
 type LocalFunctionPredicate = (target: LocalFunction) => boolean;
 
 export function runtimeParameters(target: LocalFunction): readonly ParameterDeclaration[] {
@@ -28,9 +29,14 @@ export function runtimeParameters(target: LocalFunction): readonly ParameterDecl
 }
 
 export function parameterBindingIsStable(parameter: ParameterDeclaration): boolean {
-    return parameter.getParent().getDescendantsOfKind(SyntaxKind.FunctionDeclaration).every(function (declaration) {
-        return declaration.getName() !== parameter.getName();
+    const owner = parameter.getParent();
+    const aliases = owner.getDescendantsOfKind(SyntaxKind.Parameter).filter(function (candidate) {
+        return candidate.getParent() === owner && candidate.getName() === parameter.getName();
     });
+    return aliases.length === 1 &&
+        owner.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).every(function (declaration) {
+            return declaration.getName() !== parameter.getName();
+        });
 }
 
 function directiveText(statement: Statement): string | undefined {
@@ -82,7 +88,7 @@ function declaredFunction(target: Expression): FunctionDeclaration | undefined {
     return target.getAncestors().includes(declaration.getParent()) ? declaration : undefined;
 }
 
-function functionForCall(call: CallExpression): LocalFunction | undefined {
+function functionForCall(call: CallExpression | NewExpression): LocalFunction | undefined {
     const target = unwrapExpression(call.getExpression());
     return TypeScriptMorphNode.isArrowFunction(target) || TypeScriptMorphNode.isFunctionExpression(target)
         ? target

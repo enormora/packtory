@@ -258,8 +258,8 @@ function declarationIsMutatedBeforeRead(declaration: VariableDeclaration, read: 
 }
 
 function variableDeclarationIsConst(declaration: VariableDeclaration): boolean {
-    const statement = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.VariableStatement);
-    return statement.getDeclarationKind() === VariableDeclarationKind.Const;
+    const list = declaration.getFirstAncestorByKind(SyntaxKind.VariableDeclarationList);
+    return list?.getDeclarationKind() === VariableDeclarationKind.Const;
 }
 
 function factNeedsMutationCheck(fact: ExpressionFact): boolean {
