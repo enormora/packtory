@@ -12,9 +12,8 @@ import {
     type DeclarationNodeIndex,
     type FileBindings
 } from './binding-identifier.ts';
-import { collectIdentifierTargets } from './identifier-target-collector.ts';
+import { collectIdentifierTargets, survivingDeclarationExports } from './identifier-target-collector.ts';
 import { gatherLocalSeeds } from './local-seed-gathering.ts';
-import { survivingDeclarationExports } from './declaration-export-liveness.ts';
 
 export type ReachabilityInput = {
     readonly bundleName: string;
