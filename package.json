@@ -70,7 +70,7 @@
         "zod": "4.6.7"
     },
     "devDependencies": {
-        "@enormora/eslint-config-base": "0.0.79",
+        "@enormora/eslint-config-base": "0.0.77",
         "@enormora/eslint-config-mocha-node-assert": "0.0.33",
         "@enormora/eslint-config-node": "0.0.54",
         "@enormora/eslint-config-typescript": "0.0.85",
