@@ -7,7 +7,8 @@ import { replaceImportPathsWithTransform } from './import-paths.ts';
 
 type Replacements = ReadonlyMap<string, ImportPathReplacement>;
 
-function replacement(emittedSpecifier: string, packageName = emittedSpecifier): ImportPathReplacement {
+function replacement(emittedSpecifier: string): ImportPathReplacement {
+    const packageName = emittedSpecifier;
     return { emittedSpecifier, packageName };
 }
 

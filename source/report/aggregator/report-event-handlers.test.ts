@@ -27,10 +27,10 @@ function emitEliminationForPackageA(files: readonly EliminationFileInput[]): Agg
     return state;
 }
 
-function expectPackageEntry(state: AggregatorState, packageName: string): PackageReport {
-    const entry = state.packages.get(packageName);
+function expectPackageEntry(state: AggregatorState): PackageReport {
+    const entry = state.packages.get('package-a');
     if (entry === undefined) {
-        assert.fail(`expected ${packageName} in report`);
+        assert.fail('expected package-a in report');
     }
     return entry;
 }
@@ -47,7 +47,7 @@ function registerPackageEventTests(): void {
             sourceFileCount: 3
         });
 
-        const entry = expectPackageEntry(state, 'package-a');
+        const entry = expectPackageEntry(state);
         assertDeepSubset(entry, {
             inputs: {
                 roots: { main: 'source/index.js' },
@@ -201,7 +201,7 @@ function registerEliminationTests(): void {
             { path: '/source/a.js', decision: 'kept', reason: 'reachable', sourceBytes: 1 }
         ]);
 
-        const entry = expectPackageEntry(state, 'package-a');
+        const entry = expectPackageEntry(state);
         assert.strictEqual(Object.hasOwn(entry, 'eliminatedSourceFiles'), false);
     });
 
@@ -227,7 +227,7 @@ function registerEliminationTests(): void {
             { path: 'b.js', decision: 'eliminated', reason: 'no-uses', sourceBytes: 5 }
         ]);
 
-        const entry = expectPackageEntry(state, 'package-a');
+        const entry = expectPackageEntry(state);
         const { decisions: { deadCodeElimination }, eliminatedSourceFiles } = entry;
         if (deadCodeElimination === undefined || eliminatedSourceFiles === undefined) {
             assert.fail('expected dead-code-elimination report data');

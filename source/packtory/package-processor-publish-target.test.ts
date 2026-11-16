@@ -24,11 +24,11 @@ type AutomaticBumpScenario = {
     readonly rebuiltBundle: BuildAndPublishResult['bundle'];
 };
 
-function publishedArtifacts(version: string, gitHead: string): BuildAndPublishResult['previousReleaseArtifacts'] {
+function publishedArtifacts(): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
-        version,
+        version: '1.2.4',
         publishedAt: undefined,
-        gitHead,
+        gitHead: 'published-head',
         files: []
     });
 }
@@ -160,7 +160,7 @@ suite('package-processor publish target preflight', function () {
         const { processor, rebuiltBundle } = createAutomaticBumpProcessor({
             verifyBundlePublishTarget: fake.resolves({
                 alreadyPublished: true,
-                publishedArtifacts: publishedArtifacts('1.2.4', 'published-head')
+                publishedArtifacts: publishedArtifacts()
             }),
             smokePublishedArtifact
         });
@@ -176,7 +176,7 @@ suite('package-processor publish target preflight', function () {
             status: 'already-published',
             publication: noPublication,
             extraFiles: [],
-            previousReleaseArtifacts: publishedArtifacts('1.2.4', 'published-head')
+            previousReleaseArtifacts: publishedArtifacts()
         });
         assert.strictEqual(smokePublishedArtifact.callCount, 0);
     });

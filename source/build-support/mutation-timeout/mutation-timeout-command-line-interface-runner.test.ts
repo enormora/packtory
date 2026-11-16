@@ -66,14 +66,13 @@ function createArgumentValuesThrowingNonErrorOnReportPath(): readonly string[] {
     return argumentValues;
 }
 
-function createReadFileError(code: string, message: string): Error & { readonly code: string; } {
-    return Object.assign(new Error(message), { code });
+function createReadFileError(message: string): Error & { readonly code: string; } {
+    return Object.assign(new Error(message), { code: 'ENOENT' });
 }
 
 async function runCheckWithCollectedErrors(
     argumentValues: readonly string[],
-    fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{}' } ] }),
-    writeError?: (message: string) => void
+    fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{}' } ] })
 ): Promise<{ readonly exitCode: number; readonly errors: readonly string[]; }> {
     const errors: string[] = [];
     const exitCode = await runMutationTimeoutCheck(argumentValues, {
@@ -83,7 +82,6 @@ async function runCheckWithCollectedErrors(
         },
         writeError(message) {
             errors.push(message);
-            writeError?.(message);
         }
     });
     return { exitCode, errors };
@@ -142,7 +140,6 @@ suite('mutation-timeout-cli-runner', function () {
                 simulatedReadFileResponses: [
                     {
                         error: createReadFileError(
-                            'ENOENT',
                             `ENOENT: no such file or directory, open '${defaultMissingReportPath}'`
                         )
                     }
@@ -165,7 +162,6 @@ suite('mutation-timeout-cli-runner', function () {
                     simulatedReadFileResponses: [
                         {
                             error: createReadFileError(
-                                'ENOENT',
                                 "ENOENT: no such file or directory, open '/definitely/missing/mutation-report.json'"
                             )
                         }

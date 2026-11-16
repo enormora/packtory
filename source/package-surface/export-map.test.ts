@@ -4,11 +4,11 @@ import { linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { buildExportsField } from './export-map.ts';
 import { explicitPackageSurface, implicitPackageSurface } from './surface.ts';
 
-function assertExportsEntryExists(exportsField: unknown, exportPath: string): void {
+function assertExportsEntryExists(exportsField: unknown): void {
     if (typeof exportsField !== 'object' || exportsField === null) {
         assert.fail('expected an exports object');
     }
-    assert.strictEqual(Object.hasOwn(exportsField, exportPath), true);
+    assert.strictEqual(Object.hasOwn(exportsField, '.'), true);
 }
 
 suite('export-map', function () {
@@ -43,7 +43,7 @@ suite('export-map', function () {
 
         const exportsField = buildExportsField(bundle, new Set());
 
-        assertExportsEntryExists(exportsField, '.');
+        assertExportsEntryExists(exportsField);
     });
 
     test('buildExportsField uses the implicit-mode builder when the bundle surface is implicit', function () {
@@ -51,6 +51,6 @@ suite('export-map', function () {
 
         const exportsField = buildExportsField(bundle, new Set());
 
-        assertExportsEntryExists(exportsField, '.');
+        assertExportsEntryExists(exportsField);
     });
 });

@@ -45,9 +45,9 @@ function duplicateResolvedPackages(): readonly ResolvedPackage[] {
     ];
 }
 
-function bundleWithExternal(packageName: string, dependencyName: string): ResolvedPackage['analyzedBundle'] {
+function bundleWithExternal(dependencyName: string): ResolvedPackage['analyzedBundle'] {
     return {
-        ...checkBundle(packageName, [ 'shared.ts' ]),
+        ...checkBundle('package-a', [ 'shared.ts' ]),
         externalDependencies: new Map([ [ dependencyName, { name: dependencyName, referencedFrom: [ '/x' ] } ] ])
     };
 }
@@ -112,7 +112,7 @@ type RecordedPublishedPackageInputs = {
     readonly dependencies: CheckEvaluationDependencies;
 };
 
-function recordPublishedPackageInputs(packageName: string): RecordedPublishedPackageInputs {
+function recordPublishedPackageInputs(): RecordedPublishedPackageInputs {
     const addVersionCalls: BuildVersionedBundleOptions[] = [];
     return {
         addVersionCalls,
@@ -121,7 +121,7 @@ function recordPublishedPackageInputs(packageName: string): RecordedPublishedPac
             versionManager: {
                 addVersion(options: BuildVersionedBundleOptions) {
                     addVersionCalls.push(options);
-                    return createPublishedPackageWithManifest(packageName);
+                    return createPublishedPackageWithManifest('package-a');
                 }
             }
         }
@@ -197,7 +197,7 @@ suite('resolved-package', function () {
                 checks: { noDevelopmentDependencyImports: { enabled: true } },
                 packages: [ packageConfiguration('package-a') ]
             },
-            bundleWithExternal('package-a', 'runtime-dep')
+            bundleWithExternal('runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
@@ -212,7 +212,7 @@ suite('resolved-package', function () {
                 checks: { noDevelopmentDependencyImports: { enabled: true } },
                 packages: [ packageConfiguration('package-a') ]
             },
-            bundleWithExternal('package-a', 'dev-dep')
+            bundleWithExternal('dev-dep')
         );
 
         if (!result.isErr) {
@@ -239,7 +239,7 @@ suite('resolved-package', function () {
                     })
                 ]
             },
-            bundleWithExternal('package-a', 'runtime-dep')
+            bundleWithExternal('runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
@@ -248,7 +248,7 @@ suite('resolved-package', function () {
     suite('generated check packages', function () {
         test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
             const analyzedBundle = checkBundle('package-a', [ 'index.js' ]);
-            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs();
             const result = await buildChecksResult(
                 dependencies,
                 validated({
@@ -286,7 +286,7 @@ suite('resolved-package', function () {
 
         test('buildChecksResult materializes generated packages when noUnexposedExecutables is enabled', async function () {
             const analyzedBundle = checkBundle('package-a', [ 'index.js' ]);
-            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs();
             const result = await buildChecksResult(
                 dependencies,
                 validated({
@@ -343,7 +343,7 @@ suite('resolved-package', function () {
     test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
         const packageBundle = checkBundle('package-a', [ 'index.js', 'lib/internal.js' ]);
         const consumerBundle = checkBundle('package-b', [ 'index.js' ]);
-        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
+        const { addVersionCalls, dependencies } = recordPublishedPackageInputs();
         const result = await buildChecksResult(
             dependencies,
             validated({

@@ -5,10 +5,10 @@ import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { maximumBundleSizeRule } from './maximum-bundle-size.ts';
 
-function bundleWithBytes(name: string, bytes: number): AnalyzedBundle {
+function bundleWithBytes(name: string): AnalyzedBundle {
     return analyzedBundle({
         name,
-        contents: [ analyzedBundleResource(`/${name}/index.js`, { content: 'a'.repeat(bytes) }) ]
+        contents: [ analyzedBundleResource(`/${name}/index.js`, { content: 'a'.repeat(100) }) ]
     });
 }
 
@@ -21,7 +21,7 @@ suite('max-bundle-size', function () {
 
         test('returns no issues when settings are missing', async function () {
             const result = await maximumBundleSizeRule.run({
-                bundles: [ bundleWithBytes('a', 100) ],
+                bundles: [ bundleWithBytes('a') ],
                 settings: undefined,
                 ...emptyCheckContext()
             });
@@ -31,7 +31,7 @@ suite('max-bundle-size', function () {
 
         test('returns no issues when the rule is disabled', async function () {
             const result = await maximumBundleSizeRule.run({
-                bundles: [ bundleWithBytes('a', 100) ],
+                bundles: [ bundleWithBytes('a') ],
                 settings: { maximumBundleSize: { enabled: false, bytes: 10 } },
                 ...emptyCheckContext()
             });
@@ -41,7 +41,7 @@ suite('max-bundle-size', function () {
 
         test('returns no issues when neither global nor per-package threshold is set', async function () {
             const result = await maximumBundleSizeRule.run({
-                bundles: [ bundleWithBytes('a', 100) ],
+                bundles: [ bundleWithBytes('a') ],
                 settings: { maximumBundleSize: { enabled: true } },
                 ...emptyCheckContext()
             });
@@ -53,7 +53,7 @@ suite('max-bundle-size', function () {
     suite('global thresholds', function () {
         test('reports a bundle exceeding the global threshold', async function () {
             const result = await maximumBundleSizeRule.run({
-                bundles: [ bundleWithBytes('a', 100) ],
+                bundles: [ bundleWithBytes('a') ],
                 settings: { maximumBundleSize: { enabled: true, bytes: 50 } },
                 ...emptyCheckContext()
             });
@@ -65,7 +65,7 @@ suite('max-bundle-size', function () {
 
         test('passes a bundle exactly at the threshold', async function () {
             const result = await maximumBundleSizeRule.run({
-                bundles: [ bundleWithBytes('a', 100) ],
+                bundles: [ bundleWithBytes('a') ],
                 settings: { maximumBundleSize: { enabled: true, bytes: 100 } },
                 ...emptyCheckContext()
             });
@@ -76,7 +76,7 @@ suite('max-bundle-size', function () {
 
     async function runWithGlobalAndOverride(globalBytes: number, override: number): Promise<readonly string[]> {
         return await maximumBundleSizeRule.run({
-            bundles: [ bundleWithBytes('a', 100) ],
+            bundles: [ bundleWithBytes('a') ],
             settings: { maximumBundleSize: { enabled: true, bytes: globalBytes } },
             sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', { maximumBundleSize: { bytes: override } } ] ])
@@ -95,7 +95,7 @@ suite('max-bundle-size', function () {
 
     test('per-package bytes acts as the threshold when no global default is set', async function () {
         const result = await maximumBundleSizeRule.run({
-            bundles: [ bundleWithBytes('a', 100), bundleWithBytes('b', 100) ],
+            bundles: [ bundleWithBytes('a'), bundleWithBytes('b') ],
             settings: { maximumBundleSize: { enabled: true } },
             sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', { maximumBundleSize: { bytes: 50 } } ] ])
@@ -106,7 +106,7 @@ suite('max-bundle-size', function () {
 
     test('falls back to the global default when the per-package entry has no maximumBundleSize key', async function () {
         const result = await maximumBundleSizeRule.run({
-            bundles: [ bundleWithBytes('a', 100) ],
+            bundles: [ bundleWithBytes('a') ],
             settings: { maximumBundleSize: { enabled: true, bytes: 50 } },
             sourceFolders: new Map(),
             perPackageSettings: new Map([ [ 'a', {} ] ])

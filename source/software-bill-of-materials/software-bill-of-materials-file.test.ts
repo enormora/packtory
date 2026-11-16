@@ -47,10 +47,10 @@ function createBuilder(overrides: FactoryOverrides = {}): BuilderFixture {
     return { builder, resolveLicense, serialize, toolVersionProvider };
 }
 
-function createSibling(name: string, license?: string): SoftwareBillOfMaterialsSibling {
+function createSibling(license?: string): SoftwareBillOfMaterialsSibling {
     return {
-        name,
-        packageManifest: { name, version: '0.0.1', ...license === undefined ? {} : { license } }
+        name: 'bundle-sibling',
+        packageManifest: { name: 'bundle-sibling', version: '0.0.1', ...license === undefined ? {} : { license } }
     };
 }
 
@@ -147,7 +147,7 @@ suite('sbom-file', function () {
             const { builder } = createBuilder({ resolveLicense });
             await builder.generate(
                 createBundle({ name: 'package', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
-                [ createSibling('bundle-sibling', 'BSD-3-Clause') ],
+                [ createSibling('BSD-3-Clause') ],
                 enabledSoftwareBillOfMaterials
             );
 
@@ -159,7 +159,7 @@ suite('sbom-file', function () {
             const { builder } = createBuilder({ serialize });
             await builder.generate(
                 createBundle({ name: 'package', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
-                [ createSibling('bundle-sibling', siblingLicense) ],
+                [ createSibling(siblingLicense) ],
                 enabledSoftwareBillOfMaterials
             );
             const billOfMaterials = serialize.firstCall.args[0] as {

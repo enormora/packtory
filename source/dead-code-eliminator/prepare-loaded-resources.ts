@@ -39,12 +39,12 @@ export function prepareLoadedResources(
     }
     prepareLoadedExports(loaded);
     const origins = loaded.flatMap(function (entry) {
-        return entry.sourceFile === undefined ? [] : [ {
+        return entry.sourceFile === undefined ? [] : {
             sourceFile: entry.sourceFile,
             targetFilePath: entry.resource.fileDescription.targetFilePath,
             inputFilePath: entry.resource.fileDescription.inputFilePath,
             moduleReferences: entry.resource.moduleReferences
-        } ];
+        };
     });
     const resolveModule = createRuntimeModuleResolver(origins);
     const isPure = createExpressionPurityChecker(input.deadCodeElimination, resolveModule);

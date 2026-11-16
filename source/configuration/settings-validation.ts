@@ -25,13 +25,10 @@ export function validateAllowScriptsConsistency(
         const mergedAttributes = { ...commonAttributes, ...packageConfiguration.additionalPackageManifestAttributes };
         const resolvedPublishSettings = packageConfiguration.publishSettings ?? commonPublishSettings;
 
-        if (!Object.hasOwn(mergedAttributes, 'scripts')) {
-            return [];
-        }
-        if (resolvedPublishSettings?.allowScripts === true) {
+        if (!Object.hasOwn(mergedAttributes, 'scripts') || resolvedPublishSettings?.allowScripts === true) {
             return [];
         }
         const prefix = `Package "${packageConfiguration.name}": "scripts" in additionalPackageManifestAttributes`;
-        return [ `${prefix} requires "publishSettings.allowScripts: true"` ];
+        return `${prefix} requires "publishSettings.allowScripts: true"`;
     });
 }

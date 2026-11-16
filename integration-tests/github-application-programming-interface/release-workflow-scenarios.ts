@@ -96,10 +96,7 @@ export function workflowRunsBody(
     if (countRequests(requests, 'POST', staleRunCancelPath) === 0) {
         return { workflow_runs: [ oldRun ] };
     }
-    if (dispatchIndex(requests) === -1) {
-        return { workflow_runs: [ canceledOldRun ] };
-    }
-    if (workflowRunsAfterDispatch(requests) < 2) {
+    if (dispatchIndex(requests) === -1 || workflowRunsAfterDispatch(requests) < 2) {
         return { workflow_runs: [ canceledOldRun ] };
     }
     return {

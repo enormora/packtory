@@ -75,7 +75,7 @@ const flagRules: readonly FlagRule[] = [
 
 function collectFlagIssues(flags: ReleaseFlags): readonly string[] {
     return flagRules.flatMap(function (rule) {
-        return rule.failed(flags) ? [ rule.message ] : [];
+        return rule.failed(flags) ? rule.message : [];
     });
 }
 

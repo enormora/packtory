@@ -58,7 +58,8 @@ function createValidatedConfiguration(
     return result.value;
 }
 
-function createTestScheduler(emit: SinonSpy = fake()): SchedulerFixture {
+function createTestScheduler(): SchedulerFixture {
+    const emit = fake();
     return {
         scheduler: createScheduler({
             progressBroadcastProvider: {

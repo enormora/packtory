@@ -42,7 +42,7 @@ function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet
     const { targetFilePath } = loaded.resource.fileDescription;
     return new Set(
         loaded.bindings.flatMap(function (binding) {
-            return reachable.has(bindingIdentifier(targetFilePath, binding.name)) ? [ binding.name ] : [];
+            return reachable.has(bindingIdentifier(targetFilePath, binding.name)) ? binding.name : [];
         })
     );
 }

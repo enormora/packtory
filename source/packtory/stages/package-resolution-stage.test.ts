@@ -62,8 +62,8 @@ function emptyConfiguration(): ValidConfigurationWithoutRegistryResult {
     return configurationWithoutRegistry([]);
 }
 
-function configurationWithPackage(name: string): ValidConfigurationWithoutRegistryResult {
-    return configurationWithoutRegistry([ packageConfiguration(name) ]);
+function configurationWithPackage(): ValidConfigurationWithoutRegistryResult {
+    return configurationWithoutRegistry([ packageConfiguration('package-a') ]);
 }
 
 function linkedBundle(
@@ -131,7 +131,7 @@ suite('package-resolution-stage', function () {
                 scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster
             },
-            configurationWithPackage('package-a')
+            configurationWithPackage()
         );
 
         assert.deepStrictEqual(received, [
@@ -153,7 +153,7 @@ suite('package-resolution-stage', function () {
                 scheduler: iteratingScheduler([ 'package-a' ], capture),
                 progressBroadcaster: stubProgressBroadcaster
             },
-            configurationWithPackage('package-a')
+            configurationWithPackage()
         );
 
         assert.strictEqual(capture.emitScheduledEvents, true);
@@ -217,7 +217,7 @@ suite('package-resolution-stage', function () {
                 scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: stubProgressBroadcaster
             },
-            configurationWithPackage('package-a')
+            configurationWithPackage()
         );
 
         assert.strictEqual(resolveAndLinkCallCount, 1);
@@ -241,7 +241,7 @@ suite('package-resolution-stage', function () {
                 scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: broadcaster
             },
-            configurationWithPackage('package-a')
+            configurationWithPackage()
         );
 
         assert.deepStrictEqual(failures, [
@@ -274,7 +274,7 @@ suite('package-resolution-stage', function () {
                 scheduler: iteratingScheduler([ 'package-a' ]),
                 progressBroadcaster: trackingBroadcaster
             },
-            configurationWithPackage('package-a')
+            configurationWithPackage()
         );
 
         assert.strictEqual(emitCount, 0);

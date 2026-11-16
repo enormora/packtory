@@ -189,8 +189,8 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         return reverseGraph().getTopologicalGenerations();
     }
 
-    function shouldEmitScheduledEvents(emitScheduledEvents: boolean | undefined): boolean {
-        return emitScheduledEvents ?? true;
+    function shouldEmitScheduledEvents(emitScheduledEvents = true): boolean {
+        return emitScheduledEvents;
     }
 
     function failGeneration<TResult>(

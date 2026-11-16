@@ -115,10 +115,10 @@ function classStatementEdits(
     statement: ClassDeclaration,
     resolveUnused: UnusedValueResolver
 ): readonly SourceTextEdit[] {
-    if (statement.isExported() || statement.isAmbient()) {
-        return [];
-    }
-    if (!bindingHasOnlyUses(statement.getNameNodeOrThrow(), statement, new Set())) {
+    if (
+        statement.isExported() || statement.isAmbient() ||
+        !bindingHasOnlyUses(statement.getNameNodeOrThrow(), statement, new Set())
+    ) {
         return [];
     }
     return resolveUnused(statement) === undefined ? [] : replaceStatement(statement, [ ';' ]);

@@ -109,9 +109,7 @@ async function startRegistry(server: Server, storageDirectory: string): Promise<
         }),
         headers: { 'content-type': 'application/json', Authorization: `Basic ${btoa(credentials)}` }
     });
-    const body = (await response.json()) as Record<string, string>;
-
-    const { token } = body;
+    const { token } = (await response.json()) as Record<string, string>;
 
     if (token === undefined) {
         throw new Error('Couldn’t create a token');

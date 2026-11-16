@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import type { OwnerInformation } from './file-ownership.ts';
 import { formatPathLevelMessage, formatSharedDeclarationsMessage } from './duplicate-messages.ts';
 
-function owner(bundleName: string, survivingBindings: readonly string[] = []): OwnerInformation {
-    return { bundleName, survivingBindings: new Set(survivingBindings) };
+function owner(bundleName: string): OwnerInformation {
+    return { bundleName, survivingBindings: new Set<string>() };
 }
 
 suite('duplicate-messages', function () {

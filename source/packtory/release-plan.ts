@@ -85,7 +85,7 @@ function packageRelativeFiles(files: readonly FileDescription[]): readonly strin
 function sourceFilesFrom(analyzedBundle: AnalyzedBundle): readonly string[] {
     return sortedUnique(
         analyzedBundle.contents.flatMap(function (entry) {
-            return entry.isGeneratedManifest ? [] : [ entry.fileDescription.inputFilePath ];
+            return entry.isGeneratedManifest ? [] : entry.fileDescription.inputFilePath;
         })
     );
 }
@@ -152,10 +152,7 @@ function collectReleasePlanChangelogDependencyNames(
     const previousFiles = publishedReleaseArtifactsOf(buildResult)?.files;
     const previousManifest = previousFiles === undefined ? undefined : manifestArtifactContentFrom(previousFiles);
     const currentManifest = manifestArtifactContentFrom(currentFiles);
-    if (previousManifest === undefined) {
-        return [];
-    }
-    if (currentManifest === undefined) {
+    if (previousManifest === undefined || currentManifest === undefined) {
         return [];
     }
 

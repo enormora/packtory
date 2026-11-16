@@ -16,8 +16,8 @@ function automaticOptions(minimumVersion?: string): BuildAndPublishOptions {
     return { versioning: { automatic: true, minimumVersion } } as unknown as BuildAndPublishOptions;
 }
 
-function pinnedOptions(version: string): BuildAndPublishOptions {
-    return { versioning: { automatic: false, version } } as unknown as BuildAndPublishOptions;
+function pinnedOptions(): BuildAndPublishOptions {
+    return { versioning: { automatic: false, version: '2.0.0' } } as unknown as BuildAndPublishOptions;
 }
 
 function providerOptions(provideVersion: ManualVersionProvider): BuildAndPublishOptions {
@@ -46,7 +46,7 @@ function registerDetermineBuildVersionTests(): void {
 
     test('determineBuildVersion returns the pinned version when automatic is disabled and no current version exists', async function () {
         assert.strictEqual(
-            await determineBuildVersion(Maybe.nothing<string>(), pinnedOptions('2.0.0'), providerContext()),
+            await determineBuildVersion(Maybe.nothing<string>(), pinnedOptions(), providerContext()),
             '2.0.0'
         );
     });
@@ -107,7 +107,7 @@ function registerDetermineBuildVersionTests(): void {
 
 function registerVersionTriggerTests(): void {
     test('shouldIncreaseVersion returns false when automatic versioning is disabled', function () {
-        assert.strictEqual(shouldIncreaseVersion(Maybe.just('1.0.0'), pinnedOptions('2.0.0')), false);
+        assert.strictEqual(shouldIncreaseVersion(Maybe.just('1.0.0'), pinnedOptions()), false);
     });
 
     test('shouldIncreaseVersion returns true when automatic and the current version is known', function () {
@@ -128,13 +128,13 @@ function registerVersionTriggerTests(): void {
 
     test('inferVersionTrigger treats didBump as authoritative even for pinned options', function () {
         assert.strictEqual(
-            inferVersionTrigger(Maybe.nothing<string>(), pinnedOptions('2.0.0'), true),
+            inferVersionTrigger(Maybe.nothing<string>(), pinnedOptions(), true),
             'auto-patch-bump'
         );
     });
 
     test('inferVersionTrigger returns pinned when automatic versioning is disabled and no bump occurred', function () {
-        assert.strictEqual(inferVersionTrigger(Maybe.just('1.0.0'), pinnedOptions('2.0.0'), false), 'pinned');
+        assert.strictEqual(inferVersionTrigger(Maybe.just('1.0.0'), pinnedOptions(), false), 'pinned');
     });
 
     test('inferVersionTrigger returns auto-patch-bump when the current version exists but no bump occurred', function () {

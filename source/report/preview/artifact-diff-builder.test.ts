@@ -18,10 +18,9 @@ function diffableArtifact(overrides: Partial<ArtifactEntry> = {}): ArtifactEntry
 }
 
 function bundleIndex(
-    packageName: string,
     entries: ReadonlyMap<string, { readonly content: string; readonly sourcePath?: string; }>
 ): BundleArtifactIndex {
-    return new Map([ [ packageName, entries ] ]);
+    return new Map([ [ 'package-a', entries ] ]);
 }
 
 async function alwaysRead(originalContent: string): Promise<(filePath: string) => Promise<string>> {
@@ -42,7 +41,6 @@ suite('artifact-diff-builder', function () {
 
     test('buildDiffForArtifact returns undefined when the source path no longer matches the indexed artifact', async function () {
         const index = bundleIndex(
-            'package-a',
             new Map([ [ 'a.js', { content: 'final', sourcePath: '/source/other.js' } ] ])
         );
         const result = await buildDiffForArtifact('package-a', diffableArtifact(), index, async function () {
@@ -54,7 +52,6 @@ suite('artifact-diff-builder', function () {
 
     test('buildDiffForArtifact returns undefined when the original and final content match exactly', async function () {
         const index = bundleIndex(
-            'package-a',
             new Map([ [ 'a.js', { content: 'same-bytes', sourcePath: '/source/a.js' } ] ])
         );
         const result = await buildDiffForArtifact(
@@ -69,7 +66,6 @@ suite('artifact-diff-builder', function () {
 
     test('buildDiffForArtifact returns hunks when the original and final content differ', async function () {
         const index = bundleIndex(
-            'package-a',
             new Map([ [ 'a.js', { content: 'export const kept = 1;', sourcePath: '/source/a.js' } ] ])
         );
         const result = await buildDiffForArtifact(

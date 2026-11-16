@@ -80,7 +80,7 @@ function survivingLocalTargets(
     return new Set(
         resource.moduleReferences.flatMap(function (reference) {
             return isLocalDependencyReference(reference) && specifiers.has(reference.emittedSpecifier)
-                ? [ reference.targetFilePath ]
+                ? reference.targetFilePath
                 : [];
         })
     );

@@ -71,7 +71,7 @@ function dependencySourceFolders(
     const references = new Set(bundle.externalDependencies.get(dependencyName)?.referencedFrom);
     const folders = bundle.contents.flatMap(function (resource) {
         return references.has(resource.fileDescription.targetFilePath)
-            ? [ path.dirname(resource.fileDescription.inputFilePath) ]
+            ? path.dirname(resource.fileDescription.inputFilePath)
             : [];
     });
     return folders.length === 0

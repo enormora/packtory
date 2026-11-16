@@ -27,27 +27,21 @@ const testDeadlineMilliseconds = 2000;
 const entryPointScriptDeadlineMilliseconds = 10_000;
 const entryPointServerDeadlineMilliseconds = 12_000;
 
-type SuccessfulReleaseAnalysisOverrides = {
-    readonly classification: 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
-};
-
 type ReleaseAnalysisFailureExpectation = {
     readonly applicationProgrammingInterfaceBaseAddress: string;
     readonly expectedError: RegExp;
     readonly result: ReleaseAnalysisResult;
 };
 
-function successfulReleaseAnalysis(
-    overrides: Partial<SuccessfulReleaseAnalysisOverrides> = {}
-): ReleaseAnalysisOutcome {
+function substantiveReleaseAnalysis(): ReleaseAnalysisOutcome {
     return {
         getReport: fake(),
         result: Result.ok({
-            classification: overrides.classification ?? 'substantive',
+            classification: 'substantive',
             mostRecentPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
             packageAnalyses: [
                 {
-                    classification: overrides.classification ?? 'substantive',
+                    classification: 'substantive',
                     latestPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
                     latestPublishedVersion: '1.0.0',
                     name: 'package-a'
@@ -95,7 +89,7 @@ suite('github-release-gate-cli-runner', function () {
             async function (applicationProgrammingInterfaceBaseAddress) {
                 const fileManager = createFakeFileManager();
                 const loadPacktoryConfiguration = fake.resolves({});
-                const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
+                const analyzeReleaseAgainstLatestPublished = fake.resolves(substantiveReleaseAnalysis());
                 await assert.rejects(
                     runGitHubReleaseGate({
                         analyzeReleaseAgainstLatestPublished,
@@ -128,7 +122,7 @@ suite('github-release-gate-cli-runner', function () {
                 async function (applicationProgrammingInterfaceBaseAddress) {
                     const fileManager = createFakeFileManager();
                     const logs: string[] = [];
-                    const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
+                    const analyzeReleaseAgainstLatestPublished = fake.resolves(substantiveReleaseAnalysis());
                     const loadPacktoryConfiguration = fake.resolves({});
 
                     await runGitHubReleaseGate({
@@ -190,7 +184,7 @@ suite('github-release-gate-cli-runner', function () {
                 routes,
                 async function (applicationProgrammingInterfaceBaseAddress) {
                     const fileManager = createFakeFileManager();
-                    const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
+                    const analyzeReleaseAgainstLatestPublished = fake.resolves(substantiveReleaseAnalysis());
 
                     await runGitHubReleaseGate({
                         analyzeReleaseAgainstLatestPublished,

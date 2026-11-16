@@ -30,7 +30,7 @@ function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
             .toSorted(function (left, right) {
                 return left.localeCompare(right);
             });
-        return [ `Package "${bundle.name}" maps multiple sources to "${targetFilePath}": ${sortedSources.join(', ')}` ];
+        return `Package "${bundle.name}" maps multiple sources to "${targetFilePath}": ${sortedSources.join(', ')}`;
     });
 }
 

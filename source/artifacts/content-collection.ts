@@ -63,15 +63,13 @@ export function describeArtifactsForReport(
             if (entry.isGeneratedManifest) {
                 return [];
             }
-            return [
-                {
-                    filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
-                    content: entry.fileDescription.content,
-                    isExecutable: entry.fileDescription.isExecutable,
-                    inputFilePath: entry.fileDescription.inputFilePath,
-                    isSubstituted: entry.isSubstituted
-                }
-            ];
+            return {
+                filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
+                content: entry.fileDescription.content,
+                isExecutable: entry.fileDescription.isExecutable,
+                inputFilePath: entry.fileDescription.inputFilePath,
+                isSubstituted: entry.isSubstituted
+            };
         }),
         ...extraFiles.map(function (entry) {
             return {

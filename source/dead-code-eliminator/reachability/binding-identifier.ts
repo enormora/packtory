@@ -102,7 +102,7 @@ function bindingIdentifiersForFile(
 function parsedDeclarationInputFilePaths(file: FileBindingSet): readonly string[] {
     return file.bindings.flatMap(function (binding) {
         const declarationInputFilePath = inputFilePathFromDeclaration(binding.declarationNode);
-        return declarationInputFilePath === undefined ? [] : [ declarationInputFilePath ];
+        return declarationInputFilePath ?? [];
     });
 }
 

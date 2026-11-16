@@ -36,7 +36,7 @@ function fileIssues(bundleName: string, file: ArtifactReferenceContractFile): re
         const emittedSpecifier = literal.getLiteralValue();
         return isBuiltin(emittedSpecifier) || hasArtifactReference(file.moduleReferences, emittedSpecifier)
             ? []
-            : [ missingReferenceIssue(bundleName, file, emittedSpecifier) ];
+            : missingReferenceIssue(bundleName, file, emittedSpecifier);
     });
 }
 

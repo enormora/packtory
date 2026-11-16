@@ -7,9 +7,9 @@ import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-
 
 type TransformRecord = AnalyzedResourceOutput['transforms'][number];
 
-function resourceOutput(targetFilePath: string, transforms: readonly TransformRecord[]): AnalyzedResourceOutput {
+function resourceOutput(transforms: readonly TransformRecord[]): AnalyzedResourceOutput {
     return {
-        resource: { fileDescription: { targetFilePath } } as unknown as AnalyzedResourceOutput['resource'],
+        resource: { fileDescription: { targetFilePath: 'a.js' } } as unknown as AnalyzedResourceOutput['resource'],
         transforms
     };
 }
@@ -26,13 +26,13 @@ function removedDeclarationTransform(): TransformRecord {
 
 suite('source-map-recomposition', function () {
     test('buildMapPathTransformIndex maps each transform to the matching .map file path', function () {
-        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ removedDeclarationTransform() ]) ]);
+        const index = buildMapPathTransformIndex([ resourceOutput([ removedDeclarationTransform() ]) ]);
 
         assert.strictEqual(index.get('a.js.map')?.length, 1);
     });
 
     test('buildMapPathTransformIndex omits entries for resources without transforms', function () {
-        const index = buildMapPathTransformIndex([ resourceOutput('a.js', []) ]);
+        const index = buildMapPathTransformIndex([ resourceOutput([]) ]);
 
         assert.strictEqual(index.size, 0);
     });
@@ -54,7 +54,7 @@ suite('source-map-recomposition', function () {
                 mappings: 'AAAA'
             })
         );
-        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ removedDeclarationTransform() ]) ]);
+        const index = buildMapPathTransformIndex([ resourceOutput([ removedDeclarationTransform() ]) ]);
 
         const recomposed = recomposePairedSourceMaps([ resource ], index);
 
@@ -97,7 +97,7 @@ suite('source-map-recomposition', function () {
         };
 
         const index = buildMapPathTransformIndex(
-            [ resourceOutput('a.js', [ deadCodeEliminationTransform ]) ],
+            [ resourceOutput([ deadCodeEliminationTransform ]) ],
             new Map([ [ 'a.js', [ linkerTransform ] ] ])
         );
         const transforms = index.get('a.js.map') ?? [];

@@ -28,11 +28,11 @@ type FailedRecoveryOverrides = {
     readonly stage?: boolean;
 };
 
-function publishedArtifacts(version: string, gitHead: string): BuildAndPublishResult['previousReleaseArtifacts'] {
+function publishedArtifacts(): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
-        version,
+        version: '1.2.4',
         publishedAt: undefined,
-        gitHead,
+        gitHead: 'current-head',
         files: []
     });
 }
@@ -56,7 +56,7 @@ function createPostPublishArtifactChecks(): () => Promise<{
             ? { alreadyPublishedAsLatest: false, previousReleaseArtifacts: Maybe.nothing() }
             : {
                 alreadyPublishedAsLatest: true,
-                previousReleaseArtifacts: publishedArtifacts('1.2.4', 'current-head')
+                previousReleaseArtifacts: publishedArtifacts()
             };
     };
 }
@@ -129,7 +129,7 @@ suite('package-processor publish recovery', function () {
             status: 'new-version',
             publication: publishedToRegistry,
             extraFiles: [],
-            previousReleaseArtifacts: publishedArtifacts('1.2.4', 'current-head')
+            previousReleaseArtifacts: publishedArtifacts()
         });
         assert.deepStrictEqual(
             {
@@ -231,7 +231,7 @@ suite('package-processor publish recovery', function () {
                     alreadyPublishedAsLatest: false,
                     previousReleaseArtifacts: attempt === 1
                         ? Maybe.nothing()
-                        : publishedArtifacts('1.2.4', 'current-head')
+                        : publishedArtifacts()
                 };
             }),
             findCurrentHeadPublishedVersion: fake.resolves({ version: '1.2.4', gitHead: 'current-head' })

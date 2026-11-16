@@ -8,9 +8,9 @@ type ToolVersionResolverDependencies = {
 
 type CandidatePackageName = (typeof candidatePackageNames)[number];
 
-function buildUnresolvableMessage(): string {
+function createToolVersionResolutionError(): Error {
     const intro = 'Cannot determine packtory tool version: neither "@packtory/cli" nor "packtory" is resolvable.';
-    return `${intro} Install packtory via npm so it lives under node_modules/.`;
+    return new Error(`${intro} Install packtory via npm so it lives under node_modules/.`);
 }
 
 function isCandidatePackageName(value: unknown): value is CandidatePackageName {
@@ -72,7 +72,7 @@ export function createPacktoryToolVersionResolver(
                 return version;
             }
         }
-        throw new Error(buildUnresolvableMessage());
+        throw createToolVersionResolutionError();
     };
 }
 
@@ -88,7 +88,7 @@ export function createPacktoryAnalysisIdentityResolver(
             }
         }
         if (identities.length === 0) {
-            throw new Error(buildUnresolvableMessage());
+            throw createToolVersionResolutionError();
         }
         return JSON.stringify(identities);
     };

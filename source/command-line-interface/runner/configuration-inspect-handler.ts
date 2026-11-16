@@ -40,9 +40,9 @@ function formatRootEntries(roots: CommandLineInterfacePacktoryConfiguration['pac
         Object
             .entries(roots)
             .map(function ([ name, root ]) {
-                const declarationFile = root.javaScript !== undefined && root.declarationFile !== undefined
-                    ? `, d.ts: ${root.declarationFile}`
-                    : '';
+                const declarationFile = root.javaScript === undefined || root.declarationFile === undefined
+                    ? ''
+                    : `, d.ts: ${root.declarationFile}`;
                 return `${name}: ${rootEntryFile(root)}${declarationFile}`;
             })
             .join('; ')

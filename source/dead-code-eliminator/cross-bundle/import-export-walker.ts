@@ -112,10 +112,7 @@ function recordDefaultImportSeed(
     context: WalkContext
 ): SeedMap {
     const defaultImport = importDeclaration.getDefaultImport();
-    if (defaultImport === undefined) {
-        return context.seeds;
-    }
-    if (!isLocalBindingReachable(context, defaultImport.getText())) {
+    if (defaultImport === undefined || !isLocalBindingReachable(context, defaultImport.getText())) {
         return context.seeds;
     }
     return seedTargetBinding({
@@ -163,10 +160,7 @@ function crossBundleTarget(statement: SeedStatement, context: WalkContext): Reso
         return undefined;
     }
     const indexedBundle = context.indexed.get(reference.packageName);
-    if (indexedBundle === undefined) {
-        return undefined;
-    }
-    if (!indexedBundle.bindingsByFilePath.has(reference.targetFilePath)) {
+    if (indexedBundle?.bindingsByFilePath.has(reference.targetFilePath) !== true) {
         return undefined;
     }
     return {

@@ -21,17 +21,15 @@ function emptyIndex(): DeclarationNodeIndex {
 }
 
 function indexedDeclaration(
-    sourceFile: SourceFile,
-    statementOffset: number,
-    bindingIdentifier: string
+    sourceFile: SourceFile
 ): DeclarationNodeIndex {
-    const statement = sourceFile.getStatements()[statementOffset];
+    const statement = sourceFile.getStatements()[0];
     if (statement === undefined) {
-        throw new Error(`expected statement at offset ${statementOffset}`);
+        throw new Error('expected statement at offset 0');
     }
     const declaration = statement.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
     return {
-        identifiersByNode: new Map<TypeScriptMorphNode, readonly string[]>([ [ declaration, [ bindingIdentifier ] ] ]),
+        identifiersByNode: new Map<TypeScriptMorphNode, readonly string[]>([ [ declaration, [ '/index.ts::x' ] ] ]),
         identifiersByFileAndName: new Map(),
         identifiersByTargetFileAndName: new Map(),
         moduleReferencesByTargetFilePath: new Map(),
@@ -190,7 +188,7 @@ suite('identifier-target-collector', function () {
 
     test('collectIdentifierTargets maps each identifier symbol back to its declaration id when indexed', function () {
         const sourceFile = rootSourceFile('const x = 1;\nconst y = x;');
-        const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
+        const declarationIndex = indexedDeclaration(sourceFile);
 
         const targets = collectIdentifierTargets(sourceFile, declarationIndex, undefined);
 
@@ -199,7 +197,7 @@ suite('identifier-target-collector', function () {
 
     test('collectIdentifierTargets follows shorthand property assignments to the referenced symbol', function () {
         const sourceFile = rootSourceFile('const x = 1;\nconst obj = { x };');
-        const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
+        const declarationIndex = indexedDeclaration(sourceFile);
         const objectStatement = sourceFile.getStatements()[1];
         if (objectStatement === undefined) {
             assert.fail('expected obj declaration statement');

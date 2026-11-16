@@ -91,14 +91,12 @@ function exportedBindingSeeds(
     }
     return file.bindings.flatMap(function (binding) {
         return binding.isExported
-            ? [
-                {
-                    bindingIdentifier: bindingIdentifier(file.targetFilePath, binding.name),
-                    inputFilePath: file.inputFilePath,
-                    line: bindingLine(file, binding, trace),
-                    reason: 'entry-export'
-                }
-            ]
+            ? {
+                bindingIdentifier: bindingIdentifier(file.targetFilePath, binding.name),
+                inputFilePath: file.inputFilePath,
+                line: bindingLine(file, binding, trace),
+                reason: 'entry-export'
+            }
             : [];
     });
 }

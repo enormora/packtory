@@ -100,13 +100,13 @@ export function normalizeStarExports(
     const protectedSources = invalidRequestTargets(index, resolveModule);
     const plans = preparations.flatMap(function (preparation) {
         const model = index.models.get(preparation.sourceFile);
-        return model === undefined ? [] : [ {
+        return model === undefined ? [] : {
             preparation,
             edits: moduleEdits(
                 { index, model, resolveModule },
                 protectedSources
             )
-        } ];
+        };
     });
     for (const plan of plans) {
         plan.preparation.applyEdits(plan.edits);

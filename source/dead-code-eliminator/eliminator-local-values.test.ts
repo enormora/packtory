@@ -48,7 +48,7 @@ function localValueFixture(input: Pick<LocalValueCase, 'entry' | 'modules' | 'na
                 return {
                     ...resource,
                     directDependencies: new Set(resource.moduleReferences.flatMap(function (reference) {
-                        return reference.type === 'local-code' ? [ reference.targetFilePath ] : [];
+                        return reference.type === 'local-code' ? reference.targetFilePath : [];
                     }))
                 };
             })

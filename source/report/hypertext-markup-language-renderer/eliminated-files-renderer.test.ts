@@ -34,6 +34,7 @@ suite('eliminated-files-renderer', function () {
 
         const positionOfA = hypertextMarkupLanguage.indexOf('/source/a.js');
         const positionOfB = hypertextMarkupLanguage.indexOf('/source/b.js');
-        assert.ok(positionOfA !== -1 && positionOfB > positionOfA);
+        assert.notStrictEqual(positionOfA, -1);
+        assert.ok(positionOfB > positionOfA);
     });
 });

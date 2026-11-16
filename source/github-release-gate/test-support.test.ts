@@ -73,7 +73,7 @@ suite('github-release-gate-test-support', function () {
     });
 
     test('getRouteKey falls back to the root path when the request URL is missing', function () {
-        assert.strictEqual(getRouteKey(undefined), '/');
+        assert.strictEqual(getRouteKey(), '/');
         assert.strictEqual(getRouteKey('/ready'), '/ready');
     });
 

@@ -6,9 +6,10 @@ import { analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { recomputeDependencyMetadata, type SourceFileByPath } from './dependency-metadata.ts';
 
-function sourceFileIndex(inputFilePath: string, targetFilePath: string, content: string): SourceFileByPath {
+function sourceFileIndex(content: string): SourceFileByPath {
+    const inputFilePath = '/source/index.js';
     const project = createProject({ withFiles: [ { filePath: inputFilePath, content } ] });
-    return new Map([ [ targetFilePath, project.getSourceFileOrThrow(inputFilePath) ] ]);
+    return new Map([ [ 'index.js', project.getSourceFileOrThrow(inputFilePath) ] ]);
 }
 
 function dependencyWithReferences(
@@ -75,7 +76,7 @@ suite('dependency metadata', function () {
                 substitutedInputFilePathsByPackageName: new Map()
             },
             [ resource ],
-            sourceFileIndex('/source/index.js', 'index.js', content)
+            sourceFileIndex(content)
         );
 
         assert.deepStrictEqual(
@@ -161,7 +162,7 @@ suite('dependency metadata', function () {
                 substitutedInputFilePathsByPackageName: new Map([ [ 'linked', new Set([ '/linked/index.js' ]) ] ])
             },
             [ resource ],
-            sourceFileIndex('/source/index.js', 'index.js', content)
+            sourceFileIndex(content)
         );
 
         assert.deepStrictEqual(result.externalDependencies.get('dep')?.references, references.slice(0, 2));

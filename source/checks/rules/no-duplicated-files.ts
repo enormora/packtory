@@ -48,13 +48,13 @@ function findDuplicateIssues(
             return [];
         }
         const message = duplicateMessage(filePath, owners);
-        if (message === undefined) {
+        if (
+            message === undefined || globallyAllowed.has(filePath) ||
+            everyOwnerConsents(filePath, owners, perPackageSettings)
+        ) {
             return [];
         }
-        if (globallyAllowed.has(filePath) || everyOwnerConsents(filePath, owners, perPackageSettings)) {
-            return [];
-        }
-        return [ message ];
+        return message;
     });
 }
 

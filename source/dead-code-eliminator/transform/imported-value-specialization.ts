@@ -25,7 +25,7 @@ export function specializeImportedValues(preparation: SourcePreparation, evaluat
             return [];
         }
         previousEnd = expression.getEnd();
-        return [ { start: expression.getStart(), end: expression.getEnd(), content: `(${primitiveSource(result)})` } ];
+        return { start: expression.getStart(), end: expression.getEnd(), content: `(${primitiveSource(result)})` };
     });
     preparation.applyEdits(edits);
 }

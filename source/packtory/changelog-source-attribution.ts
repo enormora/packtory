@@ -140,7 +140,7 @@ export function packageManifestDependencyVersions(
     return dependencyNames
         .flatMap(function (name) {
             const version = dependencyVersionFrom(manifest, name);
-            return version === undefined ? [] : [ { name, version } ];
+            return version === undefined ? [] : { name, version };
         });
 }
 
@@ -163,7 +163,7 @@ function collectSourceMappingAddresses(fileContent: string): readonly string[] {
             return [];
         }
         const sourceMappingAddress = line.slice(prefix.length);
-        return sourceMappingAddress === '' ? [] : [ sourceMappingAddress ];
+        return sourceMappingAddress === '' ? [] : sourceMappingAddress;
     });
 }
 

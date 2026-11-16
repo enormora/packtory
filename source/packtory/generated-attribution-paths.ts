@@ -82,7 +82,7 @@ export function collectGeneratedAttributionPaths(
         })
         .flatMap(function (output) {
             if (output.kind === 'repository-file') {
-                return [ resolveRepositoryPath(repositoryFolder, output.path) ];
+                return resolveRepositoryPath(repositoryFolder, output.path);
             }
             if (hasExplicitPackagePaths(output)) {
                 return Object.values(output.paths).map(function (outputPath) {
@@ -97,7 +97,7 @@ export function collectGeneratedAttributionPaths(
         new Set(
             paths.flatMap(function (filePath) {
                 const relativePath = resolveRepositoryRelativePath(repositoryFolder, filePath);
-                return relativePath === undefined ? [] : [ relativePath ];
+                return relativePath ?? [];
             })
         )
     );

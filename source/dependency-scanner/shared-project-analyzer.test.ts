@@ -45,7 +45,7 @@ async function withSharedSources(run: (sources: Sources) => Promise<void>): Prom
 
 function dependenciesOf(project: TypescriptProject, entry: string): readonly string[] {
     return project.getReferencedModules(entry).flatMap(function (reference) {
-        return reference.kind === 'external-package' ? [] : [ reference.filePath ];
+        return reference.kind === 'external-package' ? [] : reference.filePath;
     });
 }
 

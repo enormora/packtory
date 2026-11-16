@@ -65,8 +65,8 @@ function hostFileExists(sourceFile: Readonly<SourceFile>, filePath: string): boo
     return sourceFile.getProject().getModuleResolutionHost().fileExists(filePath);
 }
 
-function hostReadFile(sourceFile: Readonly<SourceFile>, filePath: string): string | undefined {
-    return sourceFile.getProject().getModuleResolutionHost().readFile(filePath);
+function readPackageManifestContent(sourceFile: Readonly<SourceFile>, filePath: string): string {
+    return String(sourceFile.getProject().getModuleResolutionHost().readFile(filePath));
 }
 
 function ancestorFolderPaths(startPath: string): readonly string[] {
@@ -127,7 +127,7 @@ function readPackageManifest(
     containingSourceFile: Readonly<SourceFile>
 ): PackageManifest | undefined {
     const filePath = path.join(packageRoot, 'package.json');
-    const parsed = parsePackageManifest(String(hostReadFile(containingSourceFile, filePath)));
+    const parsed = parsePackageManifest(readPackageManifestContent(containingSourceFile, filePath));
     if (parsed === undefined) {
         return undefined;
     }
@@ -148,7 +148,9 @@ export function packageTypeForResolvedFilePath(input: PackageTypeLookup): string
     const { containingSourceFile, filePath } = input;
     for (const packageManifestPath of packageManifestPathsFor(filePath)) {
         if (hostFileExists(containingSourceFile, packageManifestPath)) {
-            const manifest = parsePackageManifest(String(hostReadFile(containingSourceFile, packageManifestPath)));
+            const manifest = parsePackageManifest(
+                readPackageManifestContent(containingSourceFile, packageManifestPath)
+            );
             return manifest === undefined ? undefined : stringProperty(manifest, 'type');
         }
     }

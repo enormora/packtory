@@ -200,10 +200,10 @@ function rootMutationIdentifier(expression: Expression): Identifier | undefined 
 }
 
 function binaryExpressionMutationRecord(expression: TypeScriptMorphNode): MutationRecord | undefined {
-    if (!TypeScriptMorphNode.isBinaryExpression(expression)) {
-        return undefined;
-    }
-    if (!operatorKindIsAssignment(expression.getOperatorToken().getKind())) {
+    if (
+        !TypeScriptMorphNode.isBinaryExpression(expression) ||
+        !operatorKindIsAssignment(expression.getOperatorToken().getKind())
+    ) {
         return undefined;
     }
     const identifier = rootMutationIdentifier(expression.getLeft());

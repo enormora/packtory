@@ -156,9 +156,9 @@ function compilerReExportDependencies(
     }
     return [
         ...source.getExportSymbols().flatMap(function (symbol) {
-            return symbol.getName() !== 'default' || declaration.getNamespaceExport() !== undefined
-                ? symbolTargets(symbol, declarationIndex)
-                : [];
+            return symbol.getName() === 'default' && declaration.getNamespaceExport() === undefined
+                ? []
+                : symbolTargets(symbol, declarationIndex);
         }),
         ...source.getExportDeclarations()
     ];
