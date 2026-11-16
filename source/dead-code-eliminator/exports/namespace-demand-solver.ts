@@ -13,7 +13,6 @@ export type NamespaceDemandLimits = {
 
 const maximumDemandQueries = 2048;
 const maximumDemandEvaluations = 32_768;
-const maximumSyntaxBudgetSize = Math.ceil(Math.sqrt(maximumDemandEvaluations)) - 1;
 
 function* namespaceSyntaxNodes(node: TypeScriptMorphNode): Generator<TypeScriptMorphNode> {
     for (let index = 0; index < node.getChildCount(); index += 1) {
@@ -24,6 +23,7 @@ function* namespaceSyntaxNodes(node: TypeScriptMorphNode): Generator<TypeScriptM
 }
 
 export function namespaceSyntaxBudgetSize(files: readonly SourceFile[]): number {
+    const maximumSyntaxBudgetSize = Math.ceil(Math.sqrt(maximumDemandEvaluations)) - 1;
     let syntaxNodes = 0;
     for (const source of files) {
         const syntax = namespaceSyntaxNodes(source);
