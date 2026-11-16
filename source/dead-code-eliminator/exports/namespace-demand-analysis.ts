@@ -6,7 +6,11 @@ import { collectNamespaceConsumers } from './namespace-consumers.ts';
 import { namespaceConsumerDemand } from './namespace-consumer-demand.ts';
 import { namespaceBindingDemand, type NamespaceBindingContext } from './namespace-binding-demand.ts';
 import { namespaceExpressionDemand, type NamespaceExpressionContext } from './namespace-expression-demand.ts';
-import { createNamespaceDemandSolver, namespaceDemandLimits } from './namespace-demand-solver.ts';
+import {
+    createNamespaceDemandSolver,
+    namespaceDemandLimits,
+    namespaceSyntaxBudgetSize
+} from './namespace-demand-solver.ts';
 import {
     allNamespaceProperties,
     mergeNamespaceDemand,
@@ -30,11 +34,8 @@ export function createNamespaceDemandAnalysis(
     resolveModule: ExportTargetResolver,
     policy: NamespaceDemandPolicy
 ): NamespaceDemandAnalysis {
-    const syntaxSizes = files.map(function (source) {
-        return source.getDescendants().length;
-    });
     const solver = createNamespaceDemandSolver<ExportDemandKey | TypeScriptMorphNode>(
-        namespaceDemandLimits(syntaxSizes)
+        namespaceDemandLimits([ namespaceSyntaxBudgetSize(files) ])
     );
     const state = {
         analyzedFiles: new Set(files),
