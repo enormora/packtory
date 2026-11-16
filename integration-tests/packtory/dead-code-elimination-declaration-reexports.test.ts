@@ -46,10 +46,19 @@ async function resolveFixture(sourcesFolder: string, entry: string): Promise<Res
     return resolvedPackage;
 }
 
+function assertPrivateHelperDeclarationAbsent(declarations: ReadonlyMap<string, string>): void {
+    for (const [ targetFilePath, content ] of declarations) {
+        if (targetFilePath.endsWith('.d.ts')) {
+            assert.strictEqual(content.includes('function keep'), false, content);
+        }
+    }
+}
+
 function assertDeclarationExports(resolvedPackage: ResolvedPackage, requiresReader: boolean): void {
     const declarations = new Map(resolvedPackage.analyzedBundle.contents.map(function (resource) {
         return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];
     }));
+    assertPrivateHelperDeclarationAbsent(declarations);
     const barrel = declarations.get('barrel.d.ts');
     const context = declarations.get('context.d.ts');
     assertDefined(barrel);
@@ -74,6 +83,11 @@ suite('dead-code-elimination declaration reexports', function () {
                 await writeFixture(workspace);
                 const resolvedPackage = await resolveFixture(workspace.folder, scenario.entry);
                 assertDeclarationExports(resolvedPackage, scenario.requiresReader);
+                const runtimeReader = resolvedPackage.analyzedBundle.contents.some(function (resource) {
+                    return resource.fileDescription.targetFilePath.endsWith('.js') &&
+                        resource.fileDescription.content.includes('function readContext');
+                });
+                assert.strictEqual(runtimeReader, scenario.entry === 'with-value');
             });
         });
     }
