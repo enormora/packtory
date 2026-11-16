@@ -1,5 +1,5 @@
 import { SyntaxKind, type SourceFile } from 'ts-morph';
-import { createSyntaxAnalysis } from '../source-transformation/syntax-analysis.ts';
+import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../source-transformation/syntax-analysis.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
 function detectDynamicScope(sourceFile: SourceFile): boolean {
@@ -9,4 +9,8 @@ function detectDynamicScope(sourceFile: SourceFile): boolean {
         });
 }
 
-export const hasDynamicScope = createSyntaxAnalysis(detectDynamicScope);
+const dynamicScopeResults: SyntaxAnalysisResults<boolean> = new WeakMap();
+
+export function hasDynamicScope(source: SourceFile): boolean {
+    return createSyntaxAnalysis(detectDynamicScope, dynamicScopeResults)(source);
+}
