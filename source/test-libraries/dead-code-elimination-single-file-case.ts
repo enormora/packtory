@@ -4,10 +4,10 @@ import { createSourceEvaluation } from '../dead-code-eliminator/evaluation/const
 import type { EvaluatedValue } from '../dead-code-eliminator/evaluation/primitive-value.ts';
 import {
     assertDeadCodeEliminationEquivalent,
-    eliminateDeadCodeAndAssertAllOutputValid,
-    observeDeadCodeEliminationBehavior,
-    type DeadCodeEliminationOracleCase
+    type DeadCodeEliminationOracleCase,
+    type VerifiedDeadCodeElimination
 } from './dead-code-elimination-oracle-test-support.ts';
+import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
 import { inputs, bundleForCodeFile } from './eliminator-test-support.ts';
 import { assertDefined, assertDeepSubset } from './deep-subset-assertion.ts';
 import { createProject } from './typescript-project.ts';
@@ -44,17 +44,22 @@ export function singleFileOracleCase(content: string, targetFilePath: string): D
     };
 }
 
-export async function assertSingleFileCallReduction(input: CallReductionCase): Promise<void> {
+async function verifySingleFileCallReduction(input: CallReductionCase): Promise<VerifiedDeadCodeElimination> {
     const fixture = singleFileOracleCase(input.content, input.targetFilePath);
-    await assertDeadCodeEliminationEquivalent(fixture);
-    const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
-    const output = result[0]?.contents[0]?.fileDescription.content;
+    const result = await assertDeadCodeEliminationEquivalent(fixture);
+    assertValidDeadCodeEliminationOutput(fixture.name, result.bundles);
+    const output = result.bundles[0]?.contents[0]?.fileDescription.content;
     assertDefined(output);
     const source = createProject().createSourceFile('output.js', output);
     const remaining = source.getDescendantsOfKind(SyntaxKind.CallExpression).filter(function (call) {
         return input.callee === null || call.getExpression().getText() === input.callee;
     });
     assert.strictEqual(remaining.length, input.remainingCalls);
+    return result;
+}
+
+export async function assertSingleFileCallReduction(input: CallReductionCase): Promise<void> {
+    await verifySingleFileCallReduction(input);
 }
 
 export async function assertSingleFileEvaluation(input: SingleFileEvaluationCase): Promise<void> {
@@ -62,19 +67,11 @@ export async function assertSingleFileEvaluation(input: SingleFileEvaluationCase
     const expression = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
     assert.deepStrictEqual(createSourceEvaluation(source).primitiveValue(expression), input.result);
     const content = `${input.content}export function probe(){return value;}`;
-    const fixture = singleFileOracleCase(content, 'index.js');
-    const native = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: fixture.entry,
-        bundles: fixture.eliminationInputs.map(function (entry) {
-            return entry.bundle;
-        })
-    });
-    assertDeepSubset(native[0]?.result.observation, input.native);
-    await assertSingleFileCallReduction({
+    const result = await verifySingleFileCallReduction({
         content,
         targetFilePath: 'index.js',
         callee: null,
         remainingCalls: input.remainingCalls
     });
+    assertDeepSubset(result.observations[0]?.result.observation, input.native);
 }

@@ -73,6 +73,11 @@ type DeadCodeEliminationBehaviorObservation = readonly {
     readonly result: DeadCodeEliminationProbeResult;
 }[];
 
+export type VerifiedDeadCodeElimination = {
+    readonly bundles: readonly AnalyzedBundle[];
+    readonly observations: DeadCodeEliminationBehaviorObservation;
+};
+
 const packageManifestContent = '{"type":"module"}\n';
 
 function entryContext(name: string, entry: DeadCodeEliminationOracleEntry): string {
@@ -252,7 +257,7 @@ export async function observeDeadCodeEliminationBehavior(
 
 export async function assertDeadCodeEliminationBehaviorEquivalent(
     input: DeadCodeEliminationBehaviorComparison
-): Promise<void> {
+): Promise<DeadCodeEliminationBehaviorObservation> {
     verifyEntryBundle(input.name, input.entry, input.leftBundles, input.leftName);
     verifyEntryBundle(input.name, input.entry, input.rightBundles, input.rightName);
     const left = await observeDeadCodeEliminationBehavior({
@@ -286,6 +291,7 @@ export async function assertDeadCodeEliminationBehaviorEquivalent(
             } changed observable behavior from ${input.leftName} to ${input.rightName}`
         );
     }
+    return left;
 }
 
 async function eliminateDeadCodeForOracle(
@@ -311,13 +317,13 @@ export async function eliminateDeadCodeAndAssertAllOutputValid(
 
 export async function assertDeadCodeEliminationEquivalent(
     input: DeadCodeEliminationOracleCase
-): Promise<void> {
+): Promise<VerifiedDeadCodeElimination> {
     try {
         const original = originalBundles(input);
         const eliminated = await eliminateDeadCodeForOracle(input);
 
         verifyEntryBundle(input.name, input.entry, original, 'original');
-        await assertDeadCodeEliminationBehaviorEquivalent({
+        const observations = await assertDeadCodeEliminationBehaviorEquivalent({
             name: input.name,
             entry: input.entry,
             leftName: 'original',
@@ -325,6 +331,7 @@ export async function assertDeadCodeEliminationEquivalent(
             rightName: 'eliminated',
             rightBundles: eliminated
         });
+        return { bundles: eliminated, observations };
     } catch (error: unknown) {
         throw await wrapFailure(input, 'oracle comparison', error);
     }
