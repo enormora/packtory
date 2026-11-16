@@ -1,56 +1,43 @@
+import { match } from 'ts-pattern';
 import { declarationCompanionCandidates } from '../../common/declaration-companion-paths.ts';
 import { isDeclarationCodeTargetPath } from '../liveness/runtime-code.ts';
 import type { DeadCodeEliminationExportCheckMode } from './export-resolution.ts';
 
-type SourceDeclarationTargetRule = {
-    readonly declarationExtensions: readonly string[];
-    readonly sourceExtension: string;
-};
-
-const runtimeTargetExtensions = [
-    '.js',
-    '.jsx',
-    '.mjs',
-    '.cjs',
-    '.ts',
-    '.tsx',
-    '.mts',
-    '.cts',
-    '.json',
-    '.wasm'
-];
-const declarationTargetExtensions = [ '.d.ts', '.d.mts', '.d.cts' ];
-const sourceDeclarationTargetRules: readonly SourceDeclarationTargetRule[] = [
-    { declarationExtensions: [ '.d.mts', '.d.ts' ], sourceExtension: '.mts' },
-    { declarationExtensions: [ '.d.cts', '.d.ts' ], sourceExtension: '.cts' },
-    { declarationExtensions: [ '.d.ts' ], sourceExtension: '.tsx' },
-    { declarationExtensions: [ '.d.ts' ], sourceExtension: '.ts' }
-];
-
-function appendedCandidates(targetPath: string, extensions: readonly string[]): readonly string[] {
-    return extensions.map(function (extension) {
-        return `${targetPath}${extension}`;
-    });
-}
-
 function runtimeCandidates(targetPath: string): readonly string[] {
-    return [ targetPath, ...appendedCandidates(targetPath, runtimeTargetExtensions) ];
+    return [
+        targetPath,
+        `${targetPath}.js`,
+        `${targetPath}.jsx`,
+        `${targetPath}.mjs`,
+        `${targetPath}.cjs`,
+        `${targetPath}.ts`,
+        `${targetPath}.tsx`,
+        `${targetPath}.mts`,
+        `${targetPath}.cts`,
+        `${targetPath}.json`,
+        `${targetPath}.wasm`
+    ];
 }
 
 function sourceDeclarationCandidates(targetPath: string): readonly string[] {
     if (isDeclarationCodeTargetPath(targetPath)) {
         return [];
     }
-    const rule = sourceDeclarationTargetRules.find(function (candidate) {
-        return targetPath.endsWith(candidate.sourceExtension);
-    });
-    if (rule === undefined) {
-        return [];
-    }
-    const targetPathWithoutExtension = targetPath.slice(0, -rule.sourceExtension.length);
-    return rule.declarationExtensions.map(function (declarationExtension) {
-        return `${targetPathWithoutExtension}${declarationExtension}`;
-    });
+    const extension = targetPath.slice(targetPath.lastIndexOf('.'));
+    const targetPathWithoutExtension = targetPath.slice(0, -extension.length);
+    return match(extension)
+        .with('.mts', function () {
+            return [ `${targetPathWithoutExtension}.d.mts`, `${targetPathWithoutExtension}.d.ts` ];
+        })
+        .with('.cts', function () {
+            return [ `${targetPathWithoutExtension}.d.cts`, `${targetPathWithoutExtension}.d.ts` ];
+        })
+        .with('.tsx', '.ts', function () {
+            return [ `${targetPathWithoutExtension}.d.ts` ];
+        })
+        .otherwise(function () {
+            return [];
+        });
 }
 
 export function declarationCandidates(targetPath: string): readonly string[] {
@@ -58,7 +45,9 @@ export function declarationCandidates(targetPath: string): readonly string[] {
         targetPath,
         ...declarationCompanionCandidates(targetPath),
         ...sourceDeclarationCandidates(targetPath),
-        ...appendedCandidates(targetPath, declarationTargetExtensions)
+        `${targetPath}.d.ts`,
+        `${targetPath}.d.mts`,
+        `${targetPath}.d.cts`
     ];
 }
 
