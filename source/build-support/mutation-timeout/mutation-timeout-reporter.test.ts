@@ -10,30 +10,66 @@ const timeout: MutantResult = {
     status: 'Timeout',
     mutatorName: 'BooleanLiteral',
     replacement: 'false',
-    location: { start: { line: 7, column: 8 }, end: { line: 7, column: 12 } }
+    location: {
+        start: {
+            line: 7,
+            column: 8
+        },
+        end: {
+            line: 7,
+            column: 12
+        }
+    }
 };
+const sourceLocation = `${path.join('source', 'a.ts')}:7:8 (mutation-1, BooleanLiteral)`;
 
-suite('mutation timeout reporting', function () {
-    test('reports the relative source location and mutation identity immediately', function () {
-        const messages: string[] = [];
-        const reporter = createMutationTimeoutReporter(function (message) {
-            messages.push(message);
-        }, '/workspace');
-        reporter.onMutantTested(timeout);
-
-        assert.deepStrictEqual(messages, [
-            `Mutation timed out: ${path.join('source', 'a.ts')}:7:8 (mutation-1, BooleanLiteral)`
-        ]);
-    });
-
-    for (const status of [ 'Killed', 'Survived', 'NoCoverage' ] as const) {
-        test(`does not report ${status} mutants as timeouts`, function () {
+suite('mutation failure reporting', function () {
+    for (
+        const {
+            status,
+            isStatic,
+            message
+        } of [ {
+            status: 'Timeout',
+            isStatic: false,
+            message: `Mutation timed out: ${sourceLocation}`
+        }, {
+            status: 'Survived',
+            isStatic: false,
+            message: `Mutation survived: ${sourceLocation}`
+        }, {
+            status: 'Timeout',
+            isStatic: true,
+            message: `Mutation timed out: ${sourceLocation} [static]`
+        }, {
+            status: 'Survived',
+            isStatic: true,
+            message: `Mutation survived: ${sourceLocation} [static]`
+        } ] as const
+    ) {
+        test(`reports ${status} with static=${String(isStatic)} immediately`, function () {
             const messages: string[] = [];
-            const reporter = createMutationTimeoutReporter(function (message) {
-                messages.push(message);
+            const reporter = createMutationTimeoutReporter(function (reportedMessage) {
+                messages.push(reportedMessage);
             }, '/workspace');
-            reporter.onMutantTested({ ...timeout, status });
-
+            reporter.onMutantTested({
+                ...timeout,
+                status,
+                static: isStatic
+            });
+            assert.deepStrictEqual(messages, [ message ]);
+        });
+    }
+    for (const status of [ 'Killed', 'NoCoverage' ] as const) {
+        test(`does not report ${status} mutants as failures`, function () {
+            const messages: string[] = [];
+            const reporter = createMutationTimeoutReporter(function (reportedMessage) {
+                messages.push(reportedMessage);
+            }, '/workspace');
+            reporter.onMutantTested({
+                ...timeout,
+                status
+            });
             assert.deepStrictEqual(messages, []);
         });
     }

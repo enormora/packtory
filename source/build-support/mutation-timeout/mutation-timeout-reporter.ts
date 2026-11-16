@@ -5,18 +5,22 @@ import type { Reporter } from '@stryker-mutator/api/report';
 export type MutationTimeoutReporter = Required<Pick<Reporter, 'onMutantTested'>>;
 
 export function createMutationTimeoutReporter(
-    reportTimeout: (message: string) => void,
+    reportFailure: (message: string) => void,
     sourceRoot: string
 ): MutationTimeoutReporter {
     return {
         onMutantTested(result: Readonly<MutantResult>): void {
-            if (result.status === 'Timeout') {
-                const filePath = path.relative(sourceRoot, result.fileName);
-                const { line, column } = result.location.start;
-                reportTimeout(
-                    `Mutation timed out: ${filePath}:${line}:${column} (${result.id}, ${result.mutatorName})`
-                );
+            if (result.status !== 'Timeout' && result.status !== 'Survived') {
+                return;
             }
+            const filePath = path.relative(sourceRoot, result.fileName);
+            const { line, column } = result.location.start;
+            const sourceLocation = `${filePath}:${line}:${column}`;
+            const outcome = result.status === 'Timeout' ? 'timed out' : 'survived';
+            const staticMarker = result.static === true ? ' [static]' : '';
+            reportFailure(
+                `Mutation ${outcome}: ${sourceLocation} (${result.id}, ${result.mutatorName})${staticMarker}`
+            );
         }
     };
 }
