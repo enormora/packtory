@@ -463,6 +463,7 @@ eligible source file and the complete unit suite remain in scope. Per-mutant
 timeouts allow five seconds plus runner overhead, independently of covered-suite duration;
 timeout results fail the `Mutation testing` check.
 The initial run executes the complete unit suite with a separate 15-minute limit.
+Manual workflow dispatch runs only mutation testing.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.
 Object snapshots preserve enumerable string properties and object identity; generated
