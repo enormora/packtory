@@ -10,9 +10,9 @@ export function readContinuousIntegrationEnvironment(
     environment: Readonly<Record<string, string | undefined>>
 ): ContinuousIntegrationEnvironment {
     return {
-        githubServerAddress: environment['GITHUB_SERVER_URL'],
-        githubRepository: environment['GITHUB_REPOSITORY'],
-        gitlabProjectAddress: environment['CI_PROJECT_URL']
+        githubServerAddress: environment.GITHUB_SERVER_URL,
+        githubRepository: environment.GITHUB_REPOSITORY,
+        gitlabProjectAddress: environment.CI_PROJECT_URL
     };
 }
 

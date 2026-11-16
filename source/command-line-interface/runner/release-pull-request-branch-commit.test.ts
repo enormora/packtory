@@ -299,7 +299,7 @@ suite('release-pull-request-branch-commit', function () {
         }
         assert.deepStrictEqual(
             graphQLCalls.map(function (call) {
-                return call.variables['branchName'];
+                return call.variables.branchName;
             }),
             cases.map(function (testCase) {
                 return testCase.temporaryBranch;
@@ -342,7 +342,7 @@ suite('release-pull-request-branch-commit', function () {
                 }
             },
             async graphql(query, parameters) {
-                events.push(`graphql:${String(parameters['branchName'])}`);
+                events.push(`graphql:${String(parameters.branchName)}`);
                 assert.match(query, /createCommitOnBranch/u);
                 return { createCommitOnBranch: { commit: { oid: 'signed-release-head' } } };
             }
@@ -390,7 +390,7 @@ suite('release-pull-request-branch-commit', function () {
             },
             /GitHub API request failed \(403\) for \/graphql: Resource not accessible by integration; ref update failed because the token cannot bypass a ruleset/u
         );
-        assert.deepStrictEqual(graphQLCalls[0]?.variables['branchName'], temporaryReleaseBranch);
+        assert.deepStrictEqual(graphQLCalls[0]?.variables.branchName, temporaryReleaseBranch);
         assert.deepStrictEqual(
             operations.map(function (operation) {
                 return operation.name;
@@ -399,13 +399,13 @@ suite('release-pull-request-branch-commit', function () {
         );
         assert.strictEqual(
             operations.some(function (operation) {
-                return operation.name === 'updateReference' && operation.input['ref'] === releaseBranchReference;
+                return operation.name === 'updateReference' && operation.input.ref === releaseBranchReference;
             }),
             false
         );
         assert.strictEqual(
             operations.some(function (operation) {
-                return operation.name === 'createReference' && operation.input['ref'] === 'refs/heads/release/packtory';
+                return operation.name === 'createReference' && operation.input.ref === 'refs/heads/release/packtory';
             }),
             false
         );

@@ -49,7 +49,7 @@ export async function withRegistryTransport<T>(
     options: RegistryRequestOptions,
     request: (options: RegistryRequestOptions) => Promise<T>
 ): Promise<T> {
-    const registry = typeof options['registry'] === 'string' ? options['registry'] : npmRegistryAddress;
+    const registry = typeof options.registry === 'string' ? options.registry : npmRegistryAddress;
     const agent = createRegistryAgent(registry, dependencies.resolveProxy);
     const controller = new AbortController();
     const timeout = dependencies.clock.setTimeout(function () {

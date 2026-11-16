@@ -125,7 +125,7 @@ async function verifySharedPrivateArtifact(configuration: PacktoryConfiguration,
         'export declare function answer(): number;\n'
     );
     const manifest = await readManifest(path.join(outputPath, 'node_modules/package-b'));
-    assert.deepStrictEqual(manifest['exports'], { '.': { import: './b.js', types: './b.d.ts' } });
+    assert.deepStrictEqual(manifest.exports, { '.': { import: './b.js', types: './b.d.ts' } });
     assert.strictEqual(await importConsumerArtifact(outputPath), '[42,"bundled"]');
 }
 
@@ -232,11 +232,11 @@ async function verifyTransitiveVendoredArtifact(projectFolder: string): Promise<
     });
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     const targetManifest = await readManifest(outputPath);
-    assert.strictEqual(targetManifest['dependencies'], undefined);
+    assert.strictEqual(targetManifest.dependencies, undefined);
     const internalManifest = await readManifest(path.join(outputPath, 'node_modules/package-d'));
-    assert.deepStrictEqual(internalManifest['dependencies'], { 'external-c': '^3.0.0' });
+    assert.deepStrictEqual(internalManifest.dependencies, { 'external-c': '^3.0.0' });
     const externalManifest = await readManifest(path.join(outputPath, 'node_modules/external-c'));
-    assert.strictEqual(externalManifest['version'], '3.4.5');
+    assert.strictEqual(externalManifest.version, '3.4.5');
     assert.strictEqual(await importConsumerArtifact(outputPath), '[42,"bundled"]');
 }
 

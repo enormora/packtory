@@ -26,14 +26,14 @@ function parseMutationLocation(value: unknown): MutationLocation | undefined {
     }
 
     const { start } = value;
-    if (!isPlainObject(start) || typeof start['line'] !== 'number' || typeof start['column'] !== 'number') {
+    if (!isPlainObject(start) || typeof start.line !== 'number' || typeof start.column !== 'number') {
         return undefined;
     }
 
     return {
         start: {
-            line: start['line'],
-            column: start['column']
+            line: start.line,
+            column: start.column
         }
     };
 }
@@ -43,16 +43,16 @@ function parseMutant(value: unknown): ParsedMutant | undefined {
         return undefined;
     }
 
-    const location = parseMutationLocation(value['location']);
+    const location = parseMutationLocation(value.location);
     if (location === undefined) {
         return undefined;
     }
 
-    if (typeof value['status'] !== 'string') {
+    if (typeof value.status !== 'string') {
         throw new TypeError('Mutation report contains a mutant without a string status');
     }
 
-    return { status: value['status'], location };
+    return { status: value.status, location };
 }
 
 function parseMutationReportFile(value: unknown): MutationReportFile | undefined {
@@ -71,13 +71,13 @@ function parseMutationReportFile(value: unknown): MutationReportFile | undefined
 }
 
 export function parseMutationReport(value: unknown): MutationReport {
-    if (!isPlainObject(value) || !isPlainObject(value['files'])) {
+    if (!isPlainObject(value) || !isPlainObject(value.files)) {
         return {};
     }
 
     return {
         files: Object.fromEntries(
-            Object.entries(value['files']).map(function ([ filePath, fileReport ]) {
+            Object.entries(value.files).map(function ([ filePath, fileReport ]) {
                 return [ filePath, parseMutationReportFile(fileReport) ];
             })
         )

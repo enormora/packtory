@@ -330,10 +330,10 @@ suite('publish', function () {
                 );
                 const publishedProducer = await fetchPublishedPackage('package-a', registryDetails);
                 const publishedConsumer = await fetchPublishedPackage('package-b', registryDetails);
-                assert.deepStrictEqual(publishedProducer.manifest['exports'], {
+                assert.deepStrictEqual(publishedProducer.manifest.exports, {
                     '.': { import: './a-entry.js', types: './a-entry.d.ts' }
                 });
-                assert.deepStrictEqual(publishedConsumer.manifest['exports'], {
+                assert.deepStrictEqual(publishedConsumer.manifest.exports, {
                     '.': { import: './b-entry.js', types: './b-entry.d.ts' }
                 });
                 assert.strictEqual(
@@ -434,7 +434,7 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('mutable-allow-list-fixture', registryDetails);
 
-                assert.deepStrictEqual(publishedPackage.manifest['dependencies'], {
+                assert.deepStrictEqual(publishedPackage.manifest.dependencies, {
                     'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0'
                 });
             })

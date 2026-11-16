@@ -10,7 +10,7 @@ function injectTypesCondition(_key: string, value: unknown): unknown {
     if (!isPlainObject(value)) {
         return value;
     }
-    const target = value['import'] ?? value['default'];
+    const target = value.import ?? value.default;
     if (!isString(target)) {
         return value;
     }
@@ -28,7 +28,7 @@ function rewriteManifestContent(content: string): string {
     if (!isPlainObject(parsed) || !Object.hasOwn(parsed, 'exports')) {
         return content;
     }
-    const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed['exports'], injectTypesCondition));
+    const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
 
     return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageManifestIndentationSpaces);
 }

@@ -122,7 +122,7 @@ function registerPackageEventTests(): void {
 
         broadcaster.provider.emit('stageTimed', { packageName: 'package-a', stage: 'build', durationMilliseconds: 42 });
 
-        assert.strictEqual(state.packages.get('package-a')?.timings['build'], 42);
+        assert.strictEqual(state.packages.get('package-a')?.timings.build, 42);
     });
 
     test('createReportEventHandlers records publication outcomes from done events', function () {

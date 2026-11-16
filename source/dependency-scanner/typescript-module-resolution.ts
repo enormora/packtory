@@ -133,7 +133,7 @@ function readPackageManifest(
     }
     return {
         type: stringProperty(parsed, 'type'),
-        exports: parsed['exports'],
+        exports: parsed.exports,
         main: stringProperty(parsed, 'main')
     };
 }
@@ -174,7 +174,7 @@ function targetFromConditionRecord(value: unknown, resolveTarget: TargetResolver
     if (!isRecord(value)) {
         return undefined;
     }
-    return resolveTarget(value['import']) ?? resolveTarget(value['default']);
+    return resolveTarget(value.import) ?? resolveTarget(value.default);
 }
 
 function targetFromCondition(value: unknown): string | undefined {

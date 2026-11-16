@@ -94,7 +94,7 @@ suite('validation package graph', function () {
                 );
 
                 assert.strictEqual(result.isOk, true);
-                assert.deepStrictEqual(result.value.packageConfigurations['foo']?.additionalFiles, [
+                assert.deepStrictEqual(result.value.packageConfigurations.foo?.additionalFiles, [
                     { inputFilePath: 'readme.md', targetFilePath: 'readme.md' }
                 ]);
             });

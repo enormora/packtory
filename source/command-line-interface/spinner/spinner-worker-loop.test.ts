@@ -33,7 +33,7 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 function extractCursorUpLineCount(chunk: string): number | undefined {
-    const digits = cursorUpLineCountPattern.exec(chunk)?.groups?.['lineCount'];
+    const digits = cursorUpLineCountPattern.exec(chunk)?.groups?.lineCount;
     return digits === undefined ? undefined : Number.parseInt(digits, 10);
 }
 

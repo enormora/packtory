@@ -77,7 +77,7 @@ function runtimeStringTarget(target: unknown): string | undefined {
 }
 
 function runtimeTargetFromConditionalExport(exportValue: Readonly<Record<string, unknown>>): string | undefined {
-    return runtimeStringTarget(exportValue['import']) ?? runtimeStringTarget(exportValue['default']);
+    return runtimeStringTarget(exportValue.import) ?? runtimeStringTarget(exportValue.default);
 }
 
 function runtimeTargetFromExportValue(exportValue: unknown): string | undefined {

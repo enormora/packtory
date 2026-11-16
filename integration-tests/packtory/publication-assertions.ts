@@ -67,7 +67,7 @@ export function assertFirstPackageSoftwareBillOfMaterials(
         bomFormat: 'CycloneDX',
         specVersion: '1.6'
     });
-    const metadata = softwareBillOfMaterials['metadata'] as SoftwareBillOfMaterialsMetadata;
+    const metadata = softwareBillOfMaterials.metadata as SoftwareBillOfMaterialsMetadata;
     assert.strictEqual(metadata.component['bom-ref'], 'pkg:npm/first@0.0.1');
     assert.partialDeepStrictEqual(metadata, {
         component: {
@@ -75,5 +75,5 @@ export function assertFirstPackageSoftwareBillOfMaterials(
             version: '0.0.1'
         }
     });
-    assert.deepStrictEqual(softwareBillOfMaterials['components'], []);
+    assert.deepStrictEqual(softwareBillOfMaterials.components, []);
 }

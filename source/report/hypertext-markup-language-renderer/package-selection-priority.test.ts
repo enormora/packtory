@@ -7,7 +7,7 @@ function checkedPackages(markup: string): readonly string[] {
     return Array.from(
         markup.matchAll(/<input class="package-choice"[^>]*id="(?<packageIdentifier>[^"]+)" checked>/gu),
         function (match) {
-            return match.groups?.['packageIdentifier'] ?? '';
+            return match.groups?.packageIdentifier ?? '';
         }
     );
 }

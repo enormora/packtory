@@ -73,6 +73,6 @@ suite('prepare-package-options', function () {
             []
         );
 
-        assert.strictEqual(prepared.sharedOptions.roots['main']?.javaScript, '/source/index.js');
+        assert.strictEqual(prepared.sharedOptions.roots.main?.javaScript, '/source/index.js');
     });
 });

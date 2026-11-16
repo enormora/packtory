@@ -138,7 +138,7 @@ function registerEffectiveConfigurationEmissionTests(): void {
         broadcaster.consumer.on('effectiveConfigurationResolved', function (payload) {
             received.push({
                 packageName: payload.packageName,
-                configurationName: String(payload.configuration['name'])
+                configurationName: String(payload.configuration.name)
             });
         });
 

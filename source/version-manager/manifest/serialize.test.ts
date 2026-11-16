@@ -56,7 +56,7 @@ function registerObjectSortingTests(): void {
     test('throws when a circular structure is given', function () {
         const secondEntry: JavaScriptObjectNotationValue = {};
         const firstEntry: JavaScriptObjectNotationValue = { c: secondEntry };
-        secondEntry['d'] = firstEntry;
+        secondEntry.d = firstEntry;
 
         try {
             serializePackageManifest({ b: 'foo', a: firstEntry });

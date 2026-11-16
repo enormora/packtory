@@ -30,13 +30,13 @@ function toolEntryByName(
 ): ReadonlyMap<string, Readonly<Record<string, unknown>>> {
     return new Map(
         components.map(function (entry) {
-            return [ entry['name'] as string, entry ];
+            return [ entry.name as string, entry ];
         })
     );
 }
 
 function isPacktoryEntry(entry: unknown): entry is Record<string, unknown> {
-    return typeof entry === 'object' && entry !== null && (entry as Record<string, unknown>)['name'] === 'packtory';
+    return typeof entry === 'object' && entry !== null && (entry as Record<string, unknown>).name === 'packtory';
 }
 
 suite('sbom-canonicalizer', function () {
@@ -46,7 +46,7 @@ suite('sbom-canonicalizer', function () {
                 const entry = firstToolComponentOf(
                     buildSoftwareBillOfMaterialsFixtureContent({ packtoryVersion: '1.2.3' })
                 );
-                assert.strictEqual(entry['name'], 'packtory');
+                assert.strictEqual(entry.name, 'packtory');
                 assert.strictEqual(Object.hasOwn(entry, 'version'), false);
             });
 
@@ -61,7 +61,7 @@ suite('sbom-canonicalizer', function () {
                     metadata: { tools: { components: [ { name: 'some-other-tool', version: '4.5.6' } ] } }
                 });
                 const entry = firstToolComponentOf(input);
-                assert.strictEqual(entry['version'], '4.5.6');
+                assert.strictEqual(entry.version, '4.5.6');
             });
 
             test('only strips the packtory entry when packtory and another tool coexist', function () {
@@ -87,7 +87,7 @@ suite('sbom-canonicalizer', function () {
                     assert.fail('Expected both tool entries');
                 }
                 assert.strictEqual(Object.hasOwn(packtoryEntry, 'version'), false);
-                assert.strictEqual(otherEntry['version'], '4.5.6');
+                assert.strictEqual(otherEntry.version, '4.5.6');
             });
         });
 
@@ -125,7 +125,7 @@ suite('sbom-canonicalizer', function () {
                 if (entry === undefined) {
                     assert.fail('Expected legacy tool entry');
                 }
-                assert.strictEqual(entry['version'], '1.2.3');
+                assert.strictEqual(entry.version, '1.2.3');
             });
 
             test('ignores non-object entries inside the components array', function () {

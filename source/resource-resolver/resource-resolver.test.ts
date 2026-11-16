@@ -62,7 +62,7 @@ suite('resource-resolver', function () {
 
         const result = await resolver.resolve(baseResolveOptions);
 
-        assert.strictEqual(result.roots['main']?.declarationFile, undefined);
+        assert.strictEqual(result.roots.main?.declarationFile, undefined);
     });
 
     test('resolve() synthesizes generated manifest resources instead of reading them from disk', async function () {

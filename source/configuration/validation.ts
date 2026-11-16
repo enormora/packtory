@@ -50,13 +50,13 @@ function normalizeAdditionalFileDescriptionAliases(value: unknown): unknown {
 }
 
 function normalizeAdditionalFileAliases(settings: unknown): unknown {
-    if (!isRecord(settings) || !Array.isArray(settings['additionalFiles'])) {
+    if (!isRecord(settings) || !Array.isArray(settings.additionalFiles)) {
         return settings;
     }
 
     return {
         ...settings,
-        additionalFiles: settings['additionalFiles'].map(normalizeAdditionalFileDescriptionAliases)
+        additionalFiles: settings.additionalFiles.map(normalizeAdditionalFileDescriptionAliases)
     };
 }
 
@@ -67,10 +67,10 @@ function normalizeConfigurationAliases(configuration: unknown): unknown {
 
     return {
         ...configurationRecord,
-        commonPackageSettings: normalizeAdditionalFileAliases(configurationRecord['commonPackageSettings']),
-        packages: Array.isArray(configurationRecord['packages'])
-            ? configurationRecord['packages'].map(normalizeAdditionalFileAliases)
-            : configurationRecord['packages']
+        commonPackageSettings: normalizeAdditionalFileAliases(configurationRecord.commonPackageSettings),
+        packages: Array.isArray(configurationRecord.packages)
+            ? configurationRecord.packages.map(normalizeAdditionalFileAliases)
+            : configurationRecord.packages
     };
 }
 

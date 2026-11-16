@@ -151,7 +151,7 @@ function readContentAssertionArray(
     record: Readonly<Record<string, unknown>>,
     context: string
 ): readonly DeadCodeEliminationContentAssertion[] {
-    const value = record['contentAssertions'];
+    const value = record.contentAssertions;
     if (!Array.isArray(value)) {
         throw new TypeError(`${context}: "contentAssertions" must be an array`);
     }
@@ -188,7 +188,7 @@ function readArtifactResources(
     record: Readonly<Record<string, unknown>>,
     context: string
 ): readonly DeadCodeEliminationArtifactResource[] {
-    const value = record['resources'];
+    const value = record.resources;
     if (!Array.isArray(value)) {
         throw new TypeError(`${context}: "resources" must be an array`);
     }
@@ -272,7 +272,7 @@ function expandRegressionRecord(record: Readonly<Record<string, unknown>>): Read
         identifier,
         fixtureHash256,
         assertionHash256,
-        ...record['type'] === 'consumer-producer-api' ? { expectedApplicationProgrammingInterfaceResult } : {}
+        ...record.type === 'consumer-producer-api' ? { expectedApplicationProgrammingInterfaceResult } : {}
     };
 }
 

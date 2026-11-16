@@ -9,8 +9,8 @@ function extractRawAddress(input: unknown): string | undefined {
     if (isNonEmptyString(input)) {
         return input;
     }
-    if (isPlainObject(input) && isNonEmptyString(input['url'])) {
-        return input['url'];
+    if (isPlainObject(input) && isNonEmptyString(input.url)) {
+        return input.url;
     }
     return undefined;
 }

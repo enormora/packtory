@@ -31,18 +31,18 @@ function unwrapJavaScriptObjectNotationModule(importedModule: unknown): unknown 
         return importedModule;
     }
 
-    return importedModule['default'];
+    return importedModule.default;
 }
 
 function parseToolPackageManifest(specifier: string, importedModule: unknown): string {
     const parsed = unwrapJavaScriptObjectNotationModule(importedModule);
-    if (!isPlainObject(parsed) || typeof parsed['version'] !== 'string') {
+    if (!isPlainObject(parsed) || typeof parsed.version !== 'string') {
         throw new Error(`Imported packtory package.json from "${specifier}" is missing a version field`);
     }
-    if (!isCandidatePackageName(parsed['name'])) {
+    if (!isCandidatePackageName(parsed.name)) {
         throw new Error(`Imported packtory package.json from "${specifier}" has unexpected package name`);
     }
-    return parsed['version'];
+    return parsed.version;
 }
 
 async function resolveCandidateVersion(

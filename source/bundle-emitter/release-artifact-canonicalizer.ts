@@ -18,7 +18,7 @@ function canonicalizeManifestContent(content: string): string {
     }
 
     const withoutGitHead = { ...parsed };
-    delete withoutGitHead['gitHead'];
+    delete withoutGitHead.gitHead;
     return serializeStableJavaScriptObjectNotation(withoutGitHead);
 }
 

@@ -75,7 +75,7 @@
         "@enormora/eslint-config-node": "0.0.52",
         "@enormora/eslint-config-typescript": "0.0.82",
         "@enormora/objectory": "0.0.25",
-        "@enormora/tsconfig": "0.0.2",
+        "@enormora/tsconfig": "0.0.3",
         "@jridgewell/gen-mapping": "0.3.13",
         "@ls-lint/ls-lint": "2.3.2",
         "@packtory/cli": "0.0.124",

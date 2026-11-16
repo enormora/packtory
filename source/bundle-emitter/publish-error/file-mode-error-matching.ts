@@ -24,7 +24,7 @@ function includesOneOf(message: string, markers: readonly string[]): boolean {
 }
 
 export function matchFileModeError(error: unknown, filePath: string): Error | undefined {
-    if (isRecord(error) && error['code'] === 'ENOENT') {
+    if (isRecord(error) && error.code === 'ENOENT') {
         return new Error(buildMissingProvenanceFileMessage(filePath), { cause: error });
     }
     if (!isErrorLike(error)) {

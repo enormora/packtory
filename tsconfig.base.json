@@ -1,8 +1,11 @@
 {
     "extends": "@enormora/tsconfig/base.json",
     "compilerOptions": {
-        "lib": ["ES2025", "DOM", "DOM.Iterable"],
-        "importHelpers": true,
+        "lib": [
+            "ES2025",
+            "DOM",
+            "DOM.Iterable"
+        ],
         "outDir": "./target/build",
         "skipLibCheck": true
     }

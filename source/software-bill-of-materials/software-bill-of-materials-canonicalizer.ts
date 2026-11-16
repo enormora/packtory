@@ -25,8 +25,8 @@ function stripPacktoryVersion(parsed: unknown): void {
         return;
     }
     for (const entry of components) {
-        if (isPlainObject(entry) && entry['name'] === packtoryToolName) {
-            delete entry['version'];
+        if (isPlainObject(entry) && entry.name === packtoryToolName) {
+            delete entry.version;
         }
     }
 }

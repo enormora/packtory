@@ -142,7 +142,7 @@ suite('hypertext-markup-language-renderer', function () {
 
         const scriptMatch = /<script type="application\/json" id="packtory-report-data">(?<encoded>[\s\S]*?)<\/script>/u
             .exec(hypertextMarkupLanguage);
-        const encoded = scriptMatch?.groups?.['encoded'];
+        const encoded = scriptMatch?.groups?.encoded;
         if (encoded === undefined) {
             assert.fail('expected packtory-report-data script tag');
         }

@@ -43,7 +43,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isMissingPackageError(error: unknown): boolean {
-    const statusCode = isRecord(error) ? error['statusCode'] : undefined;
+    const statusCode = isRecord(error) ? error.statusCode : undefined;
     return statusCode === notFoundStatusCode;
 }
 
@@ -77,10 +77,10 @@ function parseStagedPackageListResponse(response: unknown): StagedPackageListRes
 
     return {
         items: items.map(function (item) {
-            if (!isRecord(item) || typeof item['version'] !== 'string') {
+            if (!isRecord(item) || typeof item.version !== 'string') {
                 throw new Error('Got an invalid response from registry stage API');
             }
-            return { version: item['version'] };
+            return { version: item.version };
         }),
         total
     };

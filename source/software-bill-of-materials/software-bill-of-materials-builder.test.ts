@@ -47,7 +47,7 @@ suite('sbom-builder', function () {
 
     test('does not emit metadata.timestamp or serialNumber to keep the SBOM reproducible', function () {
         const serialized = buildAndSerialize({});
-        const metadata = serialized['metadata'] as Record<string, unknown>;
+        const metadata = serialized.metadata as Record<string, unknown>;
 
         assert.strictEqual(Object.hasOwn(metadata, 'timestamp'), false);
         assert.strictEqual(Object.hasOwn(serialized, 'serialNumber'), false);
@@ -65,7 +65,7 @@ suite('sbom-builder', function () {
             ]
         });
 
-        assert.deepStrictEqual(serialized['components'], [
+        assert.deepStrictEqual(serialized.components, [
             {
                 type: 'library',
                 name: 'lodash',
@@ -89,9 +89,9 @@ suite('sbom-builder', function () {
                 }
             ]
         });
-        const components = serialized['components'] as readonly Record<string, unknown>[];
+        const components = serialized.components as readonly Record<string, unknown>[];
 
-        assert.strictEqual(components[0]?.['scope'], 'optional');
+        assert.strictEqual(components[0]?.scope, 'optional');
     });
 
     test('falls back to a named license when the license string is not a valid SPDX expression', function () {
@@ -105,9 +105,9 @@ suite('sbom-builder', function () {
                 }
             ]
         });
-        const components = serialized['components'] as readonly Record<string, unknown>[];
+        const components = serialized.components as readonly Record<string, unknown>[];
 
-        assert.deepStrictEqual(components[0]?.['licenses'], [ { license: { name: 'See LICENSE.txt for details' } } ]);
+        assert.deepStrictEqual(components[0]?.licenses, [ { license: { name: 'See LICENSE.txt for details' } } ]);
     });
 
     test('omits the licenses field entirely when no license is known for a dependency', function () {
@@ -121,7 +121,7 @@ suite('sbom-builder', function () {
                 }
             ]
         });
-        const components = serialized['components'] as readonly Record<string, unknown>[];
+        const components = serialized.components as readonly Record<string, unknown>[];
 
         assert.strictEqual(Object.hasOwn(components[0] ?? {}, 'licenses'), false);
     });
@@ -137,9 +137,9 @@ suite('sbom-builder', function () {
                 }
             ]
         });
-        const components = serialized['components'] as readonly Record<string, unknown>[];
+        const components = serialized.components as readonly Record<string, unknown>[];
 
-        assert.strictEqual(components[0]?.['purl'], 'pkg:npm/lodash@%5E4.17.0');
+        assert.strictEqual(components[0]?.purl, 'pkg:npm/lodash@%5E4.17.0');
     });
 
     test('records every direct dependency under the root component dependency graph', function () {
@@ -159,11 +159,11 @@ suite('sbom-builder', function () {
                 }
             ]
         });
-        const dependencies = serialized['dependencies'] as readonly Record<string, unknown>[];
+        const dependencies = serialized.dependencies as readonly Record<string, unknown>[];
         const root = dependencies.find(function (entry) {
-            return entry['ref'] === 'pkg:npm/my-pkg@1.0.0';
+            return entry.ref === 'pkg:npm/my-pkg@1.0.0';
         });
 
-        assert.deepStrictEqual(root?.['dependsOn'], [ 'pkg:npm/lodash@%5E4.17.0', 'pkg:npm/react@%3E%3D18' ]);
+        assert.deepStrictEqual(root?.dependsOn, [ 'pkg:npm/lodash@%5E4.17.0', 'pkg:npm/react@%3E%3D18' ]);
     });
 });

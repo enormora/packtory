@@ -39,7 +39,7 @@ async function readGateStep(): Promise<z.infer<typeof gateStepSchema>> {
     const workflow = workflowSchema.parse(parse(content));
     const job = workflow.jobs['evaluate-gate'];
     const gateStep = job.steps.find(function (step) {
-        return step['id'] === 'release-gate';
+        return step.id === 'release-gate';
     });
     assert.strictEqual(job['continue-on-error'], undefined);
     assert.strictEqual(gateStep?.['continue-on-error'], undefined);
