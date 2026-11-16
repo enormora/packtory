@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
+import { allNamespaceProperties, type NamespaceDemand } from './namespace-demand.ts';
 import { createNamespaceDemandAnalysis } from './namespace-demand-analysis.ts';
 
 type DemandFixture = {
@@ -14,8 +15,8 @@ const conservativeReceivers = {
     isObserved() {
         return true;
     },
-    receiverIsUnobserved() {
-        return false;
+    receiverDemand(): NamespaceDemand {
+        return allNamespaceProperties;
     }
 };
 

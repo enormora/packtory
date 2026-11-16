@@ -5,6 +5,7 @@ import {
     type Expression,
     type SourceFile
 } from 'ts-morph';
+import { callObservesReceiver } from '../receiver-call.ts';
 import { constantStatement } from '../evaluation/constant-binding.ts';
 import type { PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import { declarationOf } from '../evaluation/evaluation-context.ts';
@@ -13,6 +14,7 @@ import { expressionWithWrappers } from '../expression-unwrapping.ts';
 import {
     allNamespaceProperties,
     namespaceMemberDemand,
+    mergeNamespaceDemand,
     noNamespaceProperties,
     type NamespaceDemand
 } from './namespace-demand.ts';
@@ -22,22 +24,18 @@ export type NamespaceExpressionContext = {
     readonly expression: (expression: TypeScriptMorphNode) => NamespaceDemand;
     readonly exported: (source: SourceFile, name: string) => NamespaceDemand;
     readonly primitive: PrimitiveEvaluator;
-    readonly receiverIsUnobserved: (receiver: Expression, name: string) => boolean;
+    readonly receiverDemand: (receiver: Expression, name: string) => NamespaceDemand;
 };
 
-function observesReceiver(expression: Expression): boolean {
-    const wrapped = expressionWithWrappers(expression);
-    const parent = wrapped.getParent();
-    return TypeScriptMorphNode.isCallExpression(parent) && parent.getExpression() === wrapped ||
-        TypeScriptMorphNode.isTaggedTemplateExpression(parent);
-}
-
-function observesNamespaceReceiver(
+function memberDemand(
     access: ElementAccessExpression | PropertyAccessExpression,
     name: string,
     context: NamespaceExpressionContext
-): boolean {
-    return observesReceiver(access) && !context.receiverIsUnobserved(access.getExpression(), name);
+): NamespaceDemand {
+    const value = namespaceMemberDemand(name, context.expression(access));
+    return callObservesReceiver(access)
+        ? mergeNamespaceDemand(value, context.receiverDemand(access.getExpression(), name))
+        : value;
 }
 
 function computedKeyValue(key: Expression, primitive: PrimitiveEvaluator): EvaluatedValue | undefined {
@@ -56,9 +54,9 @@ function computedKeyValue(key: Expression, primitive: PrimitiveEvaluator): Evalu
 function elementDemand(element: ElementAccessExpression, context: NamespaceExpressionContext): NamespaceDemand {
     const key = element.getArgumentExpressionOrThrow();
     const value = computedKeyValue(key, context.primitive);
-    return value === undefined || observesNamespaceReceiver(element, String(value.value), context)
+    return value === undefined
         ? allNamespaceProperties
-        : namespaceMemberDemand(String(value.value), context.expression(element));
+        : memberDemand(element, String(value.value), context);
 }
 
 function accessDemand(
@@ -67,9 +65,7 @@ function accessDemand(
     context: NamespaceExpressionContext
 ): NamespaceDemand | undefined {
     if (TypeScriptMorphNode.isPropertyAccessExpression(parent) && parent.getExpression() === expression) {
-        return observesNamespaceReceiver(parent, parent.getNameNode().compilerNode.text, context)
-            ? allNamespaceProperties
-            : namespaceMemberDemand(parent.getNameNode().compilerNode.text, context.expression(parent));
+        return memberDemand(parent, parent.getNameNode().compilerNode.text, context);
     }
     if (TypeScriptMorphNode.isElementAccessExpression(parent) && parent.getExpression() === expression) {
         return elementDemand(parent, context);
