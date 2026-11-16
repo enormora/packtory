@@ -14,6 +14,7 @@ import type { ArtifactModuleReference } from '../../resource-resolver/resolved-b
 import type { ExportGraph } from '../exports/export-graph.ts';
 import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import { hasTypeAncestor } from '../../source-transformation/type-ancestors.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
 import { buildDeclarationNodeIndex, type DeclarationNodeIndex, type FileBindings } from './binding-identifier.ts';
@@ -221,7 +222,7 @@ function identifierSymbol(identifier: Identifier): SymbolReference | undefined {
 
 function identifierTargets(identifier: Identifier, declarationIndex: IdentifierTargetIndex): readonly string[] {
     const symbol = identifierSymbol(identifier);
-    const runtimeReference = identifier.getFirstAncestor(TypeScriptMorphNode.isTypeNode) === undefined;
+    const runtimeReference = !hasTypeAncestor(identifier);
     const index = runtimeReference ? declarationIndex : { ...declarationIndex, exportGraph: undefined };
     return symbol === undefined ? [] : [
         ...symbolTargets(symbol, index),

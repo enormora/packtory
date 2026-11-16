@@ -1,5 +1,6 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Expression } from 'ts-morph';
 import { expressionWithWrappers, unwrapExpression } from '../expression-unwrapping.ts';
+import { hasTypeAncestor } from '../../source-transformation/type-ancestors.ts';
 import { expressionIsWriteTarget } from './expression-write.ts';
 
 function parentReadsValue(parent: TypeScriptMorphNode): boolean {
@@ -64,6 +65,6 @@ function needsReference(expression: Expression): boolean {
 }
 
 export function expressionIsValueRead(expression: Expression): boolean {
-    return expression.getFirstAncestor(TypeScriptMorphNode.isTypeNode) === undefined &&
+    return !hasTypeAncestor(expression) &&
         valuePosition(expression) && !expressionIsWriteTarget(expression) && !needsReference(expression);
 }
