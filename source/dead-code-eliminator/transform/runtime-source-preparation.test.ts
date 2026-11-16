@@ -12,9 +12,9 @@ suite('runtime preparation convergence', function () {
         const source = createProject().createSourceFile('input.ts', 'export const answer = 42;');
         const preparation = createSourcePreparation(source);
 
-        prepareInitialRuntimeSource(preparation);
+        prepareLocalRuntimeSource(preparation);
         source.replaceWithText('export const answer = 20 + 22;');
-        prepareInitialRuntimeSource(preparation);
+        prepareLocalRuntimeSource(preparation);
         assert.strictEqual(source.getFullText(), 'export const answer = (42);');
     });
 
@@ -82,7 +82,7 @@ suite('runtime preparation convergence', function () {
         };
 
         for (let iteration = 0; iteration < repetitions; iteration += 1) {
-            prepareInitialRuntimeSource(observed);
+            prepareLocalRuntimeSource(observed);
         }
         assert.ok(applications > 0);
         assert.strictEqual(preparation.sourceFile.getFullText(), 'export const value=1;');
