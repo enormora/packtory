@@ -12,7 +12,6 @@ suite('BigInt computation elimination', function () {
             });
         });
     }
-
     for (const expression of [ 'n/0n', 'n%0n', 'n+2', '+n' ]) {
         test(`preserves the exception from ${expression}`, async function () {
             await assertSingleFileCallReduction({
@@ -26,8 +25,8 @@ suite('BigInt computation elimination', function () {
 
     test('folds recursive BigInt arithmetic', async function () {
         await assertSingleFileCallReduction({
-            content: 'function compute(n){return n<=1n?1n:n*compute(n-1n);}' +
-                'export function probe(){return compute(10n);}',
+            content:
+                'function compute(n){return n<=1n?1n:n*compute(n-1n);}export function probe(){return compute(10n);}',
             targetFilePath: 'index.js',
             callee: 'compute',
             remainingCalls: 0

@@ -3,9 +3,17 @@
     "compilerOptions": {
         "tsBuildInfoFile": "../target/buildcache/integration-tests.tsbuildinfo",
         "rootDir": "..",
-        "types": ["node", "mocha"]
+        "types": [
+            "node",
+            "mocha"
+        ],
+        "module": "Node18"
     },
-    "references": [{ "path": "../source/tsconfig.sources.json" }],
+    "references": [
+        {
+            "path": "../source/tsconfig.sources.json"
+        }
+    ],
     "include": [
         "./**/*.ts",
         "../source/test-libraries/bundle-fixtures.ts",
@@ -23,7 +31,29 @@
         "../source/test-libraries/module-reference-fixtures.ts",
         "../source/test-libraries/run-node-probe.ts",
         "../source/test-libraries/typescript-project.ts",
-        "../source/test-libraries/with-deadline.ts"
+        "../source/test-libraries/with-deadline.ts",
+        "../source/test-libraries/expected-elimination-output.json",
+        "../source/test-libraries/fake-file-manager.ts",
+        "../source/test-libraries/non-error-failures.ts",
+        "../source/test-libraries/canary-package-fixtures.ts",
+        "../source/test-libraries/mutation-report-fixtures.ts",
+        "../source/test-libraries/dead-code-elimination-probe.ts",
+        "../source/test-libraries/expected-elimination-output.ts",
+        "../source/test-libraries/dead-code-elimination-output-assertions.ts",
+        "../source/test-libraries/dead-code-elimination-generated-programs.ts",
+        "../source/test-libraries/dead-code-elimination-program-generator.ts",
+        "../source/test-libraries/dead-code-elimination-metamorphic-types.ts",
+        "../source/test-libraries/dead-code-elimination-companion-metamorphic-programs.ts",
+        "../source/test-libraries/dead-code-elimination-metamorphic-programs.ts",
+        "../source/test-libraries/dead-code-elimination-semantic-programs.ts",
+        "../source/test-libraries/dead-code-elimination-source-target-skew-programs.ts",
+        "../source/test-libraries/vendor-materializer-test-support.ts",
+        "../source/test-libraries/check-fixtures.ts",
+        "../source/test-libraries/expression-purity-test-support.ts",
+        "../source/test-libraries/release-gate-request-fixtures.ts",
+        "../source/test-libraries/promise-with-deadline.ts"
     ],
-    "exclude": ["fixtures/**/*"]
+    "exclude": [
+        "fixtures/**/*"
+    ]
 }

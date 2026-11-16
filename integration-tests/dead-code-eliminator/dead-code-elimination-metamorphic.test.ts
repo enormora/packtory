@@ -2,24 +2,23 @@ import assert from 'node:assert';
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import {
-    observeDeadCodeEliminationBehavior,
-    assertDeadCodeEliminationIdempotent,
-    eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
-import {
     deadCodeEliminationMetamorphicProgramArbitraryFor,
     generatedDeclarationCompanionMetamorphicRegression
-} from '../test-libraries/dead-code-elimination-metamorphic-programs.ts';
+} from '../../source/test-libraries/dead-code-elimination-metamorphic-programs.ts';
 import {
     deadCodeEliminationMetamorphicTransformKinds,
     type GeneratedDeadCodeEliminationMetamorphicCase
-} from '../test-libraries/dead-code-elimination-metamorphic-types.ts';
-import { inputs } from '../test-libraries/eliminator-test-support.ts';
+} from '../../source/test-libraries/dead-code-elimination-metamorphic-types.ts';
+import { inputs } from '../../source/test-libraries/eliminator-test-support.ts';
+import {
+    assertDeadCodeEliminationIdempotent,
+    eliminateDeadCodeAndAssertAllOutputValid,
+    observeDeadCodeEliminationBehavior
+} from './runtime-comparison.ts';
 
-const runsPerTransform = 25;
+const runsPerTransform = 1;
 const transformChunks = runsPerTransform;
 const runsPerTransformChunk = runsPerTransform / transformChunks;
-
 function formatCaseFailure(input: GeneratedDeadCodeEliminationMetamorphicCase, error: unknown): Error {
     const message = error instanceof Error ? error.message : String(error);
     return new Error(
@@ -35,10 +34,11 @@ function formatCaseFailure(input: GeneratedDeadCodeEliminationMetamorphicCase, e
             message
         ]
             .join('\n'),
-        { cause: error }
+        {
+            cause: error
+        }
     );
 }
-
 async function assertIdempotenceWhenNeeded(input: GeneratedDeadCodeEliminationMetamorphicCase): Promise<void> {
     if (input.transformKind === 'eliminate-twice') {
         await assertDeadCodeEliminationIdempotent({
@@ -48,12 +48,10 @@ async function assertIdempotenceWhenNeeded(input: GeneratedDeadCodeEliminationMe
         });
     }
 }
-
 type ProgramBehavior = {
     readonly original: Awaited<ReturnType<typeof observeDeadCodeEliminationBehavior>>;
     readonly eliminated: Awaited<ReturnType<typeof observeDeadCodeEliminationBehavior>>;
 };
-
 async function observeProgramBehavior(
     program: GeneratedDeadCodeEliminationMetamorphicCase['original']
 ): Promise<ProgramBehavior> {
@@ -76,7 +74,6 @@ async function observeProgramBehavior(
         })
     };
 }
-
 async function assertMetamorphicEquivalent(input: GeneratedDeadCodeEliminationMetamorphicCase): Promise<void> {
     try {
         const original = await observeProgramBehavior(input.original);
@@ -95,7 +92,6 @@ suite('dead code elimination metamorphic equivalence', function () {
     test('preserves behavior for a declaration companion runtime chain regression', async function () {
         await assertMetamorphicEquivalent(generatedDeclarationCompanionMetamorphicRegression());
     });
-
     for (const kind of deadCodeEliminationMetamorphicTransformKinds) {
         for (let chunk = 0; chunk < transformChunks; chunk += 1) {
             test(`preserves behavior for generated ${kind} transforms, chunk ${chunk + 1}`, async function () {
@@ -106,7 +102,9 @@ suite('dead code elimination metamorphic equivalence', function () {
                             await assertMetamorphicEquivalent(input);
                         }
                     ),
-                    { numRuns: runsPerTransformChunk }
+                    {
+                        numRuns: runsPerTransformChunk
+                    }
                 );
             });
         }

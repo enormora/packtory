@@ -2,7 +2,7 @@ import path from 'node:path';
 import fastCheck from 'fast-check';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
-import type { DeadCodeEliminationOracleEntry } from './dead-code-elimination-oracle-test-support.ts';
+import type { DeadCodeEliminationEntry } from './dead-code-elimination-output-assertions.ts';
 
 export type GeneratedExpression = {
     readonly source: string;
@@ -27,27 +27,27 @@ export type DeadCodeEliminationGeneratedBundle = {
 export type GeneratedDeadCodeEliminationProgram = {
     readonly name: string;
     readonly bundle: LinkedBundle;
-    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly entry: DeadCodeEliminationEntry;
     readonly fileListing: string;
 };
 
 export type GeneratedDeadCodeEliminationProgramSet = {
     readonly name: string;
     readonly bundles: readonly LinkedBundle[];
-    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly entry: DeadCodeEliminationEntry;
     readonly fileListing: string;
 };
 
 type DeadCodeEliminationProgramSetInput = {
     readonly name: string;
     readonly bundles: readonly DeadCodeEliminationGeneratedBundle[];
-    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly entry: DeadCodeEliminationEntry;
 };
 
 type DeadCodeEliminationSingleBundleProgramInput = {
     readonly name: string;
     readonly bundle: DeadCodeEliminationGeneratedBundle;
-    readonly entry: DeadCodeEliminationOracleEntry;
+    readonly entry: DeadCodeEliminationEntry;
 };
 
 const deadCodeEliminationEventLog = 'globalThis.__packtoryDeadCodeEliminationEvents';

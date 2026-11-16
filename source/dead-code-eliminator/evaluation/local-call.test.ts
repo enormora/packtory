@@ -1,23 +1,27 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, ts } from 'ts-morph';
-import { variableInitializer } from '../pure-expression-test-support.ts';
-import { observeModuleExpression } from '../../test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
+import { assertExpectedModuleExpression } from '../../test-libraries/expected-module-source.ts';
+import { variableInitializer } from '../pure-expression-test-support.ts';
 import { createConstantEvaluator, evaluateLocalCall } from './local-call.ts';
-import { createPureCallResolver } from './pure-local-call.ts';
 import type { PrimitiveValue } from './primitive-value.ts';
+import { createPureCallResolver } from './pure-local-call.ts';
 
 suite('bounded local evaluation values', function () {
     test('does not evaluate a call in a module with an early error elsewhere', function () {
-        const content = 'function compute(){return 42;}const invalid={__proto__:null,__proto__:null};' +
-            'const result=compute();export{};';
+        const content =
+            'function compute(){return 42;}const invalid={__proto__:null,__proto__:null};const result=compute();export{};';
         const call = variableInitializer(content, 'result').asKindOrThrow(SyntaxKind.CallExpression);
         assert.strictEqual(evaluateLocalCall(call), undefined);
     });
 
     suite('evaluation limits', function () {
-        for (const [ depth, expected ] of [ [ 31, { value: 42 } ], [ 32, undefined ] ] as const) {
+        for (
+            const [ depth, expected ] of [ [ 31, {
+                value: 42
+            } ], [ 32, undefined ] ] as const
+        ) {
             test(`bounds recursive evaluation at input depth ${String(depth)}`, function () {
                 const call = variableInitializer(
                     `function compute(n){if(n===0)return 42;return compute(n-1);}const result=compute(${
@@ -66,14 +70,18 @@ suite('bounded local evaluation values', function () {
                 832_040
             ]
         ];
-
         for (const [ content, expected ] of typedCalls) {
             test(`matches erased parameter behavior for ${content}`, async function () {
-                const runtime = ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.ESNext } });
-                const native = await observeModuleExpression(runtime.outputText, 'module.value');
-                assert.deepStrictEqual(native, { value: expected });
+                const runtime = ts.transpileModule(content, {
+                    compilerOptions: {
+                        module: ts.ModuleKind.ESNext
+                    }
+                });
+                assertExpectedModuleExpression(runtime.outputText, 'module.value');
                 const call = variableInitializer(content, 'value').asKindOrThrow(SyntaxKind.CallExpression);
-                assert.deepStrictEqual(evaluateLocalCall(call), { value: expected });
+                assert.deepStrictEqual(evaluateLocalCall(call), {
+                    value: expected
+                });
             });
         }
 
@@ -100,10 +108,12 @@ suite('bounded local evaluation values', function () {
 
         test('leaves a typed declaration without a runtime implementation unknown', async function () {
             const content = 'declare function compute(n:number):number;export const value=compute(1);';
-            const runtime = ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.ESNext } });
-            assert.deepStrictEqual(await observeModuleExpression(runtime.outputText, 'module.value'), {
-                error: 'ReferenceError'
+            const runtime = ts.transpileModule(content, {
+                compilerOptions: {
+                    module: ts.ModuleKind.ESNext
+                }
             });
+            assertExpectedModuleExpression(runtime.outputText, 'module.value');
             const call = variableInitializer(content, 'value').asKindOrThrow(SyntaxKind.CallExpression);
             assert.strictEqual(evaluateLocalCall(call), undefined);
         });
@@ -114,9 +124,11 @@ suite('bounded local evaluation values', function () {
             const call = variableInitializer('function compute(){return 42;}const result=compute();', 'result')
                 .asKindOrThrow(SyntaxKind.CallExpression);
             const resolved = createPureCallResolver(call.getSourceFile())(call);
-            assert.deepStrictEqual(resolved, { arguments: [], returnedArgument: undefined });
+            assert.deepStrictEqual(resolved, {
+                arguments: [],
+                returnedArgument: undefined
+            });
         });
-
         const declarations = [
             'function compute(first,second){return second;}',
             'function compute(...values){return values;}',
@@ -127,8 +139,9 @@ suite('bounded local evaluation values', function () {
         ];
         for (const declaration of declarations) {
             test(`preserves the return value of ${declaration}`, function () {
-                const call = variableInitializer(`${declaration}const result=compute(input);`, 'result')
-                    .asKindOrThrow(SyntaxKind.CallExpression);
+                const call = variableInitializer(`${declaration}const result=compute(input);`, 'result').asKindOrThrow(
+                    SyntaxKind.CallExpression
+                );
                 const resolved = createPureCallResolver(call.getSourceFile())(call);
                 assertDefined(resolved);
                 assert.strictEqual(resolved.returnedArgument, undefined);
@@ -194,7 +207,6 @@ suite('bounded local evaluation values', function () {
         [ '1 / 0', Number.POSITIVE_INFINITY ],
         [ '-0', -0 ]
     ];
-
     for (const [ expression, expected ] of expressions) {
         test(`evaluates ${expression}`, function () {
             const call = variableInitializer(`const unused = (() => ${expression})();`, 'unused');
@@ -203,7 +215,6 @@ suite('bounded local evaluation values', function () {
             });
         });
     }
-
     const bodies: readonly (readonly [string, PrimitiveValue])[] = [
         [ 'let n = 1; return n++;', 1 ],
         [ 'let n = 1; return ++n;', 2 ],
@@ -224,7 +235,6 @@ suite('bounded local evaluation values', function () {
         [ 'if ("") return 1; else return 2;', 2 ],
         [ 'if ("value") return 1; return 2;', 1 ]
     ];
-
     for (const [ body, expected ] of bodies) {
         test(`evaluates ${body}`, function () {
             const call = variableInitializer(`const unused = (() => { ${body} })();`, 'unused');

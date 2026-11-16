@@ -1,12 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { assertDeepSubset, assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import {
-    assertDeadCodeEliminationBehaviorEquivalent,
-    observeDeadCodeEliminationBehavior,
+    assertDeadCodeEliminationExpectedOutput,
     type DeadCodeEliminationBehaviorComparison
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createDeadCodeEliminator } from './eliminator.ts';
@@ -18,13 +17,11 @@ type MemberCase = {
     readonly key: string;
     readonly remainingKeys: number;
 };
-
 type MemberComparison = {
     readonly original: DeadCodeEliminationBehaviorComparison['leftBundles'];
     readonly emitted: DeadCodeEliminationBehaviorComparison['rightBundles'];
     readonly content: string;
 };
-
 const packageManifest = '{"name":"schema-lib","type":"module","exports":"./index.js"}';
 const primitiveMember = 'export const resultType={config:"initial"};';
 const coercingValue = '{toString(){console.log("coerce");return "key";}}';
@@ -35,25 +32,21 @@ const replacements = [
     `Reflect.set(resultType,"config",${coercingValue});`,
     `function update(value){value.config=${coercingValue};}update(resultType);`
 ];
-
 const cases: readonly MemberCase[] = [
     ...replacements.flatMap(function (replacement, index) {
-        return [
-            {
-                name: `dependency replacement ${index}`,
-                dependency: primitiveMember + replacement,
-                setup: '',
-                key: 'resultType.config',
-                remainingKeys: 1
-            },
-            {
-                name: `consumer replacement ${index}`,
-                dependency: primitiveMember,
-                setup: replacement,
-                key: 'resultType.config',
-                remainingKeys: 1
-            }
-        ];
+        return [ {
+            name: `dependency replacement ${index}`,
+            dependency: primitiveMember + replacement,
+            setup: '',
+            key: 'resultType.config',
+            remainingKeys: 1
+        }, {
+            name: `consumer replacement ${index}`,
+            dependency: primitiveMember,
+            setup: replacement,
+            key: 'resultType.config',
+            remainingKeys: 1
+        } ];
     }),
     {
         name: 'exported string field',
@@ -105,13 +98,11 @@ const cases: readonly MemberCase[] = [
         remainingKeys: 2
     }
 ];
-
 function assertRemainingKeys(content: string | undefined, expected: number): void {
     assertDefined(content);
     const source = createProject().createSourceFile('output.js', content);
     assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.ComputedPropertyName).length, expected);
 }
-
 async function memberComparison(fixture: MemberCase): Promise<MemberComparison> {
     const content = `import {resultType} from "schema-lib";${fixture.setup}` +
         `const unused={[${fixture.key}]:1};export function probe(){return 42;}`;
@@ -124,10 +115,13 @@ async function memberComparison(fixture: MemberCase): Promise<MemberComparison> 
     const eliminator = createDeadCodeEliminator({
         createProject() {
             return createProject({
-                withFiles: [
-                    { filePath: '/repo/node_modules/schema-lib/package.json', content: packageManifest },
-                    { filePath: '/repo/node_modules/schema-lib/index.js', content: fixture.dependency }
-                ]
+                withFiles: [ {
+                    filePath: '/repo/node_modules/schema-lib/package.json',
+                    content: packageManifest
+                }, {
+                    filePath: '/repo/node_modules/schema-lib/index.js',
+                    content: fixture.dependency
+                } ]
             });
         },
         progressBroadcaster: {
@@ -145,18 +139,30 @@ async function memberComparison(fixture: MemberCase): Promise<MemberComparison> 
     const dependency = {
         name: 'schema-lib',
         roots: {},
-        contents: [ { fileDescription: { targetFilePath: 'index.js', content: fixture.dependency } } ]
+        contents: [ {
+            fileDescription: {
+                targetFilePath: 'index.js',
+                content: fixture.dependency
+            }
+        } ]
     };
     const emittedContent = output.contents[0]?.fileDescription.content;
     assertDefined(emittedContent);
-    return { original: [ bundle, dependency ], emitted: [ output, dependency ], content: emittedContent };
+    return {
+        original: [ bundle, dependency ],
+        emitted: [ output, dependency ],
+        content: emittedContent
+    };
 }
-
 async function assertMemberEffects(fixture: MemberCase): Promise<void> {
     const comparison = await memberComparison(fixture);
-    await assertDeadCodeEliminationBehaviorEquivalent({
+    assertDeadCodeEliminationExpectedOutput({
         name: fixture.name,
-        entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'probe' },
+        entry: {
+            bundleName: 'package',
+            targetFilePath: 'index.js',
+            exportName: 'probe'
+        },
         leftName: 'native',
         leftBundles: comparison.original,
         rightName: 'emitted',
@@ -194,12 +200,14 @@ suite('imported computed key effects', function () {
         };
         const oracle = {
             name: 'downstream replacement',
-            entry: { bundleName: 'consumer', targetFilePath: 'index.js', exportName: 'probe' },
+            entry: {
+                bundleName: 'consumer',
+                targetFilePath: 'index.js',
+                exportName: 'probe'
+            },
             bundles: [ ...comparison.original, launcher ]
         };
-        const native = await observeDeadCodeEliminationBehavior(oracle);
-        assertDeepSubset(native[0]?.result.observation, { error: null, value: 42, output: [ [ 'log', 'coerce' ] ] });
-        await assertDeadCodeEliminationBehaviorEquivalent({
+        assertDeadCodeEliminationExpectedOutput({
             ...oracle,
             leftName: 'native',
             leftBundles: oracle.bundles,

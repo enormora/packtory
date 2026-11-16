@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { bundleResource, linkedBundle, type BundleFixtureLinkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
-    type DeadCodeEliminationOracleEntry
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+    assertDeadCodeEliminationOutput,
+    type DeadCodeEliminationEntry
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
     bundleForCodeFile,
@@ -17,7 +17,10 @@ import {
 
 function declarationImportBundle(): BundleFixtureLinkedBundle {
     const entryResource = {
-        ...bundleResource('/source/index.js', { content: 'export const live = 1;\n', targetFilePath: 'index.js' }),
+        ...bundleResource('/source/index.js', {
+            content: 'export const live = 1;\n',
+            targetFilePath: 'index.js'
+        }),
         isSubstituted: false
     };
     const privateDeclarationResource = {
@@ -48,21 +51,25 @@ function declarationImportBundle(): BundleFixtureLinkedBundle {
                 declarationFile: privateDeclarationResource.fileDescription
             }
         },
-        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+        surface: {
+            mode: 'implicit',
+            defaultModuleRoot: 'main'
+        }
     });
 }
-
 function companionRegressionResource(
     inputFilePath: string,
     targetFilePath: string,
     content: string
 ): LinkedBundleResource {
     return {
-        ...bundleResource(inputFilePath, { content, targetFilePath }),
+        ...bundleResource(inputFilePath, {
+            content,
+            targetFilePath
+        }),
         isSubstituted: false
     };
 }
-
 function companionRegressionProducerBundle(): BundleFixtureLinkedBundle {
     const index = companionRegressionResource(
         '/source/package-producer/index.js',
@@ -159,17 +166,8 @@ function companionRegressionProducerBundle(): BundleFixtureLinkedBundle {
     const plugin = companionRegressionResource(
         '/source/package-producer/plugin.js',
         'package-producer/plugin.js',
-        [
-            'export const plugin = {',
-            '    rules: {',
-            '        "basic-rule": {}',
-            '    }',
-            '};',
-            ''
-        ]
-            .join('\n')
+        [ 'export const plugin = {', '    rules: {', '        "basic-rule": {}', '    }', '};', '' ].join('\n')
     );
-
     return linkedBundle({
         name: 'package-producer',
         contents: [ index, baseShared, baseSharedDeclaration, shared, sharedDeclaration, plugin ],
@@ -183,33 +181,33 @@ function companionRegressionProducerBundle(): BundleFixtureLinkedBundle {
                 }
             }
         },
-        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+        surface: {
+            mode: 'implicit',
+            defaultModuleRoot: 'main'
+        }
     });
 }
-
 function companionRegressionConsumerBundle(): BundleFixtureLinkedBundle {
     return linkedBundle({
         name: 'package-consumer',
-        contents: [
-            companionRegressionResource(
-                '/source/package-consumer/index.js',
-                'package-consumer/index.js',
-                [
-                    'import { baseSharedConfig } from "../package-producer/base-shared.js";',
-                    '',
-                    'export const consumerConfig = {',
-                    '    plugins: {',
-                    '        ...baseSharedConfig.plugins',
-                    '    },',
-                    '    rules: {',
-                    '        ...baseSharedConfig.rules',
-                    '    }',
-                    '};',
-                    ''
-                ]
-                    .join('\n')
-            )
-        ],
+        contents: [ companionRegressionResource(
+            '/source/package-consumer/index.js',
+            'package-consumer/index.js',
+            [
+                'import { baseSharedConfig } from "../package-producer/base-shared.js";',
+                '',
+                'export const consumerConfig = {',
+                '    plugins: {',
+                '        ...baseSharedConfig.plugins',
+                '    },',
+                '    rules: {',
+                '        ...baseSharedConfig.rules',
+                '    }',
+                '};',
+                ''
+            ]
+                .join('\n')
+        ) ],
         roots: {
             main: {
                 javaScript: {
@@ -220,7 +218,10 @@ function companionRegressionConsumerBundle(): BundleFixtureLinkedBundle {
                 }
             }
         },
-        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+        surface: {
+            mode: 'implicit',
+            defaultModuleRoot: 'main'
+        }
     });
 }
 
@@ -238,7 +239,10 @@ suite('eliminator reachability seeds', function () {
                 mappings: 'AAAA,OAAO,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC,CAAC'
             });
             const mapResource = {
-                ...bundleResource('/source/index.ts.map', { content: validMapContent, targetFilePath: 'index.ts.map' }),
+                ...bundleResource('/source/index.ts.map', {
+                    content: validMapContent,
+                    targetFilePath: 'index.ts.map'
+                }),
                 isSubstituted: false
             };
             const bundle = bundleForCodeFile({
@@ -265,27 +269,29 @@ suite('eliminator reachability seeds', function () {
                 inputFilePath: '/source/index.d.ts',
                 targetFilePath: 'index.d.ts'
             };
-            const resource = { ...bundleResource('/source/index.d.ts', declarationFile), isSubstituted: false };
-            const [ analyzed ] = await eliminator.eliminate(
-                inputs(
-                    linkedBundle({
-                        name: 'package',
-                        contents: [ resource ],
-                        roots: {
-                            main: {
-                                javaScript: {
-                                    content: '',
-                                    isExecutable: false,
-                                    inputFilePath: '/source/index.js',
-                                    targetFilePath: 'index.js'
-                                },
-                                declarationFile
-                            }
+            const resource = {
+                ...bundleResource('/source/index.d.ts', declarationFile),
+                isSubstituted: false
+            };
+            const [ analyzed ] = await eliminator.eliminate(inputs(linkedBundle({
+                name: 'package',
+                contents: [ resource ],
+                roots: {
+                    main: {
+                        javaScript: {
+                            content: '',
+                            isExecutable: false,
+                            inputFilePath: '/source/index.js',
+                            targetFilePath: 'index.js'
                         },
-                        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-                    })
-                )
-            );
+                        declarationFile
+                    }
+                },
+                surface: {
+                    mode: 'implicit',
+                    defaultModuleRoot: 'main'
+                }
+            })));
             const emitted = analyzed?.contents[0];
             assertDefined(emitted);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'Public', 'Private' ]));
@@ -307,39 +313,38 @@ suite('eliminator reachability seeds', function () {
                 }),
                 isSubstituted: false
             };
-            const [ analyzed ] = await eliminator.eliminate(
-                inputs(
-                    linkedBundle({
-                        name: 'package',
-                        contents: [ mainResource, workerResource ],
-                        roots: {
-                            main: {
-                                javaScript: {
-                                    content: '',
-                                    isExecutable: false,
-                                    inputFilePath: '/source/index.js',
-                                    targetFilePath: 'index.js'
-                                }
-                            },
-                            worker: {
-                                javaScript: {
-                                    content: '',
-                                    isExecutable: false,
-                                    inputFilePath: '/source/worker.js',
-                                    targetFilePath: 'worker.js'
-                                }
-                            }
-                        },
-                        surface: {
-                            mode: 'explicit',
-                            packageInterface: {
-                                modules: [ { root: 'main', export: '.' } ],
-                                privateRoots: [ 'worker' ]
-                            }
+            const [ analyzed ] = await eliminator.eliminate(inputs(linkedBundle({
+                name: 'package',
+                contents: [ mainResource, workerResource ],
+                roots: {
+                    main: {
+                        javaScript: {
+                            content: '',
+                            isExecutable: false,
+                            inputFilePath: '/source/index.js',
+                            targetFilePath: 'index.js'
                         }
-                    })
-                )
-            );
+                    },
+                    worker: {
+                        javaScript: {
+                            content: '',
+                            isExecutable: false,
+                            inputFilePath: '/source/worker.js',
+                            targetFilePath: 'worker.js'
+                        }
+                    }
+                },
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: {
+                        modules: [ {
+                            root: 'main',
+                            export: '.'
+                        } ],
+                        privateRoots: [ 'worker' ]
+                    }
+                }
+            })));
             const emittedWorker = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.inputFilePath === '/source/worker.js';
             });
@@ -402,7 +407,10 @@ suite('eliminator reachability seeds', function () {
                         }
                     }
                 },
-                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+                surface: {
+                    mode: 'implicit',
+                    defaultModuleRoot: 'main'
+                }
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const runtimeHelper = analyzed?.contents.find(function (resource) {
@@ -416,13 +424,12 @@ suite('eliminator reachability seeds', function () {
         test('eliminate preserves behavior with declaration companions in a runtime import chain', async function () {
             const consumer = companionRegressionConsumerBundle();
             const producer = companionRegressionProducerBundle();
-            const entry: DeadCodeEliminationOracleEntry = {
+            const entry: DeadCodeEliminationEntry = {
                 bundleName: 'package-producer',
                 targetFilePath: 'package-producer/index.js',
                 exportName: 'api'
             };
-
-            await assertDeadCodeEliminationEquivalent({
+            await assertDeadCodeEliminationOutput({
                 name: 'declaration companion runtime import chain',
                 entry,
                 eliminationInputs: inputs(consumer, producer)

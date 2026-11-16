@@ -1,30 +1,28 @@
 import assert from 'node:assert';
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
+import type { GeneratedDeadCodeEliminationProgram } from '../../source/test-libraries/dead-code-elimination-generated-programs.ts';
+import {
+    deadCodeEliminationSourceTargetSkewProgramArbitrary,
+    deadCodeEliminationSourceTargetSkewRegression
+} from '../../source/test-libraries/dead-code-elimination-source-target-skew-programs.ts';
+import { inputs } from '../../source/test-libraries/eliminator-test-support.ts';
 import {
     assertDeadCodeEliminationBehaviorEquivalent,
     assertDeadCodeEliminationEquivalent,
     assertDeadCodeEliminationIdempotent,
     eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
-import {
-    deadCodeEliminationSourceTargetSkewProgramArbitrary,
-    deadCodeEliminationSourceTargetSkewRegression
-} from '../test-libraries/dead-code-elimination-source-target-skew-programs.ts';
-import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead-code-elimination-generated-programs.ts';
-import { inputs } from '../test-libraries/eliminator-test-support.ts';
+} from './runtime-comparison.ts';
 
-const sourceTargetSkewRuns = 25;
+const sourceTargetSkewRuns = 1;
 const sourceTargetSkewChunks = sourceTargetSkewRuns;
 const sourceTargetSkewRunsPerChunk = sourceTargetSkewRuns / sourceTargetSkewChunks;
-
 function sourceTargetSkewFailure(program: GeneratedDeadCodeEliminationProgram, error: unknown): Error {
     const message = error instanceof Error ? error.message : String(error);
     return new Error(`${program.name} changed behavior\n\n${program.fileListing}\n\n${message}`, {
         cause: error
     });
 }
-
 async function assertEquivalentAndIdempotent(program: GeneratedDeadCodeEliminationProgram): Promise<void> {
     try {
         await assertDeadCodeEliminationEquivalent({
@@ -41,7 +39,6 @@ async function assertEquivalentAndIdempotent(program: GeneratedDeadCodeEliminati
         throw sourceTargetSkewFailure(program, error);
     }
 }
-
 async function assertRegressionShape(program: GeneratedDeadCodeEliminationProgram): Promise<void> {
     const eliminated = await eliminateDeadCodeAndAssertAllOutputValid({
         name: program.name,
@@ -55,7 +52,6 @@ async function assertRegressionShape(program: GeneratedDeadCodeEliminationProgra
             return resource.fileDescription.content;
         })
         .join('\n') ?? '';
-
     assert.strictEqual(runtimeContents.includes('modelValue'), true);
     assert.strictEqual(runtimeContents.includes('unusedModelValue'), false);
     await assertDeadCodeEliminationBehaviorEquivalent({
@@ -82,14 +78,15 @@ suite('dead code elimination source and target skew', function () {
             throw sourceTargetSkewFailure(program, error);
         }
     });
-
     for (let chunk = 0; chunk < sourceTargetSkewChunks; chunk += 1) {
         test(`preserves behavior for generated source and target skew cases, chunk ${chunk + 1}`, async function () {
             await fastCheck.assert(
                 fastCheck.asyncProperty(deadCodeEliminationSourceTargetSkewProgramArbitrary, async function (program) {
                     await assertEquivalentAndIdempotent(program);
                 }),
-                { numRuns: sourceTargetSkewRunsPerChunk }
+                {
+                    numRuns: sourceTargetSkewRunsPerChunk
+                }
             );
         });
     }

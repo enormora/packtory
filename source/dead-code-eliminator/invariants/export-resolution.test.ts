@@ -17,7 +17,8 @@ function createProject(): Project {
             moduleResolution: ModuleResolutionKind.Node16,
             noLib: true
         },
-        skipLoadingLibFiles: true
+        skipLoadingLibFiles: true,
+        useInMemoryFileSystem: true
     });
 }
 

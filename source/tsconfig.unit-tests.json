@@ -3,8 +3,22 @@
     "compilerOptions": {
         "tsBuildInfoFile": "../target/buildcache/unit-tests.tsbuildinfo",
         "rootDir": "..",
-        "types": ["node", "mocha"]
+        "types": [
+            "node",
+            "mocha"
+        ],
+        "module": "Node18"
     },
-    "references": [{ "path": "./tsconfig.sources.json" }],
-    "include": ["./**/*.test.ts", "./**/*.property.ts", "./**/*test-support.ts", "./test-libraries/**/*.ts"]
+    "references": [
+        {
+            "path": "./tsconfig.sources.json"
+        }
+    ],
+    "include": [
+        "./**/*.test.ts",
+        "./**/*.property.ts",
+        "./**/*test-support.ts",
+        "./test-libraries/**/*.ts",
+        "./test-libraries/expected-elimination-output.json"
+    ]
 }
