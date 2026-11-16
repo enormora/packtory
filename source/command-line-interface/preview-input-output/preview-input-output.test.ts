@@ -1,5 +1,9 @@
 import assert from 'node:assert';
+import path from 'node:path';
 import { suite, test } from 'mocha';
+import { fake } from 'sinon';
+import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
+import type { SpawnFunction } from './preview-process.ts';
 import { createDefaultPreviewInputOutput } from './preview-input-output.ts';
 
 async function ignoreOpenFile(filePath: string): Promise<void> {
@@ -23,11 +27,42 @@ suite('preview-input-output', function () {
         assert.strictEqual(typeof previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath, 'function');
         assert.strictEqual(typeof previewInputOutput.pagePreviewOutput, 'function');
         assert.strictEqual(typeof previewInputOutput.openPreviewFile, 'function');
-        assert.ok(
-            previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath().includes(
-                'packtory-preview-preview-id.html'
-            )
+        assert.strictEqual(
+            previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath(),
+            path.join('/virtual', 'packtory-preview-preview-id.html')
         );
+    });
+
+    test('createDefaultPreviewInputOutput uses the injected process launcher', async function () {
+        const end = fake<[string], void>();
+        const child: ReturnType<SpawnFunction> = {
+            standardInput: { on: fake(), end },
+            on(eventName, listener) {
+                if (eventName === 'close') {
+                    listener(0);
+                }
+            },
+            unref: fake()
+        };
+        const spawnProcess = fake.returns(child);
+        const previewInputOutput = createDefaultPreviewInputOutput({
+            openFile: ignoreOpenFile,
+            spawnProcess,
+            shell: 'preview-shell',
+            pager: 'preview-pager',
+            standardOutputIsTerminal: true
+        });
+
+        assert.strictEqual(
+            await withPromiseDeadline(previewInputOutput.pagePreviewOutput('report'), 'injected preview launcher'),
+            true
+        );
+        assert.deepStrictEqual(spawnProcess.args, [ [
+            'preview-shell',
+            [ '-lc', 'preview-pager' ],
+            { stdio: [ 'pipe', 'inherit', 'inherit' ] }
+        ] ]);
+        assert.deepStrictEqual(end.args, [ [ 'report' ] ]);
     });
 
     test('createDefaultPreviewInputOutput uses an injected file opener', async function () {
