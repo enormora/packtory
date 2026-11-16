@@ -2,6 +2,7 @@ import { parse, type ParserPlugin } from '@babel/parser';
 import { ScriptKind, ts, type SourceFile } from 'ts-morph';
 import { match } from 'ts-pattern';
 import { constant } from 'remeda';
+import { createSyntaxAnalysis } from '../source-transformation/syntax-analysis.ts';
 
 type RuntimeSourceType = 'commonjs' | 'module';
 
@@ -38,7 +39,7 @@ function parseRuntimeSource(source: SourceFile): void {
     }
 }
 
-export function runtimeSourceIsValid(source: SourceFile): boolean {
+function checkRuntimeSource(source: SourceFile): boolean {
     try {
         parseRuntimeSource(source);
         return true;
@@ -46,3 +47,5 @@ export function runtimeSourceIsValid(source: SourceFile): boolean {
         return false;
     }
 }
+
+export const runtimeSourceIsValid = createSyntaxAnalysis(checkRuntimeSource);
