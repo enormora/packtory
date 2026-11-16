@@ -6,6 +6,29 @@ import { createCompilerInputValidator } from './compiler-input-validator.ts';
 import type { CompilerInputs } from './compiler-inputs.ts';
 
 suite('compiler input validation scopes', function () {
+    test('shares directory status reads within an operation and refreshes them afterward', async function () {
+        await withCompilerWorkspace(async function (workspace) {
+            let reads = 0;
+            const validator = createCompilerInputValidator({
+                ...workspace.fileManager,
+                async checkDirectory(filePath) {
+                    reads += 1;
+                    return workspace.fileManager.checkDirectory(filePath);
+                }
+            });
+            const inputs: CompilerInputs = [ {
+                operation: 'directoryExists', filePath: workspace.folder, value: JSON.stringify(true)
+            } ];
+            await validator.run(async function () {
+                assert.strictEqual(await validator.isCurrent(inputs), true);
+                assert.strictEqual(await validator.isCurrent(inputs), true);
+                assert.strictEqual(reads, 1);
+            });
+            assert.strictEqual(await validator.isCurrent(inputs), true);
+            assert.strictEqual(reads, 2);
+        });
+    });
+
     test('shares real path reads within a scope and validates them outside it', async function () {
         await withCompilerWorkspace(async function (workspace) {
             const filePath = await workspace.write('source.js', 'first');

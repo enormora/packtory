@@ -129,6 +129,30 @@ function recordPublishedPackageInputs(): RecordedPublishedPackageInputs {
 }
 
 suite('resolved-package', function () {
+    test('passes each resolved package source folder to checks', async function () {
+        const packages = [ 'package-a', 'package-b' ].map(function (name) {
+            return {
+                ...resolvedPackage(name, checkBundle(name, [])),
+                resolveOptions: { ...createResolveOptions(), sourcesFolder: `/source/${name}` }
+            };
+        });
+        let calls = 0;
+        const result = await buildChecksResult({
+            ...unusedCheckDependencies,
+            async runChecks(input) {
+                calls += 1;
+                assert.deepStrictEqual(input.sourceFolders, new Map([
+                    [ 'package-a', '/source/package-a' ], [ 'package-b', '/source/package-b' ]
+                ]));
+                return [];
+            }
+        }, validated({ packages: packages.map(function ({ name }) {
+            return packageConfiguration(name);
+        }) }), packages);
+        assert.strictEqual(result.isOk, true);
+        assert.strictEqual(calls, 1);
+    });
+
     test('createResolvedPackage assembles the three fields into a ResolvedPackage', function () {
         const analyzedBundle = checkBundle('package-a', []);
         const resolveOptions = createResolveOptions();
@@ -246,6 +270,20 @@ suite('resolved-package', function () {
     });
 
     suite('generated check packages', function () {
+        test('materializes generated packages for node engine compatibility checks', async function () {
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
+            const result = await buildChecksResult(
+                dependencies,
+                validated({
+                    checks: { nodeEngineCompatibility: { enabled: true } },
+                    packages: [ packageConfiguration('package-a') ]
+                }),
+                [ resolvedPackage('package-a', checkBundle('package-a', [ 'index.js' ])) ]
+            );
+            assert.strictEqual(result.isOk, true);
+            assert.strictEqual(addVersionCalls.length, 1);
+        });
+
         test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
             const analyzedBundle = checkBundle('package-a', [ 'index.js' ]);
             const { addVersionCalls, dependencies } = recordPublishedPackageInputs();
