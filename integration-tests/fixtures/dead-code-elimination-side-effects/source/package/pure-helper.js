@@ -1,3 +1,3 @@
-export function pureHelper() {
-    return 'pure';
+export function pureHelper(value) {
+    return value ?? 'pure';
 }

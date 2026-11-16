@@ -143,51 +143,43 @@ suite('eliminator namespace observation', function () {
     });
 
     suite('member call receivers', function () {
-        const receivers = [ {
-            name: 'unused receiver',
-            declaration: 'export function used(){return 42;}',
-            retained: false
-        }, {
-            name: 'arrow function',
-            declaration: 'export const used=()=>42;',
-            retained: false
-        }, {
-            name: 'function expression',
-            declaration: 'export const used=function(){return 42;};',
-            retained: false
-        }, {
-            name: 'throwing function',
-            declaration: 'export function used(){throw new Error("called");}',
-            retained: false
-        }, {
-            name: 'receiver property',
-            declaration: 'export function used(){return this.spare;}',
-            retained: true
-        }, {
-            name: 'default parameter',
-            declaration: 'export function used(value=this.spare){return value;}',
-            retained: true
-        }, {
-            name: 'nested arrow',
-            declaration: 'export function used(){return (()=>this.spare)();}',
-            retained: true
-        }, {
-            name: 'direct eval',
-            declaration: 'export function used(){return eval("this.spare");}',
-            retained: true
-        }, {
-            name: 'reassignment',
-            declaration: 'export function used(){return 42;}used=function(){return this.spare;};',
-            retained: true
-        }, {
-            name: 'proxy',
-            declaration: 'export const used=new Proxy(()=>42,{apply(target,receiver){return receiver.spare;}});',
-            retained: true
-        }, {
-            name: 'class call error',
-            declaration: 'export class used {}',
-            retained: true
-        } ];
+        const receivers = [
+            {
+                name: 'unused receiver',
+                declaration: 'export function used(){return globalThis.answer??42;}',
+                retained: false
+            },
+            { name: 'arrow function', declaration: 'export const used=()=>globalThis.answer??42;', retained: false },
+            {
+                name: 'function expression',
+                declaration: 'export const used=function(){return globalThis.answer??42;};',
+                retained: false
+            },
+            {
+                name: 'throwing function',
+                declaration: 'export function used(){throw new Error("called");}',
+                retained: false
+            },
+            { name: 'receiver property', declaration: 'export function used(){return this.spare;}', retained: true },
+            {
+                name: 'default parameter',
+                declaration: 'export function used(value=this.spare){return value;}',
+                retained: true
+            },
+            { name: 'nested arrow', declaration: 'export function used(){return (()=>this.spare)();}', retained: true },
+            { name: 'direct eval', declaration: 'export function used(){return eval("this.spare");}', retained: true },
+            {
+                name: 'reassignment',
+                declaration: 'export function used(){return 42;}used=function(){return this.spare;};',
+                retained: true
+            },
+            {
+                name: 'proxy',
+                declaration: 'export const used=new Proxy(()=>42,{apply(target,receiver){return receiver.spare;}});',
+                retained: true
+            },
+            { name: 'class call error', declaration: 'export class used {}', retained: true }
+        ];
         for (const scenario of receivers) {
             test(`preserves ${scenario.name}`, async function () {
                 const content =

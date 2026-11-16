@@ -89,7 +89,7 @@ suite('additional-files', function () {
                         directDependencies: new Set([ path.join(fixture, 'source/greeting.js') ]),
                         fileDescription: {
                             content:
-                                "import { greeting } from './greeting.js';\n\nexport function run() {\n    return greeting();\n}\n",
+                                "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
                             inputFilePath: path.join(fixture, 'source/entry.js'),
                             isExecutable: false,
                             targetFilePath: 'entry.js'
@@ -101,7 +101,7 @@ suite('additional-files', function () {
                     {
                         directDependencies: new Set(),
                         fileDescription: {
-                            content: "export function greeting() {\n    return 'hello from src';\n}\n",
+                            content: "export function greeting(value) {\n    return value ?? 'hello from src';\n}\n",
                             inputFilePath: path.join(fixture, 'source/greeting.js'),
                             isExecutable: false,
                             targetFilePath: 'greeting.js'
@@ -126,7 +126,7 @@ suite('additional-files', function () {
                 dependencies: {},
                 mainFile: {
                     content:
-                        "import { greeting } from './greeting.js';\n\nexport function run() {\n    return greeting();\n}\n",
+                        "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
                     isExecutable: false,
                     inputFilePath: path.join(fixture, 'source/entry.js'),
                     targetFilePath: 'entry.js'

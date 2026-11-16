@@ -31,6 +31,7 @@ export function constructorBodyIsEmpty(
 }
 
 export function functionConstructionIsPure(target: LocalFunction): boolean {
-    return !TypeScriptMorphNode.isArrowFunction(target) && !target.isAsync() && !target.isGenerator() &&
+    return (TypeScriptMorphNode.isFunctionDeclaration(target) || TypeScriptMorphNode.isFunctionExpression(target)) &&
+        !target.isAsync() && !target.isGenerator() &&
         constructorBodyIsEmpty(target);
 }

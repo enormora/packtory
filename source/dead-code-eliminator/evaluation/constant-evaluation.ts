@@ -1,5 +1,6 @@
 import {
     SyntaxKind,
+    type Node as TypeScriptMorphNode,
     type Expression,
     type SourceFile
 } from 'ts-morph';
@@ -10,10 +11,10 @@ import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult, type AbstractValue } from './abstract-value.ts';
 import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 
-export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
+export type PrimitiveEvaluator = (expression: TypeScriptMorphNode) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
-    readonly knownValue: (expression: Expression) => AbstractValue | undefined;
-    readonly primitiveValue: PrimitiveEvaluator;
+    readonly knownValue: (expression: TypeScriptMorphNode) => AbstractValue | undefined;
+    readonly primitiveValue: (node: TypeScriptMorphNode) => EvaluatedValue | undefined;
     readonly canDiscard: (expression: Expression) => boolean;
 };
 

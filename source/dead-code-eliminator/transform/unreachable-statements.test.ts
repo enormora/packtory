@@ -7,6 +7,17 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { removeUnreachableStatements } from './unreachable-statements.ts';
 
 suite('unreachable statements', function () {
+    for (const binding of [ 'var value;', 'let value;', 'const value=void 0;' ]) {
+        test(`preserves source mappings for the existing unreachable binding ${binding}`, function () {
+            const content = `function probe(){return value;${binding}}`;
+            const source = createProject().createSourceFile('input.js', content);
+            const preparation = createSourcePreparation(source);
+            removeUnreachableStatements(preparation);
+            assert.strictEqual(source.getFullText(), content);
+            assert.deepStrictEqual(preparation.transformations, []);
+        });
+    }
+
     test('preserves original source lines after deleting nested unreachable statements', function () {
         const content = 'function probe(){return 42;{throw 1;unreachable();}}\nexport const kept=42;';
         const source = createProject().createSourceFile('input.js', content);
@@ -21,6 +32,29 @@ suite('unreachable statements', function () {
             source.getVariableDeclarationOrThrow('kept').getStart()
         );
     });
+    for (
+        const [ content, expected ] of [
+            [ 'function probe(){return value;var value=effect();}', 'function probe(){return value;var value;}' ],
+            [ 'function probe(){return value;let value=effect();}', 'function probe(){return value;let value;}' ],
+            [
+                'function probe(){return value;const value=effect();}',
+                'function probe(){return value;const value=void 0;}'
+            ],
+            [ 'function probe(){return value;let {value}=effect();}', 'function probe(){return value;let value;}' ],
+            [ 'function probe(){return value;var [value]=effect();}', 'function probe(){return value;var value;}' ],
+            [ 'function probe(){return 42;const {}=effect();}', 'function probe(){return 42;}' ],
+            [
+                'function probe(){return [first,second];var [first,second]=effect();}',
+                'function probe(){return [first,second];var first,second;}'
+            ]
+        ]
+    ) {
+        test(`strips unreachable initializers in ${content}`, function () {
+            const source = createProject().createSourceFile('input.js', content);
+            removeUnreachableStatements(createSourcePreparation(source));
+            assert.strictEqual(source.getFullText(), expected);
+        });
+    }
     for (
         const content of [
             'function probe(){return 42;unreachable();}',
@@ -51,8 +85,6 @@ suite('unreachable statements', function () {
             'function probe(){try{effect();}finally{effect();}effect();}',
             'function probe(){while(value){break;}effect();}',
             'function probe(){label:{break label;}effect();}',
-            'function probe(){return value;var value=effect();}',
-            'function probe(){return value;let value=effect();}',
             'function probe(){return value;class value{}}',
             'function probe(){return value;enum value{answer=42}}',
             'function probe(){return value;namespace value{}}',
@@ -60,7 +92,9 @@ suite('unreachable statements', function () {
             'function probe(){return eval("value");let value=1;effect();}',
             'function probe(){return 42;}',
             'function probe(){return 42;;}',
-            'function probe(){return 42;if(false){var value=effect();}}'
+            'function probe(){return 42;if(false){var value=effect();}}',
+            'function probe(){return 42;using value=effect();}',
+            'async function probe(){return 42;await using value=effect();}'
         ]
     ) {
         test(`preserves scope and reachable effects in ${content}`, function () {

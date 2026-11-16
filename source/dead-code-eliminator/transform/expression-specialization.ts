@@ -6,9 +6,10 @@ import {
 } from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
-import { createRuntimeSourceEvaluation } from '../evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation, type PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import type { EvaluatedValue } from '../evaluation/primitive-value.ts';
 import { createPureCallResolver, type PureCallResolver } from '../evaluation/pure-local-call.ts';
+import { functionSpecializationEdits } from './function-specialization.ts';
 import { expressionIsWriteTarget } from './expression-write.ts';
 import { primitiveSource } from './primitive-source.ts';
 import { sourceReplacement } from './source-replacement.ts';
@@ -40,18 +41,28 @@ function isSpecializableExpression(node: TypeScriptMorphNodeType): node is Expre
         TypeScriptMorphNode.isPrefixUnaryExpression(node) || TypeScriptMorphNode.isTypeOfExpression(node);
 }
 
+function valueSpecializationEdits(
+    expression: TypeScriptMorphNodeType,
+    evaluate: PrimitiveEvaluator,
+    resolveCall: PureCallResolver
+): readonly SourceTextEdit[] {
+    const functionEdits = functionSpecializationEdits(expression);
+    if (functionEdits.length > 0) {
+        return functionEdits;
+    }
+    if (!isSpecializableExpression(expression) || expressionIsWriteTarget(expression)) {
+        return [];
+    }
+    const edit = editForExpression(expression, evaluate);
+    return edit === undefined ? identityExpressionEdits(expression, resolveCall) : [ edit ];
+}
+
 function expressionSpecializationEdits(sourceFile: SourceFile): readonly SourceTextEdit[] {
     const evaluate = createRuntimeSourceEvaluation(sourceFile).primitiveValue;
     const resolveCall = createPureCallResolver(sourceFile);
     const changes: SourceTextEdit[] = [];
     sourceFile.forEachDescendant(function (expression, traversal) {
-        if (!isSpecializableExpression(expression) || expressionIsWriteTarget(expression)) {
-            return;
-        }
-        const edit = editForExpression(expression, evaluate);
-        const edits = edit === undefined
-            ? identityExpressionEdits(expression, resolveCall)
-            : [ edit ];
+        const edits = valueSpecializationEdits(expression, evaluate, resolveCall);
         if (edits.length === 0) {
             return;
         }

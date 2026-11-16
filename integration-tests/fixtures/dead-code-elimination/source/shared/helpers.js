@@ -1,5 +1,5 @@
-export function used() {
-    return 'used-result';
+export function used(value) {
+    return value ?? 'used-result';
 }
 
 export function unused() {
