@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { pMapSettled } from 'p-map';
 import {
     bundleRelativePath,
     installedDependenciesFolderName,
@@ -17,6 +18,8 @@ import {
     type PublishedArtifactSmokeGateDependencies,
     type RuntimeExportTarget
 } from './published-artifact-smoke-probe.ts';
+
+const maximumConcurrentArtifactWrites = 16;
 
 type PublishedArtifactSmokeGateInput = {
     readonly analyzedBundle: AnalyzedBundle;
@@ -359,12 +362,18 @@ async function writePackageFiles(
     stagedPackage: StagedPackage
 ): Promise<void> {
     const packageFolder = packageFolderPath(temporaryFolder, stagedPackage.bundle.name);
-    for (const file of stagedPackage.files) {
+    const writes = await pMapSettled(stagedPackage.files, async function (file) {
         const targetPath = path.join(packageFolder, normalizeArtifactPath(file.filePath));
         await dependencies.fileManager.writeFile(targetPath, file.content);
         if (file.isExecutable) {
             await dependencies.fileManager.setExecutable(targetPath, true);
         }
+    }, { concurrency: maximumConcurrentArtifactWrites });
+    const failure = writes.find(function (write) {
+        return write.status === 'rejected';
+    });
+    if (failure !== undefined) {
+        throw failure.reason;
     }
 }
 
