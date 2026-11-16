@@ -106,7 +106,7 @@ suite('eliminator resource pruning', function () {
     });
 
     suite('retained runtime files', function () {
-        test('eliminate keeps a pure file reached by a surviving bare import', async function () {
+        test('eliminate removes a bare import after its target becomes empty', async function () {
             const eliminator = createTestEliminator();
             const input = bundle([
                 resource(
@@ -120,7 +120,7 @@ suite('eliminator resource pruning', function () {
 
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
 
-            assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js', 'empty.js' ]);
+            assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js' ]);
         });
 
         test('eliminate keeps a declaration companion for a substitution-public runtime module', async function () {

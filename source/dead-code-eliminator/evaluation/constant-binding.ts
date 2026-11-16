@@ -53,7 +53,7 @@ export function* evaluateConstantBindings(
     }
 }
 
-function sameActivation(declaration: ParameterDeclaration | VariableDeclaration, read: Expression): boolean {
+function sameActivation(declaration: ParameterDeclaration | VariableDeclaration, read: TypeScriptMorphNode): boolean {
     const declarationScope = declaration.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     const readScope = read.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
     return declarationScope === readScope;
@@ -64,14 +64,14 @@ function lexicalDeclarationScope(declaration: VariableDeclaration): TypeScriptMo
     return TypeScriptMorphNode.isSourceFile(scope) || TypeScriptMorphNode.isBlock(scope) ? scope : undefined;
 }
 
-function lexicalBindingDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
+function lexicalBindingDominatesRead(declaration: VariableDeclaration, read: TypeScriptMorphNode): boolean {
     const scope = lexicalDeclarationScope(declaration);
     const ancestors = read.getAncestors();
     return sameActivation(declaration, read) && read.getStart() > declaration.getEnd() &&
         isIncludedIn(scope, ancestors);
 }
 
-export function constantDominatesRead(declaration: VariableDeclaration, read: Expression): boolean {
+export function constantDominatesRead(declaration: VariableDeclaration, read: TypeScriptMorphNode): boolean {
     return constantStatement(declaration) !== undefined && lexicalBindingDominatesRead(declaration, read);
 }
 
@@ -93,14 +93,14 @@ export function localReadHasNoEffects(expression: Expression): boolean {
         lexicalBindingDominatesRead(declaration, expression);
 }
 
-function intrinsicUndefined(read: Identifier): boolean {
+export function intrinsicUndefined(read: Identifier): boolean {
     return read.getText() === 'undefined' && read.getSymbolOrThrow().getDeclarations().length === 0;
 }
 
 function constantIsAvailable(
     declaration: VariableDeclaration,
     read: Identifier,
-    evaluationRoot: Expression
+    evaluationRoot: TypeScriptMorphNode
 ): boolean {
     if (constantDominatesRead(declaration, read)) {
         return true;
@@ -112,7 +112,7 @@ function constantIsAvailable(
 export function constantValueFor(
     read: Identifier,
     values: KnownConstants,
-    evaluationRoot: Expression
+    evaluationRoot: TypeScriptMorphNode
 ): EvaluatedValue | undefined {
     if (intrinsicUndefined(read)) {
         return evaluated(undefined);

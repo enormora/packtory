@@ -2,9 +2,32 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { constructorBodyIsEmpty } from './empty-constructor.ts';
+import { constructorBodyIsEmpty, functionConstructionIsPure } from './empty-constructor.ts';
 
 suite('constructor body proofs', function () {
+    for (
+        const [ content, kind, expected ] of [
+            [ 'function Empty(){}', SyntaxKind.FunctionDeclaration, true ],
+            [ 'const Empty=function(){};', SyntaxKind.FunctionExpression, true ],
+            [ 'async function Empty(){}', SyntaxKind.FunctionDeclaration, false ],
+            [ 'function* Empty(){}', SyntaxKind.FunctionDeclaration, false ]
+        ] as const
+    ) {
+        test(`checks constructor eligibility in ${content}`, function () {
+            const source = createProject().createSourceFile('input.js', content);
+            assert.strictEqual(
+                functionConstructionIsPure(source.getFirstDescendantByKindOrThrow(kind)),
+                expected
+            );
+        });
+    }
+    for (const content of [ 'class Counter{value(){}}', 'const counter={value(){}};' ]) {
+        test(`does not treat methods as constructible in ${content}`, function () {
+            const source = createProject().createSourceFile('input.ts', content);
+            const target = source.getFirstDescendantByKindOrThrow(SyntaxKind.MethodDeclaration);
+            assert.strictEqual(functionConstructionIsPure(target), false);
+        });
+    }
     for (
         const [ content, expected ] of [
             [ 'function Empty(){}', true ],

@@ -24,8 +24,8 @@ function fileManagerResource(): LinkedBundleResource {
         [
             'import { isExecutableFileMode } from "./permissions.js";',
             '',
-            'export function api() {',
-            '    return isExecutableFileMode(0o755);',
+            'export function api(mode) {',
+            '    return isExecutableFileMode(mode);',
             '}',
             ''
         ]

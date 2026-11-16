@@ -1,4 +1,10 @@
-import { Node as TypeScriptMorphNode, type Identifier, type PropertyAccessExpression } from 'ts-morph';
+import {
+    Node as TypeScriptMorphNode,
+    type Identifier,
+    type PropertyAccessExpression,
+    type CallExpression,
+    type ElementAccessExpression
+} from 'ts-morph';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import type { PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
@@ -12,8 +18,9 @@ export function specializeImportedValues(preparation: SourcePreparation, evaluat
     }
     let previousEnd = 0;
     const candidates = sourceFile.getDescendants().filter(
-        function (node): node is Identifier | PropertyAccessExpression {
-            return TypeScriptMorphNode.isIdentifier(node) || TypeScriptMorphNode.isPropertyAccessExpression(node);
+        function (node): node is CallExpression | ElementAccessExpression | Identifier | PropertyAccessExpression {
+            return TypeScriptMorphNode.isIdentifier(node) || TypeScriptMorphNode.isPropertyAccessExpression(node) ||
+                TypeScriptMorphNode.isCallExpression(node) || TypeScriptMorphNode.isElementAccessExpression(node);
         }
     );
     const edits = candidates.flatMap(function (expression) {
