@@ -1,7 +1,4 @@
-import { spawn } from 'node:child_process';
-import { createPreviewProcessSpawner, type SpawnFunction } from './preview-process.ts';
-
-export const defaultSpawnProcess = createPreviewProcessSpawner(spawn);
+import type { SpawnFunction } from './preview-process.ts';
 
 export async function spawnForCompletion(
     spawnProcess: SpawnFunction,

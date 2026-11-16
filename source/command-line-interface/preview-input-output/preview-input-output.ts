@@ -1,11 +1,12 @@
 import { randomUUID as createUniqueIdentifier } from 'node:crypto';
 import operatingSystem from 'node:os';
+import { spawn } from 'node:child_process';
 import {
     createPreviewInputOutput,
     type PreviewInputOutput,
     type PreviewInputOutputDependencies
 } from './preview-input-output-shared.ts';
-import { defaultSpawnProcess } from './preview-spawn.ts';
+import { createPreviewProcessSpawner } from './preview-process.ts';
 
 type OptionalPreviewSettings = Partial<
     Pick<PreviewInputOutputDependencies, 'randomUniqueIdentifier' | 'spawnProcess' | 'temporaryDirectory'>
@@ -23,7 +24,7 @@ export function createDefaultPreviewInputOutput(
 ): PreviewInputOutput {
     return createPreviewInputOutput({
         openFile: dependencies.openFile,
-        spawnProcess: dependencies.spawnProcess ?? defaultSpawnProcess,
+        spawnProcess: dependencies.spawnProcess ?? createPreviewProcessSpawner(spawn),
         randomUniqueIdentifier: dependencies.randomUniqueIdentifier ?? createUniqueIdentifier,
         temporaryDirectory: dependencies.temporaryDirectory ?? operatingSystem.tmpdir,
         shell: dependencies.shell,

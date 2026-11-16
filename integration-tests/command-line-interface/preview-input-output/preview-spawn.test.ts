@@ -1,6 +1,7 @@
 import assert from 'node:assert';
+import { spawn } from 'node:child_process';
 import { suite, test } from 'mocha';
-import { defaultSpawnProcess } from '../../../source/command-line-interface/preview-input-output/preview-spawn.ts';
+import { createPreviewProcessSpawner } from '../../../source/command-line-interface/preview-input-output/preview-process.ts';
 
 function countReferencedChildProcesses(): number {
     return process
@@ -12,8 +13,9 @@ function countReferencedChildProcesses(): number {
 }
 
 suite('preview-spawn', function () {
-    test('defaultSpawnProcess delegates to child_process.spawn with array args', async function () {
-        const child = defaultSpawnProcess(process.execPath, [ '-e', 'process.exit(0)' ], {
+    test('preview processes launch with array args', async function () {
+        const spawnProcess = createPreviewProcessSpawner(spawn);
+        const child = spawnProcess(process.execPath, [ '-e', 'process.exit(0)' ], {
             stdio: [ 'pipe', 'inherit', 'inherit' ]
         });
         if (child.standardInput === null) {
@@ -26,8 +28,9 @@ suite('preview-spawn', function () {
         assert.strictEqual(exitCode, 0);
     });
 
-    test('defaultSpawnProcess preserves ignored stdio', async function () {
-        const child = defaultSpawnProcess(process.execPath, [ '-e', 'process.exit(0)' ], {
+    test('preview processes preserve ignored stdio', async function () {
+        const spawnProcess = createPreviewProcessSpawner(spawn);
+        const child = spawnProcess(process.execPath, [ '-e', 'process.exit(0)' ], {
             detached: true,
             stdio: 'ignore'
         });
