@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { loadResource } from './load-resource.ts';
+import { loadResources } from './load-resource.ts';
 
 suite('resource preparation boundaries', function () {
     for (
@@ -15,7 +15,8 @@ suite('resource preparation boundaries', function () {
                 ...bundleResource(`/source/${targetFilePath}`, { targetFilePath, content }),
                 isSubstituted: false
             };
-            const loaded = loadResource(createProject(), createProject(), resource, transformationsEnabled);
+            const [ loaded ] = loadResources(createProject(), createProject(), [ resource ], transformationsEnabled);
+            assertDefined(loaded);
             assertDefined(loaded.sourceFile);
             assert.strictEqual(loaded.sourceFile.getFullText(), content);
             assert.deepStrictEqual(loaded.transformations, []);

@@ -6,16 +6,22 @@ import { bundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource } from '../code-file-analyzer.ts';
-import { loadResource } from '../load-resource.ts';
+import { loadResources, type LoadedResource } from '../load-resource.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
+
+function loadPreparedResource(content: string): LoadedResource {
+    const [ loaded ] = loadResources(createProject(), createProject(), [ {
+        ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
+        isSubstituted: false
+    } ], true);
+    assertDefined(loaded);
+    return loaded;
+}
 
 suite('prepared source mappings', function () {
     test('retains argument locations when an identity call disappears', function () {
         const content = 'function identity(value){return value;}\nexport const value=identity({answer:42});';
-        const loaded = loadResource(createProject(), createProject(), {
-            ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
-            isSubstituted: false
-        }, true);
+        const loaded = loadPreparedResource(content);
         const result = buildAnalyzedResource(loaded, {
             bundleName: 'package',
             reachable: new Set([ bindingIdentifier('index.js', 'value') ]),
@@ -40,10 +46,7 @@ suite('prepared source mappings', function () {
     test('maps retained code through specialization, branch pruning, and declaration removal', function () {
         const content =
             'if (false) {\nconsole.log("unreachable");\n}\nfunction compute(n) { return n * 2; }\nexport const value = compute(21);\nexport const tail = 9;';
-        const loaded = loadResource(createProject(), createProject(), {
-            ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
-            isSubstituted: false
-        }, true);
+        const loaded = loadPreparedResource(content);
         const result = buildAnalyzedResource(loaded, {
             bundleName: 'package',
             reachable: new Set([ bindingIdentifier('index.js', 'value'), bindingIdentifier('index.js', 'tail') ]),
