@@ -96,6 +96,7 @@ suite('canary-publish-config', function () {
                     installCommand: 'npm clean-install --ignore-scripts',
                     name: 'sample',
                     publishCommand: 'publish-dry-run',
+                    verificationCommands: [],
                     reference: 'main',
                     repository: 'https://github.com/enormora/sample.git'
                 } ])

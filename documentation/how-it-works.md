@@ -189,6 +189,14 @@ If yes, the import is replaced. The path becomes `<siblingName>/<targetFilePath>
 
 When a rewritten cross-package import targets a sibling JavaScript file, packtory records that exact sibling source path. After the first link pass, typed sibling packages promote only the readable declaration companions for those substituted JavaScript files, then the final link and analysis run from that narrowed file set. This keeps implicit substitution exports typed when the companion exists without bundling unrelated declaration files.
 
+Each link pass indexes sibling source paths and public exports once. Requests still
+check their required symbols independently, including aliases and namespace imports.
+Requests for public roots use their declared specifiers directly.
+`npx just benchmark-module-analysis` checks repeated peer substitutions, runtime
+preparation, namespace budget sizing, and binding reference queries. It limits
+source reads and transformation passes as well as elapsed time. The full benchmark
+suite includes these checks too.
+
 ```mermaid
 flowchart LR
     subgraph BEFORE ["before"]
@@ -384,6 +392,13 @@ Function-local `var` evaluation initializes bindings before executing the body a
 
 Runtime preparation first validates syntax with `@babel/parser`, including early errors that TypeScript's AST can represent. Preparation leaves invalid sources unchanged. Sources whose module format is ambiguous must parse as both modules and CommonJS before preparation can change them.
 
+Binding reference queries reuse results until any source in the compiler program changes.
+Syntax checks reuse results for unchanged compiler snapshots. Local preparation
+skips sources that have reached a fixed point until their syntax changes. External
+purity proofs follow the requested export path without inspecting unrelated namespace members.
+Import origin checks reject local names absent from the file's import bindings
+before requesting symbol analysis.
+
 The same classifier serves three purposes:
 
 1. **Gating tree-shaking** per file (above).
@@ -434,6 +449,11 @@ Linking and dead-code elimination share the `source-transformation` module. Impo
 `@jridgewell/trace-mapping` re-encodes the translated mappings. Only surviving mappings from the input map are retained, including their original source and name indices. Source paths, `sourceRoot`, and embedded source content are preserved without requiring authored files on disk.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
+
+Consumer canaries compile separate baseline and candidate clones, run configured
+verification commands, then compare their packed APIs. The Overkill canary also
+runs a publish dry run. Publish and pack durations are reported separately, with
+the baseline measured before the candidate.
 
 ## 7. Stage: Checks
 

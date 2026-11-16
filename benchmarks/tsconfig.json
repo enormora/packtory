@@ -6,5 +6,9 @@
         "types": ["node"]
     },
     "references": [{ "path": "../source/tsconfig.sources.json" }, { "path": "../integration-tests/tsconfig.json" }],
-    "include": ["./**/*.ts", "../source/test-libraries/public-module-usage-workload.ts"]
+    "include": [
+        "./**/*.ts",
+        "../source/test-libraries/public-module-usage-workload.ts",
+        "../source/test-libraries/path-replacement-workload.ts"
+    ]
 }
