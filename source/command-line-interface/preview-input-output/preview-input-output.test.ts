@@ -34,9 +34,14 @@ suite('preview-input-output', function () {
     });
 
     test('createDefaultPreviewInputOutput uses the injected process launcher', async function () {
-        const end = fake<[string], void>();
+        const contents: string[] = [];
         const child: ReturnType<SpawnFunction> = {
-            standardInput: { on: fake(), end },
+            standardInput: {
+                on: fake(),
+                end(content) {
+                    contents.push(content);
+                }
+            },
             on(eventName, listener) {
                 if (eventName === 'close') {
                     listener(0);
@@ -62,7 +67,7 @@ suite('preview-input-output', function () {
             [ '-lc', 'preview-pager' ],
             { stdio: [ 'pipe', 'inherit', 'inherit' ] }
         ] ]);
-        assert.deepStrictEqual(end.args, [ [ 'report' ] ]);
+        assert.deepStrictEqual(contents, [ 'report' ]);
     });
 
     test('createDefaultPreviewInputOutput uses an injected file opener', async function () {
