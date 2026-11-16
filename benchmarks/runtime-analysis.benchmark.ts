@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
-import path from 'node:path';
 import { Project, SyntaxKind } from 'ts-morph';
+import {
+    readBindingSyntax,
+    type BindingSyntaxNode
+} from '../source/dead-code-eliminator/reachability/binding-syntax.ts';
 import { bindingReferenceTargets } from '../source/dead-code-eliminator/reference-target.ts';
 import { prepareInitialRuntimeSource } from '../source/dead-code-eliminator/transform/runtime-source-preparation.ts';
 import { createSourcePreparation } from '../source/source-transformation/source-preparation.ts';
@@ -8,14 +11,6 @@ import {
     namespaceDemandLimits,
     namespaceSyntaxBudgetSize
 } from '../source/dead-code-eliminator/exports/namespace-demand-solver.ts';
-import {
-    bundle,
-    createContext,
-    resource,
-    sourceTreeResources,
-    verify,
-    withPackageManifest
-} from '../source/test-libraries/published-artifact-smoke-gate-fixtures.ts';
 import { createTypeAncestorAnalysis, hasTypeAncestor } from '../source/source-transformation/type-ancestors.ts';
 import { measurePreparedAsynchronousTask } from './tinybench-measurement.ts';
 
@@ -24,48 +19,6 @@ const maximumMilliseconds = 250;
 const functionCount = 64;
 const preparationCount = 64;
 const maximumFixedPointApplications = 3;
-const dependencySourceFileCount = 64;
-const maximumDependencyReadabilityChecks = 2;
-
-export async function runPublishedDependencyBenchmark(
-    thresholdMultiplier: number,
-    writeLine: (message: string) => void
-): Promise<void> {
-    const name = 'published-dependencies/repository-lookup';
-    const measurement = await measurePreparedAsynchronousTask(name, async function () {
-        const target = withPackageManifest(
-            bundle({ contents: [ resource('index.js'), ...sourceTreeResources(dependencySourceFileCount) ] }),
-            {
-                dependencies: { external: '^1.0.0' }
-            }
-        );
-        const context = createContext({});
-        return async function () {
-            await verify(context.gate, target);
-            assert.strictEqual(
-                context.checkReadability.callCount,
-                maximumDependencyReadabilityChecks,
-                'Source files must not multiply dependency lookups'
-            );
-            assert.deepStrictEqual(context.linkDirectory.firstCall.args, [
-                path.join('/repo', 'node_modules', 'external'),
-                path.join('/repo', 'target/packtory-smoke/node_modules/external'),
-                'dir'
-            ]);
-        };
-    });
-    writeLine(
-        `- ${name}: median ${
-            measurement
-                .medianMilliseconds
-                .toFixed(1)
-        }ms, readability checks 2, samples ${measurement.sampleCount}`
-    );
-    assert.ok(
-        measurement.medianMilliseconds <= maximumMilliseconds * thresholdMultiplier,
-        `${name} exceeded ${maximumMilliseconds}ms`
-    );
-}
 
 export async function runBindingReferenceBenchmark(
     thresholdMultiplier: number,
@@ -243,6 +196,65 @@ export async function runTypeAncestorBenchmark(
                 .medianMilliseconds
                 .toFixed(1)
         }ms, at most ${maximumParentReads} parent reads, samples ${measurement.sampleCount}`
+    );
+    assert.ok(
+        measurement.medianMilliseconds <= maximumMilliseconds * thresholdMultiplier,
+        `${name} exceeded ${maximumMilliseconds}ms`
+    );
+}
+
+export async function runBindingSyntaxBenchmark(
+    thresholdMultiplier: number,
+    writeLine: (message: string) => void
+): Promise<void> {
+    const name = 'binding-syntax/repeated-refinement';
+    const queriesPerBinding = 3;
+    const maximumQueries = functionCount * queriesPerBinding;
+    const measurement = await measurePreparedAsynchronousTask(name, async function () {
+        const project = new Project({ useInMemoryFileSystem: true, skipLoadingLibFiles: true });
+        const source = project.createSourceFile(
+            'source.ts',
+            Array
+                .from({ length: functionCount }, function (_value, index) {
+                    return `function read${index}(){return compute(value);}`;
+                })
+                .join('\n')
+        );
+        let queries = 0;
+        const bindings = source.getFunctions().map(function (root): BindingSyntaxNode {
+            return {
+                get compilerNode() {
+                    return root.compilerNode;
+                },
+                getSourceFile() {
+                    return source;
+                },
+                getDescendantsOfKind(kind) {
+                    queries += 1;
+                    return root.getDescendantsOfKind(kind);
+                }
+            };
+        });
+        return async function () {
+            for (let refinement = 0; refinement < preparationCount; refinement += 1) {
+                for (const binding of bindings) {
+                    assert.deepStrictEqual(
+                        readBindingSyntax(binding).calls.map(function (call) {
+                            return call.getText();
+                        }),
+                        [ 'compute(value)' ]
+                    );
+                }
+            }
+            assert.ok(queries <= maximumQueries, `Repeated refinement required ${queries} descendant queries`);
+        };
+    });
+    writeLine(
+        `- ${name}: median ${
+            measurement
+                .medianMilliseconds
+                .toFixed(1)
+        }ms, at most ${maximumQueries} descendant queries, samples ${measurement.sampleCount}`
     );
     assert.ok(
         measurement.medianMilliseconds <= maximumMilliseconds * thresholdMultiplier,

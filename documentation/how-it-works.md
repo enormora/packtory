@@ -193,9 +193,9 @@ Each link pass indexes sibling source paths and public exports once. Requests st
 check their required symbols independently, including aliases and namespace imports.
 Requests for public roots use their declared specifiers directly.
 `npx just benchmark-module-analysis` checks repeated peer substitutions, runtime
-preparation, namespace budget sizing, binding reference queries, type ancestry, and publication
-dependency lookups. It limits source reads, transformation passes, and filesystem
-checks as well as elapsed time. The full benchmark
+preparation, namespace budget sizing, binding reference queries, type ancestry,
+binding syntax, and publication dependency lookups. It limits source reads,
+transformation passes, descendant queries, and filesystem checks as well as elapsed time. The full benchmark
 suite includes these checks too.
 
 ```mermaid
