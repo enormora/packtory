@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { createTypeAncestorAnalysis, hasTypeAncestor } from './type-ancestors.ts';
+import { createTypeAncestorAnalysis } from './type-ancestors.ts';
+import { hasTypeAncestor } from './type-ancestors.composition.ts';
 
 suite('type ancestor analysis', function () {
     test('shares parent traversal across siblings and repeated queries', function () {

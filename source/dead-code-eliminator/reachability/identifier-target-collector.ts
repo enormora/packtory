@@ -14,7 +14,7 @@ import type { ArtifactModuleReference } from '../../resource-resolver/resolved-b
 import type { ExportGraph } from '../exports/export-graph.ts';
 import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { hasTypeAncestor } from '../../source-transformation/type-ancestors.ts';
+import { hasTypeAncestor } from '../../source-transformation/type-ancestors.composition.ts';
 import { readBindingSyntax } from './binding-syntax.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
