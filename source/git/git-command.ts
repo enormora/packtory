@@ -95,10 +95,4 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
     };
 }
 
-export function spawnChildProcessGitCommand(
-    command: string,
-    commandArguments: readonly string[],
-    callback: ExecuteFileCallback
-): GitCommandChildProcess {
-    return executeFile(command, Array.from(commandArguments), callback);
-}
+export const spawnChildProcessGitCommand: SpawnGitCommand = executeFile;

@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { z } from 'zod/mini';
-import { withCompilerWorkspace } from '../test-libraries/compiler-workspace.ts';
+import { withInMemoryCompilerWorkspace } from '../test-libraries/in-memory-compiler-workspace.ts';
 import { createAnalysisStorage } from './analysis-storage.ts';
 
 const resultSchema = z.array(z.string());
 
 suite('analysis storage', function () {
     test('rejects partially overwritten cache entries', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             const dependencies = {
                 ...workspace,
                 repositoryFolder: workspace.folder,
@@ -31,7 +31,7 @@ suite('analysis storage', function () {
     });
 
     test('reuses validated results across storage instances and distinguishes keys and tool versions', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             const storage = createAnalysisStorage({
                 ...workspace,
                 repositoryFolder: workspace.folder,
@@ -59,17 +59,20 @@ suite('analysis storage', function () {
             });
             assert.deepStrictEqual(await independent.read([ 'analysis', 1 ], resultSchema), [ 'reported issue' ]);
             assert.deepStrictEqual(
-                await workspace.fileManager.checkDirectory(
-                    `${workspace.folder}/node_modules/.cache/packtory`
-                ),
-                { exists: true, isDirectory: true }
+                await workspace.fileManager.checkDirectory(`${workspace.folder}/node_modules/.cache/packtory`),
+                {
+                    exists: true,
+                    isDirectory: true
+                }
             );
         });
     });
 
     test('rejects invalid stored data', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            await workspace.storage.write('invalid-schema', { unexpected: true });
+        await withInMemoryCompilerWorkspace(async function (workspace) {
+            await workspace.storage.write('invalid-schema', {
+                unexpected: true
+            });
             assert.strictEqual(await workspace.storage.read('invalid-schema', resultSchema), null);
             const storage = createAnalysisStorage({
                 repositoryFolder: workspace.folder,
@@ -88,7 +91,7 @@ suite('analysis storage', function () {
     });
 
     test('treats unavailable storage and tool identity as cache misses', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             const storage = createAnalysisStorage({
                 repositoryFolder: workspace.folder,
                 fileManager: {
@@ -114,10 +117,17 @@ suite('analysis storage', function () {
             assert.strictEqual(await unidentified.read('key', resultSchema), null);
         });
     });
-
-    for (const scenario of [ { count: 32, diskReads: 0 }, { count: 33, diskReads: 1 } ]) {
+    for (
+        const scenario of [ {
+            count: 32,
+            diskReads: 0
+        }, {
+            count: 33,
+            diskReads: 1
+        } ]
+    ) {
         test(`bounds retained results after ${scenario.count} writes`, async function () {
-            await withCompilerWorkspace(async function (workspace) {
+            await withInMemoryCompilerWorkspace(async function (workspace) {
                 let reads = 0;
                 const storage = createAnalysisStorage({
                     repositoryFolder: workspace.folder,

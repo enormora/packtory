@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { defaultSpawnProcess } from './preview-spawn.ts';
+import { defaultSpawnProcess } from '../../../source/command-line-interface/preview-input-output/preview-spawn.ts';
 
 function countReferencedChildProcesses(): number {
     return process
@@ -16,7 +16,6 @@ suite('preview-spawn', function () {
         const child = defaultSpawnProcess(process.execPath, [ '-e', 'process.exit(0)' ], {
             stdio: [ 'pipe', 'inherit', 'inherit' ]
         });
-
         if (child.standardInput === null) {
             assert.fail('expected stdin to be available for pipe stdio');
         }
@@ -24,7 +23,6 @@ suite('preview-spawn', function () {
         const exitCode = await new Promise<number | undefined>(function (resolve) {
             child.on('close', resolve);
         });
-
         assert.strictEqual(exitCode, 0);
     });
 
@@ -33,7 +31,6 @@ suite('preview-spawn', function () {
             detached: true,
             stdio: 'ignore'
         });
-
         assert.strictEqual(child.standardInput, null);
         const referencedChildProcesses = countReferencedChildProcesses();
         assert.ok(referencedChildProcesses > 0);
@@ -42,7 +39,6 @@ suite('preview-spawn', function () {
         const exitCode = await new Promise<number | undefined>(function (resolve) {
             child.on('close', resolve);
         });
-
         assert.strictEqual(exitCode, 0);
     });
 });

@@ -1,34 +1,37 @@
-import fileSystem from 'node:fs/promises';
-import path from 'node:path';
-import { tmpdir as temporaryDirectory } from 'node:os';
 import assert from 'node:assert';
-import { Project, type ProjectOptions } from 'ts-morph';
+import fileSystem from 'node:fs/promises';
+import { tmpdir as temporaryDirectory } from 'node:os';
+import path from 'node:path';
 import { RealFileSystemHost } from '@ts-morph/common';
-import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
+import { Project, type FileSystemHost, type ProjectOptions } from 'ts-morph';
+import { createAnalysisStorage, type AnalysisStorage } from '../checks/analysis-storage.ts';
 import {
     createCompilerInputValidator,
     type CompilerInputValidator
 } from '../dependency-scanner/compiler-input-validator.ts';
-import { createAnalysisStorage, type AnalysisStorage } from '../checks/analysis-storage.ts';
+import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 
 export type CompilerWorkspace = {
     readonly folder: string;
     readonly inputValidator: CompilerInputValidator;
     readonly storage: AnalysisStorage;
     readonly fileManager: FileManager;
-    readonly fileSystemHost: RealFileSystemHost;
+    readonly fileSystemHost: FileSystemHost;
     readonly Project: typeof Project;
     readonly projectCount: () => number;
     readonly write: (relativePath: string, content: string) => Promise<string>;
     readonly remove: () => Promise<void>;
 };
+type WorkspaceDependencies = Pick<CompilerWorkspace, 'fileManager' | 'fileSystemHost' | 'folder' | 'remove'>;
 
-async function createCompilerWorkspace(): Promise<CompilerWorkspace> {
-    const folder = await fileSystem.mkdtemp(path.join(temporaryDirectory(), 'packtory-compiler-'));
-    const fileManager = createFileManager({ hostFileSystem: fileSystem });
+export function createCompilerWorkspace(dependencies: WorkspaceDependencies): CompilerWorkspace {
+    const { folder, fileManager, fileSystemHost, remove } = dependencies;
     let projectCount = 0;
     return {
         folder,
+        fileManager,
+        fileSystemHost,
+        remove,
         inputValidator: createCompilerInputValidator(fileManager),
         storage: createAnalysisStorage({
             fileManager,
@@ -37,13 +40,12 @@ async function createCompilerWorkspace(): Promise<CompilerWorkspace> {
                 return 'test';
             }
         }),
-        fileManager,
-        fileSystemHost: new RealFileSystemHost(),
         Project: new Proxy(Project, {
             construct(projectConstructor, [ options ]: readonly (Readonly<ProjectOptions> | undefined)[]) {
                 projectCount += 1;
                 const project: unknown = Reflect.construct(projectConstructor, [ {
                     ...options,
+                    fileSystem: options?.fileSystem ?? fileSystemHost,
                     compilerOptions: { ...options?.compilerOptions, noLib: true, types: [] }
                 } ]);
                 assert.ok(project instanceof Project);
@@ -57,17 +59,20 @@ async function createCompilerWorkspace(): Promise<CompilerWorkspace> {
             const filePath = path.join(folder, relativePath);
             await fileManager.writeFile(filePath, content);
             return filePath;
-        },
-        async remove() {
-            await fileSystem.rm(folder, { recursive: true, force: true });
         }
     };
 }
 
-export async function withCompilerWorkspace(
-    run: (workspace: CompilerWorkspace) => Promise<void>
-): Promise<void> {
-    const workspace = await createCompilerWorkspace();
+export async function withCompilerWorkspace(run: (workspace: CompilerWorkspace) => Promise<void>): Promise<void> {
+    const folder = await fileSystem.mkdtemp(path.join(temporaryDirectory(), 'packtory-compiler-'));
+    const workspace = createCompilerWorkspace({
+        folder,
+        fileManager: createFileManager({ hostFileSystem: fileSystem }),
+        fileSystemHost: new RealFileSystemHost(),
+        async remove() {
+            await fileSystem.rm(folder, { recursive: true, force: true });
+        }
+    });
     try {
         await run(workspace);
     } finally {

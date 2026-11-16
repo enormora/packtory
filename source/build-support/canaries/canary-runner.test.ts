@@ -1,33 +1,18 @@
 import assert from 'node:assert';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir as temporaryDirectory } from 'node:os';
-import path from 'node:path';
 import { suite, test } from 'mocha';
-import { rejectWithNonError } from '../../test-libraries/non-error-failures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import {
-    createShellCommandRunner,
-    runSelectedCanary,
-    type CanaryRunnerDependencies
-} from './canary-runner.ts';
-
-const runShellCommand = createShellCommandRunner(900_000);
+import { rejectWithNonError } from '../../test-libraries/non-error-failures.ts';
+import { runSelectedCanary, type CanaryRunnerDependencies } from './canary-runner.ts';
 
 type CommandCall = {
     readonly command: string;
     readonly cwd: string;
 };
-
-function commandIndex(
-    commandCalls: readonly CommandCall[],
-    cwd: string,
-    command: string
-): number {
+function commandIndex(commandCalls: readonly CommandCall[], cwd: string, command: string): number {
     return commandCalls.findIndex(function (call) {
         return call.cwd === cwd && call.command === command;
     });
 }
-
 function assertTagsFetchedBeforeReference(commandCalls: readonly CommandCall[]): void {
     for (
         const folderPath of [
@@ -42,34 +27,19 @@ function assertTagsFetchedBeforeReference(commandCalls: readonly CommandCall[]):
         assert.ok(fetchIndex < referenceIndex);
     }
 }
-
-async function withTemporaryShellPackage<T>(action: (folderPath: string) => Promise<T>): Promise<T> {
-    const folderPath = await mkdtemp(path.join(temporaryDirectory(), 'packtory-canary-runner-'));
-    try {
-        await mkdir(path.join(folderPath, 'node_modules', '.bin'), { recursive: true });
-        return await action(folderPath);
-    } finally {
-        await rm(folderPath, { recursive: true, force: true });
-    }
-}
-
 function manifestContent(publishCommand: string): string {
-    return JSON.stringify([
-        {
-            failureMode: 'non-blocking',
-            installCommand: 'npm clean-install --ignore-scripts',
-            name: 'sample',
-            publishCommand,
-            reference: 'main',
-            repository: 'https://github.com/enormora/sample.git'
-        }
-    ]);
+    return JSON.stringify([ {
+        failureMode: 'non-blocking',
+        installCommand: 'npm clean-install --ignore-scripts',
+        name: 'sample',
+        publishCommand,
+        reference: 'main',
+        repository: 'https://github.com/enormora/sample.git'
+    } ]);
 }
-
 function cloneMode(cwd: string): 'baseline' | 'candidate' {
     return cwd.includes('baseline') ? 'baseline' : 'candidate';
 }
-
 function createRunnerDependencies(
     publishCommand: string,
     failingModes: ReadonlySet<'baseline' | 'candidate'>
@@ -81,9 +51,17 @@ function createRunnerDependencies(
     const commandCalls: CommandCall[] = [];
     const removedFolders: string[] = [];
     const fileManager = createFakeFileManager({
-        simulatedReadFileResponses: [ { value: manifestContent(publishCommand) } ]
+        simulatedReadFileResponses: [ {
+            value: manifestContent(publishCommand)
+        } ]
     });
     return {
+        createProject() {
+            throw new Error('Unexpected type inspection');
+        },
+        async runImportProbe() {
+            throw new Error('Unexpected runtime import');
+        },
         commandCalls,
         async createTemporaryFolder(prefix) {
             return `/workspace/${prefix}clone`;
@@ -95,50 +73,42 @@ function createRunnerDependencies(
         removedFolders,
         repositoryFolder: '/repo',
         async runCommand(command, cwd) {
-            commandCalls.push({ command, cwd });
+            commandCalls.push({
+                command,
+                cwd
+            });
             if (command === 'git rev-parse HEAD') {
-                return { standardError: '', standardOutput: `${cloneMode(cwd)}-ref\n` };
+                return {
+                    standardError: '',
+                    standardOutput: `${cloneMode(cwd)}-ref\n`
+                };
             }
             if (command === publishCommand && failingModes.has(cloneMode(cwd))) {
                 throw new Error(`${cloneMode(cwd)} failed`);
             }
-            return { standardError: '', standardOutput: '' };
+            return {
+                standardError: '',
+                standardOutput: ''
+            };
         }
     };
 }
 
 suite('canary-runner', function () {
-    test('runShellCommand uses the clone-local package bin path and dry-run token', async function () {
-        await withTemporaryShellPackage(async function (folderPath) {
-            const executablePath = path.join(folderPath, 'node_modules', '.bin', 'print-token');
-            await writeFile(executablePath, '#!/usr/bin/env sh\nprintf "%s" "$NPM_TOKEN"\n');
-            await chmod(executablePath, 0o755);
-
-            assert.deepStrictEqual(await runShellCommand('print-token', folderPath), {
-                standardError: '',
-                standardOutput: 'dry-run'
-            });
-        });
-    });
-
     test('runSelectedCanary reports source failures as regressions', async function () {
         const dependencies = createRunnerDependencies('npx just publish-dry-run', new Set([ 'candidate' ]));
-
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
-
         assert.deepStrictEqual(result, {
             baselineResolvedReference: 'baseline-ref',
             candidateResolvedReference: 'candidate-ref',
-            issues: [
-                {
-                    kind: 'regression',
-                    message: [
-                        'source run failed while running "npx just publish-dry-run" after the npm baseline passed:',
-                        'candidate failed'
-                    ]
-                        .join('\n')
-                }
-            ],
+            issues: [ {
+                kind: 'regression',
+                message: [
+                    'source run failed while running "npx just publish-dry-run" after the npm baseline passed:',
+                    'candidate failed'
+                ]
+                    .join('\n')
+            } ],
             name: 'sample'
         });
         assert.strictEqual(
@@ -152,21 +122,16 @@ suite('canary-runner', function () {
             dependencies.removedFolders.toSorted(function (left, right) {
                 return left.localeCompare(right);
             }),
-            [
-                '/workspace/packtory-canary-sample-baseline-clone',
-                '/workspace/packtory-canary-sample-candidate-clone'
-            ]
+            [ '/workspace/packtory-canary-sample-baseline-clone', '/workspace/packtory-canary-sample-candidate-clone' ]
         );
         assert.deepStrictEqual(
             dependencies.commandCalls.filter(function (call) {
                 return call.command === 'npm install --no-save --ignore-scripts @packtory/cli@latest';
             }),
-            [
-                {
-                    command: 'npm install --no-save --ignore-scripts @packtory/cli@latest',
-                    cwd: '/workspace/packtory-canary-sample-baseline-clone'
-                }
-            ]
+            [ {
+                command: 'npm install --no-save --ignore-scripts @packtory/cli@latest',
+                cwd: '/workspace/packtory-canary-sample-baseline-clone'
+            } ]
         );
         assert.strictEqual(
             dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
@@ -176,10 +141,8 @@ suite('canary-runner', function () {
         );
         assert.strictEqual(
             dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
-                return (
-                    call.filePath === '/workspace/packtory-canary-sample-candidate-clone/node_modules/.bin/packtory' &&
-                    call.content.includes('command-line-interface.entry-point.ts')
-                );
+                const executable = '/workspace/packtory-canary-sample-candidate-clone/node_modules/.bin/packtory';
+                return call.filePath === executable && call.content.includes('command-line-interface.entry-point.ts');
             }),
             true
         );
@@ -202,79 +165,35 @@ suite('canary-runner', function () {
             dependencies.removedFolders.toSorted(function (left, right) {
                 return left.localeCompare(right);
             }),
-            [
-                '/workspace/packtory-canary-sample-baseline-clone',
-                '/workspace/packtory-canary-sample-candidate-clone'
-            ]
+            [ '/workspace/packtory-canary-sample-baseline-clone', '/workspace/packtory-canary-sample-candidate-clone' ]
         );
     });
 
     test('runSelectedCanary reports shared downstream failures as baseline rot', async function () {
-        const dependencies = createRunnerDependencies(
-            'npx just publish-dry-run',
-            new Set([ 'baseline', 'candidate' ])
-        );
-
+        const dependencies = createRunnerDependencies('npx just publish-dry-run', new Set([ 'baseline', 'candidate' ]));
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
-
-        assert.deepStrictEqual(result.issues, [
-            {
-                kind: 'baseline-rot',
-                message: [
-                    'npm baseline failed while running "npx just publish-dry-run":',
-                    'baseline failed'
-                ]
-                    .join('\n')
-            },
-            {
-                kind: 'baseline-rot',
-                message: [
-                    'source run also failed while running "npx just publish-dry-run":',
-                    'candidate failed'
-                ]
-                    .join('\n')
-            }
-        ]);
+        assert.deepStrictEqual(result.issues, [ {
+            kind: 'baseline-rot',
+            message: [ 'npm baseline failed while running "npx just publish-dry-run":', 'baseline failed' ].join('\n')
+        }, {
+            kind: 'baseline-rot',
+            message: [ 'source run also failed while running "npx just publish-dry-run":', 'candidate failed' ].join(
+                '\n'
+            )
+        } ]);
     });
 
     test('runSelectedCanary reports a broken npm baseline without hiding source success', async function () {
         const dependencies = createRunnerDependencies('npx just publish-dry-run', new Set([ 'baseline' ]));
-
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
-
-        assert.deepStrictEqual(result.issues, [
-            {
-                kind: 'baseline-rot',
-                message: [
-                    'npm baseline failed while running "npx just publish-dry-run":',
-                    'baseline failed'
-                ]
-                    .join('\n')
-            },
-            { kind: 'warning', message: 'source run passed while the npm baseline failed' }
-        ]);
+        assert.deepStrictEqual(result.issues, [ {
+            kind: 'baseline-rot',
+            message: [ 'npm baseline failed while running "npx just publish-dry-run":', 'baseline failed' ].join('\n')
+        }, {
+            kind: 'warning',
+            message: 'source run passed while the npm baseline failed'
+        } ]);
     });
-
-    test('reports command output when shell execution fails', async function () {
-        await withTemporaryShellPackage(async function (folderPath) {
-            await assert.rejects(
-                runShellCommand('printf out; printf err >&2; exit 7', folderPath),
-                /out\nerr\nCommand failed/u
-            );
-        });
-    });
-
-    for (const timeoutMilliseconds of [ 100, 1100 ]) {
-        test(`reports shell timeouts after ${timeoutMilliseconds} milliseconds`, async function () {
-            await withTemporaryShellPackage(async function (folderPath) {
-                const runCommand = createShellCommandRunner(timeoutMilliseconds);
-                const duration = timeoutMilliseconds < 1000 ? '100 ms' : '1 seconds';
-                await assert.rejects(runCommand('exec sleep 5', folderPath), {
-                    message: `Command timed out after ${duration}: exec sleep 5`
-                });
-            });
-        });
-    }
 
     test('reports non-Error failures from downstream commands', async function () {
         const dependencies = createRunnerDependencies('publish-dry-run', new Set());
@@ -296,5 +215,16 @@ suite('canary-runner', function () {
                 'source run also failed while running "publish-dry-run":\ndownstream failed'
             ]
         );
+    });
+
+    test('compares successful baseline and source package surfaces', async function () {
+        const dependencies = createRunnerDependencies('pack', new Set());
+        const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
+        assert.deepStrictEqual(result, {
+            name: 'sample',
+            baselineResolvedReference: 'baseline-ref',
+            candidateResolvedReference: 'candidate-ref',
+            issues: []
+        });
     });
 });

@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
 import { createDefaultPreviewInputOutput } from './preview-input-output.ts';
 
 async function ignoreOpenFile(filePath: string): Promise<void> {
@@ -13,36 +12,21 @@ suite('preview-input-output', function () {
             openFile: ignoreOpenFile,
             shell: 'sh',
             pager: undefined,
-            standardOutputIsTerminal: true
+            standardOutputIsTerminal: true,
+            randomUniqueIdentifier() {
+                return 'preview-id';
+            },
+            temporaryDirectory() {
+                return '/virtual';
+            }
         });
-
         assert.strictEqual(typeof previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath, 'function');
         assert.strictEqual(typeof previewInputOutput.pagePreviewOutput, 'function');
         assert.strictEqual(typeof previewInputOutput.openPreviewFile, 'function');
-        assert.ok(previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath().includes('packtory-preview-'));
-    });
-
-    test('createDefaultPreviewInputOutput falls back to the default spawn process when no custom spawner is injected', async function () {
-        const previewInputOutput = createDefaultPreviewInputOutput({
-            openFile: ignoreOpenFile,
-            shell: 'sh',
-            pager: 'cat >/dev/null',
-            standardOutputIsTerminal: true,
-            randomUniqueIdentifier() {
-                return 'uuid-123';
-            },
-            temporaryDirectory() {
-                return '/var/folders';
-            }
-        });
-
-        assert.strictEqual(
-            await withPromiseDeadline(
-                previewInputOutput.pagePreviewOutput('hello'),
-                'default preview io fallback spawner',
-                5000
-            ),
-            true
+        assert.ok(
+            previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath().includes(
+                'packtory-preview-preview-id.html'
+            )
         );
     });
 
@@ -56,14 +40,7 @@ suite('preview-input-output', function () {
             pager: undefined,
             standardOutputIsTerminal: true
         });
-
-        assert.strictEqual(
-            await withPromiseDeadline(
-                previewInputOutput.openPreviewFile('/var/folders/report.html'),
-                'default preview open'
-            ),
-            true
-        );
+        assert.strictEqual(await previewInputOutput.openPreviewFile('/var/folders/report.html'), true);
         assert.deepStrictEqual(openedFiles, [ '/var/folders/report.html' ]);
     });
 });

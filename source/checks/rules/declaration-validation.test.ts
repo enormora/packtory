@@ -1,28 +1,31 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import {
-    withCompilerWorkspace,
-    createProjectWithUntrackedInputs,
-    type CompilerWorkspace
-} from '../../test-libraries/compiler-workspace.ts';
-import { checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
+import { checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
+import {
+    withInMemoryCompilerWorkspace,
+    type InMemoryCompilerWorkspace
+} from '../../test-libraries/in-memory-compiler-workspace.ts';
+import { createProjectWithUntrackedInputs } from '../../test-libraries/compiler-workspace.ts';
 import { createDeclarationValidation, type DeclarationValidation } from './declaration-validation.ts';
 
 const manifest = '{"name":"example","version":"1.0.0","types":"./index.d.ts"}';
 type ValidationFixture = {
-    readonly workspace: CompilerWorkspace;
+    readonly workspace: InMemoryCompilerWorkspace;
     readonly published: PublishedPackageWithManifest;
     readonly packages: ReadonlyMap<string, PublishedPackageWithManifest>;
     readonly validate: DeclarationValidation;
     readonly create: () => DeclarationValidation;
 };
 async function withValidation(run: (fixture: ValidationFixture) => Promise<void>): Promise<void> {
-    await withCompilerWorkspace(async function (workspace) {
+    await withInMemoryCompilerWorkspace(async function (workspace) {
         const published = checkPublishedPackage('example', manifest, {
             'index.d.ts': 'export declare const value: number;'
         });
-        const dependencies = { ...workspace, packageResolutionBaseFolder: workspace.folder };
+        const dependencies = {
+            ...workspace,
+            packageResolutionBaseFolder: workspace.folder
+        };
         await run({
             workspace,
             published,

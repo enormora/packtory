@@ -5,43 +5,65 @@ import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
-import { createFileManager, type FileManager } from '../../file-manager/file-manager.ts';
-import { runSelectedCanary } from './canary-runner.ts';
+import { runSelectedCanary } from '../../../source/build-support/canaries/canary-runner.ts';
+import { createFileManager, type FileManager } from '../../../source/file-manager/file-manager.ts';
+import { createNativeCanaryRuntime } from './native-runtime.ts';
 
 const originalConfiguration = {
     commonPackageSettings: {
-        deadCodeElimination: { enabled: false },
-        publishSettings: { softwareBillOfMaterials: { enabled: true } }
+        deadCodeElimination: {
+            enabled: false
+        },
+        publishSettings: {
+            softwareBillOfMaterials: {
+                enabled: true
+            }
+        }
     },
     packages: [ {
         name: 'sample',
-        deadCodeElimination: { enabled: false },
-        publishSettings: { softwareBillOfMaterials: { enabled: true } }
+        deadCodeElimination: {
+            enabled: false
+        },
+        publishSettings: {
+            softwareBillOfMaterials: {
+                enabled: true
+            }
+        }
     } ]
 };
-
 const packedConfiguration = {
     commonPackageSettings: {
-        deadCodeElimination: { enabled: true },
-        publishSettings: { softwareBillOfMaterials: { enabled: false } }
+        deadCodeElimination: {
+            enabled: true
+        },
+        publishSettings: {
+            softwareBillOfMaterials: {
+                enabled: false
+            }
+        }
     },
     packages: [ {
         name: 'sample',
-        deadCodeElimination: { enabled: true },
-        publishSettings: { softwareBillOfMaterials: { enabled: false } }
+        deadCodeElimination: {
+            enabled: true
+        },
+        publishSettings: {
+            softwareBillOfMaterials: {
+                enabled: false
+            }
+        }
     } ]
 };
-
 type ConfigurationObservation = {
     readonly mode: string;
     readonly phase: string;
     readonly configuration: typeof originalConfiguration;
 };
-
 async function artifactSettingsForPhase(cwd: string, phase: string): Promise<ConfigurationObservation> {
     const configurationAddress = pathToFileAddress(path.join(cwd, 'packtory.config.js'));
     configurationAddress.searchParams.set('phase', phase);
-    const module = await import(configurationAddress.href) as {
+    const module = (await import(configurationAddress.href)) as {
         readonly buildConfiguration: () => Promise<typeof originalConfiguration>;
     };
     return {
@@ -50,7 +72,6 @@ async function artifactSettingsForPhase(cwd: string, phase: string): Promise<Con
         configuration: await module.buildConfiguration()
     };
 }
-
 async function writeDownstreamFixture(fileManager: Pick<FileManager, 'writeFile'>, cwd: string): Promise<void> {
     await fileManager.writeFile(path.join(cwd, 'package.json'), '{"type":"module"}');
     await fileManager.writeFile(
@@ -62,7 +83,9 @@ async function writeDownstreamFixture(fileManager: Pick<FileManager, 'writeFile'
 suite('canary-publish-config', function () {
     test('runSelectedCanary preserves publish artifacts and applies the overlay only when packing', async function () {
         const root = await mkdtemp(path.join(temporaryDirectory(), 'packtory-canary-publish-config-'));
-        const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+        const fileManager = createFileManager({
+            hostFileSystem: fileSystem.promises
+        });
         const observations: ConfigurationObservation[] = [];
         const manifestPath = path.join(root, 'canaries.json');
         try {
@@ -77,14 +100,17 @@ suite('canary-publish-config', function () {
                     repository: 'https://github.com/enormora/sample.git'
                 } ])
             );
-
             const result = await runSelectedCanary(manifestPath, 'sample', {
+                ...createNativeCanaryRuntime(),
                 async createTemporaryFolder(prefix) {
                     return await mkdtemp(path.join(root, prefix));
                 },
                 fileManager,
                 async removeFolder(folderPath) {
-                    await rm(folderPath, { recursive: true, force: true });
+                    await rm(folderPath, {
+                        recursive: true,
+                        force: true
+                    });
                 },
                 repositoryFolder: root,
                 async runCommand(command, cwd) {
@@ -92,7 +118,10 @@ suite('canary-publish-config', function () {
                         await writeDownstreamFixture(fileManager, cwd);
                     }
                     if (command === 'git rev-parse HEAD') {
-                        return { standardError: '', standardOutput: 'resolved-ref\n' };
+                        return {
+                            standardError: '',
+                            standardOutput: 'resolved-ref\n'
+                        };
                     }
                     if (command === 'publish-dry-run') {
                         observations.push(await artifactSettingsForPhase(cwd, 'publish'));
@@ -103,27 +132,40 @@ suite('canary-publish-config', function () {
                             recursive: true
                         });
                     }
-                    return { standardError: '', standardOutput: '' };
+                    return {
+                        standardError: '',
+                        standardOutput: ''
+                    };
                 }
             });
-
             assert.deepStrictEqual(result, {
                 baselineResolvedReference: 'resolved-ref',
                 candidateResolvedReference: 'resolved-ref',
                 issues: [],
                 name: 'sample'
             });
-            assert.deepStrictEqual(
-                observations,
-                [
-                    { mode: 'baseline', phase: 'publish', configuration: originalConfiguration },
-                    { mode: 'baseline', phase: 'pack', configuration: packedConfiguration },
-                    { mode: 'candidate', phase: 'publish', configuration: originalConfiguration },
-                    { mode: 'candidate', phase: 'pack', configuration: packedConfiguration }
-                ]
-            );
+            assert.deepStrictEqual(observations, [ {
+                mode: 'baseline',
+                phase: 'publish',
+                configuration: originalConfiguration
+            }, {
+                mode: 'baseline',
+                phase: 'pack',
+                configuration: packedConfiguration
+            }, {
+                mode: 'candidate',
+                phase: 'publish',
+                configuration: originalConfiguration
+            }, {
+                mode: 'candidate',
+                phase: 'pack',
+                configuration: packedConfiguration
+            } ]);
         } finally {
-            await rm(root, { recursive: true, force: true });
+            await rm(root, {
+                recursive: true,
+                force: true
+            });
         }
     });
 });

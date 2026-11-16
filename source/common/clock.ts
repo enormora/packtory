@@ -12,9 +12,7 @@ export type Clock = {
 
 export function createClock(): Clock {
     return {
-        getCurrentTimeInMilliseconds() {
-            return Date.now();
-        },
+        getCurrentTimeInMilliseconds: Date.now,
 
         setTimeout: setTimer,
 
