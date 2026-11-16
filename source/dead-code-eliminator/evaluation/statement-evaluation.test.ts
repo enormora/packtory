@@ -3,11 +3,35 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createBoundedEvaluationContext } from '../../test-libraries/bounded-evaluation-context.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { evaluateStatement } from './statement-evaluation.ts';
 import { createBindingReference, type EvaluationContext } from './evaluation-context.ts';
 import { evaluated } from './primitive-value.ts';
 
 suite('return completion proofs', function () {
+    for (const kind of [ 'const', 'let' ]) {
+        test(`preserves ${kind} binding mutability`, function () {
+            const source = createProject().createSourceFile('input.js', `${kind} value=21;`);
+            const context = createBoundedEvaluationContext(0, 100);
+            const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableStatement);
+            assert.deepStrictEqual(evaluateStatement(statement, context), { type: 'normal' });
+            const reference = context.locals.get(source.getVariableDeclarationOrThrow('value'));
+            assertDefined(reference);
+            assert.deepStrictEqual(reference.assign({ value: 42 }), kind === 'let' ? { value: 42 } : undefined);
+        });
+    }
+
+    test('does not evaluate a loop condition after exhausting its budget', function () {
+        const source = createProject().createSourceFile('index.ts', 'while(true){}');
+        const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.WhileStatement);
+        const context = {
+            ...createBoundedEvaluationContext(0, 1),
+            evaluate() {
+                assert.fail('The loop must charge a step before evaluating its condition');
+            }
+        };
+        assert.strictEqual(evaluateStatement(statement, context), undefined);
+    });
     for (
         const [ content, kind ] of [
             [ 'break target;', SyntaxKind.BreakStatement ],

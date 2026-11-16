@@ -13,10 +13,10 @@ import {
 } from 'ts-morph';
 import {
     normalCompletion,
-    createBindingReference,
     type Completion,
     type EvaluationContext
 } from './evaluation-context.ts';
+import { initializeLocalBinding } from './binding-evaluation.ts';
 import { evaluated } from './primitive-value.ts';
 import { resourceBindingIsHarmless } from './resource-binding.ts';
 import { evaluateSwitch } from './switch-evaluation.ts';
@@ -41,9 +41,6 @@ function declareLocal(
     kind: VariableDeclarationKind,
     context: EvaluationContext
 ): boolean {
-    if (!TypeScriptMorphNode.isIdentifier(declaration.getNameNode())) {
-        return false;
-    }
     const initializer = declaration.getInitializer();
     const value = initializer === undefined ? evaluated(undefined) : context.evaluate(initializer, context);
     if (value === undefined) {
@@ -52,8 +49,7 @@ function declareLocal(
     if (kind === VariableDeclarationKind.Using && !resourceBindingIsHarmless(kind, value)) {
         return false;
     }
-    context.locals.set(declaration, createBindingReference(value, kind === VariableDeclarationKind.Let));
-    return true;
+    return initializeLocalBinding(declaration, value, kind === VariableDeclarationKind.Let, context);
 }
 
 function declareLocals(list: VariableDeclarationList, context: EvaluationContext): boolean {
