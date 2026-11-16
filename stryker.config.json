@@ -5,8 +5,8 @@
     "tempDirName": "target/.stryker-tmp",
     "allowConsoleColors": false,
     "concurrency": "100%",
-    "timeoutMS": 120000,
-    "timeoutFactor": 4,
+    "timeoutMS": 2000,
+    "timeoutFactor": 1,
     "dryRunTimeoutMinutes": 15,
     "incrementalFile": "target/stryker-incremental.json",
     "mochaOptions": {
@@ -14,9 +14,15 @@
         "no-opts": true,
         "no-config": true,
         "ui": "tdd",
+        "require": ["./source/test-libraries/test-lifecycle.ts"],
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
-        "spec": ["source/**/*.test.ts"]
+        "spec": [
+            "source/*/*/**/*.test.ts",
+            "source/dead-code-eliminator/!(eliminator*|dead-code-elimination*).test.ts",
+            "source/!(dead-code-eliminator)/**/*.test.ts",
+            "source/**/*.test.ts"
+        ]
     },
     "testRunnerNodeArgs": ["--experimental-strip-types", "--enable-source-maps"],
     "mutate": [
