@@ -11,8 +11,6 @@ import {
 import { createNamespaceDemandSolver } from './namespace-demand-solver.ts';
 
 const ordinaryLimits = { maximumQueries: 32, maximumEvaluations: 128 };
-const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
-const secondObservation = namespaceMemberDemand('second', noNamespaceProperties);
 
 suite('namespace demand fixed points', function () {
     for (const field of [ 'maximumQueries', 'maximumEvaluations' ]) {
@@ -30,6 +28,7 @@ suite('namespace demand fixed points', function () {
 
     suite('dependencies', function () {
         test('evaluates a root and preserves its cached demand', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluate = function (): NamespaceDemand {
                 return firstObservation;
@@ -41,6 +40,8 @@ suite('namespace demand fixed points', function () {
         });
 
         test('propagates observations around a cycle', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
+            const secondObservation = namespaceMemberDemand('second', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluations = {
                 first(): NamespaceDemand {
@@ -79,6 +80,7 @@ suite('namespace demand fixed points', function () {
         });
 
         test('settles a self-dependent finite observation', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluate = function (): NamespaceDemand {
                 return mergeNamespaceDemand(firstObservation, solver.read('entry', evaluate));
@@ -87,6 +89,8 @@ suite('namespace demand fixed points', function () {
         });
 
         test('discovers dependencies introduced by later observations', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
+            const secondObservation = namespaceMemberDemand('second', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluations = {
                 first(): NamespaceDemand {
@@ -113,6 +117,7 @@ suite('namespace demand fixed points', function () {
         });
 
         test('preserves the outer dependency context across nested resolution', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
             const evaluate = function (): NamespaceDemand {
                 solver.resolve('inner', function () {
@@ -128,6 +133,7 @@ suite('namespace demand fixed points', function () {
 
     suite('analysis limits', function () {
         test('keeps exhaustion sticky for already resolved queries and direct reads', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 8 });
             assert.strictEqual(
                 solver.resolve('known', function () {
@@ -156,6 +162,7 @@ suite('namespace demand fixed points', function () {
         });
 
         test('stops pending evaluations when a dependency exhausts the query budget', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 3, maximumEvaluations: 8 });
             const evaluations = {
                 overflow(): NamespaceDemand {
@@ -178,6 +185,7 @@ suite('namespace demand fixed points', function () {
         });
 
         test('allows a query at the exact query and evaluation limits', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 1 });
             const evaluate = function (): NamespaceDemand {
                 return firstObservation;
@@ -187,6 +195,7 @@ suite('namespace demand fixed points', function () {
         });
 
         test('falls back globally when another query exceeds the limit', function () {
+            const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
             const solver = createNamespaceDemandSolver<string>({ maximumQueries: 1, maximumEvaluations: 8 });
             const evaluate = function (): NamespaceDemand {
                 return solver.read('dependency', function () {
@@ -240,6 +249,7 @@ suite('namespace demand fixed points', function () {
     });
 
     test('propagates an analysis exception and prevents reuse of incomplete facts', function () {
+        const firstObservation = namespaceMemberDemand('first', noNamespaceProperties);
         const solver = createNamespaceDemandSolver<string>(ordinaryLimits);
         const failure = new Error('Failed analysis');
         let caught: unknown = null;

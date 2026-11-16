@@ -59,10 +59,10 @@ suite('namespace expression boundaries', function () {
 
     for (
         const { content, expected } of [
-            { content: 'consume(ns.used);', expected: namespaceMemberDemand('used', noNamespaceProperties) },
+            { content: 'consume(ns.used);', expected: new Map([ [ 'used', noNamespaceProperties ] ]) },
             {
                 content: [ 'tag`$', '{ns.used}`;' ].join(''),
-                expected: namespaceMemberDemand('used', noNamespaceProperties)
+                expected: new Map([ [ 'used', noNamespaceProperties ] ])
             },
             { content: 'object.ns;', expected: allNamespaceProperties },
             { content: 'object[ns];', expected: allNamespaceProperties },
