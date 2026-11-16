@@ -50,6 +50,9 @@ function importRequirements(input: ModuleEvaluationInput, links: ModuleEvaluatio
 }
 
 function exportRequirements(model: ModuleExportModel, links: ModuleEvaluationLinks): readonly string[] {
+    if (model.source.isDeclarationFile()) {
+        return [];
+    }
     const known = links.index.names(model.source) !== undefined;
     return Array
         .from(model.entries)
