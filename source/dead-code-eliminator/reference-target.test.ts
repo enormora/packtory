@@ -34,6 +34,45 @@ suite('reference targets', function () {
     }
 
     suite('binding identities', function () {
+        test('reuses a matching reference node without another source traversal', function () {
+            const source = createProject().createSourceFile('index.js', 'const value=1;value;');
+            const name = source.getVariableDeclarationOrThrow('value').getNameNode().asKindOrThrow(
+                SyntaxKind.Identifier
+            );
+            const reference = name.findReferences()[0]?.getReferences()[0];
+            assertDefined(reference);
+            assert.strictEqual(
+                referenceTarget({
+                    getNode() {
+                        return reference.getNode();
+                    },
+                    getTextSpan() {
+                        return reference.getTextSpan();
+                    },
+                    getSourceFile() {
+                        return assert.fail('A matching reference node must not require another source traversal');
+                    }
+                })
+                    .getText(),
+                'value'
+            );
+        });
+
+        test('resolves shorthand properties to their value bindings', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'const value={};const other={};const read={value,other};'
+            );
+            const binding = source.getVariableDeclarationOrThrow('value');
+            const properties = source.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment);
+            assert.deepStrictEqual(
+                properties.map(function (property) {
+                    return referenceMayUseBinding(property.getNameNode(), binding);
+                }),
+                [ true, false ]
+            );
+        });
+
         test('keeps non-identifier export references conservative even when they resolve to another binding', function () {
             const source = createProject().createSourceFile(
                 'input.ts',
