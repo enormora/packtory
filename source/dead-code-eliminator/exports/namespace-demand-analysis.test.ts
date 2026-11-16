@@ -49,6 +49,34 @@ function observedExpression(expression: string): ReadonlySet<string> | undefined
 }
 
 suite('namespace demand analysis', function () {
+    test('creates analysis without materializing every syntax descendant for its budget', function () {
+        const fixture = createExportModuleFixture({ 'index.js': 'export const api={value:42};' }, []);
+        const source = new Proxy(fixture.source('index.js'), {
+            get(instance, property) {
+                if (property === 'getDescendants') {
+                    return function () {
+                        return assert.fail('Sizing must not materialize every syntax descendant');
+                    };
+                }
+                const value: unknown = Reflect.get(instance, property, instance);
+                if (typeof value !== 'function') {
+                    return value;
+                }
+                return function (...methodArguments: readonly unknown[]): unknown {
+                    return Reflect.apply(value, instance, methodArguments);
+                };
+            }
+        });
+        const analysis = createNamespaceDemandAnalysis(
+            [ source ],
+            new Set([ source ]),
+            fixture.resolveModule,
+            conservativeReceivers
+        );
+
+        assert.strictEqual(analysis.exportProperties(source, 'api'), undefined);
+    });
+
     suite('expression observations', function () {
         const finite = [
             [ 'ns.used', 'used' ],
