@@ -23,6 +23,18 @@ function reachabilityFor(
 }
 
 suite('export and binding reachability', function () {
+    test('does not promote a locally referenced binding to a requested export', function () {
+        const index = reachabilityFor({
+            'index.js': 'export {read} from "./library.js";',
+            'library.js': 'export const value=42;export function read(){return value;}'
+        }, [ 'index.js' ]);
+        for (const seeds of [ undefined, new Set([ 'library.js::read' ]) ]) {
+            const reachable = index.resolveWith(seeds);
+            assert.strictEqual(reachable.bindings.has('library.js::value'), true);
+            assert.deepStrictEqual(reachable.exports.get('library.js'), new Set([ 'read' ]));
+        }
+    });
+
     test('keeps graph nodes out of the public binding sets', function () {
         const index = reachabilityFor({ 'index.js': 'export const value=42;' }, [ 'index.js' ]);
         const result = index.resolveWith(undefined);
