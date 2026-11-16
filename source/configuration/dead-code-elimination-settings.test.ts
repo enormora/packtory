@@ -37,6 +37,21 @@ suite('dead-code-elimination-settings', function () {
         );
     });
 
+    test('inherits disabled common settings and trust lists without package overrides', function () {
+        assert.deepStrictEqual(
+            resolveDeadCodeEliminationSettings(undefined, {
+                enabled: false,
+                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ],
+                pureConstructors: [ 'Set' ]
+            }),
+            {
+                enabled: false,
+                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ],
+                pureConstructors: [ 'Set' ]
+            }
+        );
+    });
+
     test('deadCodeEliminationSettingsSchema accepts the documented enabled/pureImports/pureConstructors shape', function () {
         const result = deadCodeEliminationSettingsSchema.safeParse({
             enabled: true,
