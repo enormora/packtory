@@ -34,6 +34,20 @@ suite('reference targets', function () {
     }
 
     suite('binding identities', function () {
+        test('resolves saved spans after referenced nodes move', function () {
+            const source = createProject().createSourceFile('index.js', 'const first=1;first;');
+            const name = source.getVariableDeclarationOrThrow('first').getNameNode().asKindOrThrow(
+                SyntaxKind.Identifier
+            );
+            const reference = name.findReferences()[0]?.getReferences()[0];
+            assertDefined(reference);
+            const previous = reference.getNode();
+            source.insertStatements(0, 'const other=0;');
+            assert.strictEqual(previous.wasForgotten(), false);
+            assert.strictEqual(previous.getText(), 'first');
+            assert.strictEqual(referenceTarget(reference).getText(), 'other');
+        });
+
         test('reuses a matching reference node without another source traversal', function () {
             const source = createProject().createSourceFile('index.js', 'const value=1;value;');
             const name = source.getVariableDeclarationOrThrow('value').getNameNode().asKindOrThrow(
