@@ -9,6 +9,10 @@
     "include": [
         "./**/*.ts",
         "../source/test-libraries/public-module-usage-workload.ts",
-        "../source/test-libraries/path-replacement-workload.ts"
+        "../source/test-libraries/path-replacement-workload.ts",
+        "../source/test-libraries/published-artifact-smoke-gate-fixtures.ts",
+        "../source/test-libraries/bundle-fixtures.ts",
+        "../source/test-libraries/module-reference-fixtures.ts",
+        "../source/test-libraries/typescript-project.ts"
     ]
 }

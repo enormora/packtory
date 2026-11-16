@@ -236,9 +236,11 @@ function dependencySourcePathCandidates(
             });
         })
     ];
-    return candidatePaths.map(function (candidatePath) {
-        return path.normalize(candidatePath);
-    });
+    return Array.from(
+        new Set(candidatePaths.map(function (candidatePath) {
+            return path.normalize(candidatePath);
+        }))
+    );
 }
 
 function installedDependencyDisplayPath(packageName: string): string {
@@ -273,6 +275,26 @@ function unlinkedDependencyNames(
     });
 }
 
+async function findInstalledDependencySourcePath(
+    dependencies: PublishedArtifactSmokeGateDependencies,
+    bundles: readonly PublishedPackageWithManifest[],
+    packageName: string
+): Promise<string | undefined> {
+    const repositoryPath = installedDependencySourcePath(dependencies.repositoryFolder, packageName);
+    const repositoryReadability = await dependencies.fileManager.checkReadability(repositoryPath);
+    if (repositoryReadability.isReadable) {
+        return repositoryPath;
+    }
+    const fallbackPaths = dependencySourcePathCandidates(dependencies.repositoryFolder, bundles, packageName).slice(1);
+    for (const sourcePath of fallbackPaths) {
+        const readability = await dependencies.fileManager.checkReadability(sourcePath);
+        if (readability.isReadable) {
+            return sourcePath;
+        }
+    }
+    return undefined;
+}
+
 async function collectMissingInstalledDependencyIssues(
     dependencies: PublishedArtifactSmokeGateDependencies,
     bundles: readonly PublishedPackageWithManifest[],
@@ -281,15 +303,8 @@ async function collectMissingInstalledDependencyIssues(
     const issues: string[] = [];
     for (const bundle of bundles) {
         for (const dependencyName of unstagedDependencyNames(bundle, stagedNames)) {
-            const sourcePaths = dependencySourcePathCandidates(dependencies.repositoryFolder, bundles, dependencyName);
-            const readabilityResults = await Promise.all(sourcePaths.map(async function (sourcePath) {
-                return await dependencies.fileManager.checkReadability(sourcePath);
-            }));
-            if (
-                readabilityResults.every(function (readability) {
-                    return !readability.isReadable;
-                })
-            ) {
+            const sourcePath = await findInstalledDependencySourcePath(dependencies, bundles, dependencyName);
+            if (sourcePath === undefined) {
                 issues.push(
                     [
                         `Package "${bundle.name}" dependency "${dependencyName}" is not installed at`,
@@ -307,21 +322,6 @@ function packageFolderPath(temporaryFolder: string, packageName: string): string
     return path.join(temporaryFolder, installedDependenciesFolderName, packageName);
 }
 
-async function installedDependencyLinkSourcePath(
-    dependencies: PublishedArtifactSmokeGateDependencies,
-    bundles: readonly PublishedPackageWithManifest[],
-    packageName: string
-): Promise<string> {
-    const sourcePaths = dependencySourcePathCandidates(dependencies.repositoryFolder, bundles, packageName);
-    for (const sourcePath of sourcePaths) {
-        const readability = await dependencies.fileManager.checkReadability(sourcePath);
-        if (readability.isReadable) {
-            return sourcePath;
-        }
-    }
-    return installedDependencySourcePath(dependencies.repositoryFolder, packageName);
-}
-
 async function linkInstalledDependencies(
     dependencies: PublishedArtifactSmokeGateDependencies,
     bundles: readonly PublishedPackageWithManifest[],
@@ -331,7 +331,8 @@ async function linkInstalledDependencies(
     const linkedNames = new Set<string>();
     for (const bundle of bundles) {
         for (const dependencyName of unlinkedDependencyNames(bundle, stagedNames, linkedNames)) {
-            const sourcePath = await installedDependencyLinkSourcePath(dependencies, bundles, dependencyName);
+            const sourcePath = await findInstalledDependencySourcePath(dependencies, bundles, dependencyName) ??
+                installedDependencySourcePath(dependencies.repositoryFolder, dependencyName);
             await dependencies.linkDirectory(
                 sourcePath,
                 packageFolderPath(temporaryFolder, dependencyName),
