@@ -7,11 +7,18 @@ import {
     type FunctionDeclaration,
     type NamespaceImport,
     type Symbol as TypeScriptMorphSymbol,
-    type ReferenceEntry
+    type ReferenceEntry,
+    type ts
 } from 'ts-morph';
 
-export function referenceTarget(reference: ReferenceEntry): TypeScriptMorphNodeType {
+type ReferenceLocation = Pick<ReferenceEntry, 'getNode' | 'getSourceFile' | 'getTextSpan'>;
+
+export function referenceTarget(reference: ReferenceLocation): TypeScriptMorphNodeType {
     const span = reference.getTextSpan();
+    const node = reference.getNode();
+    if (!node.wasForgotten() && node.getStart() === span.getStart() && node.getWidth() === span.getLength()) {
+        return node;
+    }
     const source = reference.getSourceFile();
     return source.getDescendantAtStartWithWidth(span.getStart(), span.getLength()) ??
         source.getDescendantAtPos(span.getStart()) ?? source;
@@ -23,10 +30,30 @@ export function localBindingReferences(name: Identifier, declaration: VariableDe
     });
 }
 
+type BindingReferences = WeakMap<ts.Identifier, readonly TypeScriptMorphNodeType[]>;
+const bindingReferences = new WeakMap<ts.Program, BindingReferences>();
+
+function referencesInProgram(program: ts.Program): BindingReferences {
+    const existing = bindingReferences.get(program);
+    if (existing !== undefined) {
+        return existing;
+    }
+    const references: BindingReferences = new WeakMap();
+    bindingReferences.set(program, references);
+    return references;
+}
+
 export function bindingReferenceTargets(name: Identifier): readonly TypeScriptMorphNodeType[] {
-    return name.findReferences().flatMap(function (group) {
+    const references = referencesInProgram(name.getProject().getProgram().compilerObject);
+    const existing = references.get(name.compilerNode);
+    if (existing !== undefined) {
+        return existing;
+    }
+    const targets = name.findReferences().flatMap(function (group) {
         return group.getReferences().map(referenceTarget);
     });
+    references.set(name.compilerNode, targets);
+    return targets;
 }
 
 type BindingReferenceResolver = (name: Identifier) => readonly (TypeScriptMorphNodeType | undefined)[];
