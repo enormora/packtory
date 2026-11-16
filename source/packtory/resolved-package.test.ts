@@ -129,28 +129,58 @@ function recordPublishedPackageInputs(): RecordedPublishedPackageInputs {
 }
 
 suite('resolved-package', function () {
-    test('passes each resolved package source folder to checks', async function () {
-        const packages = [ 'package-a', 'package-b' ].map(function (name) {
-            return {
-                ...resolvedPackage(name, checkBundle(name, [])),
-                resolveOptions: { ...createResolveOptions(), sourcesFolder: `/source/${name}` }
-            };
+    suite('check inputs', function () {
+        test('passes each resolved package source folder to checks', async function () {
+            const packages = [ 'package-a', 'package-b' ].map(function (name) {
+                return {
+                    ...resolvedPackage(name, checkBundle(name, [])),
+                    resolveOptions: { ...createResolveOptions(), sourcesFolder: `/source/${name}` }
+                };
+            });
+            let calls = 0;
+            const result = await buildChecksResult(
+                {
+                    ...unusedCheckDependencies,
+                    async runChecks(input) {
+                        calls += 1;
+                        assert.deepStrictEqual(
+                            input.sourceFolders,
+                            new Map([
+                                [ 'package-a', '/source/package-a' ],
+                                [ 'package-b', '/source/package-b' ]
+                            ])
+                        );
+                        return [];
+                    }
+                },
+                validated({
+                    packages: packages.map(function ({ name }) {
+                        return packageConfiguration(name);
+                    })
+                }),
+                packages
+            );
+            assert.strictEqual(result.isOk, true);
+            assert.strictEqual(calls, 1);
         });
-        let calls = 0;
-        const result = await buildChecksResult({
-            ...unusedCheckDependencies,
-            async runChecks(input) {
-                calls += 1;
-                assert.deepStrictEqual(input.sourceFolders, new Map([
-                    [ 'package-a', '/source/package-a' ], [ 'package-b', '/source/package-b' ]
-                ]));
-                return [];
-            }
-        }, validated({ packages: packages.map(function ({ name }) {
-            return packageConfiguration(name);
-        }) }), packages);
-        assert.strictEqual(result.isOk, true);
-        assert.strictEqual(calls, 1);
+
+        test('buildChecksResult threads per-package check settings to the runner so cross-package consent suppresses issues', async function () {
+            const consent = { noDuplicatedFiles: { allowList: [ 'shared.ts' ] } };
+
+            const result = await buildChecksResult(
+                unusedCheckDependencies,
+                validated({
+                    checks: { noDuplicatedFiles: { enabled: true } },
+                    packages: [
+                        packageConfiguration('package-a', { checks: consent }),
+                        packageConfiguration('package-b', { checks: consent })
+                    ]
+                }),
+                duplicateResolvedPackages()
+            );
+
+            assert.strictEqual(result.isOk, true);
+        });
     });
 
     test('createResolvedPackage assembles the three fields into a ResolvedPackage', function () {
@@ -192,24 +222,6 @@ suite('resolved-package', function () {
             type: 'checks',
             issues: [ 'File "shared.ts" is included in multiple packages: package-a, package-b' ]
         });
-    });
-
-    test('buildChecksResult threads per-package check settings to the runner so cross-package consent suppresses issues', async function () {
-        const consent = { noDuplicatedFiles: { allowList: [ 'shared.ts' ] } };
-
-        const result = await buildChecksResult(
-            unusedCheckDependencies,
-            validated({
-                checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [
-                    packageConfiguration('package-a', { checks: consent }),
-                    packageConfiguration('package-b', { checks: consent })
-                ]
-            }),
-            duplicateResolvedPackages()
-        );
-
-        assert.strictEqual(result.isOk, true);
     });
 
     test('buildChecksResult falls back to commonPackageSettings.mainPackageManifest when the package does not override it', async function () {

@@ -17,7 +17,9 @@ suite('compiler input validation scopes', function () {
                 }
             });
             const inputs: CompilerInputs = [ {
-                operation: 'directoryExists', filePath: workspace.folder, value: JSON.stringify(true)
+                operation: 'directoryExists',
+                filePath: workspace.folder,
+                value: JSON.stringify(true)
             } ];
             await validator.run(async function () {
                 assert.strictEqual(await validator.isCurrent(inputs), true);

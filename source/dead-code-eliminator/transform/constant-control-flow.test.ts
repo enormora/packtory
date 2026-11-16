@@ -3,6 +3,7 @@ import { runInNewContext } from 'node:vm';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createSourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { simplifyConstantControlFlow } from './constant-control-flow.ts';
 
@@ -22,8 +23,9 @@ suite('constant control flow', function () {
 
         for (const depth of [ 1, 32, 64 ]) {
             test(`reduces ${depth} nested constant branches`, function () {
-                const content = 'export function result(){' + 'if(true){'.repeat(depth) + 'return 42;' +
-                    '}else{unreachable();}'.repeat(depth) + '}';
+                const content = `export function result(){${'if(true){'.repeat(depth)}return 42;${
+                    '}else{unreachable();}'.repeat(depth)
+                }}`;
                 const source = createProject().createSourceFile('input.js', content);
                 simplifyConstantControlFlow(createSourcePreparation(source));
                 assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.IfStatement), []);
@@ -86,7 +88,8 @@ suite('constant control flow', function () {
     for (const condition of [ true, false ]) {
         test(`preserves condition effects before selecting the ${condition} branch`, function () {
             const source = createProject().createSourceFile(
-                'input.js', `if((effect(),${condition}))selected();else rejected();`
+                'input.js',
+                `if((effect(),${condition}))selected();else rejected();`
             );
             simplifyConstantControlFlow(createSourcePreparation(source));
             const calls: string[] = [];
@@ -107,15 +110,27 @@ suite('constant control flow', function () {
     }
 
     test('keeps the original location of repeated code in nested selected branches', function () {
-        const source = createProject().createSourceFile('input.js', [
-            'if(false){', 'marker();', '}else{', 'if(true){', 'marker();', '}else{', 'marker();', '}', '}'
-        ].join('\n'));
+        const source = createProject().createSourceFile(
+            'input.js',
+            [
+                'if(false){',
+                'marker();',
+                '}else{',
+                'if(true){',
+                'marker();',
+                '}else{',
+                'marker();',
+                '}',
+                '}'
+            ]
+                .join('\n')
+        );
         const preparation = createSourcePreparation(source);
         simplifyConstantControlFlow(preparation);
         const calls = source.getDescendantsOfKind(SyntaxKind.CallExpression);
         assert.strictEqual(calls.length, 1);
         const [ retained ] = calls;
-        assert.ok(retained !== undefined);
+        assertDefined(retained);
         assert.strictEqual(preparation.originalLineFor(retained), 5);
     });
 
