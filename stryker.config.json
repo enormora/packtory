@@ -22,10 +22,6 @@
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
-            "source/common/package-layout.test.ts",
-            "source/dead-code-eliminator/invariants/target-candidates.test.ts",
-            "source/dead-code-eliminator/invariants/output-invariants.test.ts",
-            "source/dead-code-eliminator/exports/namespace-demand.test.ts",
             "source/configuration/**/*.test.ts",
             "source/command-line-interface/**/*.test.ts",
             "source/common/**/*.test.ts",
@@ -37,11 +33,12 @@
             "source/bootstrap-npm-package/bootstrap-runner.test.ts",
             "source/bundle-emitter/repository-coherence.test.ts",
             "source/bundle-emitter/emitter.test.ts",
-            "source/dead-code-eliminator/eliminator-reuse.test.ts",
-            "source/dead-code-eliminator/evaluation/recursive-call.test.ts",
+            "source/dead-code-eliminator/exports/namespace-demand.test.ts",
+            "source/dead-code-eliminator/transform/**/*.test.ts",
             "source/dead-code-eliminator/!(eliminator*|dead-code-elimination*).test.ts",
-            "source/*/*/**/*.test.ts",
+            "source/dead-code-eliminator/*/**/*.test.ts",
             "source/!(dead-code-eliminator)/**/*.test.ts",
+            "source/dead-code-eliminator/eliminator-reuse.test.ts",
             "source/**/*.test.ts"
         ]
     },
