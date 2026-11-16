@@ -1,18 +1,11 @@
 import { Node as TypeScriptMorphNode, type ts } from 'ts-morph';
-import { createSyntaxAnalysis, type SyntaxAnalysisResults } from './syntax-analysis.ts';
 
-type TypeAncestry = WeakMap<ts.Node, boolean>;
+export type TypeAncestry = WeakMap<ts.Node, boolean>;
 type ReadParent = (node: TypeScriptMorphNode) => TypeScriptMorphNode | undefined;
 type AncestryResult = {
     readonly pending: readonly TypeScriptMorphNode[];
     readonly result: boolean;
 };
-
-const typeAncestryResults: SyntaxAnalysisResults<TypeAncestry> = new WeakMap();
-
-function createTypeAncestry(): TypeAncestry {
-    return new WeakMap();
-}
 
 function* ancestorChain(node: TypeScriptMorphNode, parentFor: ReadParent): Iterable<TypeScriptMorphNode> {
     for (let parent = parentFor(node); parent !== undefined; parent = parentFor(parent)) {
@@ -50,13 +43,4 @@ export function createTypeAncestorAnalysis(
         }
         return ancestry.result;
     };
-}
-
-function readParent(node: TypeScriptMorphNode): TypeScriptMorphNode | undefined {
-    return node.getParent();
-}
-
-export function hasTypeAncestor(node: TypeScriptMorphNode): boolean {
-    const results = createSyntaxAnalysis(createTypeAncestry, typeAncestryResults)(node.getSourceFile());
-    return createTypeAncestorAnalysis(readParent, results)(node);
 }

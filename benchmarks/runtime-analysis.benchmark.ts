@@ -11,7 +11,8 @@ import {
     namespaceDemandLimits,
     namespaceSyntaxBudgetSize
 } from '../source/dead-code-eliminator/exports/namespace-demand-solver.ts';
-import { createTypeAncestorAnalysis, hasTypeAncestor } from '../source/source-transformation/type-ancestors.ts';
+import { createTypeAncestorAnalysis } from '../source/source-transformation/type-ancestors.ts';
+import { hasTypeAncestor } from '../source/source-transformation/type-ancestors.composition.ts';
 import { measurePreparedAsynchronousTask } from './tinybench-measurement.ts';
 
 const maximumMilliseconds = 250;
