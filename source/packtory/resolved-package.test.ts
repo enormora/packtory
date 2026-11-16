@@ -283,7 +283,7 @@ suite('resolved-package', function () {
 
     suite('generated check packages', function () {
         test('materializes generated packages for node engine compatibility checks', async function () {
-            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('package-a');
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs();
             const result = await buildChecksResult(
                 dependencies,
                 validated({
