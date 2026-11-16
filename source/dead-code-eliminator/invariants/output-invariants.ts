@@ -134,7 +134,7 @@ function genericMissingTargetIssue(context: ModuleCheck, specifier: string): str
         .join(' ');
 }
 
-function runtimeMissingTargetIssue(context: ModuleCheck, specifier: string): string {
+function missingTargetIssue(context: ModuleCheck, specifier: string): string {
     const declarationOnly = runtimeDeclarationOnlyCandidates(context, specifier);
     return declarationOnly.length === 0
         ? genericMissingTargetIssue(context, specifier)
@@ -143,15 +143,6 @@ function runtimeMissingTargetIssue(context: ModuleCheck, specifier: string): str
             `but only declaration targets remain: ${declarationOnly.join(', ')}`
         ]
             .join(' ');
-}
-
-const missingTargetIssueByMode: Readonly<Record<CheckMode, (context: ModuleCheck, specifier: string) => string>> = {
-    declaration: genericMissingTargetIssue,
-    runtime: runtimeMissingTargetIssue
-};
-
-function missingTargetIssue(context: ModuleCheck, specifier: string): string {
-    return missingTargetIssueByMode[context.mode](context, specifier);
 }
 
 function checkTargetExists(context: ModuleCheck, specifier: string): ResolvedTarget | undefined {
