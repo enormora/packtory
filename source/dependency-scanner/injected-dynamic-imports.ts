@@ -58,8 +58,23 @@ function referencesDeclaration(identifier: Readonly<Identifier>, declaration: Ty
     return symbolDeclarations(identifier.getSymbol()).includes(declaration);
 }
 
+function parameterHasName(parameter: ParameterDeclaration, name: string): boolean {
+    return parameter.getNameNode().asKind(SyntaxKind.Identifier)?.compilerNode.text === name;
+}
+
+function hasEnclosingFunctionParameter(identifier: Readonly<Identifier>): boolean {
+    return identifier.getAncestors().some(function (ancestor) {
+        return TypeScriptMorphNode.isFunctionDeclaration(ancestor) &&
+            ancestor.getParameters().some(function (parameter) {
+                return parameterHasName(parameter, identifier.compilerNode.text);
+            });
+    });
+}
+
 function parameterForIdentifier(identifier: Readonly<Identifier>): ParameterDeclaration | undefined {
-    return symbolDeclarations(identifier.getSymbol()).find(TypeScriptMorphNode.isParameterDeclaration);
+    return hasEnclosingFunctionParameter(identifier)
+        ? symbolDeclarations(identifier.getSymbol()).find(TypeScriptMorphNode.isParameterDeclaration)
+        : undefined;
 }
 
 function functionParameterTarget(parameter: ParameterDeclaration): FunctionParameterTarget | undefined {
@@ -88,7 +103,10 @@ function stringLiteralArguments(callExpression: Readonly<CallExpression>): reado
         .filter(isStringLiteralArgument);
 }
 
-function collectParameterInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
+function collectParameterInjectedImportCalls(
+    callExpression: Readonly<CallExpression>,
+    literalArguments: readonly StringLiteralArgument[]
+): readonly InjectedImportCall[] {
     const callee = callExpression.getExpression().asKind(SyntaxKind.Identifier);
     if (callee === undefined) {
         return [];
@@ -100,7 +118,7 @@ function collectParameterInjectedImportCalls(callExpression: Readonly<CallExpres
         return [];
     }
 
-    return stringLiteralArguments(callExpression).map(function (literalArgument) {
+    return literalArguments.map(function (literalArgument) {
         return {
             functionDeclaration: target.functionDeclaration,
             injectedParameterIndex: target.parameterIndex,
@@ -110,20 +128,25 @@ function collectParameterInjectedImportCalls(callExpression: Readonly<CallExpres
     });
 }
 
-function collectPropertyInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
+function collectPropertyInjectedImportCalls(
+    callExpression: Readonly<CallExpression>,
+    literalArguments: readonly StringLiteralArgument[]
+): readonly InjectedImportCall[] {
     const callee = callExpression.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
     if (callee === undefined) {
         return [];
     }
 
     const containerIdentifier = callee.getExpression().asKind(SyntaxKind.Identifier);
-    const parameter = containerIdentifier === undefined ? undefined : parameterForIdentifier(containerIdentifier);
+    const parameter = containerIdentifier === undefined
+        ? undefined
+        : parameterForIdentifier(containerIdentifier);
     const target = parameter === undefined ? undefined : functionParameterTarget(parameter);
     if (target === undefined) {
         return [];
     }
 
-    return stringLiteralArguments(callExpression).map(function (literalArgument) {
+    return literalArguments.map(function (literalArgument) {
         return {
             containerParameterIndex: target.parameterIndex,
             functionDeclaration: target.functionDeclaration,
@@ -135,9 +158,13 @@ function collectPropertyInjectedImportCalls(callExpression: Readonly<CallExpress
 }
 
 function collectInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
+    const literalArguments = stringLiteralArguments(callExpression);
+    if (literalArguments.length === 0) {
+        return [];
+    }
     return [
-        ...collectParameterInjectedImportCalls(callExpression),
-        ...collectPropertyInjectedImportCalls(callExpression)
+        ...collectParameterInjectedImportCalls(callExpression, literalArguments),
+        ...collectPropertyInjectedImportCalls(callExpression, literalArguments)
     ];
 }
 
