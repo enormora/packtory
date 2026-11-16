@@ -281,7 +281,10 @@ Impure top-level statements seed reachability along with the bindings they refer
 
 Local expressions can also be simplified by bounded evaluation before building the reachability graph. The evaluator follows primitive values and fresh records through synchronous functions, known branches, local assignments, finite `for`, `while`, and `do...while` loops, and nested calls. Loops support unlabelled `break` and `continue` within the same evaluation budget. Repeated calls with the same primitive arguments can share proven primitive results within an evaluated expression. Arguments still evaluate in order; record arguments and results preserve their mutations and identity. Proven primitive results replace calls, property reads, binary operations, unary operations, and `typeof`, allowing unused implementations to disappear even when their results remain public. Unknown values, observable operations, exceptions, direct eval, and exhausted evaluation budgets preserve the computation. Evaluation interprets supported syntax without running application code or accessing the environment.
 
-Preparation stages and bundle preparation process each distinct source state once and stop after 32 passes each, retaining any remaining computation.
+Runtime and bundle preparation each stop after 32 distinct source states, retaining
+any remaining computation. Nested constant branches are reduced together while
+preserving retained source locations, so their nesting depth does not consume
+additional preparation passes.
 
 Synchronous `using` declarations can disappear when their resources are proven nullish. Other resource declarations retain initialization and disposal, including the suspension of `await using`.
 
@@ -454,9 +457,11 @@ Declaration consumers are checked separately with positive and negative TypeScri
 examples. Source-map properties check decoded indices, traced positions, names, and
 embedded sources through successive edits without physical authored files.
 
-Mutation CI uses complementary source-file ranges to keep each job within its
-runtime limit. Both shards share the base Stryker settings; `Mutation testing`
-requires both shards to pass.
+Mutation testing runs in one CI job with a 20-minute limit. Focused suites run
+before broad semantic scenarios so faulty mutations can fail sooner. Every
+eligible source file and the complete unit suite remain in scope. Per-mutant
+timeouts add two seconds to the measured test duration and runner overhead;
+timeout results fail the `Mutation testing` check.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.
 Object snapshots preserve enumerable string properties and object identity; generated
