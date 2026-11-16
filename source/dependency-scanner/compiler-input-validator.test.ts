@@ -2,8 +2,22 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { withCompilerWorkspace } from '../test-libraries/compiler-workspace.ts';
 import { contentDigest } from '../common/value-fingerprint.ts';
-import { createCompilerInputValidator } from './compiler-input-validator.ts';
+import { createCompilerInputValidator, type CompilerInputValidator } from './compiler-input-validator.ts';
 import type { CompilerInputs } from './compiler-inputs.ts';
+
+async function assertReadReuseWithinScope(
+    validator: CompilerInputValidator,
+    inputs: CompilerInputs,
+    readCount: () => number
+): Promise<void> {
+    await validator.run(async function () {
+        assert.strictEqual(await validator.isCurrent(inputs), true);
+        assert.strictEqual(await validator.isCurrent(inputs), true);
+        assert.strictEqual(readCount(), 1);
+    });
+    assert.strictEqual(await validator.isCurrent(inputs), true);
+    assert.strictEqual(readCount(), 2);
+}
 
 suite('compiler input validation scopes', function () {
     test('shares directory status reads within an operation and refreshes them afterward', async function () {
@@ -21,13 +35,9 @@ suite('compiler input validation scopes', function () {
                 filePath: workspace.folder,
                 value: JSON.stringify(true)
             } ];
-            await validator.run(async function () {
-                assert.strictEqual(await validator.isCurrent(inputs), true);
-                assert.strictEqual(await validator.isCurrent(inputs), true);
-                assert.strictEqual(reads, 1);
+            await assertReadReuseWithinScope(validator, inputs, function () {
+                return reads;
             });
-            assert.strictEqual(await validator.isCurrent(inputs), true);
-            assert.strictEqual(reads, 2);
         });
     });
 
@@ -47,13 +57,9 @@ suite('compiler input validation scopes', function () {
                 filePath,
                 value: JSON.stringify(await workspace.fileManager.getRealPath(filePath))
             } ];
-            await validator.run(async function () {
-                assert.strictEqual(await validator.isCurrent(inputs), true);
-                assert.strictEqual(await validator.isCurrent(inputs), true);
-                assert.strictEqual(reads, 1);
+            await assertReadReuseWithinScope(validator, inputs, function () {
+                return reads;
             });
-            assert.strictEqual(await validator.isCurrent(inputs), true);
-            assert.strictEqual(reads, 2);
         });
     });
 
