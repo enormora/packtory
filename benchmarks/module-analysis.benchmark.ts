@@ -10,7 +10,8 @@ import {
     runRuntimePreparationBenchmark,
     runNamespaceSizingBenchmark,
     runBindingReferenceBenchmark,
-    runPublishedDependencyBenchmark
+    runPublishedDependencyBenchmark,
+    runTypeAncestorBenchmark
 } from './runtime-analysis.benchmark.ts';
 import type { BenchmarkCheck } from './benchmark-checks.ts';
 import type { BenchmarkConfiguration } from './benchmark-configuration.ts';
@@ -137,5 +138,8 @@ export async function runModuleAnalysisBenchmarks(
     });
     await check('published-dependencies/repository-lookup', async function () {
         await runPublishedDependencyBenchmark(configuration.thresholdMultiplier, writeLine);
+    });
+    await check('type-positions/shared-ancestors', async function () {
+        await runTypeAncestorBenchmark(configuration.thresholdMultiplier, writeLine);
     });
 }

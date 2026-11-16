@@ -16,6 +16,7 @@ import {
     verify,
     withPackageManifest
 } from '../source/test-libraries/published-artifact-smoke-gate-fixtures.ts';
+import { createTypeAncestorAnalysis, hasTypeAncestor } from '../source/source-transformation/type-ancestors.ts';
 import { measurePreparedAsynchronousTask } from './tinybench-measurement.ts';
 
 const maximumMilliseconds = 250;
@@ -191,6 +192,58 @@ export async function runRuntimePreparationBenchmark(
         };
     });
     writeLine(`- ${name}: median ${measurement.medianMilliseconds.toFixed(1)}ms, samples ${measurement.sampleCount}`);
+    assert.ok(
+        measurement.medianMilliseconds <= maximumMilliseconds * thresholdMultiplier,
+        `${name} exceeded ${maximumMilliseconds}ms`
+    );
+}
+
+export async function runTypeAncestorBenchmark(
+    thresholdMultiplier: number,
+    writeLine: (message: string) => void
+): Promise<void> {
+    const name = 'type-positions/shared-ancestors';
+    const depth = 64;
+    const referenceCount = 256;
+    const maximumParentReads = 400;
+    const measurement = await measurePreparedAsynchronousTask(name, async function () {
+        const project = new Project({ useInMemoryFileSystem: true, skipLoadingLibFiles: true });
+        const source = project.createSourceFile(
+            'source.ts',
+            `function read(){${'{'.repeat(depth)}return [${
+                Array
+                    .from({ length: referenceCount }, function () {
+                        return 'value';
+                    })
+                    .join(',')
+            }];${'}'.repeat(depth)}} type Value=typeof value;`
+        );
+        const identifiers = source.getDescendantsOfKind(SyntaxKind.Identifier);
+        let parentReads = 0;
+        const analyze = createTypeAncestorAnalysis(function (node) {
+            parentReads += 1;
+            return node.getParent();
+        }, new WeakMap());
+        return async function () {
+            let typeReferences = 0;
+            for (let iteration = 0; iteration < preparationCount; iteration += 1) {
+                for (const identifier of identifiers) {
+                    const result = hasTypeAncestor(identifier);
+                    assert.strictEqual(result, analyze(identifier));
+                    typeReferences += Number(result);
+                }
+            }
+            assert.strictEqual(typeReferences, preparationCount);
+            assert.ok(parentReads <= maximumParentReads, `Shared ancestry required ${parentReads} parent reads`);
+        };
+    });
+    writeLine(
+        `- ${name}: median ${
+            measurement
+                .medianMilliseconds
+                .toFixed(1)
+        }ms, at most ${maximumParentReads} parent reads, samples ${measurement.sampleCount}`
+    );
     assert.ok(
         measurement.medianMilliseconds <= maximumMilliseconds * thresholdMultiplier,
         `${name} exceeded ${maximumMilliseconds}ms`
