@@ -435,53 +435,13 @@ Linking and dead-code elimination share the `source-transformation` module. Impo
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
 
-### Correctness tests
-
-DCE semantic tests run original and emitted modules in separate Node processes with
-three-second timeouts. Each configured runtime root is observed independently:
-sorted export names, exported values, evaluation effects, console output, and
-exception classes. The selected public function is called explicitly; live exports
-are observed again afterward. A missing selected export fails the probe.
-
-Bounded semantic generators cover destructuring, defaults, iterators, key coercion,
-class heritage and initialization, namespaces, dynamic imports, reexports, and eval.
-They vary small integers, source paths, layout, and declaration companions while
-keeping module graphs and scope valid during shrinking. Unit regressions retain
-every scenario independently of random sampling. Property tests also run every
-declaration/layout combination as an explicit example. Fast-check failures include
-the seed, shrink path, parameters, source listing, and elimination trace.
-
-Metamorphic tests compare both inputs, each input with its own optimized output,
-and both optimized outputs. Output invariants and idempotence are additional checks.
-Declaration consumers are checked separately with positive and negative TypeScript
-examples. Source-map properties check decoded indices, traced positions, names, and
-embedded sources through successive edits without physical authored files.
-
-Mutation testing runs in one CI job with a 20-minute limit. Schema, diagnostic, and evaluator assertions run
-before native semantic scenarios so faulty mutations can fail sooner. Every
-eligible source file and the complete unit suite remain in scope. Per-mutant
-timeouts allow five seconds plus runner overhead, independently of covered-suite duration;
-timeout results fail the `Mutation testing` check.
-Timeout locations are logged as each mutant finishes, including when the overall run is interrupted.
-The initial run executes the complete unit suite with a separate 15-minute limit.
-Completed JSON reports are retained as workflow artifacts.
-
-These observations cover bounded programs, not arbitrary JavaScript equivalence.
-Object snapshots preserve enumerable string properties and object identity; generated
-consumer actions explicitly exercise namespace escape, getters, and live bindings.
-Uncalled functions, arbitrary symbols, prototypes, and external asynchronous activity
-need dedicated scenarios. Modules cannot legally shadow the `eval` binding; tests
-cover shadowed lexical lookups inside direct eval instead. Soundness generators do
-not supply trusted-purity metadata; intentionally false purity claims belong to the
-external-purity tests.
-
 ## 7. Stage: Checks
 
 After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules. Most rules inspect the analyzed bundles directly; `typeScriptIntegrity` additionally materializes the generated `package.json` in memory and audits the emitted package surface. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:
 
 - Checks see the bundles **after dead-code elimination**, so e.g. `noUnusedBundleDependencies` correctly reports a `bundleDependencies` entry whose imports have been tree-shaken away.
 - Rules are independent and run in arbitrary order; failures are aggregated into a single error.
-- `typeScriptIntegrity` is the only rule that needs a toolchain, so it is the only rule built by a factory: the composition root injects the `ts-morph` project factory and the package-resolution checker, and the rule itself only decides which resolution kinds and declarations to check. The toolchain adapters return plain data (diagnostics, resolution problems), which keeps path resolution, reachability, grouping and message formatting free of `ts-morph` and testable without building a TypeScript program. The real toolchain is exercised by `integration-tests/checks`.
+- `typeScriptIntegrity` is the only rule that needs a toolchain, so it is the only rule built by a factory: the composition root injects the `ts-morph` project factory and the package-resolution checker, and the rule itself only decides which resolution kinds and declarations to check. The toolchain adapters return plain data (diagnostics, resolution problems), which keeps path resolution, reachability, grouping and message formatting free of `ts-morph` and testable without building a TypeScript program.
 
 ## 8. Stage: Version Manager
 
