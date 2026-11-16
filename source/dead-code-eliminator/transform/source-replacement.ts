@@ -4,6 +4,16 @@ import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 export type SourcePart = TypeScriptMorphNode | string;
 
 export function sourceReplacement(node: TypeScriptMorphNode, parts: readonly SourcePart[]): readonly SourceTextEdit[] {
+    return rewriteRetainedSource(node, parts, function () {
+        return [];
+    });
+}
+
+export function rewriteRetainedSource(
+    node: TypeScriptMorphNode,
+    parts: readonly SourcePart[],
+    rewrite: (retained: TypeScriptMorphNode) => readonly SourceTextEdit[]
+): readonly SourceTextEdit[] {
     let cursor = { offset: node.getStart(), content: '' };
     const edits: SourceTextEdit[] = [];
     for (const part of parts) {
@@ -14,6 +24,7 @@ export function sourceReplacement(node: TypeScriptMorphNode, parts: readonly Sou
                 throw new Error('Retained source range lies outside replacement');
             }
             edits.push({ start: cursor.offset, end: part.getStart(), content: cursor.content });
+            edits.push(...rewrite(part));
             cursor = { offset: part.getEnd(), content: '' };
         }
     }

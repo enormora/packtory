@@ -11,12 +11,12 @@ import {
     type Statement
 } from 'ts-morph';
 import { isTruthy } from 'remeda';
-import { applySourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
+import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { createSourceEvaluation, type SourceEvaluation } from '../evaluation/constant-evaluation.ts';
 import { conditionOutcome, isShortCircuitOperator, selectsLeft } from '../evaluation/condition-outcome.ts';
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
-import { sourceReplacement, type SourcePart } from './source-replacement.ts';
+import { rewriteRetainedSource, type SourcePart } from './source-replacement.ts';
 import { primitiveSource } from './primitive-source.ts';
 import { removeUnreachableStatements } from './unreachable-statements.ts';
 
@@ -147,18 +147,15 @@ function replacementSource(
     return emptyDoSource(node, evaluate);
 }
 
-function controlFlowEdits(sourceFile: SourceFile): ReturnType<typeof sourceReplacement> {
+function controlFlowEdits(sourceFile: SourceFile): ReturnType<typeof rewriteRetainedSource> {
     const evaluate = createSourceEvaluation(sourceFile);
-    const edits: ReturnType<typeof sourceReplacement>[number][] = [];
-    sourceFile.forEachDescendant(function (node, traversal) {
+    function rewrite(node: TypeScriptMorphNodeType): ReturnType<typeof rewriteRetainedSource> {
         const content = replacementSource(node, evaluate);
-        if (content === undefined) {
-            return;
-        }
-        edits.push(...sourceReplacement(node, content));
-        traversal.skip();
-    });
-    return edits;
+        return content === undefined
+            ? node.forEachChildAsArray().flatMap(rewrite)
+            : rewriteRetainedSource(node, content, rewrite);
+    }
+    return rewrite(sourceFile);
 }
 
 export function simplifyConstantControlFlow(preparation: SourcePreparation): void {
@@ -166,6 +163,9 @@ export function simplifyConstantControlFlow(preparation: SourcePreparation): voi
     if (hasDynamicScope(sourceFile) || !runtimeSourceIsValid(sourceFile)) {
         return;
     }
-    applySourcePreparation(preparation, controlFlowEdits);
+    const edits = controlFlowEdits(sourceFile);
+    if (edits.length > 0) {
+        preparation.applyEdits(edits);
+    }
     removeUnreachableStatements(preparation);
 }

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { simplifyConstantControlFlow } from './constant-control-flow.ts';
@@ -18,26 +19,17 @@ suite('constant control flow', function () {
             assert.strictEqual(preparation.sourceFile.getFullText(), content);
         });
 
-        test('retains remaining computation after 32 changing passes', function () {
-            const content = 'export const result=1||2;';
-            const preparation = createSourcePreparation(createProject().createSourceFile('input.js', content));
-            let passes = 0;
-            simplifyConstantControlFlow({
-                ...preparation,
-                applyEdits(edits) {
-                    passes += 1;
-                    assert.ok(passes <= 32);
-                    preparation.applyEdits(edits);
-                    preparation.applyEdits([ {
-                        start: 0,
-                        end: preparation.sourceFile.getFullText().length,
-                        content: content + '\n'.repeat(passes)
-                    } ]);
-                }
+        for (const depth of [ 1, 32, 64 ]) {
+            test(`reduces ${depth} nested constant branches`, function () {
+                const content = 'export function result(){' + 'if(true){'.repeat(depth) + 'return 42;' +
+                    '}else{unreachable();}'.repeat(depth) + '}';
+                const source = createProject().createSourceFile('input.js', content);
+                simplifyConstantControlFlow(createSourcePreparation(source));
+                assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.IfStatement), []);
+                assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.CallExpression), []);
+                assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.ReturnStatement)[0]?.getText(), 'return 42;');
             });
-            assert.strictEqual(passes, 32);
-            assert.strictEqual(preparation.sourceFile.getFullText(), content + '\n'.repeat(32));
-        });
+        }
     });
 
     for (
