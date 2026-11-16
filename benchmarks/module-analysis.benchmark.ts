@@ -9,7 +9,8 @@ import { createPublicModuleUsageWorkload } from '../source/test-libraries/public
 import {
     runRuntimePreparationBenchmark,
     runNamespaceSizingBenchmark,
-    runBindingReferenceBenchmark
+    runBindingReferenceBenchmark,
+    runPublishedDependencyBenchmark
 } from './runtime-analysis.benchmark.ts';
 import type { BenchmarkCheck } from './benchmark-checks.ts';
 import type { BenchmarkConfiguration } from './benchmark-configuration.ts';
@@ -133,5 +134,8 @@ export async function runModuleAnalysisBenchmarks(
     });
     await check('binding-references/unchanged-program', async function () {
         await runBindingReferenceBenchmark(configuration.thresholdMultiplier, writeLine);
+    });
+    await check('published-dependencies/repository-lookup', async function () {
+        await runPublishedDependencyBenchmark(configuration.thresholdMultiplier, writeLine);
     });
 }
