@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { runInNewContext } from 'node:vm';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
@@ -36,6 +37,14 @@ suite('constant control flow', function () {
         const [ content, expected ] of [
             [ 'export const result=1+2;', 'export const result=1+2;' ],
             [ 'export const result=unknown||2;', 'export const result=unknown||2;' ],
+            [ 'export const result=unknown?1:2;', 'export const result=unknown?1:2;' ],
+            [ '"use strict";', '"use strict";' ],
+            [ 'if(unknown){effect();}', 'if(unknown){effect();}' ],
+            [ 'if(false){var value=1;}export {value};', 'if(false){var value=1;}export {value};' ],
+            [ 'if(false){function value(){}}export {};', 'if(false){function value(){}}export {};' ],
+            [ 'if(true){effect();}else{var value=1;}', 'if(true){effect();}else{var value=1;}' ],
+            [ 'if(true)effect();', '{ effect(); }' ],
+            [ 'if(false)effect();', ';' ],
             [ 'export const result=true?1:2;', 'export const result=(1);' ],
             [ 'export const result=false?1:2;', 'export const result=(2);' ],
             [ 'export const result=true?1+1:3;', 'export const result=(2);' ],
@@ -73,6 +82,42 @@ suite('constant control flow', function () {
             assert.strictEqual(source.getFullText(), expected);
         });
     }
+
+    for (const condition of [ true, false ]) {
+        test(`preserves condition effects before selecting the ${condition} branch`, function () {
+            const source = createProject().createSourceFile(
+                'input.js', `if((effect(),${condition}))selected();else rejected();`
+            );
+            simplifyConstantControlFlow(createSourcePreparation(source));
+            const calls: string[] = [];
+            runInNewContext(source.getFullText(), {
+                effect() {
+                    calls.push('condition');
+                },
+                selected() {
+                    calls.push('selected');
+                },
+                rejected() {
+                    calls.push('rejected');
+                }
+            });
+            assert.deepStrictEqual(calls, [ 'condition', condition ? 'selected' : 'rejected' ]);
+            assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.IfStatement), []);
+        });
+    }
+
+    test('keeps the original location of repeated code in nested selected branches', function () {
+        const source = createProject().createSourceFile('input.js', [
+            'if(false){', 'marker();', '}else{', 'if(true){', 'marker();', '}else{', 'marker();', '}', '}'
+        ].join('\n'));
+        const preparation = createSourcePreparation(source);
+        simplifyConstantControlFlow(preparation);
+        const calls = source.getDescendantsOfKind(SyntaxKind.CallExpression);
+        assert.strictEqual(calls.length, 1);
+        const [ retained ] = calls;
+        assert.ok(retained !== undefined);
+        assert.strictEqual(preparation.originalLineFor(retained), 5);
+    });
 
     test('preserves code visible to direct eval', function () {
         const content = 'let value=1;eval("value=2");if(false){consume(value);}export const result=value;';
