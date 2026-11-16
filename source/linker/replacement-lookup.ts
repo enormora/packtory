@@ -1,16 +1,22 @@
-import path from 'node:path';
-import { ts as typescript } from 'ts-morph';
+import type { ts as typescript } from 'ts-morph';
 import {
     declarationCompanionCandidates,
     isDeclarationCompanionFilePath
 } from '../common/declaration-companion-paths.ts';
 import { breadthFirstClosure } from '../dead-code-eliminator/reachability/breadth-first-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
-import { indexPublicModules, rootInputFilePaths } from '../package-surface/package-surface-index.ts';
-import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
+import {
+    indexPublicModules,
+    rootInputFilePaths
+} from '../package-surface/package-surface-index.ts';
 import { getRoot } from '../package-surface/root-registry.ts';
 import { toPackageSpecifier, toRootPackageSpecifier } from '../package-surface/specifier-syntax.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
+import {
+    createSubstitutionSourceIndex,
+    namedExports,
+    type SubstitutionSourceIndex
+} from './substitution-source-index.ts';
 
 export type ImportPathReplacement = {
     readonly emittedSpecifier: string;
@@ -49,107 +55,17 @@ function needsImportReplacement(file: string): boolean {
     return !file.endsWith('.map');
 }
 
-type ContentLookup = {
-    readonly contentBySourcePath: ReadonlyMap<string, BundleSubstitutionSource['contents'][number]>;
-    readonly sourcePathByTargetPath: ReadonlyMap<string, string>;
-};
-
-function isDefined<T>(value: T | undefined): value is T {
-    return value !== undefined;
-}
-
-function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
-    const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
-    const sourcePathByTargetPath = new Map<string, string>();
-    for (const content of bundle.contents) {
-        contentBySourcePath.set(content.fileDescription.inputFilePath, content);
-        sourcePathByTargetPath.set(content.fileDescription.targetFilePath, content.fileDescription.inputFilePath);
-    }
-    return { contentBySourcePath, sourcePathByTargetPath };
-}
-
-function exportDeclaration(
-    statement: Readonly<typescript.Statement>
-): Readonly<typescript.ExportDeclaration> | undefined {
-    if (!typescript.isExportDeclaration(statement)) {
-        return undefined;
-    }
-    return statement;
-}
-
-function moduleSpecifierText(statement: Readonly<typescript.ExportDeclaration>): string | undefined {
-    const { moduleSpecifier } = statement;
-    if (
-        moduleSpecifier === undefined || !typescript.isStringLiteral(moduleSpecifier) ||
-        !moduleSpecifier.text.startsWith('.')
-    ) {
-        return undefined;
-    }
-    return moduleSpecifier.text;
-}
-
-function exportDeclarations(content: string): readonly Readonly<typescript.ExportDeclaration>[] {
-    const sourceFile = typescript.createSourceFile(
-        content,
-        content,
-        typescript.ScriptTarget.Latest
-    );
-    return sourceFile
-        .statements
-        .map(exportDeclaration)
-        .filter(isDefined);
-}
-
-function exportedTargetPath(currentTargetFilePath: string, specifier: string): string {
-    return path.posix.normalize(path.posix.join(path.posix.dirname(currentTargetFilePath), specifier));
-}
-
-function exportedInputFilePaths(
-    lookup: ContentLookup,
-    currentTargetFilePath: string,
-    specifier: string
-): readonly string[] {
-    const targetPath = exportedTargetPath(currentTargetFilePath, specifier);
-    const inputFilePaths: string[] = [];
-    for (const candidate of [ targetPath, ...declarationCompanionCandidates(targetPath) ]) {
-        for (const [ targetFilePath, inputFilePath ] of lookup.sourcePathByTargetPath) {
-            if (targetFilePath === candidate) {
-                inputFilePaths.push(inputFilePath);
-            }
-        }
-    }
-    return inputFilePaths;
-}
-
 type ExportState = {
     readonly inputFilePath: string;
     readonly exportName: string | undefined;
 };
 
-function namedExports(
-    declaration: Readonly<typescript.ExportDeclaration>
-): readonly Readonly<typescript.ExportSpecifier>[] {
-    const { exportClause } = declaration;
-    if (exportClause === undefined || !typescript.isNamedExports(exportClause)) {
-        return [];
-    }
-    return Array.from(exportClause.elements);
-}
-
 function isExportStar(declaration: Readonly<typescript.ExportDeclaration>): boolean {
     return declaration.exportClause === undefined;
 }
 
-function declarationInputFilePaths(
-    lookup: ContentLookup,
-    currentTargetFilePath: string,
-    declaration: Readonly<typescript.ExportDeclaration>
-): readonly string[] {
-    return exportedInputFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
-}
-
 function exportedStateNames(
-    lookup: ContentLookup,
+    lookup: SubstitutionSourceIndex,
     state: ExportState
 ): readonly ExportState[] {
     const content = lookup.contentBySourcePath.get(state.inputFilePath);
@@ -157,17 +73,23 @@ function exportedStateNames(
         return Array.from(new Set<ExportState>());
     }
 
-    return exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
-        const inputFilePaths = declarationInputFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
-        const exportStarStates = inputFilePaths
-            .filter(function () {
-                return state.exportName !== 'default' && isExportStar(declaration);
-            })
-            .map(function (nextInputFilePath) {
+    const exported = lookup.exportsOf(content);
+    const declarations = new Set(exported.stars);
+    if (state.exportName === 'default') {
+        declarations.clear();
+    }
+    exported.named.get(state.exportName)?.forEach(function (declaration) {
+        declarations.add(declaration);
+    });
+    return Array.from(declarations).flatMap(function (declaration) {
+        const inputFilePaths = lookup.inputPathsForExport(content.fileDescription.targetFilePath, declaration);
+        if (isExportStar(declaration)) {
+            return inputFilePaths.map(function (nextInputFilePath) {
                 return { inputFilePath: nextInputFilePath, exportName: state.exportName };
             });
-        const namedExportStates = namedExports(declaration)
-            .filter(function (namedExport) {
+        }
+        return namedExports(declaration)
+            .filter(function matchesRequestedName(namedExport) {
                 return namedExport.name.text === state.exportName;
             })
             .flatMap(function (namedExport) {
@@ -176,13 +98,12 @@ function exportedStateNames(
                     return { inputFilePath: nextInputFilePath, exportName: sourceExportName };
                 });
             });
-        return [ ...exportStarStates, ...namedExportStates ];
     });
 }
 
 function publicModuleCanExport(
     rootInputFilePathsForModule: readonly string[],
-    lookup: ContentLookup,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest,
     exportName: string | undefined
 ): boolean {
@@ -213,7 +134,7 @@ function publicModuleCanExport(
 
 function publicModuleReachesSourceFile(
     rootInputFilePathsForModule: readonly string[],
-    lookup: ContentLookup,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest
 ): boolean {
     const closure = breadthFirstClosure(
@@ -222,8 +143,8 @@ function publicModuleReachesSourceFile(
             const content = lookup.contentBySourcePath.get(inputFilePath);
             return content === undefined
                 ? new Array<string>()
-                : exportDeclarations(content.fileDescription.content).flatMap(function (declaration) {
-                    return declarationInputFilePaths(lookup, content.fileDescription.targetFilePath, declaration);
+                : lookup.exportsOf(content).all.flatMap(function (declaration) {
+                    return lookup.inputPathsForExport(content.fileDescription.targetFilePath, declaration);
                 });
         },
         new Set(),
@@ -242,96 +163,96 @@ function publicModuleReachesSourceFile(
 
 function publicModuleCanSatisfyRequest(
     rootInputFilePathsForModule: readonly string[],
-    lookup: ContentLookup,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest
 ): boolean {
+    if (rootInputFilePathsForModule.includes(request.inputFilePath)) {
+        return true;
+    }
     if (request.requiredExportNames.size === 0 && !request.requiresNamespaceExport) {
         return publicModuleReachesSourceFile(rootInputFilePathsForModule, lookup, request);
     }
-    for (const exportName of request.requiredExportNames) {
-        if (!publicModuleCanExport(rootInputFilePathsForModule, lookup, request, exportName)) {
-            return false;
-        }
-    }
-
-    if (!request.requiresNamespaceExport) {
-        return true;
-    }
-
-    return publicModuleCanExport(rootInputFilePathsForModule, lookup, request, undefined);
+    return Array.from(request.requiredExportNames).every(function (exportName) {
+        return publicModuleCanExport(rootInputFilePathsForModule, lookup, request, exportName);
+    }) && (!request.requiresNamespaceExport ||
+        publicModuleCanExport(rootInputFilePathsForModule, lookup, request, undefined));
 }
 
-function shortestSpecifier(specifiers: readonly string[]): string | undefined {
-    const [ specifier ] = specifiers.toSorted(function (left, right) {
-        return left.length - right.length;
-    });
-    return specifier;
+type PublicModule = {
+    readonly specifier: string;
+    readonly inputFilePaths: readonly string[];
+};
+
+function matchingPublicModuleSpecifier(
+    modules: readonly PublicModule[],
+    lookup: SubstitutionSourceIndex,
+    request: ImportPathReplacementRequest
+): string | undefined {
+    return modules
+        .toSorted(function (left, right) {
+            return left.specifier.length - right.specifier.length;
+        })
+        .find(function (module) {
+            return publicModuleCanSatisfyRequest(module.inputFilePaths, lookup, request);
+        })
+        ?.specifier;
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     surface: ExplicitPackageSurface,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest
 ): string | undefined {
-    const lookup = createContentLookup(bundle);
-    const specifiers: string[] = [];
-    const moduleEntries = surface.packageInterface.modules ?? [];
-    for (const moduleEntry of moduleEntries) {
-        const root = getRoot(bundle, moduleEntry.root);
-        const rootPaths = rootInputFilePaths(root);
-        const candidate = toPackageSpecifier(bundle.name, moduleEntry.export);
-        if (publicModuleCanSatisfyRequest(rootPaths, lookup, request)) {
-            specifiers.push(candidate);
-        }
-    }
-
-    return shortestSpecifier(specifiers);
+    const modules = (surface.packageInterface.modules ?? []).map(function (entry) {
+        return {
+            specifier: toPackageSpecifier(bundle.name, entry.export),
+            inputFilePaths: rootInputFilePaths(getRoot(bundle, entry.root))
+        };
+    });
+    return matchingPublicModuleSpecifier(modules, lookup, request);
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     surface: ImplicitPackageSurface,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest
 ): string | undefined {
-    const lookup = createContentLookup(bundle);
-    const specifiers: string[] = [];
-    const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
-    if (publicModuleCanSatisfyRequest(rootInputFilePaths(defaultRoot), lookup, request)) {
-        specifiers.push(bundle.name);
-    }
-
-    for (const root of Object.values(bundle.roots)) {
-        const candidate = toRootPackageSpecifier(bundle.name, root);
-        if (publicModuleCanSatisfyRequest(rootInputFilePaths(root), lookup, request)) {
-            specifiers.push(candidate);
-        }
-    }
-
-    return shortestSpecifier(specifiers) ?? getPublicModuleSpecifierForSourcePath(bundle, request.inputFilePath);
+    const modules = [
+        { specifier: bundle.name, inputFilePaths: rootInputFilePaths(getRoot(bundle, surface.defaultModuleRoot)) },
+        ...Object.values(bundle.roots).map(function (root) {
+            return { specifier: toRootPackageSpecifier(bundle.name, root), inputFilePaths: rootInputFilePaths(root) };
+        })
+    ];
+    return matchingPublicModuleSpecifier(modules, lookup, request) ?? lookup.publicSpecifierFor(request.inputFilePath);
 }
 
 function getExistingPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
+    lookup: SubstitutionSourceIndex,
     request: ImportPathReplacementRequest
 ): string | undefined {
     const { surface } = bundle;
     if (surface.mode === 'files') {
-        return getPublicModuleSpecifierForSourcePath(bundle, request.inputFilePath);
+        return lookup.publicSpecifierFor(request.inputFilePath);
     }
     if (surface.mode === 'implicit') {
-        return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, request);
+        return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, lookup, request);
     }
 
-    return getExplicitPublicModuleSpecifierForSourcePath(bundle, surface, request);
+    return getExplicitPublicModuleSpecifierForSourcePath(bundle, surface, lookup, request);
 }
 
 function findReplacementInBundles(
     request: ImportPathReplacementRequest,
-    bundles: readonly BundleSubstitutionSource[],
-    getTargetPath: (bundle: BundleSubstitutionSource, request: ImportPathReplacementRequest) => string | undefined
+    bundles: readonly PeerModules[]
 ): ReplacementMatch | undefined {
-    for (const bundle of bundles) {
-        const targetPath = getTargetPath(bundle, request);
+    const candidates = bundles.filter(function ({ lookup }) {
+        return lookup.contentBySourcePath.has(request.inputFilePath) || lookup.rootPaths.has(request.inputFilePath);
+    });
+    for (const { bundle, lookup } of candidates) {
+        const targetPath = getExistingPublicModuleSpecifierForSourcePath(bundle, lookup, request);
         if (targetPath !== undefined) {
             return {
                 bundle,
@@ -354,7 +275,7 @@ function findReplacementInBundles(
 function findReplacement(
     request: ImportPathReplacementRequest,
     dependencyModules: readonly DependencyModules[],
-    bundlePeerDependencies: readonly BundleSubstitutionSource[]
+    bundlePeerDependencies: readonly PeerModules[]
 ): ReplacementMatch | undefined {
     const dependencyReplacement = dependencyModules
         .flatMap(function ({ bundle, specifierByInputFilePath }) {
@@ -366,7 +287,7 @@ function findReplacement(
     if (dependencyReplacement !== undefined) {
         return dependencyReplacement;
     }
-    return findReplacementInBundles(request, bundlePeerDependencies, getExistingPublicModuleSpecifierForSourcePath);
+    return findReplacementInBundles(request, bundlePeerDependencies);
 }
 
 function withSubstitutedSourcePath(
@@ -441,7 +362,7 @@ function withSubstitutedSourcePaths(
 function findPathReplacements(
     requests: readonly ImportPathReplacementRequest[],
     dependencyModules: readonly DependencyModules[],
-    bundlePeerDependencies: readonly BundleSubstitutionSource[]
+    bundlePeerDependencies: readonly PeerModules[]
 ): Replacements {
     const importPathReplacements = new Map<string, ImportPathReplacement>();
     const matchedBundleDependencies: string[] = [];
@@ -471,6 +392,11 @@ function findPathReplacements(
     };
 }
 
+type PeerModules = {
+    readonly bundle: BundleSubstitutionSource;
+    readonly lookup: SubstitutionSourceIndex;
+};
+
 export function createPathReplacementLookup(
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
@@ -478,7 +404,10 @@ export function createPathReplacementLookup(
     const dependencyModules = bundleDependencies.map(function indexDependencyModules(bundle) {
         return { bundle, specifierByInputFilePath: indexPublicModules(bundle).specifierByInputFilePath };
     });
+    const peerModules = bundlePeerDependencies.map(function (bundle) {
+        return { bundle, lookup: createSubstitutionSourceIndex(bundle) };
+    });
     return function (requests) {
-        return findPathReplacements(requests, dependencyModules, bundlePeerDependencies);
+        return findPathReplacements(requests, dependencyModules, peerModules);
     };
 }

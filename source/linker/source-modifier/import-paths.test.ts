@@ -22,6 +22,25 @@ function replaceImportPaths(
 }
 
 function registerPassThroughTests(): void {
+    test('skips syntax queries when there are no import replacements', function () {
+        const result = replaceImportPathsWithTransform(
+            {
+                getSourceFile() {
+                    return assert.fail('Empty replacements must not query source syntax');
+                }
+            },
+            '/folder/index.js',
+            'import "./dependency.js";',
+            new Map()
+        );
+
+        assert.deepStrictEqual(result, {
+            content: 'import "./dependency.js";',
+            dependencyReferences: [],
+            sourceMapTransform: undefined
+        });
+    });
+
     test('returns source code unmodified when project is undefined', function () {
         const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
