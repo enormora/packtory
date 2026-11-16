@@ -255,21 +255,34 @@ export async function observeDeadCodeEliminationBehavior(
     }
 }
 
+async function observeComparedPrograms(
+    input: DeadCodeEliminationBehaviorComparison
+): Promise<readonly [DeadCodeEliminationBehaviorObservation, DeadCodeEliminationBehaviorObservation]> {
+    const observations = [
+        observeDeadCodeEliminationBehavior({
+            name: input.name,
+            entry: input.entry,
+            bundles: input.leftBundles
+        }),
+        observeDeadCodeEliminationBehavior({
+            name: input.name,
+            entry: input.entry,
+            bundles: input.rightBundles
+        })
+    ] as const;
+    try {
+        return await Promise.all(observations);
+    } finally {
+        await Promise.allSettled(observations);
+    }
+}
+
 export async function assertDeadCodeEliminationBehaviorEquivalent(
     input: DeadCodeEliminationBehaviorComparison
 ): Promise<DeadCodeEliminationBehaviorObservation> {
     verifyEntryBundle(input.name, input.entry, input.leftBundles, input.leftName);
     verifyEntryBundle(input.name, input.entry, input.rightBundles, input.rightName);
-    const left = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: input.entry,
-        bundles: input.leftBundles
-    });
-    const right = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: input.entry,
-        bundles: input.rightBundles
-    });
+    const [ left, right ] = await observeComparedPrograms(input);
     assert.deepStrictEqual(
         right.map(function (observation) {
             return observation.entry;
