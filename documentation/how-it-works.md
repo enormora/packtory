@@ -460,7 +460,7 @@ embedded sources through successive edits without physical authored files.
 Mutation testing runs in one CI job with a 20-minute limit. Focused suites run
 before broad semantic scenarios so faulty mutations can fail sooner. Every
 eligible source file and the complete unit suite remain in scope. Per-mutant
-timeouts add two seconds to the measured test duration and runner overhead;
+timeouts allow five seconds plus runner overhead, independently of covered-suite duration;
 timeout results fail the `Mutation testing` check.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.
