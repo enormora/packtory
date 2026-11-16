@@ -462,8 +462,10 @@ before broad semantic scenarios so faulty mutations can fail sooner. Every
 eligible source file and the complete unit suite remain in scope. Per-mutant
 timeouts allow five seconds plus runner overhead, independently of covered-suite duration;
 timeout results fail the `Mutation testing` check.
+Timeout locations are logged as each mutant finishes, including when the overall run is interrupted.
 The initial run executes the complete unit suite with a separate 15-minute limit.
-Manual workflow dispatch runs only mutation testing.
+Completed JSON reports are retained as workflow artifacts.
+Manual workflow dispatch runs only mutation testing with a 30-minute diagnostic limit.
 Its skipped jobs use distinct check names and do not replace full CI validation.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.

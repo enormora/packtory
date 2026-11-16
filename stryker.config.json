@@ -1,6 +1,10 @@
 {
     "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-schema.json",
     "testRunner": "mocha",
+    "plugins": [
+        "@stryker-mutator/mocha-runner",
+        "./source/build-support/mutation-timeout/mutation-timeout-reporter.entry-point.ts"
+    ],
     "coverageAnalysis": "perTest",
     "tempDirName": "target/.stryker-tmp",
     "allowConsoleColors": false,
@@ -42,7 +46,7 @@
         "low": 100,
         "break": 100
     },
-    "reporters": ["progress-append-only", "clear-text", "html", "json"],
+    "reporters": ["progress-append-only", "clear-text", "html", "json", "mutation-timeout"],
     "clearTextReporter": {
         "reportMutants": true,
         "reportScoreTable": false,

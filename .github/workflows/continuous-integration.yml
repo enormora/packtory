@@ -50,7 +50,7 @@ jobs:
     mutation-testing:
         runs-on: ubuntu-latest
         name: Mutation testing
-        timeout-minutes: 20
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 20 }}
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         steps:
@@ -66,6 +66,12 @@ jobs:
               run: npm clean-install --ignore-scripts
             - name: Run mutation tests
               run: npx just test-mutation
+            - name: Save mutation report
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: mutation-report
+                  path: target/stryker/mutation-report.json
 
     benchmarks:
         if: github.event_name != 'workflow_dispatch'
