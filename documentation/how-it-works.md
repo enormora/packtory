@@ -465,8 +465,6 @@ timeout results fail the `Mutation testing` check.
 Timeout locations are logged as each mutant finishes, including when the overall run is interrupted.
 The initial run executes the complete unit suite with a separate 15-minute limit.
 Completed JSON reports are retained as workflow artifacts.
-Manual workflow dispatch runs only mutation testing with a 30-minute diagnostic limit.
-Its skipped jobs use distinct check names and do not replace full CI validation.
 
 These observations cover bounded programs, not arbitrary JavaScript equivalence.
 Object snapshots preserve enumerable string properties and object identity; generated

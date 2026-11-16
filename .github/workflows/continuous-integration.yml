@@ -7,7 +7,6 @@ on:
     pull_request:
         types: [opened, reopened, synchronize]
     merge_group:
-    workflow_dispatch:
 
 permissions: {}
 
@@ -17,14 +16,13 @@ concurrency:
 
 jobs:
     build:
-        if: github.event_name != 'workflow_dispatch'
         runs-on: ubuntu-latest
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         strategy:
             matrix:
                 node-version: [24.x, 26.x]
-        name: ${{ github.event_name == 'workflow_dispatch' && 'Not requested - ' || '' }}Node.js v${{ matrix.node-version }}
+        name: Node.js v${{ matrix.node-version }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -50,7 +48,7 @@ jobs:
     mutation-testing:
         runs-on: ubuntu-latest
         name: Mutation testing
-        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 20 }}
+        timeout-minutes: 20
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         steps:
@@ -74,9 +72,8 @@ jobs:
                   path: target/stryker/mutation-report.json
 
     benchmarks:
-        if: github.event_name != 'workflow_dispatch'
         runs-on: ubuntu-latest
-        name: ${{ github.event_name == 'workflow_dispatch' && 'Not requested - ' || '' }}Benchmarks
+        name: Benchmarks
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         steps:
@@ -96,9 +93,8 @@ jobs:
               run: npx just benchmark
 
     canaries:
-        if: github.event_name != 'workflow_dispatch'
         runs-on: ubuntu-latest
-        name: ${{ github.event_name == 'workflow_dispatch' && 'Not requested - ' || '' }}Canary ${{ matrix.canary }}
+        name: Canary ${{ matrix.canary }}
         continue-on-error: true
         permissions:
             contents: read # required for actions/checkout to read the workflow source
@@ -165,9 +161,8 @@ jobs:
                   --summary "$GITHUB_STEP_SUMMARY"
 
     workflow-security:
-        if: github.event_name != 'workflow_dispatch'
         runs-on: ubuntu-latest
-        name: ${{ github.event_name == 'workflow_dispatch' && 'Not requested - ' || '' }}Workflow security analysis
+        name: Workflow security analysis
         permissions:
             contents: read # required for actions/checkout to read the workflow source
             security-events: write # required by zizmor-action to upload SARIF to code scanning
