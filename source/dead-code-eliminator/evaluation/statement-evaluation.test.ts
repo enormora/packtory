@@ -4,7 +4,7 @@ import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createBoundedEvaluationContext } from '../../test-libraries/bounded-evaluation-context.ts';
 import { evaluateStatement } from './statement-evaluation.ts';
-import { createBindingReference } from './evaluation-context.ts';
+import { createBindingReference, type EvaluationContext } from './evaluation-context.ts';
 import { evaluated } from './primitive-value.ts';
 
 suite('return completion proofs', function () {
@@ -55,5 +55,97 @@ suite('return completion proofs', function () {
         const source = createProject().createSourceFile('index.ts', 'function run(){return missing;}');
         const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.ReturnStatement);
         assert.strictEqual(evaluateStatement(statement, createBoundedEvaluationContext(0, 100)), undefined);
+    });
+
+    suite('statement completion semantics', function () {
+        test('initializes every declaration in a variable statement', function () {
+            const source = createProject().createSourceFile('input.ts', 'let first=1,second=2;');
+            const context = createBoundedEvaluationContext(0, 100);
+            assert.deepStrictEqual(
+                evaluateStatement(source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableStatement), context),
+                { type: 'normal' }
+            );
+            assert.deepStrictEqual(
+                source.getVariableDeclarations().map(function (declaration) {
+                    return context.locals.get(declaration)?.value;
+                }),
+                [ { value: 1 }, { value: 2 } ]
+            );
+        });
+
+        for (
+            const [ content, expected ] of [
+                [ 'for(let i=0;i<3;i++){return 42;}', { type: 'return', value: { value: 42 } } ],
+                [ 'while(true){return 42;}', { type: 'return', value: { value: 42 } } ],
+                [ 'while(true){break;}', { type: 'normal' } ],
+                [ 'for(let i=0;i<3;i++){continue;}', { type: 'normal' } ]
+            ] as const
+        ) {
+            test(`propagates loop completion for ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', `function compute(){${content}}`);
+                const body = source.getFunctionOrThrow('compute').getBodyOrThrow().asKindOrThrow(SyntaxKind.Block);
+                assert.deepStrictEqual(
+                    evaluateStatement(body, createBoundedEvaluationContext(0, 100)),
+                    expected
+                );
+            });
+        }
+    });
+
+    suite('unknown statement boundaries', function () {
+        for (const content of [ 'let value=missing;', 'using value=42;' ]) {
+            test(`retains unresolved initialization in ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                assert.strictEqual(
+                    evaluateStatement(
+                        source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableStatement),
+                        createBoundedEvaluationContext(0, 100)
+                    ),
+                    undefined
+                );
+            });
+        }
+
+        test('does not advance a loop after an unknown body', function () {
+            const source = createProject().createSourceFile('input.ts', 'for(;true;increment())unknown();');
+            const context: EvaluationContext = {
+                ...createBoundedEvaluationContext(0, 100),
+                evaluate(expression) {
+                    if (expression.getText() === 'true') {
+                        return { value: true };
+                    }
+                    assert.strictEqual(expression.getText(), 'unknown()');
+                    return undefined;
+                }
+            };
+            assert.strictEqual(
+                evaluateStatement(source.getFirstDescendantByKindOrThrow(SyntaxKind.ForStatement), context),
+                undefined
+            );
+        });
+
+        test('does not read an unknown loop condition as a value', function () {
+            const source = createProject().createSourceFile('input.ts', 'while(missing){}');
+            assert.strictEqual(
+                evaluateStatement(
+                    source.getFirstDescendantByKindOrThrow(SyntaxKind.WhileStatement),
+                    createBoundedEvaluationContext(0, 100)
+                ),
+                undefined
+            );
+        });
+    });
+
+    suite('unconditional loop completion', function () {
+        test('allows a missing condition when the loop breaks', function () {
+            const source = createProject().createSourceFile('input.ts', 'for(;;){break;}');
+            assert.deepStrictEqual(
+                evaluateStatement(
+                    source.getFirstDescendantByKindOrThrow(SyntaxKind.ForStatement),
+                    createBoundedEvaluationContext(0, 100)
+                ),
+                { type: 'normal' }
+            );
+        });
     });
 });

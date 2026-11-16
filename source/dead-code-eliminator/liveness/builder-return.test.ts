@@ -2,7 +2,13 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { objectDataShapeIsKnown, objectMemberName, returnCreationIsPure } from './builder-return.ts';
+import {
+    objectDataShapeIsKnown,
+    objectMemberName,
+    returnCreationIsPure,
+    builderReturnExpression,
+    staticPropertyName
+} from './builder-return.ts';
 
 suite('builder object shapes', function () {
     test('requires identifier reads when checking parameter values', function () {
@@ -39,5 +45,31 @@ suite('builder object shapes', function () {
         const source = createProject().createSourceFile('input.ts', '({[name](){return 42;}});');
         const method = source.getFirstDescendantByKindOrThrow(SyntaxKind.MethodDeclaration);
         assert.strictEqual(objectMemberName(method), '[name]');
+    });
+
+    suite('builder return boundaries', function () {
+        test('skips directives and empty statements before a returned value', function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'function build(value){;"use strict";return value;}'
+            );
+            assert.strictEqual(builderReturnExpression(source.getFunctionOrThrow('build'))?.getText(), 'value');
+        });
+
+        test('recognizes unquoted property names', function () {
+            const source = createProject().createSourceFile('input.ts', '({answer:42});');
+            const property = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAssignment);
+            assert.strictEqual(staticPropertyName(property.getNameNode()), 'answer');
+        });
+    });
+
+    suite('private property names', function () {
+        test('keeps private names outside ordinary record keys', function () {
+            const source = createProject().createSourceFile('input.ts', 'class Holder{#answer;}');
+            assert.strictEqual(
+                staticPropertyName(source.getFirstDescendantByKindOrThrow(SyntaxKind.PrivateIdentifier)),
+                undefined
+            );
+        });
     });
 });

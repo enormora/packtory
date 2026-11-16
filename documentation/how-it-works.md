@@ -457,8 +457,8 @@ Declaration consumers are checked separately with positive and negative TypeScri
 examples. Source-map properties check decoded indices, traced positions, names, and
 embedded sources through successive edits without physical authored files.
 
-Mutation testing runs in one CI job with a 20-minute limit. Focused suites run
-before broad semantic scenarios so faulty mutations can fail sooner. Every
+Mutation testing runs in one CI job with a 20-minute limit. Schema, diagnostic, and evaluator assertions run
+before native semantic scenarios so faulty mutations can fail sooner. Every
 eligible source file and the complete unit suite remain in scope. Per-mutant
 timeouts allow five seconds plus runner overhead, independently of covered-suite duration;
 timeout results fail the `Mutation testing` check.

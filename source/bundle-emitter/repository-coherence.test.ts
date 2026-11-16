@@ -46,6 +46,78 @@ function assertThrowsMessage(runRepositoryCoherenceAssertion: () => void, expect
 }
 
 suite('repository-coherence', function () {
+    suite('repository coherence assertions', function () {
+        test('assertRepositoryCoherence() does not throw when the manifest matches the CI repository', function () {
+            assertRepositoryCoherence(
+                { repository: 'git+ssh://git@github.com/enormora/packtory.git' },
+                'https://github.com/enormora/packtory'
+            );
+
+            assert.strictEqual(
+                getContinuousIntegrationRepositoryAddress({
+                    githubRepository: 'enormora/packtory',
+                    githubServerAddress: 'https://github.com',
+                    gitlabProjectAddress: ''
+                }),
+                'https://github.com/enormora/packtory'
+            );
+        });
+
+        test('assertRepositoryCoherence() does not throw when the object form matches the CI repository', function () {
+            assertRepositoryCoherence(
+                { repository: { type: 'git', url: 'git+ssh://git@github.com/enormora/packtory.git' } },
+                'https://github.com/enormora/packtory'
+            );
+
+            assert.strictEqual(
+                normalizeRepositoryAddress('git+ssh://git@github.com/enormora/packtory.git'),
+                'https://github.com/enormora/packtory'
+            );
+        });
+
+        test('assertRepositoryCoherence() throws when the manifest repository differs from the CI repository', function () {
+            assertThrowsMessage(
+                function () {
+                    assertRepositoryCoherence(
+                        { repository: 'https://github.com/foo/forked-package' },
+                        'https://github.com/upstream/package'
+                    );
+                },
+                buildExpectedMismatchMessage(
+                    'https://github.com/foo/forked-package',
+                    'https://github.com/upstream/package'
+                )
+            );
+        });
+
+        test('assertRepositoryCoherence() throws the missing-repository error when the manifest has no repository', function () {
+            assertThrowsMessage(
+                function () {
+                    assertRepositoryCoherence({}, 'https://github.com/enormora/packtory');
+                },
+                expectedNoRepositoryDeclaredMessage
+            );
+        });
+
+        test('assertRepositoryCoherence() throws the missing-repository error when the repository is an unsupported value', function () {
+            assertThrowsMessage(
+                function () {
+                    assertRepositoryCoherence({ repository: 42 }, 'https://github.com/enormora/packtory');
+                },
+                expectedNoRepositoryDeclaredMessage
+            );
+        });
+
+        test('assertRepositoryCoherence() throws the missing-CI error when no CI repository url is provided', function () {
+            assertThrowsMessage(
+                function () {
+                    assertRepositoryCoherence({ repository: 'https://github.com/enormora/packtory' }, undefined);
+                },
+                expectedNoContinuousIntegrationDetectedMessage
+            );
+        });
+    });
+
     suite('invalid repository urls', function () {
         test('normalizeRepositoryAddress() returns undefined for undefined input', function () {
             assert.strictEqual(normalizeRepositoryAddress(undefined), undefined);
@@ -281,78 +353,6 @@ suite('repository-coherence', function () {
             };
 
             assert.strictEqual(getContinuousIntegrationRepositoryAddress(environment), undefined);
-        });
-    });
-
-    suite('repository coherence assertions', function () {
-        test('assertRepositoryCoherence() does not throw when the manifest matches the CI repository', function () {
-            assertRepositoryCoherence(
-                { repository: 'git+ssh://git@github.com/enormora/packtory.git' },
-                'https://github.com/enormora/packtory'
-            );
-
-            assert.strictEqual(
-                getContinuousIntegrationRepositoryAddress({
-                    githubRepository: 'enormora/packtory',
-                    githubServerAddress: 'https://github.com',
-                    gitlabProjectAddress: ''
-                }),
-                'https://github.com/enormora/packtory'
-            );
-        });
-
-        test('assertRepositoryCoherence() does not throw when the object form matches the CI repository', function () {
-            assertRepositoryCoherence(
-                { repository: { type: 'git', url: 'git+ssh://git@github.com/enormora/packtory.git' } },
-                'https://github.com/enormora/packtory'
-            );
-
-            assert.strictEqual(
-                normalizeRepositoryAddress('git+ssh://git@github.com/enormora/packtory.git'),
-                'https://github.com/enormora/packtory'
-            );
-        });
-
-        test('assertRepositoryCoherence() throws when the manifest repository differs from the CI repository', function () {
-            assertThrowsMessage(
-                function () {
-                    assertRepositoryCoherence(
-                        { repository: 'https://github.com/foo/forked-package' },
-                        'https://github.com/upstream/package'
-                    );
-                },
-                buildExpectedMismatchMessage(
-                    'https://github.com/foo/forked-package',
-                    'https://github.com/upstream/package'
-                )
-            );
-        });
-
-        test('assertRepositoryCoherence() throws the missing-repository error when the manifest has no repository', function () {
-            assertThrowsMessage(
-                function () {
-                    assertRepositoryCoherence({}, 'https://github.com/enormora/packtory');
-                },
-                expectedNoRepositoryDeclaredMessage
-            );
-        });
-
-        test('assertRepositoryCoherence() throws the missing-repository error when the repository is an unsupported value', function () {
-            assertThrowsMessage(
-                function () {
-                    assertRepositoryCoherence({ repository: 42 }, 'https://github.com/enormora/packtory');
-                },
-                expectedNoRepositoryDeclaredMessage
-            );
-        });
-
-        test('assertRepositoryCoherence() throws the missing-CI error when no CI repository url is provided', function () {
-            assertThrowsMessage(
-                function () {
-                    assertRepositoryCoherence({ repository: 'https://github.com/enormora/packtory' }, undefined);
-                },
-                expectedNoContinuousIntegrationDetectedMessage
-            );
         });
     });
 
