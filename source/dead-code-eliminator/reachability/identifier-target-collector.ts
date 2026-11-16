@@ -14,7 +14,6 @@ import type { ArtifactModuleReference } from '../../resource-resolver/resolved-b
 import type { ExportGraph } from '../exports/export-graph.ts';
 import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { declarationTypeTargets } from './declaration-type-demand.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
 import { buildDeclarationNodeIndex, type DeclarationNodeIndex, type FileBindings } from './binding-identifier.ts';
@@ -334,7 +333,9 @@ export function collectIdentifierTargets(
             return [ ...dynamicTargets, ...directEvalTargets(call, index) ];
         })
     ]);
-    return rootNode.getSourceFile().isDeclarationFile() ? declarationTypeTargets(targets, declarationIndex) : targets;
+    return rootNode.getSourceFile().isDeclarationFile()
+        ? targets.difference(declarationIndex.runtimeCompanionIdentifiers)
+        : targets;
 }
 
 export function survivingDeclarationExports(

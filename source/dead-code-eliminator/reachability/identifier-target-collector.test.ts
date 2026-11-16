@@ -12,6 +12,7 @@ function rootSourceFile(content: string): SourceFile {
 
 function emptyIndex(): DeclarationNodeIndex {
     return {
+        runtimeCompanionIdentifiers: new Set(),
         identifiersByNode: new Map(),
         identifiersByFileAndName: new Map(),
         identifiersByTargetFileAndName: new Map(),
@@ -29,6 +30,7 @@ function indexedDeclaration(
     }
     const declaration = statement.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
     return {
+        runtimeCompanionIdentifiers: new Set(),
         identifiersByNode: new Map<TypeScriptMorphNode, readonly string[]>([ [ declaration, [ '/index.ts::x' ] ] ]),
         identifiersByFileAndName: new Map(),
         identifiersByTargetFileAndName: new Map(),
@@ -49,6 +51,7 @@ function registerRelativeImportTests(): void {
         const targets = collectImportTargets(
             'import { configuration as localConfig } from "./shared.js";\nconst api = localConfig;',
             {
+                runtimeCompanionIdentifiers: new Set(),
                 identifiersByNode: new Map(),
                 identifiersByFileAndName: new Map([
                     [ '/source/shared.js', new Map([ [ 'configuration', [ '/source/shared.js::configuration' ] ] ]) ]
@@ -86,6 +89,7 @@ function registerRelativeImportTests(): void {
         const targets = collectImportTargets(
             'import { configuration } from "./configuration.json";\nconst api = configuration;',
             {
+                runtimeCompanionIdentifiers: new Set(),
                 identifiersByNode: new Map(),
                 identifiersByFileAndName: new Map(),
                 identifiersByTargetFileAndName: new Map([
@@ -115,6 +119,7 @@ function registerRelativeImportTests(): void {
         const targets = collectImportTargets(
             'import { configuration } from "./shared.js";\nconst api = configuration;',
             {
+                runtimeCompanionIdentifiers: new Set(),
                 identifiersByNode: new Map(),
                 identifiersByFileAndName: new Map(),
                 identifiersByTargetFileAndName: new Map(),
@@ -142,6 +147,7 @@ function registerRelativeImportTests(): void {
         const targets = collectImportTargets(
             'import { configuration } from "./shared.js";\nconst api = configuration;',
             {
+                runtimeCompanionIdentifiers: new Set(),
                 identifiersByNode: new Map(),
                 identifiersByFileAndName: new Map(),
                 identifiersByTargetFileAndName: new Map([
@@ -212,6 +218,7 @@ suite('identifier-target-collector', function () {
         const sourceFile = rootSourceFile('const x = 1;\nconst y = x;');
         const statement = sourceFile.getVariableDeclarationOrThrow('y').getVariableStatementOrThrow();
         const targets = collectIdentifierTargets(statement, {
+            runtimeCompanionIdentifiers: new Set(),
             identifiersByNode: new Map(),
             identifiersByFileAndName: new Map([
                 [ sourceFile.getFilePath(), new Map([ [ 'x', [ '/external.ts::x' ] ] ]) ]
@@ -239,6 +246,7 @@ suite('identifier-target-collector', function () {
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
         const bindingIdentifiers = [ '/source/file-manager/permissions.ts::isExecutableFileMode' ];
         const declarationIndex: DeclarationNodeIndex = {
+            runtimeCompanionIdentifiers: new Set(),
             identifiersByNode: new Map(),
             identifiersByFileAndName: new Map([
                 [
@@ -290,6 +298,7 @@ suite('identifier-target-collector', function () {
         const sourceFile = project.getSourceFileOrThrow('/source/index.js');
         const importSpecifier = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ImportSpecifier);
         const targets = collectIdentifierTargets(importSpecifier, {
+            runtimeCompanionIdentifiers: new Set(),
             identifiersByNode: new Map(),
             identifiersByFileAndName: new Map([ [
                 '/source/shared',
@@ -305,6 +314,7 @@ suite('identifier-target-collector', function () {
 
     test('collectIdentifierTargets does not map bare imports through malformed local references', function () {
         const targets = collectImportTargets('import { configuration } from "shared";\nconst api = configuration;', {
+            runtimeCompanionIdentifiers: new Set(),
             identifiersByNode: new Map(),
             identifiersByFileAndName: new Map(),
             identifiersByTargetFileAndName: new Map([
@@ -343,6 +353,7 @@ suite('identifier-target-collector', function () {
         assert.throws(
             function () {
                 collectIdentifierTargets(importSpecifier, {
+                    runtimeCompanionIdentifiers: new Set(),
                     identifiersByNode: new Map(),
                     identifiersByFileAndName: new Map(),
                     identifiersByTargetFileAndName: new Map(),
