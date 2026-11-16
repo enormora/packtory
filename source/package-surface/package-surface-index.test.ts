@@ -229,6 +229,26 @@ suite('package-surface-index', function () {
             assert.strictEqual(index.inputFilePathBySpecifier.get('package-a/feature.js'), '/source/feature.js');
         });
 
+        for (const [ first, second ] of [ [ 'mjs', 'js' ], [ 'js', 'mjs' ], [ 'cjs', 'js' ] ] as const) {
+            test(`keeps the first declaration companion when ${first} precedes ${second}`, function () {
+                const index = indexPublicModules({
+                    name: 'package-a',
+                    roots: { main: rootWithSource('/source/index.js', 'index.js') },
+                    contents: [
+                        content('/source/feature.d.ts', 'feature.d.ts'),
+                        content(`/source/feature.${first}`, `feature.${first}`),
+                        content(`/source/feature.${second}`, `feature.${second}`)
+                    ],
+                    surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+                });
+
+                assert.strictEqual(
+                    index.specifierByInputFilePath.get('/source/feature.d.ts'),
+                    `package-a/feature.${first}`
+                );
+            });
+        }
+
         test('indexPublicModules keeps the first same-length explicit specifier', function () {
             const index = indexPublicModules({
                 name: 'package-a',
