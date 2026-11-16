@@ -3,6 +3,7 @@ import path from 'node:path';
 import { suite, test } from 'mocha';
 import {
     ancestorInstalledDependencyPathCandidates,
+    bundleRelativePath,
     bundledInstalledDependencyPath,
     installedDependencyManifestPathIn,
     installedPackageFilePath,
@@ -14,6 +15,12 @@ import {
 } from './package-layout.ts';
 
 suite('package-layout', function () {
+    test('bundleRelativePath removes only the tarball package root', function () {
+        assert.strictEqual(bundleRelativePath('package/dist/index.js'), 'dist/index.js');
+        assert.strictEqual(bundleRelativePath('dist/package/index.js'), 'dist/package/index.js');
+        assert.strictEqual(bundleRelativePath('package.json'), 'package.json');
+    });
+
     test('packageManifestPathIn() appends the package manifest file name', function () {
         assert.strictEqual(packageManifestPathIn('/workspace/package'), '/workspace/package/package.json');
     });

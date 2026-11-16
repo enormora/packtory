@@ -22,6 +22,10 @@
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
+            "source/common/package-layout.test.ts",
+            "source/dead-code-eliminator/invariants/target-candidates.test.ts",
+            "source/dead-code-eliminator/invariants/output-invariants.test.ts",
+            "source/dead-code-eliminator/exports/namespace-demand.test.ts",
             "source/configuration/**/*.test.ts",
             "source/command-line-interface/**/*.test.ts",
             "source/common/**/*.test.ts",
