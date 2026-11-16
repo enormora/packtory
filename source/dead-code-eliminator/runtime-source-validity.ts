@@ -2,7 +2,7 @@ import { parse, type ParserPlugin } from '@babel/parser';
 import { ScriptKind, ts, type SourceFile } from 'ts-morph';
 import { match } from 'ts-pattern';
 import { constant } from 'remeda';
-import { createSyntaxAnalysis } from '../source-transformation/syntax-analysis.ts';
+import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../source-transformation/syntax-analysis.ts';
 
 type RuntimeSourceType = 'commonjs' | 'module';
 
@@ -48,4 +48,8 @@ function checkRuntimeSource(source: SourceFile): boolean {
     }
 }
 
-export const runtimeSourceIsValid = createSyntaxAnalysis(checkRuntimeSource);
+const runtimeSourceResults: SyntaxAnalysisResults<boolean> = new WeakMap();
+
+export function runtimeSourceIsValid(source: SourceFile): boolean {
+    return createSyntaxAnalysis(checkRuntimeSource, runtimeSourceResults)(source);
+}
