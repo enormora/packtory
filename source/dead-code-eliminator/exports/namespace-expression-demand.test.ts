@@ -21,8 +21,8 @@ function expressionContext(source: SourceFile): NamespaceExpressionContext {
             assert.strictEqual(name, 'ns');
             return namespaceMemberDemand('used', allNamespaceProperties);
         },
-        receiverIsUnobserved() {
-            return false;
+        receiverDemand() {
+            return allNamespaceProperties;
         }
     };
 }

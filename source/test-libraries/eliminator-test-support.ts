@@ -134,10 +134,10 @@ export function consumerBundleWith(content: string): LinkedBundle {
     });
 }
 
-export async function eliminateCodeModules(
+export function moduleEliminationInputs(
     content: string,
     modules: Readonly<Record<string, string>>
-): Promise<ReadonlyMap<string, string>> {
+): readonly EliminationInput[] {
     const bundle = bundleForCodeFile({
         name: 'package',
         inputFilePath: '/source/index.js',
@@ -150,7 +150,7 @@ export async function eliminateCodeModules(
             };
         })
     });
-    const [ result ] = await createTestEliminator().eliminate(inputs({
+    return inputs({
         ...bundle,
         contents: bundle.contents.map(function (resource) {
             return {
@@ -160,7 +160,14 @@ export async function eliminateCodeModules(
                 }))
             };
         })
-    }));
+    });
+}
+
+export async function eliminateCodeModules(
+    content: string,
+    modules: Readonly<Record<string, string>>
+): Promise<ReadonlyMap<string, string>> {
+    const [ result ] = await createTestEliminator().eliminate(moduleEliminationInputs(content, modules));
     assertDefined(result);
     return new Map(result.contents.map(function (resource) {
         return [ resource.fileDescription.targetFilePath, resource.fileDescription.content ];
