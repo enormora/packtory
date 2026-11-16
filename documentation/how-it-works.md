@@ -441,7 +441,7 @@ After dead-code elimination, the full set of `AnalyzedBundle`s is fed through th
 
 - Checks see the bundles **after dead-code elimination**, so e.g. `noUnusedBundleDependencies` correctly reports a `bundleDependencies` entry whose imports have been tree-shaken away.
 - Rules are independent and run in arbitrary order; failures are aggregated into a single error.
-- `typeScriptIntegrity` is the only rule that needs a toolchain, so it is the only rule built by a factory: the composition root injects the `ts-morph` project factory and the package-resolution checker, and the rule itself only decides which resolution kinds and declarations to check. The toolchain adapters return plain data (diagnostics, resolution problems), which keeps path resolution, reachability, grouping and message formatting free of `ts-morph` and testable without building a TypeScript program.
+- `typeScriptIntegrity` checks that emitted runtime entry points and declaration files resolve correctly for TypeScript consumers.
 
 ## 8. Stage: Version Manager
 
