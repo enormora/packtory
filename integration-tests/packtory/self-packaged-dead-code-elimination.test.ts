@@ -44,7 +44,7 @@ function isSelfConfigurationModule(value: unknown): value is SelfConfigurationMo
         return false;
     }
     const candidate = value as Readonly<Record<PropertyKey, unknown>>;
-    return isBuildSelfConfiguration(candidate.buildConfiguration);
+    return isBuildSelfConfiguration(candidate['buildConfiguration']);
 }
 
 async function loadSelfConfiguration(): Promise<PublicPacktoryConfiguration> {

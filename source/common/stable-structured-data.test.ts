@@ -62,7 +62,7 @@ suite('stable-json', function () {
     test('throws when given a circular record', function () {
         const inner: Record<string, unknown> = {};
         const outer: Record<string, unknown> = { inner };
-        inner.outer = outer;
+        inner['outer'] = outer;
 
         try {
             serializeStableJavaScriptObjectNotation(outer);

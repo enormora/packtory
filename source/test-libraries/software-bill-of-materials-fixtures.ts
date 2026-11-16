@@ -26,7 +26,7 @@ export function buildSoftwareBillOfMaterialsFixtureContent(
         metadata: { tools: { components: [ { name: 'packtory', version: fields.packtoryVersion } ] } }
     };
     if (dependencyComponents.length > 0) {
-        softwareBillOfMaterials.components = dependencyComponents;
+        softwareBillOfMaterials['components'] = dependencyComponents;
     }
     return JSON.stringify(softwareBillOfMaterials);
 }

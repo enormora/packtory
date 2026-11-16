@@ -55,7 +55,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isOneTimePasswordRequiredError(error: unknown): error is OneTimePasswordRequiredError {
-    return isRecord(error) && error.code === 'EOTP';
+    return isRecord(error) && error['code'] === 'EOTP';
 }
 
 function extractWebOneTimePasswordAddresses(

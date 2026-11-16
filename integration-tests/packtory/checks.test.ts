@@ -156,7 +156,6 @@ suite('checks', function () {
 
             if (!result.isErr) {
                 assert.fail('Expected resolveAndLinkAll to fail because of duplicated files');
-                return;
             }
 
             if (result.error.type === 'checks') {
@@ -325,7 +324,6 @@ suite('checks', function () {
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because example-module is dev-only');
-            return;
         }
 
         if (result.error.type === 'checks') {
@@ -353,7 +351,6 @@ suite('checks', function () {
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because package-a does not import from package-b');
-            return;
         }
 
         if (result.error.type === 'checks') {
@@ -373,7 +370,6 @@ suite('checks', function () {
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because package-a exceeds its size override');
-            return;
         }
 
         if (result.error.type === 'checks') {
@@ -399,7 +395,6 @@ suite('checks', function () {
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because of missing required files');
-            return;
         }
 
         if (result.error.type === 'checks') {
@@ -420,7 +415,6 @@ suite('checks', function () {
 
         if (!result.isErr) {
             assert.fail('Expected resolveAndLinkAll to fail because package-b did not consent');
-            return;
         }
 
         if (result.error.type === 'checks') {

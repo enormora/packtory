@@ -78,14 +78,14 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function parseManifest(content: string, manifestPath: string): Manifest {
     const parsed: unknown = JSON.parse(content);
-    if (!isRecord(parsed) || typeof parsed.name !== 'string') {
+    if (!isRecord(parsed) || typeof parsed['name'] !== 'string') {
         throw new Error(`Package manifest "${manifestPath}" is missing a string name`);
     }
     return {
-        bin: parsed.bin,
-        exports: parsed.exports,
-        name: parsed.name,
-        types: parsed.types
+        bin: parsed['bin'],
+        exports: parsed['exports'],
+        name: parsed['name'],
+        types: parsed['types']
     };
 }
 

@@ -145,9 +145,9 @@ suite('node-modules-manifest-synthesizer', function () {
                 const parsedSynchronous = JSON.parse(synchronous) as Record<string, unknown>;
                 const parsedAsynchronous = JSON.parse(asynchronous) as Record<string, unknown>;
 
-                assert.deepStrictEqual(parsedSynchronous.exports, testCase.expectedExports);
-                assert.deepStrictEqual(parsedAsynchronous.exports, testCase.expectedExports);
-                assertConditionKeyOrder(parsedSynchronous.exports, testCase.expectedConditionKeyOrder);
+                assert.deepStrictEqual(parsedSynchronous['exports'], testCase.expectedExports);
+                assert.deepStrictEqual(parsedAsynchronous['exports'], testCase.expectedExports);
+                assertConditionKeyOrder(parsedSynchronous['exports'], testCase.expectedConditionKeyOrder);
             });
         }
     });

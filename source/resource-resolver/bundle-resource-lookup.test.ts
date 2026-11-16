@@ -45,7 +45,7 @@ suite('bundle-resource-lookup', function () {
 
         const result = buildResolvedRoots(normalized, [ javaScriptResource, declarationResource ]);
 
-        assert.strictEqual(result.main?.declarationFile?.inputFilePath, '/source/index.d.ts');
+        assert.strictEqual(result['main']?.declarationFile?.inputFilePath, '/source/index.d.ts');
     });
 
     test('buildResolvedRoots leaves declarationFile undefined when none is declared', function () {
@@ -58,7 +58,7 @@ suite('bundle-resource-lookup', function () {
 
         const result = buildResolvedRoots(normalized, [ javaScriptResource ]);
 
-        assert.strictEqual(result.main?.declarationFile, undefined);
+        assert.strictEqual(result['main']?.declarationFile, undefined);
     });
 
     test('buildResolvedRoots throws when no resource exposes the declared js path', function () {

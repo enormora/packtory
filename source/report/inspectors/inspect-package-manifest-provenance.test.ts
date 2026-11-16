@@ -10,7 +10,7 @@ suite('inspect-package-json-provenance', function () {
             undefined
         );
 
-        assert.deepStrictEqual(provenance.type, { source: 'mainPackageManifest' });
+        assert.deepStrictEqual(provenance['type'], { source: 'mainPackageManifest' });
     });
 
     test('inspectPackageManifestProvenance marks fields present in additionalAttributes', function () {
@@ -20,7 +20,7 @@ suite('inspect-package-json-provenance', function () {
             { publishConfig: { access: 'public' } }
         );
 
-        assert.deepStrictEqual(provenance.publishConfig, { source: 'additionalAttributes' });
+        assert.deepStrictEqual(provenance['publishConfig'], { source: 'additionalAttributes' });
     });
 
     test('inspectPackageManifestProvenance marks fields not in any source as derived', function () {
@@ -39,7 +39,7 @@ suite('inspect-package-json-provenance', function () {
             { keywords: [ 'a', 'b' ] }
         );
 
-        assert.deepStrictEqual(provenance.keywords, { source: 'additionalAttributes' });
+        assert.deepStrictEqual(provenance['keywords'], { source: 'additionalAttributes' });
     });
 
     test('inspectPackageManifestProvenance treats undefined additionalAttributes as absent', function () {

@@ -209,7 +209,7 @@ suite('github-release-gate-test-support', function () {
                         cwd: options.cwd,
                         encoding: options.encoding,
                         file,
-                        githubOutput: options.environment.GITHUB_OUTPUT
+                        githubOutput: options.environment['GITHUB_OUTPUT']
                     },
                     mkdtempPrefix: path.join(safeTemporaryRoot, 'packtory-github-release-gate-'),
                     readFile: { encoding: 'utf8', path: scriptOutputPath }

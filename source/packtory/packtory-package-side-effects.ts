@@ -46,7 +46,7 @@ function sideEffectsDecision(target: ResolvedPackage): PackageSideEffectsInspect
 
     return {
         type: 'user-provided-side-effects',
-        providedValue: additionalAttributes.sideEffects,
+        providedValue: additionalAttributes['sideEffects'],
         generated
     };
 }

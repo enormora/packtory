@@ -28,9 +28,9 @@ suite('registry transport', function () {
             },
             { registry: 'https://private-registry.test/', forceAuth: credentials },
             async function (options) {
-                assert.deepStrictEqual(options.forceAuth, credentials);
-                assert.ok(options.agent instanceof ProxyAgent);
-                await options.agent.getProxyForUrl('https://private-registry.test/package', request);
+                assert.deepStrictEqual(options['forceAuth'], credentials);
+                assert.ok(options['agent'] instanceof ProxyAgent);
+                await options['agent'].getProxyForUrl('https://private-registry.test/package', request);
             }
         );
         assert.deepStrictEqual(proxyRequests, [ 'https://private-registry.test/package' ]);
@@ -40,9 +40,9 @@ suite('registry transport', function () {
         const clock = createFakeClock();
         const signals: AbortSignal[] = [];
         const pending = withRegistryTransport({ clock, resolveProxy }, {}, async function (options) {
-            assert.ok(options.signal instanceof AbortSignal);
-            signals.push(options.signal);
-            options.signal.throwIfAborted();
+            assert.ok(options['signal'] instanceof AbortSignal);
+            signals.push(options['signal']);
+            options['signal'].throwIfAborted();
             return new Promise(function (_resolve, reject) {
                 signals[0]?.addEventListener('abort', function () {
                     const reason: unknown = signals[0]?.reason;
@@ -62,8 +62,8 @@ suite('registry transport', function () {
         const clock = createFakeClock();
         const signals: AbortSignal[] = [];
         const result = await withRegistryTransport({ clock, resolveProxy }, {}, async function (options) {
-            assert.ok(options.signal instanceof AbortSignal);
-            signals.push(options.signal);
+            assert.ok(options['signal'] instanceof AbortSignal);
+            signals.push(options['signal']);
             return 'completed';
         });
         clock.tick(300_000);
@@ -77,8 +77,8 @@ suite('registry transport', function () {
             clock: createFakeClock(),
             resolveProxy,
             async npmFetch(_address, options) {
-                assert.ok(options.signal instanceof AbortSignal);
-                signals.push(options.signal);
+                assert.ok(options['signal'] instanceof AbortSignal);
+                signals.push(options['signal']);
                 return { body: Readable.from([ 'invalid chunk' ]) };
             }
         });
@@ -125,8 +125,8 @@ suite('registry transport', function () {
         const signals: AbortSignal[] = [];
         await assert.rejects(
             withRegistryTransport({ clock, resolveProxy }, {}, function (options) {
-                assert.ok(options.signal instanceof AbortSignal);
-                signals.push(options.signal);
+                assert.ok(options['signal'] instanceof AbortSignal);
+                signals.push(options['signal']);
                 throw new Error('opening failed');
             }),
             /opening failed/u

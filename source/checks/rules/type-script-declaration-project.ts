@@ -106,14 +106,14 @@ function publicExportSubpaths(exportsField: unknown): readonly string[] {
 
 function publicEntrypointSpecifiers(packageName: string, manifestContent: string): readonly string[] {
     const manifest = parsePackageManifest(manifestContent);
-    const exportSubpaths = publicExportSubpaths(manifest.exports);
+    const exportSubpaths = publicExportSubpaths(manifest['exports']);
     if (exportSubpaths.length > 0) {
         return exportSubpaths.map(function (subpath) {
             return subpath === '.' ? packageName : `${packageName}/${subpath.slice('./'.length)}`;
         });
     }
 
-    return manifest.types === undefined && manifest.typings === undefined && manifest.main === undefined
+    return manifest['types'] === undefined && manifest['typings'] === undefined && manifest['main'] === undefined
         ? []
         : [ packageName ];
 }

@@ -97,8 +97,8 @@ function parseEventLoopProbeReport(value: unknown): EventLoopProbeReport {
     }
 
     return {
-        histogram: parseHistogram(value.histogram),
-        sampledBlocks: parseSampledBlocks(value.sampledBlocks)
+        histogram: parseHistogram(value['histogram']),
+        sampledBlocks: parseSampledBlocks(value['sampledBlocks'])
     };
 }
 

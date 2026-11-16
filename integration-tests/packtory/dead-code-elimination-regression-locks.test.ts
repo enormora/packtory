@@ -147,7 +147,7 @@ function sourceMapSources(
     if (!isRecord(parsed)) {
         assert.fail(`${regressionCase.identifier}: source map content must be an object`);
     }
-    return parsed.sources;
+    return parsed['sources'];
 }
 
 function assertSourceMapSources(

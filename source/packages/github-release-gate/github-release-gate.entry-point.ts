@@ -23,7 +23,7 @@ function isConfigurationModule(value: unknown): value is ConfigurationModule {
 
 function unwrapConfigurationModule(module: ConfigurationModule): unknown {
     if (Object.hasOwn(module, 'configuration')) {
-        return module.configuration;
+        return module['configuration'];
     }
 
     if (Object.hasOwn(module, 'buildConfiguration')) {

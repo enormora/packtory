@@ -74,7 +74,7 @@ function findRequestRoute(
 
 function operationNameFrom(body: string): string | undefined {
     const parsedBody = JSON.parse(body) as Readonly<Record<string, unknown>>;
-    return typeof parsedBody.operationName === 'string' ? parsedBody.operationName : undefined;
+    return typeof parsedBody['operationName'] === 'string' ? parsedBody['operationName'] : undefined;
 }
 
 function findGraphqlRoute(

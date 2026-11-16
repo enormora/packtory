@@ -66,8 +66,8 @@ const previewInputOutput = preview.createDefaultPreviewInputOutput({
         const { default: open } = await import('open');
         await open(filePath, { wait: false });
     },
-    shell: process.env.SHELL,
-    pager: process.env.PAGER,
+    shell: process.env['SHELL'],
+    pager: process.env['PAGER'],
     standardOutputIsTerminal: isTerminal(process.stdout)
 });
 

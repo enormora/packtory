@@ -61,7 +61,7 @@ suite('workspace preview flow', function () {
         });
         assert.deepStrictEqual(manager.addVersion(options), withReport);
         assertComparison(
-            buildWorkspaceComparison(collector.build().packages.pkg ?? assert.fail('expected package report'), [])
+            buildWorkspaceComparison(collector.build().packages['pkg'] ?? assert.fail('expected package report'), [])
         );
     });
 });

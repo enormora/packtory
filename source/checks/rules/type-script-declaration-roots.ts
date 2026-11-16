@@ -26,8 +26,8 @@ function packagePathsIn(value: unknown): readonly string[] {
 export function declarationRootsFromManifest(manifestContent: string): ReadonlySet<string> {
     const manifest = parsePackageManifest(manifestContent);
     return new Set([
-        ...packagePathsIn(manifest.exports),
-        ...packagePathsIn(manifest.types),
-        ...packagePathsIn(manifest.typings)
+        ...packagePathsIn(manifest['exports']),
+        ...packagePathsIn(manifest['types']),
+        ...packagePathsIn(manifest['typings'])
     ]);
 }

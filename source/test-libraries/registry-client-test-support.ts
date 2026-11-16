@@ -100,10 +100,10 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function hasPublishedTokenOptions(value: unknown): value is PublishedTokenOptions {
-    if (!isRecord(value) || !isRecord(value.forceAuth)) {
+    if (!isRecord(value) || !isRecord(value['forceAuth'])) {
         return false;
     }
-    return typeof value.forceAuth.token === 'string';
+    return typeof value['forceAuth']['token'] === 'string';
 }
 
 type OpenIdentityConnectExchangeFetchOptions = {

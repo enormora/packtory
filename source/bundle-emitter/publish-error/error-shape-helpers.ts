@@ -5,5 +5,5 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function isErrorLike(error: unknown): error is ErrorLike {
-    return isRecord(error) && typeof error.message === 'string';
+    return isRecord(error) && typeof error['message'] === 'string';
 }

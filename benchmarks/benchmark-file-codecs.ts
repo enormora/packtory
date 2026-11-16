@@ -133,42 +133,44 @@ function parsePerformanceThresholds(value: unknown): PerformanceThresholds {
 
 export function parseWorkloadsFile(value: unknown): WorkloadsFile {
     assert.ok(isRecord(value), 'Workloads file must be an object');
-    assert.ok(typeof value.seedFixture === 'string', 'Workloads file seedFixture must be a string');
+    assert.ok(typeof value['seedFixture'] === 'string', 'Workloads file seedFixture must be a string');
 
     return {
-        performanceWorkload: parsePerformanceWorkload(value.performanceWorkload),
-        seedFixture: value.seedFixture,
-        workloads: parseWorkloadDefinitions(value.workloads),
-        commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(value.commandLineInterfaceWorkloads)
+        performanceWorkload: parsePerformanceWorkload(value['performanceWorkload']),
+        seedFixture: value['seedFixture'],
+        workloads: parseWorkloadDefinitions(value['workloads']),
+        commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(
+            value['commandLineInterfaceWorkloads']
+        )
     };
 }
 
 export function parseThresholdsFile(value: unknown): ThresholdsFile {
     assert.ok(isRecord(value), 'Thresholds file must be an object');
-    assert.ok(isRecord(value.normalization), 'Thresholds normalization must be an object');
-    assert.ok(isRecord(value.throughput), 'Thresholds throughput must be an object');
-    assert.ok(isRecord(value.responsiveness), 'Thresholds responsiveness must be an object');
+    assert.ok(isRecord(value['normalization']), 'Thresholds normalization must be an object');
+    assert.ok(isRecord(value['throughput']), 'Thresholds throughput must be an object');
+    assert.ok(isRecord(value['responsiveness']), 'Thresholds responsiveness must be an object');
     assert.ok(
-        isRecord(value.responsiveness['publish-command-line-interface']),
+        isRecord(value['responsiveness']['publish-command-line-interface']),
         'publish-command-line-interface responsiveness threshold must be an object'
     );
 
-    const publishCommandLineInterfaceThresholds = value.responsiveness['publish-command-line-interface'];
+    const publishCommandLineInterfaceThresholds = value['responsiveness']['publish-command-line-interface'];
 
     return {
-        performance: parsePerformanceThresholds(value.performance),
+        performance: parsePerformanceThresholds(value['performance']),
         normalization: {
-            baselineMilliseconds: readNumberField(value.normalization, 'baselineMilliseconds')
+            baselineMilliseconds: readNumberField(value['normalization'], 'baselineMilliseconds')
         },
         throughput: {
-            'build-artifacts': parseThroughputThresholds(value.throughput['build-artifacts']),
-            'resolve-and-link': parseThroughputThresholds(value.throughput['resolve-and-link'])
+            'build-artifacts': parseThroughputThresholds(value['throughput']['build-artifacts']),
+            'resolve-and-link': parseThroughputThresholds(value['throughput']['resolve-and-link'])
         },
         responsiveness: {
             'publish-command-line-interface': {
                 intervalMilliseconds: readNumberField(publishCommandLineInterfaceThresholds, 'intervalMilliseconds'),
-                medium: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds.medium),
-                large: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds.large)
+                medium: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds['medium']),
+                large: parseResponsivenessThreshold(publishCommandLineInterfaceThresholds['large'])
             }
         }
     };
