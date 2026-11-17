@@ -12,7 +12,7 @@ suite('namespace read observation', function () {
         const key = source
             .getFirstDescendantByKindOrThrow(SyntaxKind.ElementAccessExpression)
             .getArgumentExpressionOrThrow();
-        const observation = createNamespaceReadObservation(localBindingReferences);
+        const observation = createNamespaceReadObservation(localBindingReferences, undefined);
         assert.strictEqual(observation.observe(key), false);
         assert.deepStrictEqual(observation.properties, new Set());
     });
@@ -25,7 +25,16 @@ suite('namespace read observation', function () {
             { content: 'ns.used``;', expected: false, properties: [] },
             { content: 'export const alias=ns;alias.used;', expected: false, properties: [] },
             { content: 'let alias=ns;alias.used;', expected: false, properties: [] },
-            { content: 'const {alias}=ns;', expected: false, properties: [] },
+            { content: 'const {alias}=ns;', expected: true, properties: [ 'alias' ] },
+            { content: 'const {}=ns;', expected: true, properties: [] },
+            { content: 'const {used: alias=42}=ns;', expected: true, properties: [ 'used' ] },
+            { content: 'const {used: {nested}}=ns;', expected: true, properties: [ 'used' ] },
+            { content: 'const {"used": alias, 0x2a: value}=ns;', expected: true, properties: [ 'used', '42' ] },
+            { content: 'const {...rest}=ns;', expected: false, properties: [] },
+            { content: 'const {[key]: alias}=ns;', expected: false, properties: [] },
+            { content: 'const [alias]=ns;', expected: false, properties: [] },
+            { content: 'export const {used}=ns;', expected: false, properties: [] },
+            { content: 'let {used}=ns;', expected: false, properties: [] },
             { content: 'object.ns;', expected: false, properties: [] },
             { content: 'object[ns];', expected: false, properties: [] },
             { content: 'const ns=1;', expected: false, properties: [] },
@@ -42,7 +51,7 @@ suite('namespace read observation', function () {
                 return identifier.getText() === 'ns';
             });
             assertDefined(value);
-            const observation = createNamespaceReadObservation(localBindingReferences);
+            const observation = createNamespaceReadObservation(localBindingReferences, undefined);
             assert.strictEqual(observation.observe(value), expected);
             assert.deepStrictEqual(observation.properties, new Set(properties));
         });
@@ -51,7 +60,7 @@ suite('namespace read observation', function () {
     test('keeps an escaped namespace unknown on repeated observation', function () {
         const source = createProject().createSourceFile('input.ts', 'const alias=ns;consume(alias);');
         const value = source.getVariableDeclarationOrThrow('alias').getInitializerOrThrow();
-        const observation = createNamespaceReadObservation(localBindingReferences);
+        const observation = createNamespaceReadObservation(localBindingReferences, undefined);
         assert.strictEqual(observation.observe(value), false);
         assert.strictEqual(observation.observe(value), false);
     });
@@ -59,7 +68,7 @@ suite('namespace read observation', function () {
     test('reuses observations of shared aliases without losing property reads', function () {
         const source = createProject().createSourceFile('input.ts', 'const alias=ns;alias.used;alias.other;');
         const value = source.getVariableDeclarationOrThrow('alias').getInitializerOrThrow();
-        const observation = createNamespaceReadObservation(localBindingReferences);
+        const observation = createNamespaceReadObservation(localBindingReferences, undefined);
         assert.strictEqual(observation.observe(value), true);
         assert.strictEqual(observation.observe(value), true);
         assert.deepStrictEqual(observation.properties, new Set([ 'used', 'other' ]));
@@ -76,7 +85,7 @@ suite('namespace read observation', function () {
             assert.strictEqual(visited.has(declaration), false);
             visited.add(declaration);
             return localBindingReferences(name, declaration);
-        });
+        }, undefined);
         assert.strictEqual(observation.observe(value), true);
         assert.strictEqual(observation.observe(value), true);
         assert.strictEqual(visited.size, 3);

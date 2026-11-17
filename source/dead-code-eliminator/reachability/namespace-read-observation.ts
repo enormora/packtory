@@ -2,14 +2,20 @@ import {
     Node as TypeScriptMorphNode,
     type Expression,
     type Identifier,
+    type ObjectBindingPattern,
     type VariableDeclaration
 } from 'ts-morph';
 import { bindingHasOnlyUses } from '../binding-stability.ts';
 import { constantStatement } from '../evaluation/constant-binding.ts';
 import { expressionWithWrappers, unwrapExpression } from '../expression-unwrapping.ts';
+import { callObservesReceiver } from '../receiver-call.ts';
 import { numericLiteralValue } from '../evaluation/primitive-value.ts';
+import { staticPropertyName } from '../liveness/builder-return.ts';
+
+export type CalledNamespaceProperties = ((name: string) => ReadonlySet<string> | undefined) | undefined;
 
 type NamespaceObservation = {
+    readonly calledProperties: CalledNamespaceProperties;
     readonly references: (name: Identifier, declaration: VariableDeclaration) => readonly Identifier[];
     readonly recordProperty: (key: string) => void;
     readonly enterBinding: (declaration: VariableDeclaration) => boolean;
@@ -18,15 +24,39 @@ type NamespaceObservation = {
 
 function recordProperty(property: Expression, key: string, observation: NamespaceObservation): boolean {
     const expression = expressionWithWrappers(property);
-    const parent = expression.getParent();
-    if (
-        TypeScriptMorphNode.isCallExpression(parent) && parent.getExpression() === expression ||
-        TypeScriptMorphNode.isTaggedTemplateExpression(parent)
-    ) {
-        return false;
+    if (callObservesReceiver(expression)) {
+        const properties = observation.calledProperties?.(key);
+        if (properties === undefined) {
+            return false;
+        }
+        for (const observedKey of properties) {
+            observation.recordProperty(observedKey);
+        }
     }
     observation.recordProperty(key);
     return true;
+}
+
+function observeObjectBinding(pattern: ObjectBindingPattern, observation: NamespaceObservation): boolean {
+    return pattern.getElements().every(function (element) {
+        const key = staticPropertyName(element);
+        if (key === undefined || element.getDotDotDotToken() !== undefined) {
+            return false;
+        }
+        observation.recordProperty(key);
+        return true;
+    });
+}
+
+function observeNamespaceAlias(
+    name: Identifier,
+    declaration: VariableDeclaration,
+    observation: NamespaceObservation
+): boolean {
+    const references = observation.references(name, declaration);
+    return references.every(function (reference) {
+        return observation.observe(reference);
+    }) && bindingHasOnlyUses(name, declaration, new Set(references));
 }
 
 function observeBinding(declaration: VariableDeclaration, observation: NamespaceObservation): boolean {
@@ -35,13 +65,12 @@ function observeBinding(declaration: VariableDeclaration, observation: Namespace
     }
     const statement = constantStatement(declaration);
     const name = declaration.getNameNode();
-    if (statement === undefined || statement.isExported() || !TypeScriptMorphNode.isIdentifier(name)) {
+    if (statement === undefined || statement.isExported()) {
         return false;
     }
-    const references = observation.references(name, declaration);
-    return references.every(function (reference) {
-        return observation.observe(reference);
-    }) && bindingHasOnlyUses(name, declaration, new Set(references));
+    return TypeScriptMorphNode.isIdentifier(name)
+        ? observeNamespaceAlias(name, declaration, observation)
+        : TypeScriptMorphNode.isObjectBindingPattern(name) && observeObjectBinding(name, observation);
 }
 
 function observeElement(
@@ -86,13 +115,15 @@ type NamespaceReadObservation = {
 };
 
 export function createNamespaceReadObservation(
-    references: NamespaceObservation['references']
+    references: NamespaceObservation['references'],
+    calledProperties: CalledNamespaceProperties
 ): NamespaceReadObservation {
     let complete = true;
     const properties = new Set<string>();
     const visited = new Set<VariableDeclaration>();
     const observation: NamespaceObservation = {
         references,
+        calledProperties,
         recordProperty(key) {
             properties.add(key);
         },

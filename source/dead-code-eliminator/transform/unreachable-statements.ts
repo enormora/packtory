@@ -1,7 +1,16 @@
-import { Node as TypeScriptMorphNode, SyntaxKind, type Statement, type TryStatement, type IfStatement } from 'ts-morph';
+import {
+    Node as TypeScriptMorphNode,
+    SyntaxKind,
+    VariableDeclarationKind,
+    type Statement,
+    type TryStatement,
+    type IfStatement,
+    type VariableStatement
+} from 'ts-morph';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
-import { sourceReplacement } from './source-replacement.ts';
+import { collectVariableDeclarationBindings } from '../variable-declaration-bindings.ts';
+import { sourceReplacement, type SourcePart } from './source-replacement.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
 type AbruptCompletionProof = (statement: Statement) => boolean;
@@ -61,6 +70,26 @@ function declaresBinding(statement: Statement): boolean {
     });
 }
 
+function unreachableVariableSource(statement: VariableStatement): readonly SourcePart[] | undefined {
+    const kind = statement.getDeclarationKind();
+    if (![ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Var ].includes(kind)) {
+        return undefined;
+    }
+    const bindings = statement.getDeclarations().flatMap(collectVariableDeclarationBindings);
+    const names = bindings.map(function (binding) {
+        return kind === VariableDeclarationKind.Const ? `${binding.name}=void 0` : binding.name;
+    });
+    const replacement = names.length === 0 ? '' : `${kind} ${names.join(',')};`;
+    return replacement === statement.getText() ? undefined : [ replacement ];
+}
+
+function unreachableSource(statement: Statement): readonly SourcePart[] | undefined {
+    if (TypeScriptMorphNode.isVariableStatement(statement)) {
+        return unreachableVariableSource(statement);
+    }
+    return declaresBinding(statement) || TypeScriptMorphNode.isEmptyStatement(statement) ? undefined : [];
+}
+
 export function removeUnreachableStatements(preparation: SourcePreparation): void {
     if (hasDynamicScope(preparation.sourceFile)) {
         return;
@@ -76,11 +105,12 @@ export function removeUnreachableStatements(preparation: SourcePreparation): voi
             return [];
         }
         return statements.slice(termination + 1).flatMap(function (statement) {
-            if (declaresBinding(statement) || TypeScriptMorphNode.isEmptyStatement(statement)) {
+            const replacement = unreachableSource(statement);
+            if (replacement === undefined) {
                 return [];
             }
             previousEnd = statement.getEnd();
-            return sourceReplacement(statement, []);
+            return sourceReplacement(statement, replacement);
         });
     });
     if (edits.length > 0) {

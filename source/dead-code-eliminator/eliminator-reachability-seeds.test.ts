@@ -382,7 +382,8 @@ suite('eliminator reachability seeds', function () {
             };
             const helperRuntimeResource = {
                 ...bundleResource('/source/helpers.js', {
-                    content: 'export function used() { return 1; }\nexport function unused() { return 2; }',
+                    content:
+                        'export function used() { console.log("used"); return 1; }\nexport function unused() { return 2; }',
                     targetFilePath: 'helpers.js'
                 }),
                 isSubstituted: false

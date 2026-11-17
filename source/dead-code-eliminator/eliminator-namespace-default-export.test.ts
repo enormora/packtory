@@ -39,7 +39,7 @@ suite('eliminator namespace default export', function () {
             test(`preserves the namespace through ${statement} with ${entry}`, async function () {
                 const modules = {
                     'barrel.js': `import * as ns from "./dep.js"; ${statement}`,
-                    'dep.js': 'export const used = 42; export const unused = 9; const dead = 123;'
+                    'dep.js': 'export let used = 42; export const unused = 9; const dead = 123;'
                 };
                 assertEmittedModule(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
                 const emitted = await eliminateCodeModules(entry, modules);

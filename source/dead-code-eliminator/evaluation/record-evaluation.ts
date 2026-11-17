@@ -3,7 +3,6 @@ import {
     type Expression,
     type ObjectLiteralExpression,
     type PropertyAssignment,
-    type PropertyName,
     type ShorthandPropertyAssignment,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
@@ -17,6 +16,7 @@ import {
     type EvaluationReference
 } from './abstract-value.ts';
 import { maximumEvaluationDepth, type EvaluationContext } from './evaluation-context.ts';
+import { evaluateComputedKey, evaluatePropertyKey } from './property-key-evaluation.ts';
 import { evaluateConstructionEffects } from './construction-evaluation.ts';
 
 type RecordDataField = {
@@ -32,17 +32,6 @@ type RecordAllocation = {
     readonly value: AllocatedRecord;
     readonly addField: (field: RecordField | undefined) => boolean;
 };
-
-function computedKey(expression: Expression, context: EvaluationContext): string | undefined {
-    const result = context.evaluate(expression, context);
-    return result !== undefined && isPrimitiveResult(result) ? String(result.value) : undefined;
-}
-
-function propertyKey(name: PropertyName, context: EvaluationContext): string | undefined {
-    return TypeScriptMorphNode.isComputedPropertyName(name)
-        ? computedKey(name.getExpression(), context)
-        : staticPropertyName(name);
-}
 
 function shorthandField(property: ShorthandPropertyAssignment, context: EvaluationContext): RecordField | undefined {
     const value = context.evaluate(property.getNameNode(), context);
@@ -71,7 +60,7 @@ function assignedField(property: PropertyAssignment, key: string, context: Evalu
 }
 
 function namedRecordField(property: ObjectMember, context: EvaluationContext): RecordField | undefined {
-    const key = propertyKey(property.getNameNode(), context);
+    const key = evaluatePropertyKey(property.getNameNode(), context);
     if (key === undefined) {
         return undefined;
     }
@@ -162,7 +151,10 @@ export function recordPropertyReference(
     }
     if (TypeScriptMorphNode.isElementAccessExpression(expression)) {
         const key = expression.getArgumentExpressionOrThrow();
-        return propertyReference(context.evaluate(expression.getExpression(), context), computedKey(key, context));
+        return propertyReference(
+            context.evaluate(expression.getExpression(), context),
+            evaluateComputedKey(key, context)
+        );
     }
     return undefined;
 }

@@ -182,3 +182,20 @@ export function moduleDependenciesInitialize(sourceFile: SourceFile, resolveModu
     return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
         .dependenciesInitialize(sourceFile);
 }
+
+export function createModuleCompletionOrder(
+    resolveModule: RuntimeModuleResolver,
+    completesSynchronously: (source: SourceFile) => boolean
+): (source: SourceFile) => boolean {
+    const graph: InitializationGraph = {
+        resolveModule,
+        dependenciesOf: initializationDependencies,
+        prefixIsSafe: completesSynchronously
+    };
+    const ordered = new WeakMap<SourceFile, boolean>();
+    return function (source) {
+        const result = ordered.get(source) ?? initializationReaches(source, source.getEnd(), graph);
+        ordered.set(source, result);
+        return result;
+    };
+}

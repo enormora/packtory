@@ -18,6 +18,38 @@ function preparedFiles(
 }
 
 suite('module constant snapshots', function () {
+    suite('completion boundaries', function () {
+        for (
+            const [ prefix, modules, known ] of [
+                [ 'effect();await pending;', {}, false ],
+                [ 'for await(const item of values){}', {}, false ],
+                [ 'async function work(){await pending;}effect();', {}, true ],
+                [ 'import "./dep.js";effect();', { 'dep.js': 'module.exports={};' }, false ],
+                [ 'import "./dep.js";effect();', { 'dep.js': 'eval("effect()");export {};' }, false ]
+            ] as const
+        ) {
+            test(`requires synchronous completion after ${prefix} with ${JSON.stringify(modules)}`, function () {
+                const files = preparedFiles([
+                    { filePath: 'index.js', content: `${prefix}export const value=42;` },
+                    ...Object.entries(modules).map(function ([ filePath, content ]) {
+                        return { filePath, content };
+                    })
+                ]);
+                const snapshot = createModuleConstantSnapshot(files, function () {
+                    return undefined;
+                });
+                const [ entry ] = files;
+                assertDefined(entry);
+                assert.deepStrictEqual(
+                    snapshot.modules.get(entry.sourceFile)?.exports,
+                    new Map(
+                        known ? [ [ 'value', { kind: 'constant', value: { value: 42 } } ] ] : []
+                    )
+                );
+            });
+        }
+    });
+
     test('rebuilds initialization dependencies after source transformations', function () {
         const files = preparedFiles([ { filePath: 'index.js', content: 'export const value=1;' } ]);
         const [ entry ] = files;
@@ -34,6 +66,17 @@ suite('module constant snapshots', function () {
             return undefined;
         });
         assert.deepStrictEqual(after.modules.get(entry.sourceFile), { initialized: false, exports: new Map() });
+    });
+
+    test('records a primitive after effects when consumers run after the module completes', function () {
+        const files = preparedFiles([ { filePath: 'index.js', content: 'unknown();export const value=1;' } ]);
+        const snapshot = createModuleConstantSnapshot(files, function () {
+            return undefined;
+        });
+        assert.deepStrictEqual(Array.from(snapshot.modules.values()), [ {
+            initialized: true,
+            exports: new Map([ [ 'value', { kind: 'constant', value: { value: 1 } } ] ])
+        } ]);
     });
 
     test('captures constants, aliases, and namespace exports across prepared modules', function () {
@@ -74,7 +117,6 @@ suite('module constant snapshots', function () {
         const { content, initialized } of [
             { content: 'eval("unknown()");export const value=1;', initialized: true },
             { content: 'export const value=1;eval("unknown()");', initialized: true },
-            { content: 'unknown();export const value=1;', initialized: true },
             { content: 'module.exports={value:1};', initialized: false },
             { content: 'import type {Thing} from "external";export const value=1;', initialized: false },
             { content: 'import "external";export const value=1;', initialized: false }

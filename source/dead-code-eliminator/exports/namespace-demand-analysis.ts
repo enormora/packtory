@@ -16,7 +16,7 @@ import {
 } from './namespace-demand.ts';
 
 type ExportDemandKey = { readonly source: SourceFile; readonly name: string; };
-export type NamespaceDemandPolicy = Pick<NamespaceExpressionContext, 'receiverIsUnobserved'> & {
+export type NamespaceDemandPolicy = Pick<NamespaceExpressionContext, 'receiverDemand'> & {
     readonly isObserved: NamespaceBindingContext['isObserved'];
 };
 export type NamespaceDemandAnalysis = {

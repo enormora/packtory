@@ -234,7 +234,12 @@ suite('eliminator dependency metadata', function () {
                         'index.js',
                         new Set([ 'live.js' ])
                     ),
-                    transformedResource('/source/live.js', 'export const live = 1;\n', 'live.js', new Set<string>())
+                    transformedResource(
+                        '/source/live.js',
+                        'console.log("live");\nexport const live = 1;\n',
+                        'live.js',
+                        new Set<string>()
+                    )
                 ]
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));

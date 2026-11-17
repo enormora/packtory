@@ -69,7 +69,7 @@ function completionValue(completion: Completion | undefined): AbstractValue | un
     return completion.type === 'normal' ? evaluated(undefined) : undefined;
 }
 
-function invokeFunction(target: LocalFunction, context: EvaluationContext): AbstractValue | undefined {
+export function evaluateFunctionBody(target: LocalFunction, context: EvaluationContext): AbstractValue | undefined {
     const body = target.getBody();
     if (!TypeScriptMorphNode.isBlock(body)) {
         return TypeScriptMorphNode.isExpression(body) ? context.evaluate(body, context) : undefined;
@@ -77,14 +77,14 @@ function invokeFunction(target: LocalFunction, context: EvaluationContext): Abst
     return completionValue(context.execute(body, context));
 }
 
-function evaluateIsolatedFunction(
+export function evaluateFunctionCall(
     target: LocalFunction,
     values: readonly AbstractValue[],
     context: EvaluationContext
 ): AbstractValue | undefined {
     const local = { ...context, locals: createLocalScope(new Map()), depth: context.depth + 1 };
     return bindParameters(target, values, local) && initializeHoistedLocals(target, local)
-        ? invokeFunction(target, local)
+        ? evaluateFunctionBody(target, local)
         : undefined;
 }
 
@@ -125,7 +125,7 @@ function createCalleeEvaluation(): CalleeEvaluation {
     const numberIdentity = createNumberIdentity();
     return function (target, values, context) {
         const invoke = function (): AbstractValue | undefined {
-            return evaluateIsolatedFunction(target, values, context);
+            return evaluateFunctionCall(target, values, context);
         };
         const argumentsToEvaluate = primitiveArguments(values);
         if (argumentsToEvaluate === undefined) {
@@ -141,7 +141,7 @@ function createCalleeEvaluation(): CalleeEvaluation {
     };
 }
 
-function functionIsSynchronous(target: LocalFunction): boolean {
+export function functionIsSynchronous(target: LocalFunction): boolean {
     return !target.isAsync() && (TypeScriptMorphNode.isArrowFunction(target) || !target.isGenerator());
 }
 

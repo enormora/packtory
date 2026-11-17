@@ -127,6 +127,38 @@ suite('module evaluation dependencies', function () {
         }
     });
 
+    test('does not treat private declaration exports as module evaluation effects', function () {
+        const fixture = createExportModuleFixture({
+            'index.d.ts': 'export {read} from "./library.d.ts";export declare function keep():number;',
+            'library.d.ts': 'export declare function read():number;'
+        }, []);
+        const source = fixture.source('index.d.ts');
+        const model = fixture.models.get(source);
+        assertDefined(model);
+        assert.deepStrictEqual(
+            moduleEvaluationDependencies({
+                model,
+                bindings: Array.from(model.locals.values()),
+                effects: new Set()
+            }, {
+                index: createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule),
+                resolveModule() {
+                    return fixture.source('library.d.ts');
+                },
+                binding() {
+                    return undefined;
+                },
+                exported() {
+                    return assert.fail('Declaration evaluation must not retain value exports');
+                },
+                evaluated(target) {
+                    return target === fixture.source('library.d.ts') ? 'library evaluation' : undefined;
+                }
+            }),
+            [ 'library evaluation' ]
+        );
+    });
+
     test('omits missing targets and does not resolve local export clauses', function () {
         const fixture = evaluationFixture(
             'const local=1;export {local};import {absent} from "./library.js";export {missing} from "./missing.js";export default effect();'

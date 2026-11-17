@@ -1,4 +1,4 @@
-import { SyntaxKind, type Statement } from 'ts-morph';
+import { SyntaxKind, type Node as TypeScriptMorphNode, type Statement } from 'ts-morph';
 
 const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.FunctionDeclaration,
@@ -11,6 +11,6 @@ const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
 
 export type NamedStatement = Statement & { readonly getName: () => string | undefined; };
 
-export function isNamedDeclaration(statement: Statement): statement is NamedStatement {
+export function isNamedDeclaration(statement: TypeScriptMorphNode): statement is NamedStatement {
     return namedDeclarationKinds.has(statement.getKind());
 }

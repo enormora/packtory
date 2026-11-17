@@ -18,6 +18,7 @@ export type FileBindings = FileBindingSet & {
 };
 
 export type DeclarationNodeIndex = {
+    readonly runtimeCompanionIdentifiers: ReadonlySet<string>;
     readonly identifiersByNode: ReadonlyMap<TypeScriptMorphNode, readonly string[]>;
     readonly identifiersByFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
     readonly identifiersByTargetFileAndName: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
@@ -149,7 +150,14 @@ export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): Dec
     for (const file of files) {
         addFileDeclarationIdentifiers(file);
     }
-    return index;
+    return {
+        ...index,
+        runtimeCompanionIdentifiers: new Set(
+            Array.from(index.identifiersByNode.values()).flatMap(function (identifiers) {
+                return identifiers.slice(1);
+            })
+        )
+    };
 }
 
 export function buildBindingsByFile(files: readonly FileBindingSet[]): Map<string, Set<string>> {

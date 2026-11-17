@@ -1,10 +1,11 @@
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
-import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
+import { buildAnalyzedResource, type AnalysisContext, type AnalyzedResourceOutput } from './code-file-analyzer.ts';
 import type { CrossBundleInput } from './cross-bundle/cross-bundle-seeds.ts';
 import { indexSourceFiles, recomputeDependencyMetadata } from './dependency-metadata.ts';
 import type { LoadedBundle } from './load-bundle.ts';
 import { pruneContents } from './liveness/resource-retention.ts';
 import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-map-recomposition.ts';
+import { removeEmptyModuleLinks } from './transform/empty-module-links.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 
@@ -33,15 +34,20 @@ function analysisContextFor(
     };
 }
 
+function analyzeResources(loaded: LoadedBundle, context: AnalysisContext): readonly AnalyzedResourceOutput[] {
+    const outputs = loaded.loaded.map(function (entry) {
+        return buildAnalyzedResource(entry, context);
+    });
+    return loaded.input.transformationsEnabled ? removeEmptyModuleLinks(outputs, loaded.loaded) : outputs;
+}
+
 export function analyzeBundleWithSeeds(
     loaded: LoadedBundle,
     externalSeeds: ReadonlySet<string> | undefined,
     trace: DeadCodeEliminationTrace
 ): AnalyzedBundle {
     const context = analysisContextFor(loaded, externalSeeds, trace);
-    const outputs = loaded.loaded.map(function (entry) {
-        return buildAnalyzedResource(entry, context);
-    });
+    const outputs = analyzeResources(loaded, context);
     const transformsByMapPath = buildMapPathTransformIndex(
         outputs,
         loaded.input.bundle.sourceMapTransformsByTargetPath

@@ -1,4 +1,4 @@
-import type { CallExpression, Expression, SourceFile } from 'ts-morph';
+import type { CallExpression, Expression, Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import {
     createLocalScope,
@@ -14,27 +14,34 @@ import { createCallEvaluator } from './callee-evaluation.ts';
 
 const maximumEvaluationSteps = 2048;
 
+export function createEvaluationContext(
+    call: EvaluationContext['call'],
+    readConstant: EvaluationContext['readConstant']
+): EvaluationContext {
+    return {
+        locals: createLocalScope(new Map()),
+        depth: 0,
+        readConstant,
+        consume: createEvaluationBudget(maximumEvaluationSteps),
+        evaluate: evaluateExpression,
+        execute: evaluateStatement,
+        call
+    };
+}
+
 export function createBoundedEvaluator(
     sourceFile: SourceFile,
     values: KnownConstants
-): (expression: Expression) => AbstractValue | undefined {
+): (expression: TypeScriptMorphNode) => AbstractValue | undefined {
     const evaluateCallSite = createCallEvaluator(sourceFile);
     const sourceIsValid = runtimeSourceIsValid(sourceFile);
     return function (expression) {
         if (!sourceIsValid) {
             return undefined;
         }
-        const context: EvaluationContext = {
-            locals: createLocalScope(new Map()),
-            depth: 0,
-            readConstant(identifier) {
-                return constantValueFor(identifier, values, expression);
-            },
-            consume: createEvaluationBudget(maximumEvaluationSteps),
-            evaluate: evaluateExpression,
-            execute: evaluateStatement,
-            call: evaluateCallSite()
-        };
+        const context = createEvaluationContext(evaluateCallSite(), function (identifier) {
+            return constantValueFor(identifier, values, expression);
+        });
         return context.evaluate(expression, context);
     };
 }

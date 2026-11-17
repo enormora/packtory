@@ -1,5 +1,6 @@
 import {
     SyntaxKind,
+    type Node as TypeScriptMorphNode,
     type Expression,
     type SourceFile,
     type VariableDeclaration
@@ -13,7 +14,7 @@ import { primitiveResult, type AbstractValue } from './abstract-value.ts';
 export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
     readonly knownValue: (expression: Expression) => AbstractValue | undefined;
-    readonly primitiveValue: PrimitiveEvaluator;
+    readonly primitiveValue: (node: TypeScriptMorphNode) => EvaluatedValue | undefined;
     readonly canDiscard: (expression: Expression) => boolean;
 };
 
@@ -31,7 +32,7 @@ export function createSourceEvaluations(
 function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
     const values = new Map<VariableDeclaration, EvaluatedValue>();
     const evaluate = createBoundedEvaluator(sourceFile, values);
-    const primitiveValue: PrimitiveEvaluator = function (expression) {
+    const primitiveValue: SourceEvaluation['primitiveValue'] = function (expression) {
         return primitiveResult(evaluate(expression));
     };
     const declarations = sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration);
