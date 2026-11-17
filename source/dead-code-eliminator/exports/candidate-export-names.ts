@@ -12,6 +12,7 @@ type ExportModuleGroup = {
     readonly source: SourceFile;
     readonly models: readonly ModuleExportModel[];
 };
+type ExportModuleTarget = ExportModuleGroup | undefined;
 
 export function collectCandidateExportNames(
     models: readonly ModuleExportModel[],
@@ -25,35 +26,34 @@ export function collectCandidateExportNames(
             return [ source, { source, models: entries } ];
         })
     );
+    const dependencies = new Map<ExportModuleTarget, () => Iterable<ExportModuleTarget>>(
+        Array.from(registry.values(), function (group) {
+            const targets = group.models.flatMap(function (model) {
+                return model.stars.map(function (star) {
+                    const source = star.specifier === undefined
+                        ? undefined
+                        : resolveModule(group.source, star.specifier);
+                    return registry.get(source);
+                });
+            });
+            return [ group, function () {
+                return targets;
+            } ];
+        })
+    );
     const names = new Map<SourceFile, ReadonlySet<string>>();
     const opaque = new Set<SourceFile>();
-
-    function* dependencies(group: ExportModuleGroup, owner: SourceFile): Iterable<ExportModuleGroup> {
-        for (const model of group.models) {
-            for (const star of model.stars) {
-                const resolved = star.specifier === undefined ? undefined : resolveModule(group.source, star.specifier);
-                const target = registry.get(resolved);
-                if (target === undefined) {
-                    opaque.add(owner);
-                } else {
-                    yield target;
-                }
-            }
-        }
-    }
 
     function collect(group: ExportModuleGroup): void {
         const visible = new Set(group.models.flatMap(function (model) {
             return Array.from(model.entries.keys());
         }));
         names.set(group.source, visible);
-        visitBindingDependencies(group, {
-            get(dependency) {
-                return function () {
-                    return dependencies(dependency, group.source);
-                };
+        visitBindingDependencies<ExportModuleTarget>(group, dependencies, function (dependency) {
+            if (dependency === undefined) {
+                opaque.add(group.source);
+                return;
             }
-        }, function (dependency) {
             for (const model of dependency.models) {
                 if (!model.closed) {
                     opaque.add(group.source);

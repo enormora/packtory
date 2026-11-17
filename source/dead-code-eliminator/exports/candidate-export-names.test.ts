@@ -105,6 +105,21 @@ suite('candidate export names', function () {
         assert.deepStrictEqual(graph.read('index.js'), { names: [], opaque: true });
     });
 
+    test('resolves each star declaration once across cyclic roots', function () {
+        const fixture = createExportModuleFixture({
+            'first.js': 'export * from "./second.js";export const first=1;',
+            'second.js': 'export * from "./third.js";export const second=2;',
+            'third.js': 'export * from "./first.js";export const third=3;'
+        }, []);
+        let resolutions = 0;
+        const result = collectCandidateExportNames(Array.from(fixture.models.values()), function (source, specifier) {
+            resolutions += 1;
+            return fixture.resolveModule(source, specifier);
+        });
+        assert.deepStrictEqual(result.names.get(fixture.source('first.js')), new Set([ 'first', 'second', 'third' ]));
+        assert.strictEqual(resolutions, 3);
+    });
+
     test('settles a large cyclic graph without a depth or round cutoff', function () {
         const count = 128;
         const files = Object.fromEntries(Array.from({ length: count }, function (_value, index) {
