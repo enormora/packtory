@@ -41,6 +41,7 @@ suite('pure-expression', function () {
             [ '({}) && ({})', true ],
             [ '({}) || ({})', true ],
             [ '({}) ?? ({})', true ],
+            [ 'void 1', true ],
             [ 'void missing', false ]
         ] as const
     ) {

@@ -52,6 +52,8 @@ suite('expression value reads', function () {
 
     for (
         const [ content, kind, text, expected ] of [
+            [ 'const result=42;', SyntaxKind.NumericLiteral, '42', true ],
+            [ 'const result=object[key];', SyntaxKind.Identifier, 'key', true ],
             [ 'const object={key:42};', SyntaxKind.Identifier, 'key', false ],
             [ 'const object={1:42};', SyntaxKind.NumericLiteral, '1', false ],
             [ 'const result=object.field;', SyntaxKind.Identifier, 'field', false ],
