@@ -1,18 +1,21 @@
 import assert from 'node:assert';
-import { Package } from '@arethetypeswrong/core';
 import { problemKindInfo as problemKindInformation } from '@arethetypeswrong/core/problems';
 import { suite, test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
+import { fake, stub, type SinonSpy } from 'sinon';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
 import { checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
 import { withInMemoryCompilerWorkspace } from '../../test-libraries/in-memory-compiler-workspace.ts';
 import type { AnalysisStorage } from '../analysis-storage.ts';
-import { createPackageResolutionAnalyzer, type PackageResolutionAnalyzer } from './type-script-package-resolution.ts';
+import {
+    createPackageResolutionAnalyzer,
+    type PackageResolutionAnalyzer,
+    type PackageResolutionDependencies
+} from './type-script-package-resolution.ts';
 
 function analyzer(storage: AnalysisStorage, checkPackage: SinonSpy): PackageResolutionAnalyzer {
     return createPackageResolutionAnalyzer({
         storage,
-        Package,
+        Package: stub() as unknown as PackageResolutionDependencies['Package'],
         checkPackage,
         problemKindInformation,
         problemAffectsResolutionKind: fake.returns(true),

@@ -18,14 +18,18 @@ const validated: (
     configuration: Partial<PacktoryConfigurationWithoutRegistry>
 ) => ValidConfigurationWithoutRegistryResult = validConfigurationWithoutRegistryFixture;
 
-const unusedCheckDependencies = {
-    runChecks: fakeCheckRunner(),
-    versionManager: {
-        addVersion() {
-            throw new Error('versionManager.addVersion should not run for checks that do not need generated packages');
+function createUnusedCheckDependencies(): CheckEvaluationDependencies {
+    return {
+        runChecks: fakeCheckRunner(),
+        versionManager: {
+            addVersion() {
+                throw new Error(
+                    'versionManager.addVersion should not run for checks that do not need generated packages'
+                );
+            }
         }
-    }
-};
+    };
+}
 
 function packageConfiguration(
     name: string,
@@ -56,7 +60,7 @@ async function runSinglePackageChecks(
     configuration: Partial<PacktoryConfigurationWithoutRegistry>,
     analyzedBundle: ResolvedPackage['analyzedBundle']
 ): Promise<Awaited<ReturnType<typeof buildChecksResult>>> {
-    return await buildChecksResult(unusedCheckDependencies, validated(configuration), [
+    return await buildChecksResult(createUnusedCheckDependencies(), validated(configuration), [
         resolvedPackage('package-a', analyzedBundle)
     ]);
 }
@@ -140,7 +144,7 @@ suite('resolved-package', function () {
             let calls = 0;
             const result = await buildChecksResult(
                 {
-                    ...unusedCheckDependencies,
+                    ...createUnusedCheckDependencies(),
                     async runChecks(input) {
                         calls += 1;
                         assert.deepStrictEqual(
@@ -168,7 +172,7 @@ suite('resolved-package', function () {
             const consent = { noDuplicatedFiles: { allowList: [ 'shared.ts' ] } };
 
             const result = await buildChecksResult(
-                unusedCheckDependencies,
+                createUnusedCheckDependencies(),
                 validated({
                     checks: { noDuplicatedFiles: { enabled: true } },
                     packages: [
@@ -197,7 +201,7 @@ suite('resolved-package', function () {
     test('buildChecksResult returns an Ok holding the resolved packages when no checks are configured', async function () {
         const resolvedPackages: readonly ResolvedPackage[] = [];
 
-        const result = await buildChecksResult(unusedCheckDependencies, validated({}), resolvedPackages);
+        const result = await buildChecksResult(createUnusedCheckDependencies(), validated({}), resolvedPackages);
 
         if (!result.isOk) {
             assert.fail('expected checks result to succeed');
@@ -207,7 +211,7 @@ suite('resolved-package', function () {
 
     test('buildChecksResult returns a checks failure carrying every issue produced by a configured rule', async function () {
         const result = await buildChecksResult(
-            unusedCheckDependencies,
+            createUnusedCheckDependencies(),
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
                 packages: [ packageConfiguration('package-a'), packageConfiguration('package-b') ]
