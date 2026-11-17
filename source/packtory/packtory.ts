@@ -1,5 +1,6 @@
 /* eslint-disable import/max-dependencies -- the packtory facade legitimately stitches together validation, resolve+link, publish, release-diff, release-analysis, pack, and report attachment */
 import { Result } from 'true-myth';
+import { oneLine } from 'common-tags';
 import type { SymbolEliminationInspector, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { CheckRunner } from '../checks/check-runner.ts';
@@ -225,9 +226,6 @@ function selectPackageTreeEntries(report: BuildReport, packageName: string): Pac
     return packageReport.outputs.tarball.entries;
 }
 
-const missingPublishAuthenticationIssue =
-    'registrySettings.authentication must be configured to publish; run with dryRun=true to skip the registry write.';
-
 function ensureAuthenticationConfiguredForRealPublish(
     validated: ValidConfigurationResult,
     options: BuildAndPublishAllOptions
@@ -235,7 +233,10 @@ function ensureAuthenticationConfiguredForRealPublish(
     if (options.dryRun || validated.packtoryConfiguration.registrySettings?.authentication !== undefined) {
         return Result.ok(validated);
     }
-    return Result.err(Result.err(configurationError([ missingPublishAuthenticationIssue ])));
+    return Result.err(Result.err(configurationError([
+        oneLine`registrySettings.authentication must be configured to publish;
+            run with dryRun=true to skip the registry write.`
+    ])));
 }
 
 type ReportedOperationArguments<TValidated, TResult, TReport, TOutcome> = {

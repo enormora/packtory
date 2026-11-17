@@ -32,8 +32,6 @@ type StaticCheckInputs = Pick<
     'bundles' | 'packageConfigurations' | 'perPackageSettings' | 'sourceFolders'
 >;
 
-const checkManifestVersion = '0.0.0';
-
 export function createResolvedPackage(
     name: string,
     analyzedBundle: AnalyzedBundle,
@@ -47,6 +45,7 @@ function buildPublishedPackagesForChecks(
     resolvedPackages: readonly ResolvedPackage[],
     publicModuleUsageByName: ReadonlyMap<string, ReadonlySet<string>>
 ): ReadonlyMap<string, PublishedPackageWithManifest> {
+    const checkManifestVersion = '0.0.0';
     return new Map(
         resolvedPackages.map(function (resolvedPackage) {
             const { analyzedBundle, resolveOptions } = resolvedPackage;
