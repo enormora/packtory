@@ -14,12 +14,7 @@
     "dryRunTimeoutMinutes": 15,
     "incrementalFile": "target/stryker-incremental.json",
     "mochaOptions": {
-        "no-package": true,
-        "no-opts": true,
-        "no-config": true,
-        "ui": "tdd",
-        "require": ["./source/test-libraries/test-lifecycle.ts"],
-        "extension": ["ts"],
+        "config": "mocha.config.unit-tests.json",
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
             "source/bundle-emitter/publication-outcome.test.ts",
@@ -73,7 +68,7 @@
         "!source/**/*.entry-point.ts",
         "!source/packages/**/*.composition.ts"
     ],
-    "ignorePatterns": ["node_modules", "target", ".git", "integration-tests"],
+    "ignorePatterns": ["/target", "/integration-tests"],
     "disableTypeChecks": true,
     "thresholds": {
         "high": 100,
