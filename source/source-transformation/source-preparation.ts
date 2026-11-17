@@ -8,14 +8,14 @@ export function* preparationPasses<Preparation>(
     preparation: Preparation,
     readState: () => string
 ): Iterable<Preparation> {
-    const pending = new Map([ [ readState(), preparation ] ]);
-    const passes = pending.values();
-    for (let pass = passes.next(); pass.done !== true; pass = passes.next()) {
-        if (pending.size > maximumPreparationPasses) {
+    const seen = new Set([ readState() ]);
+    for (const pass of new Array<Preparation>(maximumPreparationPasses).fill(preparation)) {
+        yield pass;
+        const state = readState();
+        if (seen.has(state)) {
             return;
         }
-        yield pass.value;
-        pending.set(readState(), preparation);
+        seen.add(state);
     }
 }
 
