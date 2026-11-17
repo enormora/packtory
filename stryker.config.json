@@ -22,6 +22,7 @@
         "extension": ["ts"],
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
+            "source/dead-code-eliminator/evaluation/evaluation-context.test.ts",
             "source/configuration/**/*.test.ts",
             "source/command-line-interface/**/*.test.ts",
             "source/common/**/*.test.ts",
