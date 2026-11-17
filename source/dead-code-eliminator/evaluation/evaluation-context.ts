@@ -12,11 +12,9 @@ import type { AbstractValue, EvaluationReference } from './abstract-value.ts';
 export const maximumEvaluationDepth = 32;
 
 export function createEvaluationBudget(maximumSteps: number): () => boolean {
-    const steps = Array.prototype.values.call({ length: maximumSteps }).map(function () {
-        return true;
-    });
+    const steps = Array.prototype.keys.call({ length: maximumSteps });
     return function () {
-        return Boolean(steps.next().value);
+        return Number.isSafeInteger(steps.next().value);
     };
 }
 
