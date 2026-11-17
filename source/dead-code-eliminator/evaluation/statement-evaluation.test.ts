@@ -9,18 +9,6 @@ import { createBindingReference, type EvaluationContext } from './evaluation-con
 import { evaluated } from './primitive-value.ts';
 
 suite('return completion proofs', function () {
-    for (const kind of [ 'const', 'let' ]) {
-        test(`preserves ${kind} binding mutability`, function () {
-            const source = createProject().createSourceFile('input.js', `${kind} value=21;`);
-            const context = createBoundedEvaluationContext(0, 100);
-            const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableStatement);
-            assert.deepStrictEqual(evaluateStatement(statement, context), { type: 'normal' });
-            const reference = context.locals.get(source.getVariableDeclarationOrThrow('value'));
-            assertDefined(reference);
-            assert.deepStrictEqual(reference.assign({ value: 42 }), kind === 'let' ? { value: 42 } : undefined);
-        });
-    }
-
     test('does not evaluate a loop condition after exhausting its budget', function () {
         const source = createProject().createSourceFile('index.ts', 'while(true){}');
         const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.WhileStatement);
@@ -82,6 +70,18 @@ suite('return completion proofs', function () {
     });
 
     suite('statement completion semantics', function () {
+        for (const kind of [ 'const', 'let' ]) {
+            test(`preserves ${kind} binding mutability`, function () {
+                const source = createProject().createSourceFile('input.js', `${kind} value=21;`);
+                const context = createBoundedEvaluationContext(0, 100);
+                const statement = source.getFirstDescendantByKindOrThrow(SyntaxKind.VariableStatement);
+                assert.deepStrictEqual(evaluateStatement(statement, context), { type: 'normal' });
+                const reference = context.locals.get(source.getVariableDeclarationOrThrow('value'));
+                assertDefined(reference);
+                assert.deepStrictEqual(reference.assign({ value: 42 }), kind === 'let' ? { value: 42 } : undefined);
+            });
+        }
+
         test('initializes every declaration in a variable statement', function () {
             const source = createProject().createSourceFile('input.ts', 'let first=1,second=2;');
             const context = createBoundedEvaluationContext(0, 100);

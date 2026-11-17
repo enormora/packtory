@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 
 const cases = [
     {
@@ -98,7 +98,7 @@ const retained = [
 suite('module completion reductions', function () {
     for (const fixture of [ ...cases, ...retained ]) {
         test(`preserves ${fixture.name}`, async function () {
-            const modules = await assertEquivalentModules(fixture.name, fixture.content, fixture.modules);
+            const modules = await assertModuleEliminationOutput(fixture.name, fixture.content, fixture.modules);
             if (fixture.removes !== null) {
                 const output = Array.from(modules.values()).join('\n');
                 assert.strictEqual(output.includes(fixture.removes), false, output);

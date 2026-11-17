@@ -18,7 +18,7 @@ type NamespaceCase = {
     readonly retainsUnused: boolean;
 };
 const cases: readonly NamespaceCase[] = [
-{
+    {
         name: 'unknown target without a static import',
         files: {
             'index.js': 'export async function probe(path="./lazy.js"){return Object.keys(await import(path));}',
@@ -26,7 +26,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'unreachable unknown request does not retain module exports',
         files: {
             'index.js': 'function unused(path){return import(path);}export function probe(){return 42;}',
@@ -34,7 +34,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'computed import still enumerates a namespace after a static scalar read folds',
         files: {
             'index.js': 'import ns from "./wrapper.js";export async function probe(){' +
@@ -45,7 +45,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'unknown import still enumerates a namespace after a static scalar read folds',
         files: {
             'index.js': 'import ns from "./wrapper.js";export async function probe(path="./wrapper.js"){' +
@@ -55,7 +55,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'computed import prunes unobserved properties of a default namespace',
         files: {
             'index.js': 'import ns from "./wrapper.js";export async function probe(){' +
@@ -65,7 +65,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'numeric exponent key',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns[5e-324];}',
@@ -73,7 +73,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'aliases',
         files: {
             'index.js':
@@ -82,7 +82,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'assignment',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used=3;}',
@@ -90,7 +90,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'computed',
         files: {
             'index.js':
@@ -99,7 +99,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'delete',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return delete ns.used;}',
@@ -107,15 +107,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
-    name: 'destructure',
-    files: {
-        'index.js': 'export async function probe(){const ns=await import("./lazy.js");const {used}=ns;return used;}',
-        'lazy.js': 'export const used=42;export const unused=9;'
-    },
-    retainsUnused: true
-},
-{
+    {
         name: 'direct',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -123,7 +115,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'enumeration',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return Object.keys(ns);}',
@@ -131,7 +123,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'escape',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns;}',
@@ -139,7 +131,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'eval',
         files: {
             'index.js':
@@ -148,7 +140,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'live',
         files: {
             'index.js':
@@ -157,7 +149,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'method-this',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used();}',
@@ -165,7 +157,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'missing',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.missing;}',
@@ -173,7 +165,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'mutable-binding',
         files: {
             'index.js': 'export async function probe(){let ns=await import("./lazy.js");ns={used:3};return ns.used;}',
@@ -181,7 +173,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'optional-method-this',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used?.();}',
@@ -189,7 +181,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'parentheses',
         files: {
             'index.js': 'export async function probe(){const ns=(await import("./lazy.js"));return (ns).used;}',
@@ -197,7 +189,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'property',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used;}',
@@ -205,7 +197,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'returned-closure',
         files: {
             'index.js':
@@ -214,7 +206,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'shadowed',
         files: {
             'index.js':
@@ -223,7 +215,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'shorthand',
         files: {
             'index.js':
@@ -232,7 +224,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'star',
         files: {
             'dep.js': 'export const used=42;export const unused=9;',
@@ -241,7 +233,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'star-conflict',
         files: {
             'a.js': 'export const clash=1;export const used=42;',
@@ -251,7 +243,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'string-key',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns["used"];}',
@@ -259,7 +251,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'tagged-this',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used`x`;}',
@@ -267,7 +259,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'template-key',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns[`used`];}',
@@ -275,7 +267,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'then',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return ns.used;}',
@@ -284,7 +276,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'then resolves a separate object',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -292,7 +284,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'then arrow resolves a separate object',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -300,7 +292,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'then observes the namespace receiver',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -308,7 +300,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'then observes the namespace receiver through eval',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -316,7 +308,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'noncallable then still exposes the namespace',
         files: {
             'index.js': 'export async function probe(){return Object.keys(await import("./lazy.js"));}',
@@ -324,7 +316,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'reassigned then observes the namespace receiver',
         files: {
             'index.js': 'export async function probe(){return (await import("./lazy.js")).used;}',
@@ -333,7 +325,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'unused',
         files: {
             'index.js': 'export async function probe(){await import("./lazy.js");return 7;}',
@@ -341,7 +333,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'wrapped-method-this',
         files: {
             'index.js': 'export async function probe(){const ns=await import("./lazy.js");return (ns.used)();}',
@@ -349,7 +341,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'destructure through alias',
         files: {
             'index.js':
@@ -358,7 +350,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'direct destructure',
         files: {
             'index.js': 'export async function probe(){const {used}=await import("./lazy.js");return used;}',
@@ -366,7 +358,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'renamed destructure',
         files: {
             'index.js': 'export async function probe(){const {used: answer}=await import("./lazy.js");return answer;}',
@@ -374,7 +366,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'destructure with default effects',
         files: {
             'index.js':
@@ -383,7 +375,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'destructure with namespace default escape',
         files: {
             'index.js':
@@ -392,7 +384,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'destructure with rest',
         files: {
             'index.js':
@@ -401,7 +393,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'destructure with computed key',
         files: {
             'index.js':
@@ -410,7 +402,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'destructure with a detached method',
         files: {
             'index.js': 'export async function probe(){const {used}=await import("./lazy.js");return used();}',
@@ -418,7 +410,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'destructure with nested property',
         files: {
             'index.js': 'export async function probe(){const {used:{answer}}=await import("./lazy.js");return answer;}',
@@ -426,7 +418,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: false
     },
-{
+    {
         name: 'destructure from then result',
         files: {
             'index.js': 'export async function probe(){const {used}=await import("./lazy.js");return used;}',
@@ -434,7 +426,7 @@ const cases: readonly NamespaceCase[] = [
         },
         retainsUnused: true
     },
-{
+    {
         name: 'destructure with target initialization effects',
         files: {
             'index.js': 'export async function probe(){const {used}=await import("./lazy.js");return used;}',

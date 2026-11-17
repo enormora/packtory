@@ -1,7 +1,7 @@
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { assertDefined } from './deep-subset-assertion.ts';
 import { moduleEliminationInputs } from './eliminator-test-support.ts';
-import { assertDeadCodeEliminationEquivalent } from './dead-code-elimination-oracle-test-support.ts';
+import { assertDeadCodeEliminationOutput } from './dead-code-elimination-output-assertions.ts';
 
 function moduleContents(bundle: AnalyzedBundle): ReadonlyMap<string, string> {
     return new Map(bundle.contents.map(function (resource) {
@@ -9,7 +9,7 @@ function moduleContents(bundle: AnalyzedBundle): ReadonlyMap<string, string> {
     }));
 }
 
-export async function assertEquivalentModules(
+export async function assertModuleEliminationOutput(
     name: string,
     content: string,
     modules: Readonly<Record<string, string>>
@@ -19,9 +19,10 @@ export async function assertEquivalentModules(
         entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'probe' },
         eliminationInputs: moduleEliminationInputs(content, modules)
     };
-    const [ result ] = await assertDeadCodeEliminationEquivalent(input);
+    const { bundles } = await assertDeadCodeEliminationOutput(input);
+    const [ result ] = bundles;
     if (Object.keys(modules).length > 0) {
-        await assertDeadCodeEliminationEquivalent({
+        await assertDeadCodeEliminationOutput({
             ...input,
             eliminationInputs: input.eliminationInputs.map(function (entry) {
                 return { ...entry, bundle: { ...entry.bundle, contents: entry.bundle.contents.toReversed() } };

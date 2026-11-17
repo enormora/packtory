@@ -64,37 +64,37 @@ const namedEntry = recursionEntry('import {count} from "./dependency.js";', 'cou
 const lazyEntry =
     'export async function probe(){try{const module=await import("./consumer.js");return module.value;}catch(error){return error.name+":"+error.message.includes("count");}}';
 const cases: readonly LocalValueCase[] = [
-{
+    {
         name: 'named constant',
         entry: namedEntry,
         modules: { 'dependency.js': 'export const count=10;' },
         remainingCalls: 0
     },
-{
+    {
         name: 'namespace member',
         entry: recursionEntry('import * as values from "./dependency.js";', 'values.count'),
         modules: { 'dependency.js': 'export const count=10;' },
         remainingCalls: 0
     },
-{
+    {
         name: 'forwarded constant',
         entry: namedEntry,
         modules: { 'dependency.js': 'export {count} from "./leaf.js";', 'leaf.js': 'export const count=10;' },
         remainingCalls: 0
     },
-{
+    {
         name: 'star export',
         entry: namedEntry,
         modules: { 'dependency.js': 'export * from "./leaf.js";', 'leaf.js': 'export const count=10;' },
         remainingCalls: 0
     },
-{
+    {
         name: 'default snapshot',
         entry: recursionEntry('import count from "./dependency.js";', 'count'),
         modules: { 'dependency.js': 'const count=10;export default count;' },
         remainingCalls: 0
     },
-{
+    {
         name: 'forwarded namespace snapshot',
         entry: recursionEntry('import {wrapped} from "./dependency.js";', 'wrapped.count'),
         modules: {
@@ -104,7 +104,7 @@ const cases: readonly LocalValueCase[] = [
         },
         remainingCalls: 0
     },
-{
+    {
         name: 'derived constant fixed point',
         entry: namedEntry,
         modules: {
@@ -113,7 +113,7 @@ const cases: readonly LocalValueCase[] = [
         },
         remainingCalls: 0
     },
-{
+    {
         name: 'constant computed from a captured module binding',
         entry: namedEntry,
         modules: {
@@ -121,20 +121,20 @@ const cases: readonly LocalValueCase[] = [
         },
         remainingCalls: 0
     },
-{
+    {
         name: 'mutable export',
         entry:
             'import {count,set} from "./dependency.js";function fib(n){return n<2?n:fib(n-1)+fib(n-2);}export function probe(){set(11);return fib(count);}',
         modules: { 'dependency.js': 'export let count=10;export function set(value){count=value;}' },
         remainingCalls: 3
     },
-{
+    {
         name: 'ordinary object property',
         entry: recursionEntry('import {values} from "./dependency.js";values.count=11;', 'values.count'),
         modules: { 'dependency.js': 'export const values={count:10};' },
         remainingCalls: 3
     },
-{
+    {
         name: 'folds results while preserving initialization effects',
         entry: namedEntry,
         modules: { 'dependency.js': 'console.log("initialization");export const count=10;' },
