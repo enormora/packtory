@@ -8,9 +8,7 @@ export type ConditionOutcome = {
     readonly truthy: boolean | undefined;
     readonly nullish: boolean | undefined;
 };
-function unknownConditionOutcome(): ConditionOutcome {
-    return { truthy: undefined, nullish: undefined };
-}
+const unknownOutcome: ConditionOutcome = { truthy: undefined, nullish: undefined };
 
 type ShortCircuitKind = SyntaxKind.AmpersandAmpersandToken | SyntaxKind.BarBarToken | SyntaxKind.QuestionQuestionToken;
 
@@ -34,7 +32,7 @@ function logicalOutcome(operator: ShortCircuitKind, right: ConditionOutcome): Co
     }
     return operator === SyntaxKind.BarBarToken && right.truthy === true
         ? { truthy: true, nullish: false }
-        : unknownConditionOutcome();
+        : unknownOutcome;
 }
 
 function shortCircuitOutcome(
@@ -59,9 +57,7 @@ function binaryOutcome(
     if (operator === SyntaxKind.CommaToken) {
         return outcomeOf(node.getRight());
     }
-    return isShortCircuitOperator(operator)
-        ? shortCircuitOutcome(node, operator, outcomeOf)
-        : unknownConditionOutcome();
+    return isShortCircuitOperator(operator) ? shortCircuitOutcome(node, operator, outcomeOf) : unknownOutcome;
 }
 
 function creationOutcome(node: Expression): ConditionOutcome {
@@ -73,9 +69,7 @@ function creationOutcome(node: Expression): ConditionOutcome {
         SyntaxKind.TypeOfExpression
     ]);
     const ordinaryClass = TypeScriptMorphNode.isClassExpression(node) && node.getDecorators().length === 0;
-    return ordinaryClass || truthyKinds.has(node.getKind())
-        ? { truthy: true, nullish: false }
-        : unknownConditionOutcome();
+    return ordinaryClass || truthyKinds.has(node.getKind()) ? { truthy: true, nullish: false } : unknownOutcome;
 }
 
 function syntaxOutcome(
@@ -98,7 +92,7 @@ export function conditionOutcome(
     depth: number
 ): ConditionOutcome {
     if (depth >= maximumEvaluationDepth) {
-        return unknownConditionOutcome();
+        return unknownOutcome;
     }
     const value = evaluation.knownValue(expression);
     if (value !== undefined) {

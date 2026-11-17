@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { match, P } from 'ts-pattern';
 
+const runtimeCodeExtensions = new Set([ '.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx' ]);
 const declarationCodeExtensions = [ '.d.ts', '.d.cts', '.d.mts' ];
 
 export function isDeclarationCodeTargetPath(targetFilePath: string): boolean {
@@ -10,13 +10,8 @@ export function isDeclarationCodeTargetPath(targetFilePath: string): boolean {
 }
 
 export function isRuntimeCodeTargetPath(targetFilePath: string): boolean {
-    return match(path.extname(targetFilePath))
-        .with(P.union('.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'), function () {
-            return !isDeclarationCodeTargetPath(targetFilePath);
-        })
-        .otherwise(function () {
-            return false;
-        });
+    return runtimeCodeExtensions.has(path.extname(targetFilePath)) &&
+        !isDeclarationCodeTargetPath(targetFilePath);
 }
 
 export function isCodeTargetPath(targetFilePath: string): boolean {

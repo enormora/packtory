@@ -58,9 +58,7 @@ type NormalCompletion = { readonly type: 'normal'; };
 type LoopControlCompletion = { readonly type: 'break' | 'continue'; };
 type ReturnCompletion = { readonly type: 'return'; readonly value: AbstractValue; };
 export type Completion = LoopControlCompletion | NormalCompletion | ReturnCompletion;
-export function normalCompletion(): Completion {
-    return { type: 'normal' };
-}
+export const normalCompletion: Completion = { type: 'normal' };
 export type EvaluationContext = {
     readonly locals: LocalScope;
     readonly consume: () => boolean;

@@ -12,6 +12,7 @@ import {
     identifierReadFact,
     localCallFact,
     localConstructionFact,
+    pureLocalObjectFact,
     pureValueFact,
     purePrimitiveFact,
     purityCheckerFor,
@@ -207,7 +208,7 @@ function objectLiteralExpressionFact(
         return createdObjectPropertyIsSafeToSpread(property, factFor);
     });
     return createdObjectIsSafeToSpread
-        ? { type: 'pure-object', origin: undefined }
+        ? pureLocalObjectFact
         : pureValueFact;
 }
 
@@ -293,24 +294,16 @@ function voidExpressionFact(expression: Expression, factFor: ExpressionFactResol
     return expressionFactIsPure(factFor(operand)) ? purePrimitiveFact : unknownFact;
 }
 
-function operationPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    if (kind === SyntaxKind.VoidExpression) {
-        return voidExpressionFact;
-    }
-    if (kind === SyntaxKind.PrefixUnaryExpression) {
-        return prefixUnaryExpressionFact;
-    }
-    if (kind === SyntaxKind.BinaryExpression) {
-        return binaryExpressionFact;
-    }
-    if (kind === SyntaxKind.CallExpression) {
-        return callExpressionRule;
-    }
-    return kind === SyntaxKind.NewExpression ? newExpressionFact : undefined;
-}
+const operationPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map([
+    [ SyntaxKind.VoidExpression, voidExpressionFact ],
+    [ SyntaxKind.PrefixUnaryExpression, prefixUnaryExpressionFact ],
+    [ SyntaxKind.BinaryExpression, binaryExpressionFact ],
+    [ SyntaxKind.CallExpression, callExpressionRule ],
+    [ SyntaxKind.NewExpression, newExpressionFact ]
+]);
 
 function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRuleFor(kind);
+    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRules.get(kind);
 }
 
 function calculateExpressionFact(

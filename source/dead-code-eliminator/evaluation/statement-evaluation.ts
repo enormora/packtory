@@ -12,8 +12,8 @@ import {
     type WhileStatement
 } from 'ts-morph';
 import {
-    createBindingReference,
     normalCompletion,
+    createBindingReference,
     type Completion,
     type EvaluationContext
 } from './evaluation-context.ts';
@@ -81,15 +81,15 @@ function executeBlock(statement: Statement, context: EvaluationContext): Complet
             return completion;
         }
     }
-    return normalCompletion();
+    return normalCompletion;
 }
 
 function completeIteration(completion: Completion | undefined): Completion | undefined {
-    return completion?.type === 'continue' ? normalCompletion() : completion;
+    return completion?.type === 'continue' ? normalCompletion : completion;
 }
 
 function completeLoop(completion: Completion | undefined): Completion | undefined {
-    return completion?.type === 'break' ? normalCompletion() : completion;
+    return completion?.type === 'break' ? normalCompletion : completion;
 }
 
 function executeIteration(statement: LoopStatement, context: EvaluationContext): Completion | undefined {
@@ -100,7 +100,7 @@ function executeIteration(statement: LoopStatement, context: EvaluationContext):
     const incrementor = TypeScriptMorphNode.isForStatement(statement) ? statement.getIncrementor() : undefined;
     return incrementor !== undefined && context.evaluate(incrementor, context) === undefined
         ? undefined
-        : normalCompletion();
+        : normalCompletion;
 }
 
 function loopContinues(condition: Expression | undefined, context: EvaluationContext): boolean | undefined {
@@ -119,7 +119,7 @@ function iterateLoop(
     while (context.consume()) {
         const continues = loopContinues(condition, context);
         if (continues !== true) {
-            return continues === false ? normalCompletion() : undefined;
+            return continues === false ? normalCompletion : undefined;
         }
         const completion = executeIteration(statement, context);
         if (completion?.type !== 'normal') {
@@ -186,18 +186,18 @@ function executeIf(statement: Statement, context: EvaluationContext): Completion
         return undefined;
     }
     const selected = isTruthy(condition.value) ? branch.getThenStatement() : branch.getElseStatement();
-    return selected === undefined ? normalCompletion() : context.execute(selected, context);
+    return selected === undefined ? normalCompletion : context.execute(selected, context);
 }
 
 function executeVariable(statement: Statement, context: EvaluationContext): Completion | undefined {
     return declareLocals(statement.asKindOrThrow(SyntaxKind.VariableStatement).getDeclarationList(), context)
-        ? normalCompletion()
+        ? normalCompletion
         : undefined;
 }
 
 function executeExpression(statement: Statement, context: EvaluationContext): Completion | undefined {
     const expression = statement.asKindOrThrow(SyntaxKind.ExpressionStatement).getExpression();
-    return context.evaluate(expression, context) === undefined ? undefined : normalCompletion();
+    return context.evaluate(expression, context) === undefined ? undefined : normalCompletion;
 }
 
 type StatementEvaluator = (statement: Statement, context: EvaluationContext) => Completion | undefined;
@@ -214,7 +214,9 @@ export function evaluateStatement(statement: Statement, context: EvaluationConte
         [SyntaxKind.ContinueStatement]: executeContinue,
         [SyntaxKind.VariableStatement]: executeVariable,
         [SyntaxKind.ExpressionStatement]: executeExpression,
-        [SyntaxKind.EmptyStatement]: normalCompletion
+        [SyntaxKind.EmptyStatement]() {
+            return normalCompletion;
+        }
     };
     return context.consume() ? evaluators[statement.getKind()]?.(statement, context) : undefined;
 }
