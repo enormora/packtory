@@ -39,7 +39,6 @@ type MutationRecord = { readonly name: string; readonly start: number; };
 
 export const pureValueFact: ExpressionFact = { origin: undefined, type: 'pure-value' };
 export const purePrimitiveFact: ExpressionFact = { origin: undefined, type: 'pure-primitive' };
-export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin: undefined };
 export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
 export function localCallFact(expression: CallExpression): ExpressionFact {

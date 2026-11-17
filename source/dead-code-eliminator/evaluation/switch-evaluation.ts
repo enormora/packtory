@@ -48,7 +48,7 @@ function executeClause(clause: CaseOrDefaultClause, context: EvaluationContext):
             return completion;
         }
     }
-    return normalCompletion;
+    return normalCompletion();
 }
 
 function executeSelectedClauses(
@@ -60,10 +60,10 @@ function executeSelectedClauses(
     for (const clause of remaining) {
         const completion = executeClause(clause, context);
         if (completion?.type !== 'normal') {
-            return completion?.type === 'break' ? normalCompletion : completion;
+            return completion?.type === 'break' ? normalCompletion() : completion;
         }
     }
-    return normalCompletion;
+    return normalCompletion();
 }
 
 export function evaluateSwitch(statement: Statement, context: EvaluationContext): Completion | undefined {
@@ -78,5 +78,5 @@ export function evaluateSwitch(statement: Statement, context: EvaluationContext)
     if (selected === undefined) {
         return undefined;
     }
-    return selected === null ? normalCompletion : executeSelectedClauses(clauses, selected, local);
+    return selected === null ? normalCompletion() : executeSelectedClauses(clauses, selected, local);
 }
