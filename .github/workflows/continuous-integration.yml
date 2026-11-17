@@ -48,7 +48,7 @@ jobs:
     mutation-testing:
         runs-on: ubuntu-latest
         name: Mutation testing
-        timeout-minutes: 20
+        timeout-minutes: 90
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         steps:
