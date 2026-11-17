@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import { defaultPrLogConfig as defaultPullRequestLogConfiguration } from '@pr-log/core';
+import { defaultPrLogConfig as defaultPullRequestLogConfiguration } from '@pr-log/core/lib/pr-log-config.js';
 import type { PullRequest, PullRequestWithLabel, PullRequestLogEngine } from '../changelog/pull-request-log.ts';
 import type {
     FilterPullRequestsByTargetFilesInput,

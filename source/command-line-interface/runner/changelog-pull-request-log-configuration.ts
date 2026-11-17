@@ -1,8 +1,5 @@
-import {
-    defaultPrLogConfig as defaultPullRequestLogConfiguration,
-    type CollapseRule,
-    type PrLogConfig as PullRequestLogConfiguration
-} from '@pr-log/core';
+import { defaultPrLogConfig as defaultPullRequestLogConfiguration } from '@pr-log/core/lib/pr-log-config.js';
+import type { CollapseRule, PrLogConfig as PullRequestLogConfiguration } from '@pr-log/core';
 import type { ChangelogSettings } from '../../configuration/changelog-settings.ts';
 
 type PullRequestLogSettings = NonNullable<ChangelogSettings['pullRequestLog']>;
