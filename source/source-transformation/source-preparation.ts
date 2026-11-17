@@ -9,7 +9,10 @@ export function* preparationPasses<Preparation>(
     readState: () => string
 ): Iterable<Preparation> {
     const seen = new Set([ readState() ]);
-    for (const pass of new Array<Preparation>(maximumPreparationPasses).fill(preparation)) {
+    const passes = Array.from({ length: maximumPreparationPasses }, function () {
+        return preparation;
+    });
+    for (const pass of passes) {
         yield pass;
         const state = readState();
         if (seen.has(state)) {

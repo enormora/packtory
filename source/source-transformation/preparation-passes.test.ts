@@ -40,8 +40,11 @@ suite('preparation convergence', function () {
             assert.ok(pass.changes <= 32);
         }
         assert.strictEqual(preparation.changes, 32);
-        assert.deepStrictEqual(observed, Array.from({ length: 33 }, function (_value, index) {
-            return String(index);
-        }));
+        assert.deepStrictEqual(
+            observed,
+            Array.from({ length: 33 }, function (_value, index) {
+                return String(index);
+            })
+        );
     });
 });
