@@ -23,6 +23,8 @@
         "ignore": ["source/build-support/canaries/**/*.test.ts"],
         "spec": [
             "source/dead-code-eliminator/evaluation/evaluation-context.test.ts",
+            "source/dead-code-eliminator/reference-target.test.ts",
+            "source/dead-code-eliminator/runtime-source-validity.test.ts",
             "source/dead-code-eliminator/transform/expression-read.test.ts",
             "source/dead-code-eliminator/liveness/runtime-code.test.ts",
             "source/dead-code-eliminator/evaluation/condition-outcome.test.ts",
