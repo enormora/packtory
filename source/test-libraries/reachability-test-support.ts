@@ -8,8 +8,6 @@ import type { ArtifactModuleReference } from '../resource-resolver/resolved-bund
 import { classifySideEffects } from './side-effect-classifier-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
-export const probeTestTimeoutMilliseconds = 10_000;
-
 function localModuleReferences(filePath: string, content: string): readonly ArtifactModuleReference[] {
     const project = createProject({ withFiles: [ { filePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(filePath);

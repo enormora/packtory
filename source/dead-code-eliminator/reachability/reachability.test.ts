@@ -2,13 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import {
     assertLocalValueExportIsReachable,
     assertReExportTargetIsReachable,
     fileBindingsFor,
     multiFileBindingsFor,
-    probeTestTimeoutMilliseconds,
     reachabilityForLocalValueExport,
     reachabilityForReExportTarget
 } from '../../test-libraries/reachability-test-support.ts';
@@ -307,44 +305,32 @@ suite('reachability', function () {
             assert.ok(isolatedIdentifiers.has(bindingIdentifier('isolated.ts', 'never')));
         });
 
-        test('buildReachabilityIndex completes promptly for cyclic binding graphs', async function () {
-            const result = await runNodeProbe(
-                `
-import { createProject } from './source/test-libraries/typescript-project.ts';
-import { extractTopLevelBindings } from './source/dead-code-eliminator/reachability/binding-extractor.ts';
-import { buildReachabilityIndex } from './source/dead-code-eliminator/reachability/reachability.ts';
-import { classifySideEffects } from './source/test-libraries/side-effect-classifier-test-support.ts';
+        test('buildReachabilityIndex completes a cyclic binding graph with bounded traversal', function () {
+            const files = [
+                fileBindingsFor(
+                    'entry.ts',
+                    'function helper() { return pub(); }\nexport function pub() { return helper(); }'
+                )
+            ];
+            let checks = 0;
+            const index = buildReachabilityIndex(reachabilityInput(files, new Set([ 'entry.ts' ])), {
+                visitedHas(visited, value) {
+                    checks += 1;
+                    assert.ok(checks <= 10, 'Cyclic binding traversal must remain bounded');
+                    return visited.has(value);
+                }
+            });
 
-const project = createProject({
-    withFiles: [{
-        filePath: 'entry.ts',
-        content: 'function helper() { return pub(); }\\nexport function pub() { return helper(); }'
-    }]
-});
-const sourceFile = project.getSourceFileOrThrow('entry.ts');
-const files = [{
-    inputFilePath: 'entry.ts',
-    parsedInputFilePath: sourceFile.getFilePath(),
-    targetFilePath: 'entry.ts',
-    originalLineFor: (node) => node.getStartLineNumber(),
-    sourceFile,
-    bindings: extractTopLevelBindings(sourceFile)
-}];
-const index = buildReachabilityIndex({
-    bundleName: 'package',
-    files,
-    entryPointFilePaths: new Set(['entry.ts']),
-    deadCodeElimination: undefined,
-    classifySideEffects,
-    trace: undefined
-});
-
-console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
-`,
-                { timeoutMilliseconds: probeTestTimeoutMilliseconds }
+            assert.deepStrictEqual(
+                Array.from(index.localReachable).toSorted(function (left, right) {
+                    return left.localeCompare(right);
+                }),
+                [
+                    'entry.ts::helper',
+                    'entry.ts::pub'
+                ]
             );
-
-            assert.deepStrictEqual(result, [ 'entry.ts::helper', 'entry.ts::pub' ]);
+            assert.ok(checks > 0);
         });
     });
 

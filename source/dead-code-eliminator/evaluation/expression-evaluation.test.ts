@@ -61,4 +61,33 @@ suite('expression evaluation writes', function () {
             assert.deepStrictEqual(operands, [ 'value', 'other' ]);
         });
     }
+
+    suite('expression evaluation budgets', function () {
+        test('does not evaluate a literal after exhausting the step budget', function () {
+            const source = createProject().createSourceFile('input.ts', 'const value=42;');
+            assert.strictEqual(
+                evaluateExpression(
+                    source
+                        .getVariableDeclarationOrThrow('value')
+                        .getInitializerOrThrow(),
+                    createBoundedEvaluationContext(0, 0)
+                ),
+                undefined
+            );
+        });
+    });
+
+    suite('reference evaluation budgets', function () {
+        test('does not update a reference after exhausting its lookup budget', function () {
+            const source = createProject().createSourceFile('input.ts', 'let value=1;++value;');
+            const context = createBoundedEvaluationContext(0, 1);
+            const reference = createBindingReference({ value: 1 }, true);
+            context.locals.set(source.getVariableDeclarationOrThrow('value'), reference);
+            assert.strictEqual(
+                evaluateExpression(source.getFirstDescendantByKindOrThrow(SyntaxKind.PrefixUnaryExpression), context),
+                undefined
+            );
+            assert.deepStrictEqual(reference.value, { value: 1 });
+        });
+    });
 });

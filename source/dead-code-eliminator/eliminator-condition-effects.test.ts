@@ -1,11 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
+    assertDeadCodeEliminationOutput,
     eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 
 suite('condition effects', function () {
     for (
@@ -30,14 +30,13 @@ suite('condition effects', function () {
     ) {
         test(`selects branches while preserving effects in ${body}`, async function () {
             const fixture = singleFileOracleCase(`export function probe(){${body}}`, 'index.js');
-            await assertDeadCodeEliminationEquivalent(fixture);
+            await assertDeadCodeEliminationOutput(fixture);
             const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
             const output = result[0]?.contents[0]?.fileDescription.content;
             assertDefined(output);
             assert.doesNotMatch(output, /unreachable/u);
         });
     }
-
     for (
         const body of [
             'if(!void missing)return 42;return 0;',
@@ -57,9 +56,7 @@ suite('condition effects', function () {
         ]
     ) {
         test(`preserves runtime behavior in ${body}`, async function () {
-            await assertDeadCodeEliminationEquivalent(
-                singleFileOracleCase(`export function probe(){${body}}`, 'index.js')
-            );
+            await assertDeadCodeEliminationOutput(singleFileOracleCase(`export function probe(){${body}}`, 'index.js'));
         });
     }
 });

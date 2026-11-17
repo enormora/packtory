@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import {
-    continuousIntegrationRunsPath,
     closeServer,
+    continuousIntegrationRunsPath,
     createBaseEnvironment,
     createBaseRoutes,
     getRouteKey,
@@ -13,8 +13,8 @@ import {
     withGitHubApplicationProgrammingInterfaceServer,
     workspaceOutputPath,
     type EntryPointScriptDependencies
-} from '../test-libraries/github-release-gate-test-support.ts';
-import { withDeadline } from '../test-libraries/with-deadline.ts';
+} from '../../source/test-libraries/github-release-gate-test-support.ts';
+import { withDeadline } from '../../source/test-libraries/with-deadline.ts';
 
 type EntryPointScriptCall = {
     readonly executeFile: {
@@ -25,14 +25,14 @@ type EntryPointScriptCall = {
         readonly githubOutput: string | undefined;
     };
     readonly mkdtempPrefix: string;
-    readonly readFile: { readonly encoding: 'utf8'; readonly path: string; };
+    readonly readFile: {
+        readonly encoding: 'utf8';
+        readonly path: string;
+    };
 };
-
 const testDeadlineMilliseconds = 200;
-
 function isClosedServerFetchFailure(error: unknown): boolean {
-    return error instanceof Error &&
-        [ 'TypeError', 'TimeoutError', 'AbortError' ].includes(error.name);
+    return error instanceof Error && [ 'TypeError', 'TimeoutError', 'AbortError' ].includes(error.name);
 }
 
 suite('github-release-gate-test-support', function () {
@@ -54,20 +54,24 @@ suite('github-release-gate-test-support', function () {
         const routes = createBaseRoutes();
         const continuousIntegrationRunsRoute = routes[continuousIntegrationRunsPath];
         const pullsRoute = routes[pullsPath];
-
         if (continuousIntegrationRunsRoute === undefined || pullsRoute === undefined) {
             assert.fail('expected base GitHub API routes');
         }
         assert.strictEqual(
             (continuousIntegrationRunsRoute.body as {
-                readonly workflow_runs: readonly [{ readonly html_url: string; }];
+                readonly workflow_runs: readonly [{
+                    readonly html_url: string;
+                }];
             })
                 .workflow_runs[0]
                 .html_url,
             'https://github.com/enormora/packtory/actions/runs/1'
         );
         assert.strictEqual(
-            (pullsRoute.body as readonly [{ readonly html_url: string; }])[0].html_url,
+            (pullsRoute.body as readonly [{
+                readonly html_url: string;
+            }])[0]
+                .html_url,
             'https://github.com/enormora/packtory/pull/1'
         );
     });
@@ -81,7 +85,11 @@ suite('github-release-gate-test-support', function () {
         assert.strictEqual(
             getServerPort({
                 address() {
-                    return { address: '127.0.0.1', family: 'IPv4', port: 4312 };
+                    return {
+                        address: '127.0.0.1',
+                        family: 'IPv4',
+                        port: 4312
+                    };
                 }
             }),
             4312
@@ -114,7 +122,6 @@ suite('github-release-gate-test-support', function () {
             }
         });
         await withDeadline(shutdown, 'closeServer', testDeadlineMilliseconds);
-
         assert.strictEqual(didClose, true);
     });
 
@@ -140,7 +147,6 @@ suite('github-release-gate-test-support', function () {
                     const response = await fetch(`${applicationProgrammingInterfaceBaseAddress}/missing`, {
                         signal: AbortSignal.timeout(testDeadlineMilliseconds)
                     });
-
                     assert.strictEqual(response.status, 404);
                     assert.strictEqual(response.headers.get('content-type'), 'application/json');
                     assert.deepStrictEqual(await response.json(), {
@@ -155,43 +161,40 @@ suite('github-release-gate-test-support', function () {
 
     test('withGitHubApplicationProgrammingInterfaceServer returns the action result, serves JSON, and closes afterwards', async function () {
         let applicationProgrammingInterfaceBaseAddress = '';
-
         const actionResult = await withDeadline(
-            withGitHubApplicationProgrammingInterfaceServer(
-                {
-                    '/ready': {
-                        body: { ok: true },
-                        headers: { 'x-test': '1' },
-                        status: 201
-                    }
-                },
-                async function (address) {
-                    applicationProgrammingInterfaceBaseAddress = address;
-                    const response = await fetch(`${address}/ready`, {
-                        signal: AbortSignal.timeout(testDeadlineMilliseconds)
-                    });
-
-                    assert.strictEqual(response.status, 201);
-                    assert.strictEqual(response.headers.get('content-type'), 'application/json');
-                    assert.strictEqual(response.headers.get('x-test'), '1');
-                    assert.deepStrictEqual(await response.json(), { ok: true });
-                    return 'done';
+            withGitHubApplicationProgrammingInterfaceServer({
+                '/ready': {
+                    body: {
+                        ok: true
+                    },
+                    headers: {
+                        'x-test': '1'
+                    },
+                    status: 201
                 }
-            ),
+            }, async function (address) {
+                applicationProgrammingInterfaceBaseAddress = address;
+                const response = await fetch(`${address}/ready`, {
+                    signal: AbortSignal.timeout(testDeadlineMilliseconds)
+                });
+                assert.strictEqual(response.status, 201);
+                assert.strictEqual(response.headers.get('content-type'), 'application/json');
+                assert.strictEqual(response.headers.get('x-test'), '1');
+                assert.deepStrictEqual(await response.json(), {
+                    ok: true
+                });
+                return 'done';
+            }),
             'withGitHubApplicationProgrammingInterfaceServer',
             testDeadlineMilliseconds
         );
-
         assert.strictEqual(actionResult, 'done');
         assert.match(applicationProgrammingInterfaceBaseAddress, /^http:\/\/127\.0\.0\.1:\d+$/u);
-        await assert.rejects(
-            async function () {
-                await fetch(`${applicationProgrammingInterfaceBaseAddress}/ready`, {
-                    signal: AbortSignal.timeout(testDeadlineMilliseconds)
-                });
-            },
-            isClosedServerFetchFailure
-        );
+        await assert.rejects(async function () {
+            await fetch(`${applicationProgrammingInterfaceBaseAddress}/ready`, {
+                signal: AbortSignal.timeout(testDeadlineMilliseconds)
+            });
+        }, isClosedServerFetchFailure);
     });
 
     test('runEntryPointScript uses the expected temp prefix, utf8 encoding, and output fallback', async function () {
@@ -212,7 +215,10 @@ suite('github-release-gate-test-support', function () {
                         githubOutput: options.environment.GITHUB_OUTPUT
                     },
                     mkdtempPrefix: path.join(safeTemporaryRoot, 'packtory-github-release-gate-'),
-                    readFile: { encoding: 'utf8', path: scriptOutputPath }
+                    readFile: {
+                        encoding: 'utf8',
+                        path: scriptOutputPath
+                    }
                 };
                 callback(null, 'stdout-', 'stderr-');
             },
@@ -222,25 +228,31 @@ suite('github-release-gate-test-support', function () {
             },
             processExecutePath: '/node',
             async readFile(filePath, options) {
-                observedReadFile = { encoding: options.encoding, path: filePath };
+                observedReadFile = {
+                    encoding: options.encoding,
+                    path: filePath
+                };
                 throw new Error('missing');
             },
             temporaryDirectory() {
                 return safeTemporaryRoot;
             }
         };
-
         const result = await withDeadline(
-            runEntryPointScript('/entry.ts', { TOKEN: 'x' }, dependencies),
+            runEntryPointScript('/entry.ts', {
+                TOKEN: 'x'
+            }, dependencies),
             'runEntryPointScript',
             testDeadlineMilliseconds
         );
-
         assert.deepStrictEqual(result, {
             exitCode: 0,
             output: 'stdout-stderr-'
         });
-        assert.deepStrictEqual(observedReadFile, { encoding: 'utf8', path: scriptOutputPath });
+        assert.deepStrictEqual(observedReadFile, {
+            encoding: 'utf8',
+            path: scriptOutputPath
+        });
         assert.deepStrictEqual(calls, {
             executeFile: {
                 commandArguments: [ '--experimental-strip-types', '--enable-source-maps', '/entry.ts' ],
@@ -250,7 +262,10 @@ suite('github-release-gate-test-support', function () {
                 githubOutput: scriptOutputPath
             },
             mkdtempPrefix: path.join(safeTemporaryRoot, 'packtory-github-release-gate-'),
-            readFile: { encoding: 'utf8', path: scriptOutputPath }
+            readFile: {
+                encoding: 'utf8',
+                path: scriptOutputPath
+            }
         });
     });
 });

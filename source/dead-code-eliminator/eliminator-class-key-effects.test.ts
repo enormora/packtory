@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
+    assertDeadCodeEliminationOutput,
     eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 
 suite('class member key effects', function () {
@@ -17,28 +17,27 @@ suite('class member key effects', function () {
                     return key;
                 });
                 const content = declaration ? `class Unused{${body}}` : `const unused=class{${body}};`;
-                await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-                    `${content}export function probe(){return 42;}`,
-                    'index.js'
-                ));
+                await assertDeadCodeEliminationOutput(
+                    singleFileOracleCase(`${content}export function probe(){return 42;}`, 'index.js')
+                );
             });
         }
     }
-
     for (const key of [ '{__proto__:null}', '{toString(){throw new Error("key");}}' ]) {
         test(`preserves conversion errors for ${key}`, async function () {
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-                `class Unused{[${key}](){}}export function probe(){return 42;}`,
-                'index.js'
-            ));
+            await assertDeadCodeEliminationOutput(
+                singleFileOracleCase(`class Unused{[${key}](){}}export function probe(){return 42;}`, 'index.js')
+            );
         });
     }
 
     test('preserves conversion through a constant alias', async function () {
-        await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-            'const key={toString(){console.log("key");return "member";}};class Unused{[key](){}}export function probe(){return 42;}',
-            'index.js'
-        ));
+        await assertDeadCodeEliminationOutput(
+            singleFileOracleCase(
+                'const key={toString(){console.log("key");return "member";}};class Unused{[key](){}}export function probe(){return 42;}',
+                'index.js'
+            )
+        );
     });
 
     test('removes an unused class with a proven primitive computed key', async function () {
@@ -46,7 +45,7 @@ suite('class member key effects', function () {
             'class Unused{["a"+"b"](){}}export function probe(){return 42;}',
             'index.js'
         );
-        await assertDeadCodeEliminationEquivalent(fixture);
+        await assertDeadCodeEliminationOutput(fixture);
         const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
         assertDefined(output);
         assert.strictEqual(

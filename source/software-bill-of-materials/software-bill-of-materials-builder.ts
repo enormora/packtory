@@ -1,4 +1,5 @@
-import * as cyclonedx from '@cyclonedx/cyclonedx-library';
+import { type ComponentScope, ComponentType } from '@cyclonedx/cyclonedx-library/Enums';
+import { Bom, Component, LicenseExpression, NamedLicense } from '@cyclonedx/cyclonedx-library/Models';
 import softwarePackageDataExchangeParse from 'spdx-expression-parse';
 
 type SoftwareBillOfMaterialsRootComponent = {
@@ -9,7 +10,7 @@ type SoftwareBillOfMaterialsRootComponent = {
 export type SoftwareBillOfMaterialsDependency = {
     readonly name: string;
     readonly specifier: string;
-    readonly scope: cyclonedx.Enums.ComponentScope;
+    readonly scope: ComponentScope;
     readonly license: string | undefined;
 };
 
@@ -32,18 +33,18 @@ function buildPackageAddress(name: string, versionOrSpecifier: string): string {
     return `pkg:npm/${name}@${encodeURIComponent(versionOrSpecifier)}`;
 }
 
-function buildRootComponent(rootComponent: SoftwareBillOfMaterialsRootComponent): cyclonedx.Models.Component {
+function buildRootComponent(rootComponent: SoftwareBillOfMaterialsRootComponent): Component {
     const packageAddress = buildPackageAddress(rootComponent.name, rootComponent.version);
-    return new cyclonedx.Models.Component(cyclonedx.Enums.ComponentType.Library, rootComponent.name, {
+    return new Component(ComponentType.Library, rootComponent.name, {
         version: rootComponent.version,
         bomRef: packageAddress,
         purl: packageAddress
     });
 }
 
-function buildDependencyComponent(dependency: SoftwareBillOfMaterialsDependency): cyclonedx.Models.Component {
+function buildDependencyComponent(dependency: SoftwareBillOfMaterialsDependency): Component {
     const packageAddress = buildPackageAddress(dependency.name, dependency.specifier);
-    const component = new cyclonedx.Models.Component(cyclonedx.Enums.ComponentType.Library, dependency.name, {
+    const component = new Component(ComponentType.Library, dependency.name, {
         version: dependency.specifier,
         bomRef: packageAddress,
         purl: packageAddress,
@@ -53,21 +54,21 @@ function buildDependencyComponent(dependency: SoftwareBillOfMaterialsDependency)
         return component;
     }
     if (isParseableSoftwarePackageDataExchangeExpression(dependency.license)) {
-        component.licenses.add(new cyclonedx.Models.LicenseExpression(dependency.license));
+        component.licenses.add(new LicenseExpression(dependency.license));
         return component;
     }
-    component.licenses.add(new cyclonedx.Models.NamedLicense(dependency.license));
+    component.licenses.add(new NamedLicense(dependency.license));
     return component;
 }
 
-function buildToolComponent(toolVersion: string): cyclonedx.Models.Component {
-    return new cyclonedx.Models.Component(cyclonedx.Enums.ComponentType.Application, 'packtory', {
+function buildToolComponent(toolVersion: string): Component {
+    return new Component(ComponentType.Application, 'packtory', {
         version: toolVersion
     });
 }
 
-export function buildSoftwareBillOfMaterials(options: SoftwareBillOfMaterialsBuilderOptions): cyclonedx.Models.Bom {
-    const billOfMaterials = new cyclonedx.Models.Bom();
+export function buildSoftwareBillOfMaterials(options: SoftwareBillOfMaterialsBuilderOptions): Bom {
+    const billOfMaterials = new Bom();
     billOfMaterials.metadata.tools.components.add(buildToolComponent(options.toolVersion));
 
     const rootComponent = buildRootComponent(options.rootComponent);

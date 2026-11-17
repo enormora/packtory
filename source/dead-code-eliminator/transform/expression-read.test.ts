@@ -52,10 +52,17 @@ suite('expression value reads', function () {
 
     for (
         const [ content, kind, text, expected ] of [
+            [ 'const result=42;', SyntaxKind.NumericLiteral, '42', true ],
+            [ 'const result=object[key];', SyntaxKind.Identifier, 'key', true ],
             [ 'const object={key:42};', SyntaxKind.Identifier, 'key', false ],
             [ 'const object={1:42};', SyntaxKind.NumericLiteral, '1', false ],
             [ 'const result=object.field;', SyntaxKind.Identifier, 'field', false ],
             [ 'const result=object.field;', SyntaxKind.Identifier, 'object', true ],
+            [ 'call(target);', SyntaxKind.Identifier, 'target', true ],
+            [ 'target();', SyntaxKind.Identifier, 'target', false ],
+            [ 'new target();', SyntaxKind.Identifier, 'target', false ],
+            [ 'call(object.field);', SyntaxKind.PropertyAccessExpression, 'object.field', true ],
+            [ 'object.field();', SyntaxKind.PropertyAccessExpression, 'object.field', false ],
             [ 'const result=()=>42;', SyntaxKind.NumericLiteral, '42', true ],
             [ 'type Result={[object.field]:number};', SyntaxKind.PropertyAccessExpression, 'object.field', false ],
             [ 'const result=tag`plain`;', SyntaxKind.Identifier, 'tag', false ],

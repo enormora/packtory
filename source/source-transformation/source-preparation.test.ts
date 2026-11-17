@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { createSourcePreparation, type SourcePreparation } from './source-preparation.ts';
+import { applySourcePreparation, createSourcePreparation, type SourcePreparation } from './source-preparation.ts';
 import type { SourceTextEdit } from './text-edits.ts';
 
 function prepareMixedExpression(content: string): SourcePreparation {
@@ -37,12 +37,25 @@ function assertOriginalExpressionLine(preparation: SourcePreparation, expected: 
 }
 
 suite('source preparation', function () {
-    test('preserves identity locations without recording empty edits', function () {
-        const sourceFile = createProject().createSourceFile('index.ts', 'const first = 1;\nconst second = 2;');
-        const preparation = createSourcePreparation(sourceFile);
-        preparation.applyEdits([]);
-        assert.strictEqual(preparation.originalLineFor(sourceFile.getVariableDeclarationOrThrow('second')), 2);
-        assert.strictEqual(preparation.transformations.length, 0);
+    suite('edit application', function () {
+        test('retains remaining edits after the preparation budget is exhausted', function () {
+            const source = createProject().createSourceFile('input.ts', `${';'.repeat(40)}effect();`);
+            applySourcePreparation(createSourcePreparation(source), function (file) {
+                const first = file.getStatements()[0];
+                return first?.getKind() === SyntaxKind.EmptyStatement
+                    ? [ { start: first.getStart(), end: first.getEnd(), content: '' } ]
+                    : [];
+            });
+            assert.strictEqual(source.getFullText(), `${';'.repeat(8)}effect();`);
+        });
+
+        test('preserves identity locations without recording empty edits', function () {
+            const sourceFile = createProject().createSourceFile('index.ts', 'const first = 1;\nconst second = 2;');
+            const preparation = createSourcePreparation(sourceFile);
+            preparation.applyEdits([]);
+            assert.strictEqual(preparation.originalLineFor(sourceFile.getVariableDeclarationOrThrow('second')), 2);
+            assert.strictEqual(preparation.transformations.length, 0);
+        });
     });
 
     test('projects generated replacements through earlier deletions', function () {

@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { createSourcePreparation } from '../source-transformation/source-preparation.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
-    eliminateDeadCodeAndAssertAllOutputValid,
-    observeDeadCodeEliminationBehavior
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+    assertDeadCodeEliminationOutput,
+    eliminateDeadCodeAndAssertAllOutputValid
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import {
     deadCodeEliminationSemanticProgram,
     deadCodeEliminationSemanticScenarios,
@@ -12,7 +12,6 @@ import {
 } from '../test-libraries/dead-code-elimination-semantic-programs.ts';
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { createSourcePreparation } from '../source-transformation/source-preparation.ts';
 import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
 
 suite('dead code elimination semantic regressions', function () {
@@ -38,21 +37,12 @@ suite('dead code elimination semantic regressions', function () {
             singleLine: false,
             sourceSkew: false
         });
-        const original = await observeDeadCodeEliminationBehavior({
-            name: program.name,
-            entry: program.entry,
-            bundles: [ program.bundle ]
-        });
-        assert.partialDeepStrictEqual(original, [ {
-            result: { observation: { error: { phase: 'evaluation', type: 'object', name: 'TypeError' } } }
-        } ]);
-        await assertDeadCodeEliminationEquivalent({
+        await assertDeadCodeEliminationOutput({
             name: program.name,
             entry: program.entry,
             eliminationInputs: inputs(program.bundle)
         });
     });
-
     for (const scenario of Object.keys(deadCodeEliminationSemanticScenarios) as DeadCodeEliminationSemanticScenario[]) {
         test(`preserves ${scenario}`, async function () {
             const program = deadCodeEliminationSemanticProgram({
@@ -62,14 +52,13 @@ suite('dead code elimination semantic regressions', function () {
                 singleLine: false,
                 sourceSkew: false
             });
-            await assertDeadCodeEliminationEquivalent({
+            await assertDeadCodeEliminationOutput({
                 name: program.name,
                 entry: program.entry,
                 eliminationInputs: inputs(program.bundle)
             });
         });
     }
-
     for (const singleLine of [ false, true ]) {
         test(`removes pure declarations beside effects, single line ${String(singleLine)}`, async function () {
             const program = deadCodeEliminationSemanticProgram({

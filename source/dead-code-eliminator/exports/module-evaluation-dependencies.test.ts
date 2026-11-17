@@ -46,7 +46,87 @@ function evaluationFixture(content: string): EvaluationFixture {
     };
 }
 
+function identifiedTargets(fixture: EvaluationFixture): ModuleEvaluationLinks {
+    return {
+        ...fixture.links,
+        binding(source, name) {
+            return `${source.getBaseName()}:binding:${name}`;
+        },
+        exported(source, name) {
+            return source === undefined ? undefined : `${source.getBaseName()}:export:${name}`;
+        },
+        evaluated(source) {
+            return source === undefined ? undefined : `${source.getBaseName()}:evaluation`;
+        }
+    };
+}
+
 suite('module evaluation dependencies', function () {
+    suite('retained graph targets', function () {
+        test('retains runtime import and re-export evaluation without resolving local exports', function () {
+            const fixture = evaluationFixture(
+                'import "./library.js";export {value} from "./library.js";const local=1;export {local};'
+            );
+            assert.deepStrictEqual(moduleEvaluationDependencies(fixture.input, identifiedTargets(fixture)), [
+                'library.js:evaluation',
+                'library.js:evaluation'
+            ]);
+        });
+
+        for (
+            const [ content, expected ] of [
+                [ 'import type {Type} from "./library.js";', [ 'index.js:binding:Type' ] ],
+                [ 'export type {Type} from "./library.js";', [] ]
+            ] as const
+        ) {
+            test(`does not evaluate the dependency of ${content}`, function () {
+                const fixture = evaluationFixture(content);
+                assert.deepStrictEqual(
+                    moduleEvaluationDependencies(fixture.input, identifiedTargets(fixture)),
+                    expected
+                );
+            });
+        }
+
+        test('retains missing named imports while omitting uniquely resolved and namespace bindings', function () {
+            const fixture = evaluationFixture(
+                'import {value,absent} from "./library.js";import * as library from "./library.js";'
+            );
+            assert.deepStrictEqual(moduleEvaluationDependencies(fixture.input, identifiedTargets(fixture)), [
+                'library.js:evaluation',
+                'library.js:evaluation',
+                'index.js:binding:absent'
+            ]);
+        });
+
+        test('retains unresolved forwarding exports without retaining uniquely resolved forwarding exports', function () {
+            const fixture = evaluationFixture('export {value as renamed,absent} from "./library.js";');
+            assert.deepStrictEqual(moduleEvaluationDependencies(fixture.input, identifiedTargets(fixture)), [
+                'library.js:evaluation',
+                'index.js:export:absent'
+            ]);
+        });
+
+        for (
+            const content of [
+                'export default effect();',
+                'export default function build(){}',
+                'export default class Build{static{effect();}}'
+            ]
+        ) {
+            test(`retains the default export evaluated by ${content}`, function () {
+                const fixture = evaluationFixture(content);
+                assert.deepStrictEqual(
+                    moduleEvaluationDependencies({
+                        ...fixture.input,
+                        effects: new Set(fixture.input.model.source.getStatements())
+                    }, identifiedTargets(fixture)),
+                    [ 'index.js:export:default' ]
+                );
+            });
+        }
+    });
+
     test('omits missing targets and does not resolve local export clauses', function () {
         const fixture = evaluationFixture(
             'const local=1;export {local};import {absent} from "./library.js";export {missing} from "./missing.js";export default effect();'

@@ -1,5 +1,6 @@
 import path from 'node:path';
-import { spawnForCompletion, type SpawnFunction } from './preview-spawn.ts';
+import { spawnForCompletion } from './preview-spawn.ts';
+import type { SpawnFunction } from './preview-process.ts';
 
 export type PreviewInputOutputDependencies = {
     readonly openFile: (filePath: string) => Promise<void>;

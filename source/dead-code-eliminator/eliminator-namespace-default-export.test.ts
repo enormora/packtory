@@ -2,13 +2,12 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
-import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
+import { assertExpectedModuleSource } from '../test-libraries/expected-module-source.ts';
 
 function moduleAddress(content: string): string {
     return `data:text/javascript;base64,${Buffer.from(content).toString('base64')}`;
 }
-
-async function observe(modules: ReadonlyMap<string, string>): Promise<unknown> {
+function assertEmittedModule(modules: ReadonlyMap<string, string>): void {
     const dependency = modules.get('dep.js');
     const barrel = modules.get('barrel.js');
     const entry = modules.get('index.js');
@@ -21,7 +20,7 @@ async function observe(modules: ReadonlyMap<string, string>): Promise<unknown> {
     const address = moduleAddress(entry.replace('./barrel.js', function () {
         return barrelAddress;
     }));
-    return runNodeProbe(`
+    assertExpectedModuleSource(`
         const module = await import(${JSON.stringify(address)});
         console.log(JSON.stringify(module.value));
     `);
@@ -42,11 +41,9 @@ suite('eliminator namespace default export', function () {
                     'barrel.js': `import * as ns from "./dep.js"; ${statement}`,
                     'dep.js': 'export const used = 42; export const unused = 9; const dead = 123;'
                 };
-                const original = await observe(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
-                assert.strictEqual(original, 42);
+                assertEmittedModule(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
                 const emitted = await eliminateCodeModules(entry, modules);
-
-                assert.strictEqual(await observe(emitted), original);
+                assertEmittedModule(emitted);
                 assert.strictEqual(emitted.get('dep.js')?.includes('dead'), false);
                 assert.strictEqual(emitted.get('dep.js')?.includes('unused'), false);
             });

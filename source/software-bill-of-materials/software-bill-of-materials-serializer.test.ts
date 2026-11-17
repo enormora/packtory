@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import * as cyclonedx from '@cyclonedx/cyclonedx-library';
+import { ComponentScope } from '@cyclonedx/cyclonedx-library/Enums';
 import { suite, test } from 'mocha';
 import { buildSoftwareBillOfMaterials } from './software-bill-of-materials-builder.ts';
 import { createSoftwareBillOfMaterialsSerializer } from './software-bill-of-materials-serializer.ts';
@@ -30,7 +30,7 @@ suite('sbom-serializer', function () {
                 {
                     name: 'lodash',
                     specifier: '^4.17.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: 'MIT'
                 }
             ]
@@ -53,13 +53,13 @@ suite('sbom-serializer', function () {
                     {
                         name: 'a-dep',
                         specifier: '1.0.0',
-                        scope: cyclonedx.Enums.ComponentScope.Required,
+                        scope: ComponentScope.Required,
                         license: 'MIT'
                     },
                     {
                         name: 'z-dep',
                         specifier: '1.0.0',
-                        scope: cyclonedx.Enums.ComponentScope.Required,
+                        scope: ComponentScope.Required,
                         license: 'MIT'
                     }
                 ]
@@ -73,13 +73,13 @@ suite('sbom-serializer', function () {
                     {
                         name: 'z-dep',
                         specifier: '1.0.0',
-                        scope: cyclonedx.Enums.ComponentScope.Required,
+                        scope: ComponentScope.Required,
                         license: 'MIT'
                     },
                     {
                         name: 'a-dep',
                         specifier: '1.0.0',
-                        scope: cyclonedx.Enums.ComponentScope.Required,
+                        scope: ComponentScope.Required,
                         license: 'MIT'
                     }
                 ]

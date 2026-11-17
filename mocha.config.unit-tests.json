@@ -14,6 +14,7 @@
     "slow": 75,
     "timeout": 10000,
     "ui": "tdd",
+    "require": ["./source/test-libraries/test-lifecycle.ts"],
     "node-option": [
         "experimental-strip-types",
         "enable-source-maps"

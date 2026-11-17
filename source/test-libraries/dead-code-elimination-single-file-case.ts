@@ -2,32 +2,30 @@ import assert from 'node:assert';
 import { SyntaxKind } from 'ts-morph';
 import { createSourceEvaluation } from '../dead-code-eliminator/evaluation/constant-evaluation.ts';
 import type { EvaluatedValue } from '../dead-code-eliminator/evaluation/primitive-value.ts';
+import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
-    eliminateDeadCodeAndAssertAllOutputValid,
-    observeDeadCodeEliminationBehavior,
-    type DeadCodeEliminationOracleCase
-} from './dead-code-elimination-oracle-test-support.ts';
-import { inputs, bundleForCodeFile } from './eliminator-test-support.ts';
-import { assertDefined, assertDeepSubset } from './deep-subset-assertion.ts';
+    type DeadCodeEliminationCase,
+    assertDeadCodeEliminationOutput,
+    type VerifiedDeadCodeElimination
+} from './dead-code-elimination-output-assertions.ts';
+
+import { assertDefined } from './deep-subset-assertion.ts';
+import { bundleForCodeFile, inputs } from './eliminator-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
 export type SingleFileEvaluationCase = {
     readonly name: string;
     readonly content: string;
     readonly result: EvaluatedValue | undefined;
-    readonly native: unknown;
     readonly remainingCalls: number;
 };
-
 type CallReductionCase = {
     readonly content: string;
     readonly targetFilePath: string;
     readonly callee: string | null;
     readonly remainingCalls: number;
 };
-
-export function singleFileOracleCase(content: string, targetFilePath: string): DeadCodeEliminationOracleCase {
+export function singleFileOracleCase(content: string, targetFilePath: string): DeadCodeEliminationCase {
     return {
         name: 'single-file',
         entry: {
@@ -43,35 +41,28 @@ export function singleFileOracleCase(content: string, targetFilePath: string): D
         }))
     };
 }
-
-export async function assertSingleFileCallReduction(input: CallReductionCase): Promise<void> {
+async function verifySingleFileCallReduction(input: CallReductionCase): Promise<VerifiedDeadCodeElimination> {
     const fixture = singleFileOracleCase(input.content, input.targetFilePath);
-    await assertDeadCodeEliminationEquivalent(fixture);
-    const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
-    const output = result[0]?.contents[0]?.fileDescription.content;
+    const result = await assertDeadCodeEliminationOutput(fixture);
+    assertValidDeadCodeEliminationOutput(fixture.name, result.bundles);
+    const output = result.bundles[0]?.contents[0]?.fileDescription.content;
     assertDefined(output);
     const source = createProject().createSourceFile('output.js', output);
     const remaining = source.getDescendantsOfKind(SyntaxKind.CallExpression).filter(function (call) {
         return input.callee === null || call.getExpression().getText() === input.callee;
     });
     assert.strictEqual(remaining.length, input.remainingCalls);
+    return result;
 }
-
+export async function assertSingleFileCallReduction(input: CallReductionCase): Promise<void> {
+    await verifySingleFileCallReduction(input);
+}
 export async function assertSingleFileEvaluation(input: SingleFileEvaluationCase): Promise<void> {
     const source = createProject().createSourceFile('input.ts', input.content);
     const expression = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
     assert.deepStrictEqual(createSourceEvaluation(source).primitiveValue(expression), input.result);
     const content = `${input.content}export function probe(){return value;}`;
-    const fixture = singleFileOracleCase(content, 'index.js');
-    const native = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: fixture.entry,
-        bundles: fixture.eliminationInputs.map(function (entry) {
-            return entry.bundle;
-        })
-    });
-    assertDeepSubset(native[0]?.result.observation, input.native);
-    await assertSingleFileCallReduction({
+    await verifySingleFileCallReduction({
         content,
         targetFilePath: 'index.js',
         callee: null,

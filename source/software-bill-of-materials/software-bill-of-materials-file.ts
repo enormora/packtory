@@ -1,4 +1,4 @@
-import * as cyclonedx from '@cyclonedx/cyclonedx-library';
+import { ComponentScope } from '@cyclonedx/cyclonedx-library/Enums';
 import { softwareBillOfMaterialsArtifactFilePath } from '../common/package-layout.ts';
 import type { PublishSettings } from '../configuration/publish-settings.ts';
 import { createFileDescription, type FileDescription } from '../file-manager/file-description.ts';
@@ -34,7 +34,7 @@ export type SoftwareBillOfMaterialsFileBuilder = {
 type DependencyEntry = {
     readonly name: string;
     readonly specifier: string;
-    readonly scope: cyclonedx.Enums.ComponentScope;
+    readonly scope: ComponentScope;
 };
 
 function isSoftwareBillOfMaterialsEnabled(publishSettings: PublishSettings): boolean {
@@ -44,10 +44,10 @@ function isSoftwareBillOfMaterialsEnabled(publishSettings: PublishSettings): boo
 function listDependencyEntries(bundle: SoftwareBillOfMaterialsPackage): readonly DependencyEntry[] {
     return [
         ...Object.entries(bundle.dependencies).map<DependencyEntry>(function ([ name, specifier ]) {
-            return { name, specifier, scope: cyclonedx.Enums.ComponentScope.Required };
+            return { name, specifier, scope: ComponentScope.Required };
         }),
         ...Object.entries(bundle.peerDependencies).map<DependencyEntry>(function ([ name, specifier ]) {
-            return { name, specifier, scope: cyclonedx.Enums.ComponentScope.Optional };
+            return { name, specifier, scope: ComponentScope.Optional };
         })
     ];
 }

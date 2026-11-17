@@ -2,6 +2,7 @@ import type { CallExpression, Expression, SourceFile } from 'ts-morph';
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import {
     createLocalScope,
+    createEvaluationBudget,
     type EvaluationContext
 } from './evaluation-context.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
@@ -23,17 +24,13 @@ export function createBoundedEvaluator(
         if (!sourceIsValid) {
             return undefined;
         }
-        let remaining = maximumEvaluationSteps;
         const context: EvaluationContext = {
             locals: createLocalScope(new Map()),
             depth: 0,
             readConstant(identifier) {
                 return constantValueFor(identifier, values, expression);
             },
-            consume() {
-                remaining -= 1;
-                return remaining >= 0;
-            },
+            consume: createEvaluationBudget(maximumEvaluationSteps),
             evaluate: evaluateExpression,
             execute: evaluateStatement,
             call: evaluateCallSite()

@@ -99,4 +99,17 @@ suite('required-files', function () {
             'Package "a" is missing required file "readme.md"'
         ]);
     });
+
+    suite('requiredFilesRule schemas', function () {
+        test('accepts supported global settings', function () {
+            assert.strictEqual(
+                requiredFilesRule.globalSchema.safeParse({ enabled: true, files: [ 'LICENSE' ] }).success,
+                true
+            );
+        });
+
+        test('accepts supported package settings', function () {
+            assert.strictEqual(requiredFilesRule.perPackageSchema.safeParse({ files: [ 'LICENSE' ] }).success, true);
+        });
+    });
 });

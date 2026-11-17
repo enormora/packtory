@@ -93,4 +93,10 @@ suite('boolean facts', function () {
         assert.deepStrictEqual(afterDestructure, initialFacts);
         assert.deepStrictEqual(afterUnknown, initialFacts);
     });
+
+    for (const content of [ 'const { value } = true;', 'declare const value: boolean;' ]) {
+        test(`does not infer a boolean binding from ${content}`, function () {
+            assert.deepStrictEqual(factsAfterStatement(firstStatement(content), new Map()), new Map());
+        });
+    }
 });

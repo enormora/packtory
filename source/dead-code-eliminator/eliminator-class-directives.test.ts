@@ -1,9 +1,9 @@
 import { suite, test } from 'mocha';
+import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import {
     assertSingleFileCallReduction,
     singleFileOracleCase
 } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 
 suite('class declaration directive boundaries', function () {
     for (
@@ -21,15 +21,14 @@ suite('class declaration directive boundaries', function () {
         ]
     ) {
         test(`preserves strictness in ${content}`, async function () {
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(content, 'index.cjs'));
+            await assertDeadCodeEliminationOutput(singleFileOracleCase(content, 'index.cjs'));
         });
     }
-
     for (const argument of [ '1,42', '42', '1,undefined' ]) {
         test(`retains duplicate parameter calls with arguments ${argument}`, async function () {
             await assertSingleFileCallReduction({
-                content: 'function compute(value,value){return value;}' +
-                    `module.exports=function(){return compute(${argument});};`,
+                content: 'function compute(value,value){return value;}module.' +
+                    `exports=function(){return compute(${argument});};`,
                 targetFilePath: 'index.cjs',
                 callee: 'compute',
                 remainingCalls: 1

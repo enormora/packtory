@@ -1,6 +1,9 @@
 import assert from 'node:assert';
+import path from 'node:path';
 import { suite, test } from 'mocha';
+import { fake } from 'sinon';
 import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
+import type { SpawnFunction } from './preview-process.ts';
 import { createDefaultPreviewInputOutput } from './preview-input-output.ts';
 
 async function ignoreOpenFile(filePath: string): Promise<void> {
@@ -13,37 +16,58 @@ suite('preview-input-output', function () {
             openFile: ignoreOpenFile,
             shell: 'sh',
             pager: undefined,
-            standardOutputIsTerminal: true
+            standardOutputIsTerminal: true,
+            randomUniqueIdentifier() {
+                return 'preview-id';
+            },
+            temporaryDirectory() {
+                return '/virtual';
+            }
         });
-
         assert.strictEqual(typeof previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath, 'function');
         assert.strictEqual(typeof previewInputOutput.pagePreviewOutput, 'function');
         assert.strictEqual(typeof previewInputOutput.openPreviewFile, 'function');
-        assert.ok(previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath().includes('packtory-preview-'));
+        assert.strictEqual(
+            previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath(),
+            path.join('/virtual', 'packtory-preview-preview-id.html')
+        );
     });
 
-    test('createDefaultPreviewInputOutput falls back to the default spawn process when no custom spawner is injected', async function () {
+    test('createDefaultPreviewInputOutput uses the injected process launcher', async function () {
+        const contents: string[] = [];
+        const child: ReturnType<SpawnFunction> = {
+            standardInput: {
+                on: fake(),
+                end(content) {
+                    contents.push(content);
+                }
+            },
+            on(eventName, listener) {
+                if (eventName === 'close') {
+                    listener(0);
+                }
+            },
+            unref: fake()
+        };
+        const spawnProcess = fake.returns(child);
         const previewInputOutput = createDefaultPreviewInputOutput({
             openFile: ignoreOpenFile,
-            shell: 'sh',
-            pager: 'cat >/dev/null',
-            standardOutputIsTerminal: true,
-            randomUniqueIdentifier() {
-                return 'uuid-123';
-            },
-            temporaryDirectory() {
-                return '/var/folders';
-            }
+            spawnProcess,
+            shell: 'preview-shell',
+            pager: 'preview-pager',
+            standardOutputIsTerminal: true
         });
 
         assert.strictEqual(
-            await withPromiseDeadline(
-                previewInputOutput.pagePreviewOutput('hello'),
-                'default preview io fallback spawner',
-                5000
-            ),
+            await withPromiseDeadline(previewInputOutput.pagePreviewOutput('report'), 'injected preview launcher'),
             true
         );
+        assert.deepStrictEqual(spawnProcess.args, [ [
+            'preview-shell',
+            [ '-lc', 'preview-pager' ],
+            { stdio: [ 'pipe', 'inherit', 'inherit' ] }
+        ] ]);
+        assert.deepStrictEqual(contents, [ 'report' ]);
     });
 
     test('createDefaultPreviewInputOutput uses an injected file opener', async function () {
@@ -56,14 +80,7 @@ suite('preview-input-output', function () {
             pager: undefined,
             standardOutputIsTerminal: true
         });
-
-        assert.strictEqual(
-            await withPromiseDeadline(
-                previewInputOutput.openPreviewFile('/var/folders/report.html'),
-                'default preview open'
-            ),
-            true
-        );
+        assert.strictEqual(await previewInputOutput.openPreviewFile('/var/folders/report.html'), true);
         assert.deepStrictEqual(openedFiles, [ '/var/folders/report.html' ]);
     });
 });

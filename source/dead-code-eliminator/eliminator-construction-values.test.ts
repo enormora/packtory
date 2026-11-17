@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
+    assertDeadCodeEliminationOutput,
     eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 
 suite('construction value specialization', function () {
@@ -24,7 +24,7 @@ suite('construction value specialization', function () {
                 `class Empty{}export const value=${expression};export function probe(){return value;}`,
                 'index.js'
             );
-            await assertDeadCodeEliminationEquivalent(fixture);
+            await assertDeadCodeEliminationOutput(fixture);
             const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
             assertDefined(output);
             const content = output
@@ -54,7 +54,7 @@ suite('construction value specialization', function () {
     ) {
         test(`preserves observable construction in ${content}`, async function () {
             const fixture = singleFileOracleCase(`${content}export function probe(){return value;}`, 'index.js');
-            await assertDeadCodeEliminationEquivalent(fixture);
+            await assertDeadCodeEliminationOutput(fixture);
             const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
             assertDefined(output);
             const remaining = output.contents.reduce(function (count, resource) {

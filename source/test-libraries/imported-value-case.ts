@@ -1,13 +1,12 @@
 import assert from 'node:assert';
-import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { assertDeepSubset, assertDefined } from './deep-subset-assertion.ts';
-import {
-    assertDeadCodeEliminationBehaviorEquivalent,
-    observeDeadCodeEliminationBehavior,
-    type DeadCodeEliminationBehaviorComparison
-} from './dead-code-elimination-oracle-test-support.ts';
+import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { bundleResource, type BundleFixtureLinkedBundle as LinkedBundle } from './bundle-fixtures.ts';
+import {
+    assertDeadCodeEliminationExpectedOutput,
+    type DeadCodeEliminationBehaviorComparison
+} from './dead-code-elimination-output-assertions.ts';
+import { assertDefined } from './deep-subset-assertion.ts';
 import { bundleForCodeFile, inputs } from './eliminator-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
@@ -19,9 +18,7 @@ export type ImportedValueCase = readonly [
     retained: string | null,
     nativeError: string | null
 ];
-
 const packageManifest = '{"type":"module","exports":"./index.js"}';
-
 function valueBundle(files: Readonly<Record<string, string>>): LinkedBundle {
     const content = files['index.js'];
     assertDefined(content);
@@ -37,7 +34,10 @@ function valueBundle(files: Readonly<Record<string, string>>): LinkedBundle {
             })
             .map(function ([ name, text ]) {
                 return {
-                    ...bundleResource(`/repo/node_modules/package/${name}`, { targetFilePath: name, content: text }),
+                    ...bundleResource(`/repo/node_modules/package/${name}`, {
+                        targetFilePath: name,
+                        content: text
+                    }),
                     isSubstituted: false
                 };
             })
@@ -57,17 +57,28 @@ function valueBundle(files: Readonly<Record<string, string>>): LinkedBundle {
         })
     };
 }
-
 function valueEliminator(files: Readonly<Record<string, string>>, library: string): InspectableDeadCodeEliminator {
     return createDeadCodeEliminator({
         createProject() {
             return createProject({
                 withFiles: [
-                    { filePath: '/repo/node_modules/schema-lib/package.json', content: packageManifest },
-                    { filePath: '/repo/node_modules/schema-lib/index.js', content: library },
-                    { filePath: '/repo/node_modules/package/package.json', content: packageManifest },
+                    {
+                        filePath: '/repo/node_modules/schema-lib/package.json',
+                        content: packageManifest
+                    },
+                    {
+                        filePath: '/repo/node_modules/schema-lib/index.js',
+                        content: library
+                    },
+                    {
+                        filePath: '/repo/node_modules/package/package.json',
+                        content: packageManifest
+                    },
                     ...Object.entries(files).map(function ([ name, content ]) {
-                        return { filePath: `/repo/node_modules/package/${name}`, content };
+                        return {
+                            filePath: `/repo/node_modules/package/${name}`,
+                            content
+                        };
                     })
                 ]
             });
@@ -83,7 +94,6 @@ function valueEliminator(files: Readonly<Record<string, string>>, library: strin
         trace: undefined
     });
 }
-
 async function valueComparison(files: Readonly<Record<string, string>>, library: string): Promise<{
     readonly original: LinkedBundle;
     readonly emitted: AnalyzedBundle;
@@ -96,7 +106,12 @@ async function valueComparison(files: Readonly<Record<string, string>>, library:
     const dependency = {
         name: 'schema-lib',
         roots: {},
-        contents: [ { fileDescription: { targetFilePath: 'index.js', content: library } } ]
+        contents: [ {
+            fileDescription: {
+                targetFilePath: 'index.js',
+                content: library
+            }
+        } ]
     };
     const content = emitted
         .contents
@@ -106,19 +121,27 @@ async function valueComparison(files: Readonly<Record<string, string>>, library:
         ?.fileDescription
         .content;
     assertDefined(content);
-    return { original, emitted, dependency, content };
+    return {
+        original,
+        emitted,
+        dependency,
+        content
+    };
 }
-
 export async function assertImportedValueCase(input: ImportedValueCase): Promise<void> {
-    const [ name, files, library, removed, retained, nativeError ] = input;
-    const { original, emitted, dependency, content } = await valueComparison(files, library);
-    const entry = { bundleName: 'package', targetFilePath: 'index.js', exportName: 'probe' };
-    const native = await observeDeadCodeEliminationBehavior({ name, entry, bundles: [ original, dependency ] });
-    assertDeepSubset(
-        native[0]?.result.observation,
-        { error: nativeError === null ? null : { name: nativeError } }
-    );
-    await assertDeadCodeEliminationBehaviorEquivalent({
+    const [ name, files, library, removed, retained ] = input;
+    const {
+        original,
+        emitted,
+        dependency,
+        content
+    } = await valueComparison(files, library);
+    const entry = {
+        bundleName: 'package',
+        targetFilePath: 'index.js',
+        exportName: 'probe'
+    };
+    assertDeadCodeEliminationExpectedOutput({
         name,
         entry,
         leftName: 'native',

@@ -2,14 +2,40 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
-import { analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
+import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { recomputeDependencyMetadata, type SourceFileByPath } from './dependency-metadata.ts';
+import { indexSourceFiles, recomputeDependencyMetadata, type SourceFileByPath } from './dependency-metadata.ts';
+import { loadBundle } from './load-bundle.ts';
+import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
 
-function sourceFileIndex(content: string): SourceFileByPath {
-    const inputFilePath = '/source/index.js';
-    const project = createProject({ withFiles: [ { filePath: inputFilePath, content } ] });
-    return new Map([ [ 'index.js', project.getSourceFileOrThrow(inputFilePath) ] ]);
+const emptyDependencyMetadata = {
+    externalDependencies: new Map<string, ExternalDependency>(),
+    linkedBundleDependencies: new Map<string, ExternalDependency>(),
+    substitutedInputFilePathsByPackageName: new Map<string, ReadonlySet<string>>()
+};
+
+function sourceFileIndex(resources: readonly AnalyzedBundleResource[]): SourceFileByPath {
+    const project = createProject({
+        withFiles: resources.map(function ({ fileDescription }) {
+            return { filePath: fileDescription.inputFilePath, content: fileDescription.content };
+        })
+    });
+    return new Map(resources.map(function ({ fileDescription }) {
+        return [ fileDescription.targetFilePath, project.getSourceFileOrThrow(fileDescription.inputFilePath) ];
+    }));
+}
+
+function recomputePackageDependency(
+    dependency: ExternalDependency,
+    resources: readonly AnalyzedBundleResource[]
+): ExternalDependency | undefined {
+    return recomputeDependencyMetadata(
+        { ...emptyDependencyMetadata, externalDependencies: new Map([ [ dependency.name, dependency ] ]) },
+        resources,
+        sourceFileIndex(resources)
+    )
+        .externalDependencies
+        .get(dependency.name);
 }
 
 function dependencyWithReferences(
@@ -21,6 +47,21 @@ function dependencyWithReferences(
 }
 
 suite('dependency metadata', function () {
+    test('recomputeDependencyMetadata preserves dependencies belonging to non-code resources', function () {
+        const resource = analyzedBundleResource('/source/settings.json', {
+            targetFilePath: 'settings.json',
+            content: '{"extends":"./defaults.json"}',
+            directDependencies: new Set([ 'defaults.json' ])
+        });
+        const result = recomputeDependencyMetadata(
+            emptyDependencyMetadata,
+            [ resource ],
+            new Map()
+        );
+
+        assert.deepStrictEqual(result.contents, [ resource ]);
+    });
+
     test('recomputeDependencyMetadata keeps surviving local reference types as direct dependencies', function () {
         const content = [
             'import "./live.js";',
@@ -37,6 +78,7 @@ suite('dependency metadata', function () {
                 'live.js',
                 'data.json',
                 'package.json',
+                'index.js.map',
                 'dependency-target',
                 'Stryker was here'
             ]),
@@ -70,18 +112,14 @@ suite('dependency metadata', function () {
         });
 
         const result = recomputeDependencyMetadata(
-            {
-                externalDependencies: new Map(),
-                linkedBundleDependencies: new Map(),
-                substitutedInputFilePathsByPackageName: new Map()
-            },
+            emptyDependencyMetadata,
             [ resource ],
-            sourceFileIndex(content)
+            sourceFileIndex([ resource ])
         );
 
         assert.deepStrictEqual(
             result.contents[0]?.directDependencies,
-            new Set([ 'live.js', 'data.json', 'package.json' ])
+            new Set([ 'live.js', 'data.json', 'package.json', 'index.js.map' ])
         );
     });
 
@@ -97,6 +135,7 @@ suite('dependency metadata', function () {
         const references: NonNullable<ExternalDependency['references']> = [
             { targetFilePath: 'index.js', sourceSpecifier: 'live-source', emittedSpecifier: 'dep/live' },
             { targetFilePath: 'index.js', sourceSpecifier: 'other-source', emittedSpecifier: 'dep/other' },
+            { targetFilePath: 'index.js', sourceSpecifier: 'removed-source', emittedSpecifier: 'dep/removed' },
             { targetFilePath: 'index.js', sourceSpecifier: 'local-source', emittedSpecifier: './local.js' },
             { targetFilePath: 'index.js', sourceSpecifier: 'dead-source', emittedSpecifier: 'Stryker was here' }
         ];
@@ -121,6 +160,12 @@ suite('dependency metadata', function () {
                     packageName: 'dep',
                     sourceSpecifier: 'dep/other',
                     emittedSpecifier: 'dep/other'
+                },
+                {
+                    type: 'external-package',
+                    packageName: 'dep',
+                    sourceSpecifier: 'dep/removed',
+                    emittedSpecifier: 'dep/removed'
                 },
                 {
                     type: 'linked-code',
@@ -157,12 +202,25 @@ suite('dependency metadata', function () {
                                 emittedSpecifier: 'linked/entry'
                             }
                         ])
+                    ],
+                    [
+                        'removed-linked',
+                        dependencyWithReferences('removed-linked', [
+                            {
+                                targetFilePath: 'index.js',
+                                sourceSpecifier: 'removed-linked',
+                                emittedSpecifier: 'removed-linked'
+                            }
+                        ])
                     ]
                 ]),
-                substitutedInputFilePathsByPackageName: new Map([ [ 'linked', new Set([ '/linked/index.js' ]) ] ])
+                substitutedInputFilePathsByPackageName: new Map([
+                    [ 'linked', new Set([ '/linked/index.js' ]) ],
+                    [ 'removed-linked', new Set([ '/linked/removed.js' ]) ]
+                ])
             },
             [ resource ],
-            sourceFileIndex(content)
+            sourceFileIndex([ resource ])
         );
 
         assert.deepStrictEqual(result.externalDependencies.get('dep')?.references, references.slice(0, 2));
@@ -171,5 +229,73 @@ suite('dependency metadata', function () {
             { targetFilePath: 'index.js', sourceSpecifier: 'linked-source', emittedSpecifier: 'linked/entry' }
         ]);
         assert.deepStrictEqual(Array.from(result.substitutedInputFilePathsByPackageName.keys()), [ 'linked' ]);
+    });
+
+    test('recomputeDependencyMetadata keeps distinct reference fields and merges duplicates in encounter order', function () {
+        const index = analyzedBundleResource('/source/index.js', { content: 'import "dep/live"; import "dep/other";' });
+        const other = analyzedBundleResource('/source/other.js', { content: 'import "dep/live";' });
+        const references: NonNullable<ExternalDependency['references']> = [
+            { targetFilePath: 'index.js', sourceSpecifier: 'alias/live', emittedSpecifier: 'dep/live' },
+            { targetFilePath: 'index.js', sourceSpecifier: 'alias/other', emittedSpecifier: 'dep/live' },
+            { targetFilePath: 'index.js', sourceSpecifier: 'alias/live', emittedSpecifier: 'dep/other' },
+            { targetFilePath: 'other.js', sourceSpecifier: 'alias/live', emittedSpecifier: 'dep/live' }
+        ];
+        const dependency = dependencyWithReferences('dep', [ ...references, references[0] ]);
+        const result = recomputePackageDependency(dependency, [ index, other ]);
+
+        assert.deepStrictEqual(result, {
+            name: 'dep',
+            referencedFrom: [ 'index.js', 'other.js' ],
+            references
+        });
+    });
+
+    test('recomputeDependencyMetadata resolves legacy package references across multiple files', function () {
+        const index = analyzedBundleResource('/source/index.js', { content: 'import "dep/live";' });
+        const other = analyzedBundleResource('/source/other.js', { content: 'import "dep/other";' });
+        const result = recomputePackageDependency({ name: 'dep', referencedFrom: [ 'index.js', 'other.js' ] }, [
+            index,
+            other
+        ]);
+
+        assert.deepStrictEqual(result, {
+            name: 'dep',
+            referencedFrom: [ 'index.js', 'other.js' ],
+            references: [
+                { targetFilePath: 'index.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' },
+                { targetFilePath: 'other.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
+            ]
+        });
+    });
+
+    test('recomputeDependencyMetadata retains declaration references and removes missing resource references', function () {
+        const declaration = analyzedBundleResource('/source/index.d.ts', {
+            content: '/// <reference types="dep" />\nexport interface Api {}'
+        });
+        const dependency = dependencyWithReferences('dep', [
+            { targetFilePath: 'index.d.ts', sourceSpecifier: 'dep', emittedSpecifier: 'dep' },
+            { targetFilePath: 'missing.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
+        ]);
+        const result = recomputePackageDependency(dependency, [ declaration ]);
+
+        assert.deepStrictEqual(result?.references, dependency.references?.slice(0, 1));
+    });
+
+    test('indexSourceFiles indexes every loaded source by its emitted path', function () {
+        const index = analyzedBundleResource('/source/index.js', { content: 'export const first = 1;' });
+        const other = analyzedBundleResource('/source/other.js', { content: 'export const second = 2;' });
+        const loaded = loadBundle(createProject, {
+            bundle: linkedBundle({
+                roots: { main: { javaScript: index.fileDescription } },
+                contents: [ index, other ]
+            }),
+            transformationsEnabled: false,
+            substitutionPublicModuleInputFilePaths: new Set()
+        }, undefined);
+        const sources = indexSourceFiles(loaded);
+
+        assert.deepStrictEqual(sources.keys().toArray(), [ 'index.js', 'other.js' ]);
+        assert.strictEqual(sources.get('index.js')?.getFullText(), index.fileDescription.content);
+        assert.strictEqual(sources.get('other.js')?.getFullText(), other.fileDescription.content);
     });
 });

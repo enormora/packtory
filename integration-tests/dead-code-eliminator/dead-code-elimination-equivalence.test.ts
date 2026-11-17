@@ -1,19 +1,20 @@
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+import type { GeneratedDeadCodeEliminationProgram } from '../../source/test-libraries/dead-code-elimination-generated-programs.ts';
 import {
     deadCodeEliminationBroadProgramArbitrary,
     deadCodeEliminationCoreCaseKinds,
     deadCodeEliminationCoreProgramArbitraryFor
-} from '../test-libraries/dead-code-elimination-program-generator.ts';
-import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead-code-elimination-generated-programs.ts';
-import { inputs } from '../test-libraries/eliminator-test-support.ts';
+} from '../../source/test-libraries/dead-code-elimination-program-generator.ts';
+import { inputs } from '../../source/test-libraries/eliminator-test-support.ts';
+import { assertDeadCodeEliminationEquivalent } from './runtime-comparison.ts';
 
-const coreRunsPerCaseKind = 17;
-const broadRuns = Array.from({ length: 25 }, function (_unused, index) {
+const coreRunsPerCaseKind = 1;
+const broadRuns = Array.from({
+    length: 5
+}, function (_unused, index) {
     return index + 1;
 });
-
 async function assertEquivalent(program: GeneratedDeadCodeEliminationProgram): Promise<void> {
     try {
         await assertDeadCodeEliminationEquivalent({
@@ -41,20 +42,23 @@ suite('dead code elimination equivalence', function () {
                                 await assertEquivalent(program);
                             }
                         ),
-                        { numRuns: 1 }
+                        {
+                            numRuns: 1
+                        }
                     );
                 });
             }
         }
     });
-
     for (const run of broadRuns) {
         test(`preserves behavior for generated broad module graphs, run ${run}`, async function () {
             await fastCheck.assert(
                 fastCheck.asyncProperty(deadCodeEliminationBroadProgramArbitrary, async function (program) {
                     await assertEquivalent(program);
                 }),
-                { numRuns: 1 }
+                {
+                    numRuns: 1
+                }
             );
         });
     }

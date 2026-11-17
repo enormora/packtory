@@ -1,12 +1,13 @@
+import type { ExecFileException as ExecuteFileException } from 'node:child_process';
 import path from 'node:path';
-import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
 import {
     ModuleKind,
     ModuleResolutionKind,
-    Project,
-    ScriptTarget,
     Node as MorphNode,
     type Symbol as MorphSymbol,
+    type Project,
+    type ProjectOptions,
+    ScriptTarget,
     ts as typescript
 } from 'ts-morph';
 import { errorMessage } from '../../common/error-normalization.ts';
@@ -46,12 +47,30 @@ export type PackageApplicationProgrammingInterfaceInspection = {
     readonly packages: readonly PackageApplicationProgrammingInterface[];
 };
 
-type InspectPackagesInput = {
+export type InspectPackagesInput = {
+    readonly createProject: (options: ProjectOptions) => Project;
     readonly fileManager: Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
     readonly nodeModulesFolder: string;
     readonly nodeTypeDefinitionsFolder: string;
     readonly runImportProbe: (cwd: string, specifier: string) => Promise<readonly string[]>;
 };
+
+type CanaryProcessOptions = {
+    readonly cwd: string;
+    readonly encoding: 'utf8';
+    readonly timeout: number;
+};
+type CanaryProcessCompletion = (
+    error: Readonly<ExecuteFileException> | null,
+    output: string,
+    errors: string
+) => void;
+export type CanaryProcessExecutor = (
+    command: string,
+    args: readonly string[],
+    options: CanaryProcessOptions,
+    callback: CanaryProcessCompletion
+) => unknown;
 
 type TypeInspection = {
     readonly diagnostics: readonly string[];
@@ -218,8 +237,13 @@ function importProbeFailureMessage(
     return error.message;
 }
 
-function createTypeProject(cwd: string, specifiers: readonly string[], nodeTypeDefinitionsFolder: string): Project {
-    const project = new Project({
+function createTypeProject(
+    cwd: string,
+    specifiers: readonly string[],
+    nodeTypeDefinitionsFolder: string,
+    createProject: InspectPackagesInput['createProject']
+): Project {
+    const project = createProject({
         skipAddingFilesFromTsConfig: true,
         compilerOptions: {
             lib: [ 'lib.esnext.d.ts' ],
@@ -247,11 +271,16 @@ function moduleSymbolExports(project: Project, specifier: string): TypeExportNam
         : typeExportNames(project.getTypeChecker().getExportsOfModule(symbol));
 }
 
-function inspectTypes(cwd: string, specifiers: readonly string[], nodeTypeDefinitionsFolder: string): TypeInspection {
+function inspectTypes(
+    cwd: string,
+    specifiers: readonly string[],
+    nodeTypeDefinitionsFolder: string,
+    createProject: InspectPackagesInput['createProject']
+): TypeInspection {
     if (specifiers.length === 0) {
         return { diagnostics: [], exportsBySpecifier: new Map() };
     }
-    const project = createTypeProject(cwd, specifiers, nodeTypeDefinitionsFolder);
+    const project = createTypeProject(cwd, specifiers, nodeTypeDefinitionsFolder, createProject);
     const diagnostics = project
         .getPreEmitDiagnostics()
         .map(function (diagnostic) {
@@ -294,7 +323,8 @@ async function inspectPackage(
             packageFolder: packageFolder.folderPath,
             targets
         }),
-        input.nodeTypeDefinitionsFolder
+        input.nodeTypeDefinitionsFolder,
+        input.createProject
     );
     const publicExports = await Promise.all(
         targets.map(async function (target): Promise<PublicExportApplicationProgrammingInterface> {
@@ -338,11 +368,17 @@ export async function inspectPackageApplicationProgrammingInterfaces(
     return { packages };
 }
 
+type ImportProbeRuntime = {
+    readonly timeoutMilliseconds: number;
+    readonly execute: CanaryProcessExecutor;
+    readonly processExecutePath: string;
+};
 async function runImportProbeWithTimeout(
     cwd: string,
     specifier: string,
-    timeoutMilliseconds: number
+    runtime: ImportProbeRuntime
 ): Promise<readonly string[]> {
+    const { timeoutMilliseconds, execute, processExecutePath } = runtime;
     const script = `
         try {
             const module = await import(${JSON.stringify(specifier)});
@@ -353,8 +389,8 @@ async function runImportProbeWithTimeout(
         }
     `;
     return new Promise(function (resolve, reject) {
-        executeFile(
-            process.execPath,
+        execute(
+            processExecutePath,
             [ '--enable-source-maps', '--input-type=module', '-e', script ],
             { cwd, encoding: 'utf8', timeout: timeoutMilliseconds },
             function (error, standardOutput, standardError) {
@@ -381,8 +417,12 @@ async function runImportProbeWithTimeout(
     });
 }
 
-export function createNodeImportProbe(timeoutMilliseconds: number): InspectPackagesInput['runImportProbe'] {
+export function createNodeImportProbe(
+    timeoutMilliseconds: number,
+    execute: CanaryProcessExecutor,
+    processExecutePath: string
+): InspectPackagesInput['runImportProbe'] {
     return async function (cwd, specifier) {
-        return runImportProbeWithTimeout(cwd, specifier, timeoutMilliseconds);
+        return runImportProbeWithTimeout(cwd, specifier, { timeoutMilliseconds, execute, processExecutePath });
     };
 }

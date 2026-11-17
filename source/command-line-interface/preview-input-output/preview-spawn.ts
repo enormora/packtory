@@ -1,44 +1,4 @@
-import { spawn } from 'node:child_process';
-
-export type SpawnedProcess = {
-    readonly on: (eventName: 'close' | 'error', listener: (value?: number) => void) => void;
-    readonly standardInput: {
-        readonly on: (eventName: 'error', listener: () => void) => void;
-        readonly end: (content: string) => void;
-    } | null;
-    readonly unref: () => void;
-};
-
-export type SpawnOptions = {
-    readonly stdio: readonly ['pipe', 'inherit', 'inherit'] | 'ignore';
-    readonly detached?: boolean;
-};
-
-export type SpawnFunction = (
-    command: string,
-    commandArguments: readonly string[],
-    options: SpawnOptions
-) => SpawnedProcess;
-
-export function defaultSpawnProcess(
-    command: string,
-    commandArguments: readonly string[],
-    options: SpawnOptions
-): SpawnedProcess {
-    const child = spawn(command, Array.from(commandArguments), {
-        ...options,
-        stdio: options.stdio === 'ignore' ? 'ignore' : Array.from(options.stdio)
-    });
-    return {
-        standardInput: child.stdin,
-        on(eventName, listener) {
-            child.on(eventName, listener);
-        },
-        unref() {
-            child.unref();
-        }
-    };
-}
+import type { SpawnFunction } from './preview-process.ts';
 
 export async function spawnForCompletion(
     spawnProcess: SpawnFunction,

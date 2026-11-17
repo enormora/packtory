@@ -6,27 +6,25 @@ import type {
     AnalyzedBundle,
     AnalyzedBundleResource,
     EliminationInput
-} from '../dead-code-eliminator/analyzed-bundle.ts';
-import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
-import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
+} from '../../source/dead-code-eliminator/analyzed-bundle.ts';
+import { createFileManager, type FileManager } from '../../source/file-manager/file-manager.ts';
+import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
+import { runDeadCodeEliminationProbe } from '../../source/test-libraries/dead-code-elimination-probe.ts';
 import {
     collectDeadCodeEliminationTrace,
     createTestEliminator
-} from './eliminator-fixtures.ts';
-import { runDeadCodeEliminationProbe } from './dead-code-elimination-probe.ts';
+} from '../../source/test-libraries/eliminator-fixtures.ts';
 
 export type DeadCodeEliminationOracleEntry = {
     readonly bundleName: string;
     readonly targetFilePath: string;
     readonly exportName: string;
 };
-
 export type DeadCodeEliminationOracleCase = {
     readonly name: string;
     readonly entry: DeadCodeEliminationOracleEntry;
     readonly eliminationInputs: readonly EliminationInput[];
 };
-
 export type DeadCodeEliminationBehaviorComparison = {
     readonly name: string;
     readonly entry: DeadCodeEliminationOracleEntry;
@@ -35,12 +33,10 @@ export type DeadCodeEliminationBehaviorComparison = {
     readonly rightName: string;
     readonly rightBundles: readonly WritableBundle[];
 };
-
 type DeadCodeEliminationProbeResult = {
     readonly missingExport: boolean;
     readonly observation: unknown;
 };
-
 type WritableBundle = {
     readonly name: string;
     readonly roots: AnalyzedBundle['roots'];
@@ -51,34 +47,30 @@ type WritableBundle = {
         };
     }[];
 };
-
 type PackageFileManager = Pick<FileManager, 'writeFile'>;
-
 type PackageWriter = {
     readonly writeResource: (resource: WritableBundle['contents'][number]) => Promise<void>;
 };
-
 type RootFileDescription = AnalyzedBundle['roots'][string];
 type RootTransferableFileDescription = NonNullable<RootFileDescription['javaScript']>;
 type SecondPassBundle = EliminationInput['bundle'];
-
 type DeadCodeEliminationBehaviorInput = {
     readonly name: string;
     readonly entry: DeadCodeEliminationOracleEntry;
     readonly bundles: readonly WritableBundle[];
 };
-
 type DeadCodeEliminationBehaviorObservation = readonly {
     readonly entry: DeadCodeEliminationOracleEntry;
     readonly result: DeadCodeEliminationProbeResult;
 }[];
-
+export type VerifiedDeadCodeElimination = {
+    readonly bundles: readonly AnalyzedBundle[];
+    readonly observations: DeadCodeEliminationBehaviorObservation;
+};
 const packageManifestContent = '{"type":"module"}\n';
-
 function entryContext(name: string, entry: DeadCodeEliminationOracleEntry): string {
     return `${name}: ${entry.bundleName}/${entry.targetFilePath}#${entry.exportName}`;
 }
-
 function verifyEntryBundle(
     name: string,
     entry: DeadCodeEliminationOracleEntry,
@@ -94,7 +86,6 @@ function verifyEntryBundle(
     });
     assert.notStrictEqual(resource, undefined, `${entryContext(name, entry)} missing ${phase} entry file`);
 }
-
 function assertSafeTargetPath(targetFilePath: string, caseName: string): void {
     const normalizedTargetPath = path.posix.normalize(targetFilePath);
     assert.strictEqual(path.isAbsolute(targetFilePath), false, `${caseName}: target path must be relative`);
@@ -104,17 +95,14 @@ function assertSafeTargetPath(targetFilePath: string, caseName: string): void {
         `${caseName}: target path must stay inside package`
     );
 }
-
-function createPackageWriter(
-    fileManager: PackageFileManager,
-    packageFolder: string,
-    caseName: string
-): PackageWriter {
+function createPackageWriter(fileManager: PackageFileManager, packageFolder: string, caseName: string): PackageWriter {
     const writtenPaths = new Set<string>();
-
     return {
         async writeResource(resource) {
-            const { targetFilePath, content } = resource.fileDescription;
+            const {
+                targetFilePath,
+                content
+            } = resource.fileDescription;
             assertSafeTargetPath(targetFilePath, caseName);
             assert.strictEqual(
                 writtenPaths.has(targetFilePath),
@@ -126,7 +114,6 @@ function createPackageWriter(
         }
     };
 }
-
 async function writeBundleResources(
     fileManager: PackageFileManager,
     packageFolder: string,
@@ -142,9 +129,10 @@ async function writeBundleResources(
         }
     }
 }
-
 async function writePackage(caseName: string, bundles: readonly WritableBundle[]): Promise<string> {
-    const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+    const fileManager = createFileManager({
+        hostFileSystem: fileSystem.promises
+    });
     const packageFolder = await fileSystem.promises.mkdtemp(
         path.join(temporaryDirectory(), 'packtory-dead-code-elimination-oracle-')
     );
@@ -152,7 +140,6 @@ async function writePackage(caseName: string, bundles: readonly WritableBundle[]
     await writeBundleResources(fileManager, packageFolder, caseName, bundles);
     return packageFolder;
 }
-
 async function runPackageProbe(
     packageFolder: string,
     entry: DeadCodeEliminationOracleEntry,
@@ -160,7 +147,6 @@ async function runPackageProbe(
 ): Promise<DeadCodeEliminationProbeResult> {
     const entryPath = path.join(packageFolder, 'node_modules', entry.bundleName, entry.targetFilePath);
     const result = await runDeadCodeEliminationProbe(entryPath, entry.exportName, invokeExport);
-
     assert.deepStrictEqual(
         Object.keys(result as Record<string, unknown>).toSorted(function (left, right) {
             return left.localeCompare(right);
@@ -168,18 +154,15 @@ async function runPackageProbe(
         [ 'missingExport', 'observation' ],
         'dead code elimination oracle probe returned an unexpected shape'
     );
-
     const observation = result as DeadCodeEliminationProbeResult;
     assert.strictEqual(observation.missingExport, false, `missing selected export ${entry.exportName}`);
     return observation;
 }
-
 function originalBundles(input: DeadCodeEliminationOracleCase): readonly WritableBundle[] {
     return input.eliminationInputs.map(function (eliminationInput) {
         return eliminationInput.bundle;
     });
 }
-
 function entryBundles(
     input: DeadCodeEliminationOracleCase,
     bundles: readonly AnalyzedBundle[]
@@ -188,11 +171,9 @@ function entryBundles(
         return bundle.name === input.entry.bundleName;
     });
 }
-
 async function tracedEliminationOutput(input: DeadCodeEliminationOracleCase): Promise<string> {
     return collectDeadCodeEliminationTrace(input.eliminationInputs);
 }
-
 async function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, error: unknown): Promise<Error> {
     const trace = await tracedEliminationOutput(input);
     const traceOutput = trace.length === 0 ? 'dead code elimination trace: no events recorded' : trace;
@@ -201,11 +182,12 @@ async function wrapFailure(input: DeadCodeEliminationOracleCase, phase: string, 
         cause: error
     });
 }
-
 async function removePackageFolder(packageFolder: string): Promise<void> {
-    await fileSystem.promises.rm(packageFolder, { recursive: true, force: true });
+    await fileSystem.promises.rm(packageFolder, {
+        recursive: true,
+        force: true
+    });
 }
-
 function observedEntries(input: DeadCodeEliminationBehaviorInput): readonly DeadCodeEliminationOracleEntry[] {
     const roots = input.bundles.flatMap(function (bundle) {
         return Object.values(bundle.roots).flatMap(function (root) {
@@ -224,7 +206,6 @@ function observedEntries(input: DeadCodeEliminationBehaviorInput): readonly Dead
     });
     return [ input.entry, ...otherRoots ];
 }
-
 async function observeWrittenPackage(
     input: DeadCodeEliminationBehaviorInput,
     packageFolder: string
@@ -234,11 +215,13 @@ async function observeWrittenPackage(
         verifyEntryBundle(input.name, entry, input.bundles, 'observed');
         const invokeExport = entry.bundleName === input.entry.bundleName &&
             entry.targetFilePath === input.entry.targetFilePath;
-        observations.push({ entry, result: await runPackageProbe(packageFolder, entry, invokeExport) });
+        observations.push({
+            entry,
+            result: await runPackageProbe(packageFolder, entry, invokeExport)
+        });
     }
     return observations;
 }
-
 export async function observeDeadCodeEliminationBehavior(
     input: DeadCodeEliminationBehaviorInput
 ): Promise<DeadCodeEliminationBehaviorObservation> {
@@ -249,22 +232,33 @@ export async function observeDeadCodeEliminationBehavior(
         await removePackageFolder(packageFolder);
     }
 }
-
+async function observeComparedPrograms(
+    input: DeadCodeEliminationBehaviorComparison
+): Promise<readonly [DeadCodeEliminationBehaviorObservation, DeadCodeEliminationBehaviorObservation]> {
+    const observations = [
+        observeDeadCodeEliminationBehavior({
+            name: input.name,
+            entry: input.entry,
+            bundles: input.leftBundles
+        }),
+        observeDeadCodeEliminationBehavior({
+            name: input.name,
+            entry: input.entry,
+            bundles: input.rightBundles
+        })
+    ] as const;
+    try {
+        return await Promise.all(observations);
+    } finally {
+        await Promise.allSettled(observations);
+    }
+}
 export async function assertDeadCodeEliminationBehaviorEquivalent(
     input: DeadCodeEliminationBehaviorComparison
-): Promise<void> {
+): Promise<DeadCodeEliminationBehaviorObservation> {
     verifyEntryBundle(input.name, input.entry, input.leftBundles, input.leftName);
     verifyEntryBundle(input.name, input.entry, input.rightBundles, input.rightName);
-    const left = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: input.entry,
-        bundles: input.leftBundles
-    });
-    const right = await observeDeadCodeEliminationBehavior({
-        name: input.name,
-        entry: input.entry,
-        bundles: input.rightBundles
-    });
+    const [ left, right ] = await observeComparedPrograms(input);
     assert.deepStrictEqual(
         right.map(function (observation) {
             return observation.entry;
@@ -286,17 +280,14 @@ export async function assertDeadCodeEliminationBehaviorEquivalent(
             } changed observable behavior from ${input.leftName} to ${input.rightName}`
         );
     }
+    return left;
 }
-
-async function eliminateDeadCodeForOracle(
-    input: DeadCodeEliminationOracleCase
-): Promise<readonly AnalyzedBundle[]> {
+async function eliminateDeadCodeForOracle(input: DeadCodeEliminationOracleCase): Promise<readonly AnalyzedBundle[]> {
     const eliminated = await createTestEliminator().eliminate(input.eliminationInputs);
     verifyEntryBundle(input.name, input.entry, eliminated, 'eliminated');
     assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
     return eliminated;
 }
-
 export async function eliminateDeadCodeAndAssertAllOutputValid(
     input: DeadCodeEliminationOracleCase
 ): Promise<readonly AnalyzedBundle[]> {
@@ -308,16 +299,14 @@ export async function eliminateDeadCodeAndAssertAllOutputValid(
         throw await wrapFailure(input, 'output validation', error);
     }
 }
-
 export async function assertDeadCodeEliminationEquivalent(
     input: DeadCodeEliminationOracleCase
-): Promise<void> {
+): Promise<VerifiedDeadCodeElimination> {
     try {
         const original = originalBundles(input);
         const eliminated = await eliminateDeadCodeForOracle(input);
-
         verifyEntryBundle(input.name, input.entry, original, 'original');
-        await assertDeadCodeEliminationBehaviorEquivalent({
+        const observations = await assertDeadCodeEliminationBehaviorEquivalent({
             name: input.name,
             entry: input.entry,
             leftName: 'original',
@@ -325,11 +314,14 @@ export async function assertDeadCodeEliminationEquivalent(
             rightName: 'eliminated',
             rightBundles: eliminated
         });
+        return {
+            bundles: eliminated,
+            observations
+        };
     } catch (error: unknown) {
         throw await wrapFailure(input, 'oracle comparison', error);
     }
 }
-
 function targetPathsFor(bundle: WritableBundle): readonly string[] {
     return bundle
         .contents
@@ -340,7 +332,6 @@ function targetPathsFor(bundle: WritableBundle): readonly string[] {
             return left.localeCompare(right);
         });
 }
-
 function assertTargetPathsEqual(
     caseName: string,
     left: readonly WritableBundle[],
@@ -360,7 +351,6 @@ function assertTargetPathsEqual(
         );
     }
 }
-
 function resourceForRoot(
     bundle: AnalyzedBundle,
     fileDescription: RootTransferableFileDescription
@@ -375,7 +365,6 @@ function resourceForRoot(
     }
     return resource;
 }
-
 function refreshFileDescription(
     bundle: AnalyzedBundle,
     fileDescription: RootTransferableFileDescription
@@ -388,23 +377,27 @@ function refreshFileDescription(
         targetFilePath: resource.fileDescription.targetFilePath
     };
 }
-
 function refreshRoot(bundle: AnalyzedBundle, root: RootFileDescription): RootFileDescription {
     if (root.json !== undefined) {
-        return { json: refreshFileDescription(bundle, root.json) };
+        return {
+            json: refreshFileDescription(bundle, root.json)
+        };
     }
     if (root.javaScript === undefined) {
-        return { declarationFile: refreshFileDescription(bundle, root.declarationFile) };
+        return {
+            declarationFile: refreshFileDescription(bundle, root.declarationFile)
+        };
     }
     if (root.declarationFile === undefined) {
-        return { javaScript: refreshFileDescription(bundle, root.javaScript) };
+        return {
+            javaScript: refreshFileDescription(bundle, root.javaScript)
+        };
     }
     return {
         javaScript: refreshFileDescription(bundle, root.javaScript),
         declarationFile: refreshFileDescription(bundle, root.declarationFile)
     };
 }
-
 function refreshRoots(bundle: AnalyzedBundle): Readonly<Record<string, RootFileDescription>> {
     return Object.fromEntries(
         Object.entries(bundle.roots).map(function ([ rootIdentifier, root ]) {
@@ -412,7 +405,6 @@ function refreshRoots(bundle: AnalyzedBundle): Readonly<Record<string, RootFileD
         })
     );
 }
-
 function linkedBundleForSecondPass(bundle: AnalyzedBundle): SecondPassBundle {
     return {
         ...bundle,
@@ -420,7 +412,6 @@ function linkedBundleForSecondPass(bundle: AnalyzedBundle): SecondPassBundle {
         roots: refreshRoots(bundle)
     };
 }
-
 function secondPassInputs(
     input: DeadCodeEliminationOracleCase,
     firstPass: readonly AnalyzedBundle[]
@@ -438,10 +429,7 @@ function secondPassInputs(
         };
     });
 }
-
-export async function assertDeadCodeEliminationIdempotent(
-    input: DeadCodeEliminationOracleCase
-): Promise<void> {
+export async function assertDeadCodeEliminationIdempotent(input: DeadCodeEliminationOracleCase): Promise<void> {
     let tracedInput = input;
     try {
         const firstPass = await eliminateDeadCodeForOracle(input);
@@ -451,7 +439,6 @@ export async function assertDeadCodeEliminationIdempotent(
             eliminationInputs: secondPassInputs(input, firstPass)
         };
         const secondPass = await createTestEliminator().eliminate(tracedInput.eliminationInputs);
-
         verifyEntryBundle(input.name, input.entry, secondPass, 'second-pass eliminated');
         assertValidDeadCodeEliminationOutput(input.name, secondPass);
         assertTargetPathsEqual(input.name, firstPass, secondPass);

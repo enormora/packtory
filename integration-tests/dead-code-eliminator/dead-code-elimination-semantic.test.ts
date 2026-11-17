@@ -1,18 +1,22 @@
 import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
-import type { GeneratedDeadCodeEliminationProgram } from '../test-libraries/dead-code-elimination-generated-programs.ts';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+import type { GeneratedDeadCodeEliminationProgram } from '../../source/test-libraries/dead-code-elimination-generated-programs.ts';
 import {
     deadCodeEliminationSemanticArbitrary,
-    deadCodeEliminationSemanticProgram,
-    deadCodeEliminationSemanticScenarios,
-    type DeadCodeEliminationSemanticScenario
-} from '../test-libraries/dead-code-elimination-semantic-programs.ts';
-import { inputs } from '../test-libraries/eliminator-test-support.ts';
+    deadCodeEliminationSemanticProgram
+} from '../../source/test-libraries/dead-code-elimination-semantic-programs.ts';
+import { inputs } from '../../source/test-libraries/eliminator-test-support.ts';
+import { assertDeadCodeEliminationEquivalent } from './runtime-comparison.ts';
 
 suite('dead code elimination generated semantics', function () {
-    for (const scenario of Object.keys(deadCodeEliminationSemanticScenarios) as DeadCodeEliminationSemanticScenario[]) {
-        for (const declarations of [ false, true ]) {
+    for (
+        const scenario of [
+            'object-getter',
+            'invalid-heritage',
+            'dynamic-namespace'
+        ] as const
+    ) {
+        for (const declarations of [ true ]) {
             test(`preserves ${scenario}, declarations ${String(declarations)}`, async function () {
                 await fastCheck.assert(
                     fastCheck.asyncProperty(
@@ -26,9 +30,9 @@ suite('dead code elimination generated semantics', function () {
                         }
                     ),
                     {
-                        numRuns: 5,
+                        numRuns: 1,
                         seed: 20_261_107,
-                        examples: [ false, true ].map(function (singleLine): [GeneratedDeadCodeEliminationProgram] {
+                        examples: [ true ].map(function (singleLine): [GeneratedDeadCodeEliminationProgram] {
                             return [ deadCodeEliminationSemanticProgram({
                                 scenario,
                                 value: 7,

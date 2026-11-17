@@ -1,6 +1,6 @@
 import { suite, test } from 'mocha';
+import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 
 suite('early errors during partial evaluation', function () {
     for (
@@ -14,10 +14,9 @@ suite('early errors during partial evaluation', function () {
         ]
     ) {
         test(`preserves early errors in ${condition}`, async function () {
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-                `export function probe(){if(${condition})return 42;return 0;}`,
-                'index.js'
-            ));
+            await assertDeadCodeEliminationOutput(
+                singleFileOracleCase(`export function probe(){if(${condition})return 42;return 0;}`, 'index.js')
+            );
         });
     }
 });

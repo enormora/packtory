@@ -1,26 +1,18 @@
+import { unique, uniqueBy } from 'remeda';
+import type {
+    DependencyReference,
+    ExternalDependencies,
+    ExternalDependency
+} from '../dependency-scanner/external-dependencies.ts';
 import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
 import type { LoadedBundle } from './load-bundle.ts';
 import { isCodeTargetPath } from './liveness/runtime-code.ts';
 
-type Dependency = {
-    readonly name: string;
-    readonly referencedFrom: readonly [string, ...(readonly string[])];
-    readonly references?: readonly [DependencyReference, ...(readonly DependencyReference[])] | undefined;
-};
-
-type Dependencies = ReadonlyMap<string, Dependency>;
-
-type DependencyReference = {
-    readonly targetFilePath: string;
-    readonly sourceSpecifier: string;
-    readonly emittedSpecifier: string;
-};
-
 type MetadataBundle = {
-    readonly externalDependencies: Dependencies;
-    readonly linkedBundleDependencies: Dependencies;
+    readonly externalDependencies: ExternalDependencies;
+    readonly linkedBundleDependencies: ExternalDependencies;
     readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
@@ -35,17 +27,6 @@ type PackageDependencyReference = Extract<
 >;
 
 export type SourceFileByPath = ReadonlyMap<string, Readonly<LoadedSourceFile>>;
-
-type ReferencedPackages = {
-    readonly externalDependencies: Dependencies;
-    readonly linkedBundleDependencies: Dependencies;
-    readonly substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
-};
-
-type ExternalDependencyRecorder = {
-    readonly get: (key: string) => Dependency | undefined;
-    readonly set: (key: string, value: Dependency) => unknown;
-};
 
 function hasPackageName(reference: ArtifactModuleReference): reference is PackageDependencyReference {
     return Object.hasOwn(reference, 'packageName');
@@ -126,7 +107,7 @@ function referencedPackagesByPath(
     }));
 }
 
-function legacyDependencyReference(dependency: Dependency, targetFilePath: string): DependencyReference {
+function legacyDependencyReference(dependency: ExternalDependency, targetFilePath: string): DependencyReference {
     return {
         targetFilePath,
         sourceSpecifier: dependency.name,
@@ -135,7 +116,7 @@ function legacyDependencyReference(dependency: Dependency, targetFilePath: strin
 }
 
 function legacyDependencyReferences(
-    dependency: Dependency
+    dependency: ExternalDependency
 ): readonly [DependencyReference, ...(readonly DependencyReference[])] {
     const [ targetFilePath, ...rest ] = dependency.referencedFrom;
     return [
@@ -147,73 +128,22 @@ function legacyDependencyReferences(
 }
 
 function dependencyReferences(
-    dependency: Dependency
+    dependency: ExternalDependency
 ): readonly [DependencyReference, ...(readonly DependencyReference[])] {
     return dependency.references ?? legacyDependencyReferences(dependency);
 }
 
-function isSameDependencyReference(left: DependencyReference, right: DependencyReference): boolean {
-    return left.targetFilePath === right.targetFilePath &&
-        left.sourceSpecifier === right.sourceSpecifier &&
-        left.emittedSpecifier === right.emittedSpecifier;
-}
-
-function uniqueDependencyReferences(
-    references: readonly [DependencyReference, ...(readonly DependencyReference[])]
-): readonly [DependencyReference, ...(readonly DependencyReference[])] {
-    const [ firstReference, ...rest ] = references;
-    const unique: [DependencyReference, ...DependencyReference[]] = [ firstReference ];
-    for (const reference of rest) {
-        const isNewReference = unique.every(function (value) {
-            return !isSameDependencyReference(value, reference);
-        });
-        if (isNewReference) {
-            unique.push(reference);
-        }
-    }
-    return unique;
-}
-
-function mergeDependencyTargetPaths(
-    dependency: Dependency,
-    reference: DependencyReference
-): readonly [string, ...(readonly string[])] {
-    const sourcePaths = new Set([ ...dependency.referencedFrom, reference.targetFilePath ]);
-    sourcePaths.delete(dependency.referencedFrom[0]);
-    return [ dependency.referencedFrom[0], ...sourcePaths ];
-}
-
 function mergeDependencyReferences(
-    dependency: Dependency,
+    dependency: ExternalDependency,
     reference: DependencyReference
 ): readonly [DependencyReference, ...(readonly DependencyReference[])] {
-    const [ firstReference, ...rest ] = dependencyReferences(dependency);
-    return uniqueDependencyReferences([ firstReference, ...rest, reference ]);
-}
-
-function addReference(
-    dependencies: ExternalDependencyRecorder,
-    dependencyName: string,
-    reference: DependencyReference
-): void {
-    const dependency = dependencies.get(dependencyName);
-    if (dependency === undefined) {
-        dependencies.set(dependencyName, {
-            name: dependencyName,
-            referencedFrom: [ reference.targetFilePath ],
-            references: [ reference ]
-        });
-        return;
-    }
-    dependencies.set(dependencyName, {
-        name: dependencyName,
-        referencedFrom: mergeDependencyTargetPaths(dependency, reference),
-        references: mergeDependencyReferences(dependency, reference)
+    return uniqueBy([ ...dependencyReferences(dependency), reference ], function dependencyReferenceIdentity(value) {
+        return JSON.stringify([ value.targetFilePath, value.sourceSpecifier, value.emittedSpecifier ]);
     });
 }
 
 function shouldPreserveDependencyReference(
-    dependency: Dependency,
+    dependency: ExternalDependency,
     reference: DependencyReference,
     packagesByPath: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>,
     preservedReferencePaths: ReadonlySet<string>
@@ -230,15 +160,31 @@ function shouldPreserveDependencyReference(
 }
 
 function recomputeDependencies(
-    dependencies: Dependencies,
+    dependencies: ExternalDependencies,
     packagesByPath: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>,
     preservedReferencePaths: ReadonlySet<string>
-): Dependencies {
-    const recomputed = new Map<string, Dependency>();
+): ExternalDependencies {
+    const recomputed = new Map<string, ExternalDependency>();
+    function addReference(dependencyName: string, reference: DependencyReference): void {
+        const dependency = recomputed.get(dependencyName);
+        if (dependency === undefined) {
+            recomputed.set(dependencyName, {
+                name: dependencyName,
+                referencedFrom: [ reference.targetFilePath ],
+                references: [ reference ]
+            });
+            return;
+        }
+        recomputed.set(dependencyName, {
+            name: dependencyName,
+            referencedFrom: unique([ ...dependency.referencedFrom, reference.targetFilePath ]),
+            references: mergeDependencyReferences(dependency, reference)
+        });
+    }
     for (const dependency of dependencies.values()) {
         for (const reference of dependencyReferences(dependency)) {
             if (shouldPreserveDependencyReference(dependency, reference, packagesByPath, preservedReferencePaths)) {
-                addReference(recomputed, dependency.name, reference);
+                addReference(dependency.name, reference);
             }
         }
     }
@@ -257,7 +203,7 @@ function declarationTargetPaths(contents: readonly AnalyzedBundleResource[]): Re
 
 function filterSubstitutedSourcePaths(
     substitutedInputFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
-    linkedBundleDependencies: Dependencies
+    linkedBundleDependencies: ExternalDependencies
 ): ReadonlyMap<string, ReadonlySet<string>> {
     return new Map(
         Array.from(substitutedInputFilePathsByPackageName).filter(function ([ packageName ]) {
@@ -276,7 +222,7 @@ export function recomputeDependencyMetadata(
     bundle: MetadataBundle,
     contents: readonly AnalyzedBundleResource[],
     sourceFileIndex: SourceFileByPath
-): ReferencedPackages & { readonly contents: readonly AnalyzedBundleResource[]; } {
+): MetadataBundle & { readonly contents: readonly AnalyzedBundleResource[]; } {
     const recomputedContents = contents.map(function (resource) {
         return recomputeDirectDependencies(resource, sourceFileIndex);
     });

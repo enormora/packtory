@@ -1,33 +1,40 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    withCompilerWorkspace,
-    createProjectWithUntrackedInputs,
-    type CompilerWorkspace
-} from '../test-libraries/compiler-workspace.ts';
+    withInMemoryCompilerWorkspace,
+    type InMemoryCompilerWorkspace
+} from '../test-libraries/in-memory-compiler-workspace.ts';
+import { createProjectWithUntrackedInputs } from '../test-libraries/compiler-workspace.ts';
 import { createSharedProjectAnalyzer } from './shared-project-analyzer.ts';
-import type { TypescriptProject } from './typescript-project-analyzer.ts';
-import type { AnalyzationOptions } from './typescript-compiler-options.ts';
 import { getReferencedModules } from './source-file-references.ts';
+import type { AnalyzationOptions } from './typescript-compiler-options.ts';
+import type { TypescriptProject } from './typescript-project-analyzer.ts';
 
 type Sources = {
-    readonly workspace: CompilerWorkspace;
+    readonly workspace: InMemoryCompilerWorkspace;
     readonly first: string;
     readonly second: string;
     readonly shared: string;
     readonly runtime: () => Promise<TypescriptProject>;
     readonly analyze: (options: AnalyzationOptions) => Promise<TypescriptProject>;
 };
-const runtimeOptions: AnalyzationOptions = { resolveDeclarationFiles: false, mainPackageManifest: { type: 'module' } };
-
+const runtimeOptions: AnalyzationOptions = {
+    resolveDeclarationFiles: false,
+    mainPackageManifest: {
+        type: 'module'
+    }
+};
 async function withSharedSources(run: (sources: Sources) => Promise<void>): Promise<void> {
-    await withCompilerWorkspace(async function (workspace) {
+    await withInMemoryCompilerWorkspace(async function (workspace) {
         const [ first, second, shared ] = await Promise.all([
             workspace.write('first.js', 'export { value } from "./shared.js";'),
             workspace.write('second.js', 'import "./shared.js";'),
             workspace.write('shared.js', 'export const value = 1;')
         ]);
-        const analyzer = createSharedProjectAnalyzer({ ...workspace, getReferencedModules });
+        const analyzer = createSharedProjectAnalyzer({
+            ...workspace,
+            getReferencedModules
+        });
         await run({
             workspace,
             first,
@@ -42,7 +49,6 @@ async function withSharedSources(run: (sources: Sources) => Promise<void>): Prom
         });
     });
 }
-
 function dependenciesOf(project: TypescriptProject, entry: string): readonly string[] {
     return project.getReferencedModules(entry).flatMap(function (reference) {
         return reference.kind === 'external-package' ? [] : reference.filePath;
@@ -51,7 +57,7 @@ function dependenciesOf(project: TypescriptProject, entry: string): readonly str
 
 suite('shared project analysis', function () {
     test('rebuilds projects after unsupported compiler input observations', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             const file = await workspace.write('index.js', 'export const value = 1;');
             const analyzer = createSharedProjectAnalyzer({
                 ...workspace,
@@ -74,13 +80,19 @@ suite('shared project analysis', function () {
                 mainPackageManifest: {
                     type: 'module' as const,
                     imports: {
-                        '#shared': { default: './shared.js', types: './second.js' }
+                        '#shared': {
+                            default: './shared.js',
+                            types: './second.js'
+                        }
                     }
                 }
             };
             const initial = await sources.analyze(options);
             assert.deepStrictEqual(dependenciesOf(initial, entry), [ sources.shared ]);
-            options.mainPackageManifest.imports['#shared'] = { types: './second.js', default: './shared.js' };
+            options.mainPackageManifest.imports['#shared'] = {
+                types: './second.js',
+                default: './shared.js'
+            };
             const changed = await sources.analyze(options);
             assert.deepStrictEqual(dependenciesOf(changed, entry), [ sources.second ]);
         });
@@ -91,7 +103,12 @@ suite('shared project analysis', function () {
             const entry = await sources.workspace.write('hash.js', 'import "#shared";');
             const options = {
                 resolveDeclarationFiles: false,
-                mainPackageManifest: { type: 'module' as const, imports: { '#shared': './shared.js' } }
+                mainPackageManifest: {
+                    type: 'module' as const,
+                    imports: {
+                        '#shared': './shared.js'
+                    }
+                }
             };
             const initial = await sources.analyze(options);
             assert.deepStrictEqual(dependenciesOf(initial, entry), [ sources.shared ]);
@@ -137,7 +154,10 @@ suite('shared project analysis', function () {
     test('separates runtime and declaration compiler modes', async function () {
         await withSharedSources(async function (sources) {
             const initial = await sources.runtime();
-            const types = await sources.analyze({ ...runtimeOptions, resolveDeclarationFiles: true });
+            const types = await sources.analyze({
+                ...runtimeOptions,
+                resolveDeclarationFiles: true
+            });
             assert.notStrictEqual(types.getProject(), initial.getProject());
             const repeated = await sources.runtime();
             assert.strictEqual(repeated.getProject(), initial.getProject());
@@ -149,11 +169,20 @@ suite('shared project analysis', function () {
             const typeFile = await sources.workspace.write('types.d.ts', 'export declare const value: number;');
             const initial = await sources.runtime();
             assert.deepStrictEqual(dependenciesOf(initial, sources.first), [ sources.shared ]);
-            const declarations = await sources.analyze({ ...runtimeOptions, resolveDeclarationFiles: true });
+            const declarations = await sources.analyze({
+                ...runtimeOptions,
+                resolveDeclarationFiles: true
+            });
             assert.deepStrictEqual(dependenciesOf(declarations, typeFile), []);
             await sources.workspace.write('types.d.ts', 'export { value } from "./second.js";');
             assert.deepStrictEqual(
-                dependenciesOf(await sources.analyze({ ...runtimeOptions, resolveDeclarationFiles: true }), typeFile),
+                dependenciesOf(
+                    await sources.analyze({
+                        ...runtimeOptions,
+                        resolveDeclarationFiles: true
+                    }),
+                    typeFile
+                ),
                 [ sources.second ]
             );
             const repeated = await sources.runtime();
@@ -165,10 +194,18 @@ suite('shared project analysis', function () {
     test('separates virtual manifests and bounds retained projects', async function () {
         await withSharedSources(async function (sources) {
             const initial = await sources.runtime();
-            await sources.analyze({ ...runtimeOptions, resolveDeclarationFiles: true });
             await sources.analyze({
                 ...runtimeOptions,
-                mainPackageManifest: { type: 'module', imports: { '#changed': './first.js' } }
+                resolveDeclarationFiles: true
+            });
+            await sources.analyze({
+                ...runtimeOptions,
+                mainPackageManifest: {
+                    type: 'module',
+                    imports: {
+                        '#changed': './first.js'
+                    }
+                }
             });
             const repeated = await sources.runtime();
             assert.notStrictEqual(repeated.getProject(), initial.getProject());

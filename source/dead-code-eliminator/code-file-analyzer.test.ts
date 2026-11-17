@@ -1,16 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { Node as TypeScriptMorphNode, Statement } from 'ts-morph';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import { loadResource, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
-
-const statementStub = { identifier: 'stmt' };
-const declarationStub = { identifier: 'decl' };
-const referenceStub = { identifier: 'ref' };
 
 function loadedCodeResource(content: string): LoadedCodeResource {
     const loaded = loadResource(createProject(), createProject(), {
@@ -118,25 +113,58 @@ suite('code-file-analyzer', function () {
                 }
             }
         });
-        assert.strictEqual(result.transforms.length, 1);
+        assert.deepStrictEqual({
+            transformCount: result.transforms.length,
+            survivingBindings: result.resource.analysis.survivingBindings
+        }, { transformCount: 1, survivingBindings: new Set([ 'foo' ]) });
+    });
+
+    test('buildAnalyzedResource omits transform records when enabled transformations leave source unchanged', function () {
+        const loaded = loadedCodeResource('export const foo = 1;\n');
+        const result = buildAnalyzedResource(loaded, {
+            ...baseContext,
+            reachable: new Set([ bindingIdentifier('a.ts', 'foo') ]),
+            transformationsEnabled: true
+        });
+
+        assert.deepStrictEqual(result, {
+            resource: {
+                ...loaded.resource,
+                analysis: {
+                    survivingBindings: new Set([ 'foo' ]),
+                    sideEffectStatements: [],
+                    sideEffectImports: new Set()
+                }
+            },
+            transforms: []
+        });
     });
 
     test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {
-        const loaded: LoadedCodeResource = {
-            ...loadedCodeResource('export const foo = 1;\n'),
-            bindings: [
-                {
-                    name: 'foo',
-                    isExported: true,
-                    statement: statementStub as unknown as Statement,
-                    declarationNode: declarationStub as unknown as TypeScriptMorphNode,
-                    referenceNode: referenceStub as unknown as TypeScriptMorphNode
-                }
-            ]
-        };
+        const loaded = loadedCodeResource('const hidden = 1; export const foo = hidden;\n');
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.strictEqual(result.resource.analysis.survivingBindings.has('foo'), true);
+        assert.deepStrictEqual(result.resource.analysis.survivingBindings, new Set([ 'hidden', 'foo' ]));
+    });
+
+    test('buildAnalyzedResource retains source preparation maps before the final transformation', function () {
+        const prefix = 'const unused = 0;\n';
+        const content = 'export const foo = 1;\n';
+        const loaded = loadedCodeResource(prefix + content);
+        loaded.applyEdits([ { start: 0, end: prefix.length, content: '' } ]);
+        const result = buildAnalyzedResource(loaded, {
+            ...baseContext,
+            reachable: new Set([ bindingIdentifier('a.ts', 'foo') ]),
+            transformationsEnabled: true
+        });
+
+        assert.strictEqual(result.transforms.length, 2);
+        assert.strictEqual(result.transforms[0]?.textTransform, loaded.transformations[0]);
+        assert.deepStrictEqual(result.transforms[1]?.textTransform, {
+            originalCode: content,
+            transformedCode: content,
+            atoms: [ { newStart: 0, originalStart: 0, originalEnd: content.length } ]
+        });
     });
 });

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, type SourceFile } from 'ts-morph';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { createBundleConstantEvaluator } from './bundle-constant-evaluation.ts';
@@ -78,5 +79,26 @@ suite('bundle constant snapshot queries', function () {
             .getFirstDescendantByKindOrThrow(SyntaxKind.ExpressionStatement)
             .getExpression();
         assert.strictEqual(evaluate(expression), undefined);
+    });
+
+    suite('external constant fallback', function () {
+        test('evaluates linked constants outside the prepared snapshot', function () {
+            const fixture = snapshotFixture('import {value} from "./provider.js";value;');
+            const provider = fixture.resolveModule('./provider.js', fixture.importer);
+            assertDefined(provider);
+            provider.replaceWithText('export const value=42;');
+            const evaluate = createBundleConstantEvaluator({
+                ...fixture,
+                modules: new Map([ [ fixture.importer, { initialized: true, exports: new Map() } ] ])
+            }, function () {
+                return provider;
+            });
+            assert.deepStrictEqual(
+                evaluate(
+                    fixture.importer.getFirstDescendantByKindOrThrow(SyntaxKind.ExpressionStatement).getExpression()
+                ),
+                { value: 42 }
+            );
+        });
     });
 });

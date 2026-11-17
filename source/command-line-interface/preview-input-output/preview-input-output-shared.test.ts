@@ -3,7 +3,10 @@ import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
 import { createPreviewInputOutput, type PreviewInputOutput } from './preview-input-output-shared.ts';
-import type { SpawnedProcess, SpawnOptions } from './preview-spawn.ts';
+import type { SpawnFunction } from './preview-process.ts';
+
+type SpawnedProcess = ReturnType<SpawnFunction>;
+type SpawnOptions = Parameters<SpawnFunction>[2];
 
 type FakeSpawnResult = {
     readonly command: string;

@@ -1,6 +1,9 @@
 import assert from 'node:assert';
+import { runInNewContext } from 'node:vm';
 import { suite, test } from 'mocha';
+import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createSourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { simplifyConstantControlFlow } from './constant-control-flow.ts';
 
@@ -18,32 +21,32 @@ suite('constant control flow', function () {
             assert.strictEqual(preparation.sourceFile.getFullText(), content);
         });
 
-        test('retains remaining computation after 32 changing passes', function () {
-            const content = 'export const result=1||2;';
-            const preparation = createSourcePreparation(createProject().createSourceFile('input.js', content));
-            let passes = 0;
-            simplifyConstantControlFlow({
-                ...preparation,
-                applyEdits(edits) {
-                    passes += 1;
-                    assert.ok(passes <= 32);
-                    preparation.applyEdits(edits);
-                    preparation.applyEdits([ {
-                        start: 0,
-                        end: preparation.sourceFile.getFullText().length,
-                        content: content + '\n'.repeat(passes)
-                    } ]);
-                }
+        for (const depth of [ 1, 32, 64 ]) {
+            test(`reduces ${depth} nested constant branches`, function () {
+                const content = `export function result(){${'if(true){'.repeat(depth)}return 42;${
+                    '}else{unreachable();}'.repeat(depth)
+                }}`;
+                const source = createProject().createSourceFile('input.js', content);
+                simplifyConstantControlFlow(createSourcePreparation(source));
+                assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.IfStatement), []);
+                assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.CallExpression), []);
+                assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.ReturnStatement)[0]?.getText(), 'return 42;');
             });
-            assert.strictEqual(passes, 32);
-            assert.strictEqual(preparation.sourceFile.getFullText(), content + '\n'.repeat(32));
-        });
+        }
     });
 
     for (
         const [ content, expected ] of [
             [ 'export const result=1+2;', 'export const result=1+2;' ],
             [ 'export const result=unknown||2;', 'export const result=unknown||2;' ],
+            [ 'export const result=unknown?1:2;', 'export const result=unknown?1:2;' ],
+            [ '"use strict";', '"use strict";' ],
+            [ 'if(unknown){effect();}', 'if(unknown){effect();}' ],
+            [ 'if(false){var value=1;}export {value};', 'if(false){var value=1;}export {value};' ],
+            [ 'if(false){function value(){}}export {};', 'if(false){function value(){}}export {};' ],
+            [ 'if(true){effect();}else{var value=1;}', 'if(true){effect();}else{var value=1;}' ],
+            [ 'if(true)effect();', '{ effect(); }' ],
+            [ 'if(false)effect();', ';' ],
             [ 'export const result=true?1:2;', 'export const result=(1);' ],
             [ 'export const result=false?1:2;', 'export const result=(2);' ],
             [ 'export const result=true?1+1:3;', 'export const result=(2);' ],
@@ -81,6 +84,55 @@ suite('constant control flow', function () {
             assert.strictEqual(source.getFullText(), expected);
         });
     }
+
+    for (const condition of [ true, false ]) {
+        test(`preserves condition effects before selecting the ${condition} branch`, function () {
+            const source = createProject().createSourceFile(
+                'input.js',
+                `if((effect(),${condition}))selected();else rejected();`
+            );
+            simplifyConstantControlFlow(createSourcePreparation(source));
+            const calls: string[] = [];
+            runInNewContext(source.getFullText(), {
+                effect() {
+                    calls.push('condition');
+                },
+                selected() {
+                    calls.push('selected');
+                },
+                rejected() {
+                    calls.push('rejected');
+                }
+            });
+            assert.deepStrictEqual(calls, [ 'condition', condition ? 'selected' : 'rejected' ]);
+            assert.deepStrictEqual(source.getDescendantsOfKind(SyntaxKind.IfStatement), []);
+        });
+    }
+
+    test('keeps the original location of repeated code in nested selected branches', function () {
+        const source = createProject().createSourceFile(
+            'input.js',
+            [
+                'if(false){',
+                'marker();',
+                '}else{',
+                'if(true){',
+                'marker();',
+                '}else{',
+                'marker();',
+                '}',
+                '}'
+            ]
+                .join('\n')
+        );
+        const preparation = createSourcePreparation(source);
+        simplifyConstantControlFlow(preparation);
+        const calls = source.getDescendantsOfKind(SyntaxKind.CallExpression);
+        assert.strictEqual(calls.length, 1);
+        const [ retained ] = calls;
+        assertDefined(retained);
+        assert.strictEqual(preparation.originalLineFor(retained), 5);
+    });
 
     test('preserves code visible to direct eval', function () {
         const content = 'let value=1;eval("value=2");if(false){consume(value);}export const result=value;';

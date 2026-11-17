@@ -75,4 +75,40 @@ suite('record evaluation limits', function () {
         const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.ElementAccessExpression);
         assert.strictEqual(recordPropertyReference(expression, createBoundedEvaluationContext(0, 100)), undefined);
     });
+
+    suite('record field semantics', function () {
+        for (
+            const [ content, expected ] of [
+                [ '({answer:42}).answer;', { value: 42 } ],
+                [ '({[1+1]:42})[2];', { value: 42 } ],
+                [ '({__proto__:null}).missing;', { value: undefined } ],
+                [ '({__proto__:null,answer:()=>42}).missing;', { value: undefined } ],
+                [ '({__proto__:null,answer:function(){return 42;}}).missing;', { value: undefined } ],
+                [ '({__proto__:null,get answer(){return 42;}}).missing;', { value: undefined } ],
+                [ '({__proto__:null,set answer(value){}}).missing;', { value: undefined } ],
+                [ '({__proto__:null,answer(){return 42;}}).missing;', { value: undefined } ],
+                [ '({get answer(){return 42;}}).answer;', undefined ],
+                [ '({answer(){return 42;}}).answer;', undefined ],
+                [ '({__proto__:null,get answer(){return 42;}}).answer;', undefined ],
+                [ '({["__proto__"]:42}).__proto__;', { value: 42 } ],
+                [ '({__proto__:null,answer:1,answer:42}).answer;', { value: 42 } ],
+                [ '({__proto__:{answer:42}}).answer;', undefined ],
+                [ '({__proto__:null}).constructor;', { value: undefined } ],
+                [ '({answer:()=>42}).answer;', undefined ],
+                [ '({answer:()=>42,answer:42}).answer;', { value: 42 } ],
+                [ '({answer:42,answer(){return 1;}}).answer;', undefined ]
+            ] as const
+        ) {
+            test(`preserves record reference behavior for ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                const expression = source
+                    .getFirstDescendantByKindOrThrow(SyntaxKind.ExpressionStatement)
+                    .getExpression();
+                assert.deepStrictEqual(
+                    evaluateExpression(expression, createBoundedEvaluationContext(0, 100)),
+                    expected
+                );
+            });
+        }
+    });
 });

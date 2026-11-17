@@ -1,11 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import {
-    assertDeadCodeEliminationEquivalent,
+    assertDeadCodeEliminationOutput,
     eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 
 suite('empty constructor elimination', function () {
     for (
@@ -21,14 +21,13 @@ suite('empty constructor elimination', function () {
     ) {
         test(`removes construction while preserving effects in ${content}`, async function () {
             const fixture = singleFileOracleCase(`${content}export function probe(){return 42;}`, 'index.js');
-            await assertDeadCodeEliminationEquivalent(fixture);
+            await assertDeadCodeEliminationOutput(fixture);
             const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
             const output = result[0]?.contents[0]?.fileDescription.content;
             assertDefined(output);
             assert.doesNotMatch(output, /\bnew\b/u);
         });
     }
-
     for (
         const content of [
             'class Required{constructor(){console.log("construct");}}new Required();',
@@ -49,13 +48,13 @@ suite('empty constructor elimination', function () {
     ) {
         test(`preserves observable construction in ${content}`, async function () {
             const suffix = content.includes('export function probe') ? '' : 'export function probe(){return 42;}';
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(content + suffix, 'index.js'));
+            await assertDeadCodeEliminationOutput(singleFileOracleCase(content + suffix, 'index.js'));
         });
     }
 
     test('preserves distinct allocations and inherited property uncertainty', async function () {
-        const content = 'function Empty(){}export function probe(){const first=new Empty();' +
-            'return [first===first,first===new Empty(),first.constructor===Empty];}';
-        await assertDeadCodeEliminationEquivalent(singleFileOracleCase(content, 'index.js'));
+        const content =
+            'function Empty(){}export function probe(){const first=new Empty();return [first===first,first===new Empty(),first.constructor===Empty];}';
+        await assertDeadCodeEliminationOutput(singleFileOracleCase(content, 'index.js'));
     });
 });

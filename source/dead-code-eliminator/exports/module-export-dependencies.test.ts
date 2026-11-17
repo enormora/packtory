@@ -143,4 +143,70 @@ suite('module export dependencies', function () {
             assert.deepStrictEqual(dependencies, expected);
         });
     }
+
+    suite('absent module exports', function () {
+        test('has no dependencies when no declaration or star export exists', function () {
+            const fixture = createExportModuleFixture({ 'index.js': 'export const value=42;' }, []);
+            const model = fixture.models.get(fixture.source('index.js'));
+            assertDefined(model);
+            assert.deepStrictEqual(
+                moduleExportDependencies(model, 'missing', {
+                    resolveModule: fixture.resolveModule,
+                    binding() {
+                        return undefined;
+                    },
+                    exported() {
+                        return undefined;
+                    },
+                    namespaceTargets() {
+                        return [];
+                    },
+                    demand: {
+                        properties() {
+                            return undefined;
+                        },
+                        exportProperties() {
+                            return undefined;
+                        }
+                    }
+                }),
+                []
+            );
+        });
+    });
+
+    suite('star export targets', function () {
+        test('forwards named exports through a linked star declaration', function () {
+            const fixture = createExportModuleFixture({
+                'index.js': 'export * from "./library.js";',
+                'library.js': 'export const value=42;'
+            }, []);
+            const model = fixture.models.get(fixture.source('index.js'));
+            assertDefined(model);
+            assert.deepStrictEqual(
+                moduleExportDependencies(model, 'value', {
+                    resolveModule: fixture.resolveModule,
+                    binding() {
+                        return undefined;
+                    },
+                    exported(source, name) {
+                        assertDefined(source);
+                        return `${source.getBaseName()}:${name}`;
+                    },
+                    namespaceTargets() {
+                        return [];
+                    },
+                    demand: {
+                        properties() {
+                            return undefined;
+                        },
+                        exportProperties() {
+                            return undefined;
+                        }
+                    }
+                }),
+                [ 'library.js:value' ]
+            );
+        });
+    });
 });

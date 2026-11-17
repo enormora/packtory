@@ -1,6 +1,6 @@
 import { suite, test } from 'mocha';
+import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
 
 suite('construction definition effects', function () {
     for (
@@ -13,17 +13,21 @@ suite('construction definition effects', function () {
         ]
     ) {
         test(`preserves ${name}`, async function () {
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-                `export const value=typeof new(${definition});export function probe(){return value;}`,
-                'index.js'
-            ));
+            await assertDeadCodeEliminationOutput(
+                singleFileOracleCase(
+                    `export const value=typeof new(${definition});export function probe(){return value;}`,
+                    'index.js'
+                )
+            );
         });
     }
 
     test('preserves a proxy read whose property type names a local class', async function () {
-        await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-            'import * as namespace from "./index.js";export class Empty{}const proxy=/** @type {typeof namespace} */ (new Proxy(namespace,{get(target,key){console.log("get");return target[key];}}));export const value=typeof new proxy.Empty();export function probe(){return value;}',
-            'index.js'
-        ));
+        await assertDeadCodeEliminationOutput(
+            singleFileOracleCase(
+                'import * as namespace from "./index.js";export class Empty{}const proxy=/** @type {typeof namespace} */ (new Proxy(namespace,{get(target,key){console.log("get");return target[key];}}));export const value=typeof new proxy.Empty();export function probe(){return value;}',
+                'index.js'
+            )
+        );
     });
 });

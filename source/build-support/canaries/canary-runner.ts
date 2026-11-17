@@ -1,13 +1,14 @@
+import type { ExecFileException as ExecuteFileException } from 'node:child_process';
 import path from 'node:path';
-import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
 import { errorMessage } from '../../common/error-normalization.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
-import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
 import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';
 import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
+import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
 import {
     inspectPackageApplicationProgrammingInterfaces,
-    createNodeImportProbe
+    type CanaryProcessExecutor,
+    type InspectPackagesInput
 } from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
@@ -27,6 +28,7 @@ type ShellCommandFailure = {
 };
 
 export type CanaryRunnerDependencies = {
+    readonly createProject: InspectPackagesInput['createProject'];
     readonly createTemporaryFolder: TemporaryFolderCreator;
     readonly fileManager: Pick<
         FileManager,
@@ -34,6 +36,7 @@ export type CanaryRunnerDependencies = {
     >;
     readonly removeFolder: FolderRemover;
     readonly runCommand: CommandRunner;
+    readonly runImportProbe: InspectPackagesInput['runImportProbe'];
     readonly repositoryFolder: string;
 };
 
@@ -62,7 +65,6 @@ type PacktoryRunResult = {
     readonly resolvedReference: string;
 };
 
-const importProbeTimeoutMilliseconds = 10_000;
 const packOutputFolderName = 'packtory-canary-packages';
 const millisecondsPerSecond = 1000;
 
@@ -211,10 +213,11 @@ async function inspectCanaryClone(
         return {
             failed: false,
             inspection: await inspectPackageApplicationProgrammingInterfaces({
+                createProject: dependencies.createProject,
                 fileManager: dependencies.fileManager,
                 nodeModulesFolder: clone.nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
-                runImportProbe: createNodeImportProbe(importProbeTimeoutMilliseconds)
+                runImportProbe: dependencies.runImportProbe
             }),
             resolvedReference: clone.resolvedReference
         };
@@ -317,7 +320,8 @@ function shellCommandErrorMessage(input: ShellCommandFailure): string {
 async function runShellCommandWithTimeout(
     command: string,
     cwd: string,
-    timeoutMilliseconds: number
+    timeoutMilliseconds: number,
+    execute: CanaryProcessExecutor
 ): Promise<CommandResult> {
     return new Promise(function (resolve, reject) {
         const nodeModulesExecutablePath = path.join(cwd, 'node_modules', '.bin');
@@ -329,7 +333,7 @@ async function runShellCommandWithTimeout(
             command
         ]
             .join('\n');
-        executeFile(
+        execute(
             '/usr/bin/env',
             [ 'sh', '-lc', shellCommand ],
             { cwd, encoding: 'utf8', timeout: timeoutMilliseconds },
@@ -348,8 +352,8 @@ async function runShellCommandWithTimeout(
     });
 }
 
-export function createShellCommandRunner(timeoutMilliseconds: number): CommandRunner {
+export function createShellCommandRunner(timeoutMilliseconds: number, execute: CanaryProcessExecutor): CommandRunner {
     return async function (command, cwd) {
-        return runShellCommandWithTimeout(command, cwd, timeoutMilliseconds);
+        return runShellCommandWithTimeout(command, cwd, timeoutMilliseconds, execute);
     };
 }

@@ -132,4 +132,17 @@ suite('max-bundle-size', function () {
 
         assert.deepStrictEqual(result, [ 'Package "multi" exceeds the maximum bundle size: 4 bytes (limit: 3 bytes)' ]);
     });
+
+    suite('maximumBundleSizeRule schemas', function () {
+        test('accepts supported global settings', function () {
+            assert.strictEqual(
+                maximumBundleSizeRule.globalSchema.safeParse({ enabled: true, bytes: 42 }).success,
+                true
+            );
+        });
+
+        test('accepts supported package settings', function () {
+            assert.strictEqual(maximumBundleSizeRule.perPackageSchema.safeParse({ bytes: 42 }).success, true);
+        });
+    });
 });

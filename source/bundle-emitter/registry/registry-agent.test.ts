@@ -4,7 +4,6 @@ import { suite, test } from 'mocha';
 import { createStubInstance } from 'sinon';
 import { createRegistryAgent } from './registry-agent.ts';
 
-const request = createStubInstance(ClientRequest);
 const insecureProtocol = 'http:';
 
 suite('registry destination policy', function () {
@@ -16,6 +15,7 @@ suite('registry destination policy', function () {
         ]
     ) {
         test(`rejects ${destination} before resolving its proxy`, async function () {
+            const request = createStubInstance(ClientRequest);
             const proxyRequests: string[] = [];
             const agent = createRegistryAgent('https://registry.test/', function (address) {
                 proxyRequests.push(address);
@@ -33,6 +33,7 @@ suite('registry destination policy', function () {
     }
 
     test('normalizes the default port and resolves the proxy for the full request URL', function () {
+        const request = createStubInstance(ClientRequest);
         const proxyRequests: string[] = [];
         const agent = createRegistryAgent('https://registry.test:443/base/', function (address) {
             proxyRequests.push(address);

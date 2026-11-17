@@ -1,16 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { createProject } from '../test-libraries/typescript-project.ts';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
+import {
+    assertDeadCodeEliminationOutput,
+    eliminateDeadCodeAndAssertAllOutputValid
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import {
     assertSingleFileCallReduction,
     singleFileOracleCase
 } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import {
-    assertDeadCodeEliminationEquivalent,
-    eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
 
 suite('discarded object creation', function () {
     for (
@@ -41,7 +41,7 @@ suite('discarded object creation', function () {
         ]
             .join('\n');
         const fixture = singleFileOracleCase(content, 'index.js');
-        await assertDeadCodeEliminationEquivalent(fixture);
+        await assertDeadCodeEliminationOutput(fixture);
         const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
         const emitted = result[0]?.contents[0]?.fileDescription.content;
         assertDefined(emitted);
@@ -50,12 +50,13 @@ suite('discarded object creation', function () {
     });
 
     test('preserves the inferred name of an unused class initializer', async function () {
-        await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-            'const unused=class{static{console.log(this.name);}};export function probe(){return 42;}',
-            'index.js'
-        ));
+        await assertDeadCodeEliminationOutput(
+            singleFileOracleCase(
+                'const unused=class{static{console.log(this.name);}};export function probe(){return 42;}',
+                'index.js'
+            )
+        );
     });
-
     for (
         const content of [
             'const unused={removable:42,effect:console.log("first"),nested:{removable:21,effect:console.log("second")}};',
@@ -70,12 +71,11 @@ suite('discarded object creation', function () {
     ) {
         test(`removes unused properties while preserving effects in ${content}`, async function () {
             const fixture = singleFileOracleCase(`${content}export function probe(){return 42;}`, 'index.js');
-            await assertDeadCodeEliminationEquivalent(fixture);
+            await assertDeadCodeEliminationOutput(fixture);
             const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
             assert.strictEqual(result[0]?.contents[0]?.fileDescription.content.includes('removable'), false);
         });
     }
-
     for (
         const content of [
             'const unused={named:class{static{console.log(this.name);}}};',
@@ -85,8 +85,7 @@ suite('discarded object creation', function () {
             'globalThis.compute=()=>42;const unused={value:/*#__PURE__*/globalThis.compute({missing})};',
             'globalThis.effect=callback=>console.log("effect");' +
             'const unused={value:globalThis.effect(()=>{/*#__PURE__*/globalThis.compute();})};',
-            'globalThis.effect=value=>console.log(value);' +
-            'const unused={value:globalThis.effect("/*#__PURE__*/")};',
+            'globalThis.effect=value=>console.log(value);const unused={value:globalThis.effect("/*#__PURE__*/")};',
             'const unused={__proto__:console.log("prototype"),value:console.log("value")};',
             'const unused={value:console.log("first"),value:console.log("second")};',
             'const unused={named:(class{static{console.log(this.name);}})};',
@@ -96,10 +95,9 @@ suite('discarded object creation', function () {
         ]
     ) {
         test(`preserves observable object creation in ${content}`, async function () {
-            await assertDeadCodeEliminationEquivalent(singleFileOracleCase(
-                `${content}export function probe(){return 42;}`,
-                'index.js'
-            ));
+            await assertDeadCodeEliminationOutput(
+                singleFileOracleCase(`${content}export function probe(){return 42;}`, 'index.js')
+            );
         });
     }
 });

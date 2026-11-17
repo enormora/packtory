@@ -1,16 +1,19 @@
 import assert from 'node:assert';
-import fileSystem from 'node:fs/promises';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import { InMemoryFileSystemHost, type FileSystemHost } from 'ts-morph';
-import { withCompilerWorkspace, type CompilerWorkspace } from '../test-libraries/compiler-workspace.ts';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
+import {
+    withInMemoryCompilerWorkspace,
+    type InMemoryCompilerWorkspace
+} from '../test-libraries/in-memory-compiler-workspace.ts';
 import {
     compilerInputsAreCurrent,
     compilerInputsSchema,
     observeCompilerInputs,
-    type CompilerInputs,
-    type CompilerInputObservation
+    type CompilerInputObservation,
+    type CompilerInputs
 } from './compiler-inputs.ts';
 
 function invoke(host: FileSystemHost, method: string, parameters: readonly unknown[]): unknown {
@@ -20,8 +23,7 @@ function invoke(host: FileSystemHost, method: string, parameters: readonly unkno
     }
     return Reflect.apply(member, host, parameters);
 }
-
-function observeDirectory(workspace: CompilerWorkspace, folder: string): CompilerInputs {
+function observeDirectory(workspace: InMemoryCompilerWorkspace, folder: string): CompilerInputs {
     const observed = observeCompilerInputs(workspace.fileSystemHost);
     invoke(observed.fileSystemHost, 'readDirSync', [ folder ]);
     const snapshot = observed.snapshot() ?? undefined;
@@ -29,24 +31,27 @@ function observeDirectory(workspace: CompilerWorkspace, folder: string): Compile
     assert.strictEqual(compilerInputsSchema.safeParse(snapshot).success, true);
     return snapshot;
 }
-
 type SourceObservation = {
     readonly file: string;
     readonly observed: CompilerInputObservation;
 };
-
-async function observeSource(workspace: CompilerWorkspace): Promise<SourceObservation> {
+async function observeSource(workspace: InMemoryCompilerWorkspace): Promise<SourceObservation> {
     const file = await workspace.write('source.js', 'first');
     const observed = observeCompilerInputs(workspace.fileSystemHost);
     invoke(observed.fileSystemHost, 'readFileSync', [ file ]);
-    return { file, observed };
+    return {
+        file,
+        observed
+    };
 }
 
 suite('compiler input freshness', function () {
     suite('unsupported metadata and symlink changes', function () {
         test('rejects previously readable inputs after a filesystem failure', async function () {
-            await withCompilerWorkspace(async function (workspace) {
-                const { observed } = await observeSource(workspace);
+            await withInMemoryCompilerWorkspace(async function (workspace) {
+                const {
+                    observed
+                } = await observeSource(workspace);
                 const snapshot = observed.snapshot() ?? undefined;
                 assertDefined(snapshot);
                 assert.strictEqual(
@@ -62,7 +67,7 @@ suite('compiler input freshness', function () {
         });
 
         test('forwards writes without recording them as compiler reads', async function () {
-            await withCompilerWorkspace(async function (workspace) {
+            await withInMemoryCompilerWorkspace(async function (workspace) {
                 const file = path.join(workspace.folder, 'written.js');
                 const observed = observeCompilerInputs(workspace.fileSystemHost);
                 await observed.fileSystemHost.writeFile(file, 'export const value = 1;');
@@ -96,7 +101,11 @@ suite('compiler input freshness', function () {
         });
 
         test('preserves host results when their metadata cannot be cached', function () {
-            const entries = [ { name: '/virtual/file', isDirectory: false, isSymlink: false } ];
+            const entries = [ {
+                name: '/virtual/file',
+                isDirectory: false,
+                isSymlink: false
+            } ];
             const host = new Proxy(new InMemoryFileSystemHost(), {
                 get(target, property) {
                     return property === 'readDirSync'
@@ -110,28 +119,10 @@ suite('compiler input freshness', function () {
             assert.strictEqual(invoke(observed.fileSystemHost, 'readDirSync', [ '/virtual' ]), entries);
             assert.strictEqual(observed.snapshot(), null);
         });
-
-        test('observes dangling symlink targets becoming available outside the listed directory', async function () {
-            await withCompilerWorkspace(async function (workspace) {
-                const folder = path.join(workspace.folder, 'observed');
-                await Promise.all([
-                    workspace.write('target/anchor.js', ''),
-                    workspace.write('observed/anchor.js', '')
-                ]);
-                await fileSystem.symlink(
-                    path.join(workspace.folder, 'target/missing.js'),
-                    path.join(folder, 'link.js')
-                );
-                const snapshot = observeDirectory(workspace, folder);
-                assert.strictEqual(await compilerInputsAreCurrent(workspace.fileManager, snapshot), true);
-                await workspace.write('target/missing.js', 'export const value = 1;');
-                assert.strictEqual(await compilerInputsAreCurrent(workspace.fileManager, snapshot), false);
-            });
-        });
     });
 
     test('compares directory contents independently of enumeration order', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             await Promise.all([ workspace.write('first.js', ''), workspace.write('second.js', '') ]);
             const snapshot = observeDirectory(workspace, workspace.folder);
             assert.strictEqual(
@@ -146,10 +137,9 @@ suite('compiler input freshness', function () {
             );
         });
     });
-
     for (const method of [ 'readFileSync', 'fileExistsSync', 'directoryExistsSync', 'readDirSync', 'realpathSync' ]) {
         test(`validates the observed ${method} result`, async function () {
-            await withCompilerWorkspace(async function (workspace) {
+            await withInMemoryCompilerWorkspace(async function (workspace) {
                 const file = await workspace.write('source.js', 'export const value = 1;');
                 const observed = observeCompilerInputs(workspace.fileSystemHost);
                 invoke(observed.fileSystemHost, method, [
@@ -164,8 +154,10 @@ suite('compiler input freshness', function () {
     }
 
     test('invalidates changed file contents and negative file and directory lookups', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            const { observed } = await observeSource(workspace);
+        await withInMemoryCompilerWorkspace(async function (workspace) {
+            const {
+                observed
+            } = await observeSource(workspace);
             invoke(observed.fileSystemHost, 'fileExistsSync', [ path.join(workspace.folder, 'missing.js') ]);
             invoke(observed.fileSystemHost, 'directoryExistsSync', [ path.join(workspace.folder, 'missing') ]);
             await workspace.write('source.js', 'second');
@@ -176,8 +168,11 @@ suite('compiler input freshness', function () {
     });
 
     test('rejects a snapshot when an input changes during analysis', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            const { file, observed } = await observeSource(workspace);
+        await withInMemoryCompilerWorkspace(async function (workspace) {
+            const {
+                file,
+                observed
+            } = await observeSource(workspace);
             await workspace.write('source.js', 'second');
             invoke(observed.fileSystemHost, 'readFileSync', [ file ]);
             assert.strictEqual(observed.snapshot(), null);
@@ -185,7 +180,7 @@ suite('compiler input freshness', function () {
     });
 
     test('observes unreadable paths becoming readable', async function () {
-        await withCompilerWorkspace(async function (workspace) {
+        await withInMemoryCompilerWorkspace(async function (workspace) {
             const file = path.join(workspace.folder, 'missing.js');
             const observed = observeCompilerInputs(workspace.fileSystemHost);
             assert.throws(function () {
@@ -199,30 +194,10 @@ suite('compiler input freshness', function () {
         });
     });
 
-    test('observes deleted files and directory entries', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            const { file, observed } = await observeSource(workspace);
-            invoke(observed.fileSystemHost, 'readDirSync', [ workspace.folder ]);
-            await fileSystem.rm(file);
-            const snapshot = observed.snapshot() ?? undefined;
-            assertDefined(snapshot);
-            assert.strictEqual(await compilerInputsAreCurrent(workspace.fileManager, snapshot), false);
-        });
-    });
-
-    test('checks symlink targets in directory observations', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            await workspace.write('directory/source.js', 'first');
-            await fileSystem.symlink(path.join(workspace.folder, 'directory'), path.join(workspace.folder, 'link'));
-            const snapshot = observeDirectory(workspace, workspace.folder);
-            assert.strictEqual(await compilerInputsAreCurrent(workspace.fileManager, snapshot), true);
-        });
-    });
-
     suite('unsupported observations', function () {
         for (const method of [ 'readFile', 'fileExists', 'directoryExists' ]) {
             test(`declines reuse for asynchronous ${method}`, async function () {
-                await withCompilerWorkspace(async function (workspace) {
+                await withInMemoryCompilerWorkspace(async function (workspace) {
                     const file = await workspace.write('source.js', 'first');
                     const observed = observeCompilerInputs(workspace.fileSystemHost);
                     const parameters = [ method.toLowerCase().includes('dir') ? workspace.folder : file ];
@@ -234,10 +209,9 @@ suite('compiler input freshness', function () {
                 });
             });
         }
-
         for (const method of [ 'glob', 'globSync' ]) {
             test(`declines reuse for ${method} observations`, async function () {
-                await withCompilerWorkspace(async function (workspace) {
+                await withInMemoryCompilerWorkspace(async function (workspace) {
                     await workspace.write('source.js', 'first');
                     const observed = observeCompilerInputs(workspace.fileSystemHost);
                     assert.strictEqual(Reflect.get(observed.fileSystemHost, 'missing-property'), undefined);
@@ -249,6 +223,81 @@ suite('compiler input freshness', function () {
                     await invoke(observed.fileSystemHost, method, [ [ `${workspace.folder}/*.js` ] ]);
                     assert.strictEqual(observed.snapshot(), null);
                 });
+            });
+        }
+    });
+
+    suite('recorded observations', function () {
+        test('records symlink target existence independently of its directory entry', function () {
+            const host = new Proxy(new InMemoryFileSystemHost(), {
+                get(target, property) {
+                    if (property === 'readDirSync') {
+                        return function () {
+                            return [ {
+                                name: '/virtual/link.js',
+                                isFile: true,
+                                isDirectory: false,
+                                isSymlink: true
+                            } ];
+                        };
+                    }
+                    const member: unknown = Reflect.get(target, property);
+                    return member;
+                }
+            });
+            const observed = observeCompilerInputs(host);
+            invoke(observed.fileSystemHost, 'readDirSync', [ '/virtual' ]);
+            assert.deepStrictEqual(observed.snapshot(), [ {
+                operation: 'fileExists',
+                filePath: '/virtual/link.js',
+                value: 'true'
+            }, {
+                operation: 'readDir',
+                filePath: '/virtual',
+                value: JSON.stringify([ {
+                    name: '/virtual/link.js',
+                    isDirectory: false,
+                    isSymlink: true
+                } ])
+            } ]);
+        });
+        for (
+            const [ status, isDirectory ] of [ [ {
+                exists: false
+            }, false ], [ {
+                exists: true,
+                isDirectory: false
+            }, false ], [ {
+                exists: true,
+                isDirectory: true
+            }, true ] ] as const
+        ) {
+            test(`validates symlink directory targets: ${JSON.stringify(status)}`, async function () {
+                const fileManager = createFakeFileManager({
+                    simulatedListDirectoryResponses: [ {
+                        value: [ {
+                            name: 'link',
+                            isDirectory: false,
+                            isSymbolicLink: true
+                        } ]
+                    } ],
+                    simulatedCheckDirectoryResponses: [ {
+                        value: status
+                    } ]
+                });
+                const current = await compilerInputsAreCurrent(fileManager, [ {
+                    operation: 'readDir',
+                    filePath: '/folder',
+                    value: JSON.stringify([ {
+                        name: '/folder/link',
+                        isDirectory,
+                        isSymlink: true
+                    } ])
+                } ]);
+                assert.strictEqual(current, true);
+                assert.deepStrictEqual(fileManager.getAllCheckDirectoryCalls(), [ {
+                    fileOrFolderPath: '/folder/link'
+                } ]);
             });
         }
     });

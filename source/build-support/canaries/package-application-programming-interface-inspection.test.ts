@@ -1,37 +1,36 @@
 import assert from 'node:assert';
-import { setImmediate as nextTurn } from 'node:timers/promises';
 import path from 'node:path';
 import { suite, test } from 'mocha';
+import type { FileManager } from '../../file-manager/file-manager.ts';
+import { assertPresent } from '../../test-libraries/canary-package-fixtures.ts';
+import { writeCanaryPackage } from '../../test-libraries/canary-package-writer.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import {
-    fileManager,
-    withTemporaryNodeModules,
-    writePackage,
-    writeScopedPackage,
-    assertPresent
-} from '../../test-libraries/canary-package-fixtures.ts';
-import {
-    inspectPackageApplicationProgrammingInterfaces,
-    createNodeImportProbe
-} from './package-application-programming-interface-inspection.ts';
+import { withInMemoryCanaryPackages } from '../../test-libraries/in-memory-canary-packages.ts';
+import { inspectPackageApplicationProgrammingInterfaces } from './package-application-programming-interface-inspection.ts';
 
 type ImportProbeCall = {
     readonly cwd: string;
     readonly specifier: string;
 };
-
 function packageManifest(): Readonly<Record<string, unknown>> {
     return {
-        bin: { sample: './cli.js' },
+        bin: {
+            sample: './cli.js'
+        },
         exports: {
-            '.': { import: './index.js', types: './index.d.ts' },
-            './feature': { import: './feature.js', types: './feature.d.ts' },
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            },
+            './feature': {
+                import: './feature.js',
+                types: './feature.d.ts'
+            },
             './package.json': './package.json'
         },
         type: 'module'
     };
 }
-
 function packageFiles(): Readonly<Record<string, string>> {
     return {
         'cli.js': '#!/usr/bin/env node\n',
@@ -48,21 +47,23 @@ function packageFiles(): Readonly<Record<string, string>> {
         'index.js': 'export class Widget {}\nexport function createWidget() { return new Widget(); }\n'
     };
 }
-
-async function writeInspectablePackages(nodeModulesFolder: string): Promise<void> {
-    await writePackage(nodeModulesFolder, 'sample', packageManifest(), packageFiles());
-    await writeScopedPackage(nodeModulesFolder, '@scope/addon', { exports: './index.js' }, {
+async function writeInspectablePackages(fileManager: FileManager, nodeModulesFolder: string): Promise<void> {
+    await writeCanaryPackage(
+        { fileManager, nodeModulesFolder },
+        'sample',
+        packageManifest(),
+        packageFiles()
+    );
+    await writeCanaryPackage({ fileManager, nodeModulesFolder }, '@scope/addon', {
+        exports: './index.js'
+    }, {
         'index.d.ts': 'export type Addon = string;\n',
         'index.js': 'export const addon = true;\n'
     });
 }
-
 function runtimeNamesFor(specifier: string): readonly string[] {
-    return specifier === 'sample'
-        ? [ 'Widget', 'createWidget' ]
-        : [ 'feature' ];
+    return specifier === 'sample' ? [ 'Widget', 'createWidget' ] : [ 'feature' ];
 }
-
 function assertInspectablePackageNames(
     result: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>
 ): void {
@@ -74,65 +75,72 @@ function assertInspectablePackageNames(
     );
 }
 
-const runNodeImportProbe = createNodeImportProbe(10_000);
+function assertSamplePackage(
+    samplePackage: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>['packages'][number]
+): void {
+    const rootExport = assertPresent(samplePackage.publicExports[0]);
+    const featureExport = assertPresent(samplePackage.publicExports[1]);
+    assert.deepStrictEqual(samplePackage.executableTargets, [ 'sample -> cli.js' ]);
+    assert.partialDeepStrictEqual(rootExport, {
+        runtimeExportNames: [ 'Widget', 'createWidget' ],
+        typeExportNames: {
+            namespace: [ 'widgetNamespace' ],
+            type: [ 'Widget', 'WidgetOptions' ],
+            value: [ 'createWidget', 'Widget', 'widgetNamespace' ]
+        }
+    });
+    assert.partialDeepStrictEqual(featureExport, {
+        runtimeExportNames: [ 'feature' ],
+        typeExportNames: {
+            namespace: [],
+            type: [ 'FeatureOptions' ],
+            value: [ 'feature' ]
+        }
+    });
+}
 
 suite('package-api-inspection', function () {
-    function assertSamplePackage(
-        samplePackage: Awaited<
-            ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>
-        >['packages'][number]
-    ): void {
-        const rootExport = assertPresent(samplePackage.publicExports[0]);
-        const featureExport = assertPresent(samplePackage.publicExports[1]);
-        assert.deepStrictEqual(samplePackage.executableTargets, [ 'sample -> cli.js' ]);
-        assert.partialDeepStrictEqual(rootExport, {
-            runtimeExportNames: [ 'Widget', 'createWidget' ],
-            typeExportNames: {
-                namespace: [ 'widgetNamespace' ],
-                type: [ 'Widget', 'WidgetOptions' ],
-                value: [ 'createWidget', 'Widget', 'widgetNamespace' ]
-            }
-        });
-        assert.partialDeepStrictEqual(featureExport, {
-            runtimeExportNames: [ 'feature' ],
-            typeExportNames: {
-                namespace: [],
-                type: [ 'FeatureOptions' ],
-                value: [ 'feature' ]
-            }
-        });
-    }
-
     test('inspectPackageApplicationProgrammingInterfaces reports runtime, type, and bin surfaces for generated packages', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
+        await withInMemoryCanaryPackages(async function ({
+            nodeModulesFolder,
+            fileManager,
+            createProject
+        }) {
             const calls: ImportProbeCall[] = [];
             const completedSpecifiers = new Set<string>();
-            await writeInspectablePackages(nodeModulesFolder);
-
+            await writeInspectablePackages(fileManager, nodeModulesFolder);
             const result = await inspectPackageApplicationProgrammingInterfaces({
+                createProject,
                 fileManager,
                 nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types'),
                 async runImportProbe(cwd, specifier) {
-                    calls.push({ cwd, specifier });
+                    calls.push({
+                        cwd,
+                        specifier
+                    });
                     if (specifier.startsWith('sample')) {
                         assert.strictEqual(completedSpecifiers.has('@scope/addon'), true);
                     }
-                    await nextTurn();
+                    await Promise.resolve();
                     completedSpecifiers.add(specifier);
                     return runtimeNamesFor(specifier);
                 }
             });
-
             assert.deepStrictEqual(
                 calls.toSorted(function (left, right) {
                     return left.specifier.localeCompare(right.specifier);
                 }),
-                [
-                    { cwd: nodeModulesFolder, specifier: '@scope/addon' },
-                    { cwd: nodeModulesFolder, specifier: 'sample' },
-                    { cwd: nodeModulesFolder, specifier: 'sample/feature' }
-                ]
+                [ {
+                    cwd: nodeModulesFolder,
+                    specifier: '@scope/addon'
+                }, {
+                    cwd: nodeModulesFolder,
+                    specifier: 'sample'
+                }, {
+                    cwd: nodeModulesFolder,
+                    specifier: 'sample/feature'
+                } ]
             );
             assertInspectablePackageNames(result);
             const sample = assertPresent(result.packages[1]);
@@ -141,13 +149,20 @@ suite('package-api-inspection', function () {
     });
 
     test('inspectPackageApplicationProgrammingInterfaces records runtime import failures and TypeScript diagnostics', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'broken', { exports: './index.js', type: 'module' }, {
+        await withInMemoryCanaryPackages(async function ({
+            nodeModulesFolder,
+            fileManager,
+            createProject
+        }) {
+            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'broken', {
+                exports: './index.js',
+                type: 'module'
+            }, {
                 'index.d.ts': 'export interface Broken { value: MissingType; }\n',
                 'index.js': 'export const broken = true;\n'
             });
-
             const result = await inspectPackageApplicationProgrammingInterfaces({
+                createProject,
                 fileManager,
                 nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types'),
@@ -155,33 +170,46 @@ suite('package-api-inspection', function () {
                     throw new Error('import failed');
                 }
             });
-
             const inspectedPackage = assertPresent(result.packages[0]);
-            assert.strictEqual(
-                assertPresent(inspectedPackage.publicExports[0]).runtimeImportError,
-                'import failed'
-            );
+            assert.strictEqual(assertPresent(inspectedPackage.publicExports[0]).runtimeImportError, 'import failed');
             assert.match(inspectedPackage.typeDiagnostics.join('\n'), /TS2304: Cannot find name 'MissingType'/u);
         });
     });
 
     test('inspects import-only declarations from an ESM consumer with Node ambient types', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, '@types/node', {}, {
-                'index.d.ts': 'declare class Buffer { readonly byteLength: number; }\n'
-            });
-            await writePackage(nodeModulesFolder, 'typed', {
-                exports: { '.': { types: './index.d.ts', import: './index.js' } },
+        await withInMemoryCanaryPackages(async function ({
+            nodeModulesFolder,
+            fileManager,
+            createProject
+        }) {
+            await writeCanaryPackage(
+                { fileManager, nodeModulesFolder },
+                '@types/node',
+                {},
+                {
+                    'index.d.ts': 'declare class Buffer { readonly byteLength: number; }\n'
+                }
+            );
+            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'typed', {
+                exports: {
+                    '.': {
+                        types: './index.d.ts',
+                        import: './index.js'
+                    }
+                },
                 type: 'module'
             }, {
                 'index.d.ts': 'export function read(): Buffer;\n',
                 'index.js': 'export function read() { return Buffer.from("hello"); }\n'
             });
             const result = await inspectPackageApplicationProgrammingInterfaces({
+                createProject,
                 fileManager,
                 nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(nodeModulesFolder, '@types'),
-                runImportProbe: runNodeImportProbe
+                async runImportProbe() {
+                    return [ 'read' ];
+                }
             });
             const typed = assertPresent(result.packages.find(function (entry) {
                 return entry.name === 'typed';
@@ -192,39 +220,67 @@ suite('package-api-inspection', function () {
     });
 
     test('checks JavaScript-only exports without inventing a declaration requirement', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'javascript', {
-                exports: { '.': { import: './index.js' } },
+        await withInMemoryCanaryPackages(async function ({
+            nodeModulesFolder,
+            fileManager,
+            createProject
+        }) {
+            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'javascript', {
+                exports: {
+                    '.': {
+                        import: './index.js'
+                    }
+                },
                 type: 'module'
-            }, { 'index.js': 'export const configuration = [];\n' });
+            }, {
+                'index.js': 'export const configuration = [];\n'
+            });
             const result = await inspectPackageApplicationProgrammingInterfaces({
+                createProject,
                 fileManager,
                 nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types'),
-                runImportProbe: runNodeImportProbe
+                async runImportProbe() {
+                    return [ 'configuration' ];
+                }
             });
             const inspected = assertPresent(result.packages[0]);
             assert.deepStrictEqual(inspected.typeDiagnostics, []);
-            assert.deepStrictEqual(assertPresent(inspected.publicExports[0]).runtimeExportNames, [
-                'configuration'
-            ]);
+            assert.deepStrictEqual(assertPresent(inspected.publicExports[0]).runtimeExportNames, [ 'configuration' ]);
         });
     });
 
     test('reports browser-only declarations as unavailable to Node consumers', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'browser-types', {
-                exports: { '.': { types: './index.d.ts', import: './index.js' } },
-                type: 'module'
-            }, {
-                'index.d.ts': 'export interface BrowserElement { element: HTMLElement; }\n',
-                'index.js': 'export {};\n'
-            });
+        await withInMemoryCanaryPackages(async function ({
+            nodeModulesFolder,
+            fileManager,
+            createProject
+        }) {
+            await writeCanaryPackage(
+                { fileManager, nodeModulesFolder },
+                'browser-types',
+                {
+                    exports: {
+                        '.': {
+                            types: './index.d.ts',
+                            import: './index.js'
+                        }
+                    },
+                    type: 'module'
+                },
+                {
+                    'index.d.ts': 'export interface BrowserElement { element: HTMLElement; }\n',
+                    'index.js': 'export {};\n'
+                }
+            );
             const result = await inspectPackageApplicationProgrammingInterfaces({
+                createProject,
                 fileManager,
                 nodeModulesFolder,
                 nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types'),
-                runImportProbe: runNodeImportProbe
+                async runImportProbe() {
+                    return [];
+                }
             });
             assert.match(
                 assertPresent(result.packages[0]).typeDiagnostics.join('\n'),
@@ -235,61 +291,112 @@ suite('package-api-inspection', function () {
 
     test('inspectPackageApplicationProgrammingInterfaces rejects unreadable generated package folders', async function () {
         const fakeFileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
+            simulatedCheckReadabilityResponses: [ {
+                value: {
+                    isReadable: false
+                }
+            } ]
         });
-
-        await assert.rejects(
-            async function () {
-                await inspectPackageApplicationProgrammingInterfaces({
-                    fileManager: fakeFileManager,
-                    nodeModulesFolder: '/missing',
-                    nodeTypeDefinitionsFolder: '/missing-types',
+        await assert.rejects(async function () {
+            await inspectPackageApplicationProgrammingInterfaces({
+                createProject() {
+                    throw new Error('Unexpected type inspection');
+                },
+                fileManager: fakeFileManager,
+                nodeModulesFolder: '/missing',
+                nodeTypeDefinitionsFolder: '/missing-types',
+                async runImportProbe() {
+                    return [];
+                }
+            });
+        }, /Generated package folder "\/missing" is not readable/u);
+    });
+    for (const manifest of [ 'null', '1', '[]', '{}', '{"name":42}' ]) {
+        test(`rejects a package manifest without a string name: ${manifest}`, async function () {
+            const fileManager = createFakeFileManager({
+                simulatedListDirectoryResponses: [ {
+                    value: [ {
+                        name: 'package',
+                        isDirectory: true,
+                        isSymbolicLink: false
+                    } ]
+                } ],
+                simulatedReadFileResponses: [ {
+                    value: manifest
+                } ]
+            });
+            await assert.rejects(
+                inspectPackageApplicationProgrammingInterfaces({
+                    fileManager,
+                    nodeModulesFolder: '/modules',
+                    nodeTypeDefinitionsFolder: '/types',
+                    createProject() {
+                        throw new Error('Unexpected type inspection');
+                    },
                     async runImportProbe() {
-                        return [];
+                        throw new Error('Unexpected import');
                     }
-                });
-            },
-            /Generated package folder "\/missing" is not readable/u
-        );
-    });
-
-    test('runNodeImportProbe imports a package and reports sorted runtime exports', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'runtime', { exports: './index.js', type: 'module' }, {
-                'index.js': 'export const zebra = true;\nexport const apple = true;\n'
-            });
-
-            assert.deepStrictEqual(await runNodeImportProbe(nodeModulesFolder, 'runtime'), [ 'apple', 'zebra' ]);
+                }),
+                /missing a string name/u
+            );
         });
-    });
+    }
 
-    test('runNodeImportProbe reports failed import stack traces', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'runtime', { exports: './index.js', type: 'module' }, {
-                'index.js': 'throw new Error("load exploded");\n'
-            });
-
-            await assert.rejects(
-                async function () {
-                    await runNodeImportProbe(nodeModulesFolder, 'runtime');
-                },
-                /Error: load exploded\n\s+at/u
+    test('ignores files in package and scope directories', async function () {
+        await withInMemoryCanaryPackages(async function ({
+            fileManager,
+            nodeModulesFolder,
+            createProject
+        }) {
+            await fileManager.writeFile(path.join(nodeModulesFolder, 'note.txt'), 'text');
+            await fileManager.writeFile(path.join(nodeModulesFolder, '@scope/note.txt'), 'text');
+            assert.deepStrictEqual(
+                await inspectPackageApplicationProgrammingInterfaces({
+                    fileManager,
+                    nodeModulesFolder,
+                    createProject,
+                    nodeTypeDefinitionsFolder: '/types',
+                    async runImportProbe() {
+                        throw new Error('Unexpected import');
+                    }
+                }),
+                {
+                    packages: []
+                }
             );
         });
     });
 
-    test('runNodeImportProbe rejects when an import exits without output', async function () {
-        await withTemporaryNodeModules(async function (nodeModulesFolder) {
-            await writePackage(nodeModulesFolder, 'runtime', { exports: './index.js', type: 'module' }, {
-                'index.js': 'process.exit(0);\n'
+    test('keeps missing declared type exports unresolved', async function () {
+        await withInMemoryCanaryPackages(async function ({
+            fileManager,
+            nodeModulesFolder,
+            createProject
+        }) {
+            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'missing', {
+                exports: {
+                    '.': {
+                        types: './missing.d.ts',
+                        import: './index.js'
+                    }
+                }
+            }, {});
+            const result = await inspectPackageApplicationProgrammingInterfaces({
+                fileManager,
+                nodeModulesFolder,
+                createProject,
+                nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types'),
+                async runImportProbe() {
+                    return [];
+                }
             });
-
-            await assert.rejects(
-                async function () {
-                    await runNodeImportProbe(nodeModulesFolder, 'runtime');
-                },
-                /Import probe completed without JSON output/u
-            );
+            const inspected = assertPresent(result.packages[0]);
+            assert.deepStrictEqual(inspected.publicExports[0]?.typeExportNames, {
+                namespace: [],
+                type: [],
+                value: []
+            });
+            assert.match(inspected.typeDiagnostics.join('\n'), /Cannot find module 'missing'/u);
         });
     });
 });

@@ -1,9 +1,6 @@
 import assert from 'node:assert';
-import {
-    defaultPrLogConfig as configuration,
-    type PrLogEngine as LibraryEngine,
-    type PullRequestWithLabel as LibraryRequest
-} from '@pr-log/core';
+import { defaultPrLogConfig as configuration } from '@pr-log/core/lib/pr-log-config.js';
+import type { PrLogEngine as LibraryEngine, PullRequestWithLabel as LibraryRequest } from '@pr-log/core';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { ok } from 'true-myth/result';

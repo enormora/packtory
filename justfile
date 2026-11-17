@@ -47,7 +47,7 @@ test-mutation *ARGS:
     node --experimental-strip-types --enable-source-maps ./source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts
 
 test-mutation-incremental *ARGS:
-    stryker run --incremental {{ARGS}}
+    just test-mutation --incremental {{ARGS}}
 
 test-integration:
     mocha --config mocha.config.integration-tests.json

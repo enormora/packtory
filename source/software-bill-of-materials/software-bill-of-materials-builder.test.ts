@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import * as cyclonedx from '@cyclonedx/cyclonedx-library';
+import { ComponentScope } from '@cyclonedx/cyclonedx-library/Enums';
 import { suite, test } from 'mocha';
 import {
     buildSoftwareBillOfMaterials,
@@ -59,7 +59,7 @@ suite('sbom-builder', function () {
                 {
                     name: 'lodash',
                     specifier: '^4.17.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: 'MIT'
                 }
             ]
@@ -84,7 +84,7 @@ suite('sbom-builder', function () {
                 {
                     name: 'react',
                     specifier: '>=18',
-                    scope: cyclonedx.Enums.ComponentScope.Optional,
+                    scope: ComponentScope.Optional,
                     license: 'MIT'
                 }
             ]
@@ -100,7 +100,7 @@ suite('sbom-builder', function () {
                 {
                     name: 'weird',
                     specifier: '1.0.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: 'See LICENSE.txt for details'
                 }
             ]
@@ -116,7 +116,7 @@ suite('sbom-builder', function () {
                 {
                     name: 'no-license',
                     specifier: '1.0.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: undefined
                 }
             ]
@@ -132,7 +132,7 @@ suite('sbom-builder', function () {
                 {
                     name: 'lodash',
                     specifier: '^4.17.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: 'MIT'
                 }
             ]
@@ -148,13 +148,13 @@ suite('sbom-builder', function () {
                 {
                     name: 'lodash',
                     specifier: '^4.17.0',
-                    scope: cyclonedx.Enums.ComponentScope.Required,
+                    scope: ComponentScope.Required,
                     license: 'MIT'
                 },
                 {
                     name: 'react',
                     specifier: '>=18',
-                    scope: cyclonedx.Enums.ComponentScope.Optional,
+                    scope: ComponentScope.Optional,
                     license: 'MIT'
                 }
             ]

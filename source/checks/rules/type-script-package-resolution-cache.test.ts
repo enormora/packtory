@@ -1,36 +1,43 @@
 import assert from 'node:assert';
-import { suite, test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
-import { Package } from '@arethetypeswrong/core';
 import { problemKindInfo as problemKindInformation } from '@arethetypeswrong/core/problems';
-import { withCompilerWorkspace } from '../../test-libraries/compiler-workspace.ts';
-import { checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
+import { suite, test } from 'mocha';
+import { fake, stub, type SinonSpy } from 'sinon';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
+import { checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
+import { withInMemoryCompilerWorkspace } from '../../test-libraries/in-memory-compiler-workspace.ts';
 import type { AnalysisStorage } from '../analysis-storage.ts';
-import { createPackageResolutionAnalyzer, type PackageResolutionAnalyzer } from './type-script-package-resolution.ts';
+import {
+    createPackageResolutionAnalyzer,
+    type PackageResolutionAnalyzer,
+    type PackageResolutionDependencies
+} from './type-script-package-resolution.ts';
 
 function analyzer(storage: AnalysisStorage, checkPackage: SinonSpy): PackageResolutionAnalyzer {
     return createPackageResolutionAnalyzer({
         storage,
-        Package,
+        Package: stub() as unknown as PackageResolutionDependencies['Package'],
         checkPackage,
         problemKindInformation,
         problemAffectsResolutionKind: fake.returns(true),
         problemAffectsEntrypointResolution: fake.returns(true)
     });
 }
-
 type DiagnosticFixture = {
     readonly checkPackage: SinonSpy;
     readonly published: PublishedPackageWithManifest;
     readonly validate: PackageResolutionAnalyzer;
 };
-
 function diagnosticFixture(storage: AnalysisStorage): DiagnosticFixture {
     const checkPackage = fake.resolves({
-        types: { kind: 'included' },
-        entrypoints: { '.': {} },
-        problems: [ { kind: 'FalseCJS' } ]
+        types: {
+            kind: 'included'
+        },
+        entrypoints: {
+            '.': {}
+        },
+        problems: [ {
+            kind: 'FalseCJS'
+        } ]
     });
     return {
         checkPackage,
@@ -44,19 +51,24 @@ function diagnosticFixture(storage: AnalysisStorage): DiagnosticFixture {
 suite('package resolution reuse', function () {
     for (const resolutionKind of [ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ] as const) {
         test(`reuses diagnostics for ${resolutionKind}`, async function () {
-            await withCompilerWorkspace(async function (workspace) {
-                const { checkPackage, published, validate } = diagnosticFixture(workspace.storage);
+            await withInMemoryCompilerWorkspace(async function (workspace) {
+                const {
+                    checkPackage,
+                    published,
+                    validate
+                } = diagnosticFixture(workspace.storage);
                 const first = await validate(published, [ resolutionKind ]);
                 assert.deepStrictEqual(await validate(published, [ resolutionKind ]), first);
                 assert.strictEqual(checkPackage.callCount, 1);
             });
         });
     }
-
     for (const kind of [ 'UnknownKind', [ 'FalseCJS' ] ]) {
         test(`rejects incompatible cached diagnostic kinds: ${JSON.stringify(kind)}`, async function () {
-            await withCompilerWorkspace(async function (workspace) {
-                const checkPackage = fake.resolves({ types: false });
+            await withInMemoryCompilerWorkspace(async function (workspace) {
+                const checkPackage = fake.resolves({
+                    types: false
+                });
                 const storage: AnalysisStorage = {
                     async read(key, schema) {
                         await workspace.storage.write(key, {
@@ -85,8 +97,10 @@ suite('package resolution reuse', function () {
     }
 
     test('reuses complete reports and invalidates changed package contents', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            const checkPackage = fake.resolves({ types: false });
+        await withInMemoryCompilerWorkspace(async function (workspace) {
+            const checkPackage = fake.resolves({
+                types: false
+            });
             const published = checkPublishedPackage('example', '{"name":"example"}', {
                 'index.js': 'export const value = 1;'
             });
@@ -102,8 +116,12 @@ suite('package resolution reuse', function () {
     });
 
     test('keeps resolution modes and all diagnostics in cached reports', async function () {
-        await withCompilerWorkspace(async function (workspace) {
-            const { checkPackage, published, validate } = diagnosticFixture(workspace.storage);
+        await withInMemoryCompilerWorkspace(async function (workspace) {
+            const {
+                checkPackage,
+                published,
+                validate
+            } = diagnosticFixture(workspace.storage);
             const first = await validate(published, [ 'node16-esm' ]);
             assert.deepStrictEqual(await validate(published, [ 'node16-esm' ]), first);
             assert.strictEqual(checkPackage.callCount, 1);

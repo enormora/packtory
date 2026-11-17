@@ -1,29 +1,40 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
-import { assertDeadCodeEliminationBehaviorEquivalent } from './dead-code-elimination-oracle-test-support.ts';
+import type { LinkedBundle } from '../../source/linker/linked-bundle.ts';
+import { bundleResource, linkedBundle } from '../../source/test-libraries/bundle-fixtures.ts';
+import { assertDeadCodeEliminationBehaviorEquivalent } from './runtime-comparison.ts';
 
 function bundle(content: string): LinkedBundle {
-    const resource = bundleResource('/source/index.js', { content });
+    const resource = bundleResource('/source/index.js', {
+        content
+    });
     return linkedBundle({
         name: 'package',
-        contents: [ { ...resource, isSubstituted: false } ],
-        roots: { main: { javaScript: resource.fileDescription } }
+        contents: [ {
+            ...resource,
+            isSubstituted: false
+        } ],
+        roots: {
+            main: {
+                javaScript: resource.fileDescription
+            }
+        }
     });
 }
-
 async function compare(left: string, right: string): Promise<void> {
     await assertDeadCodeEliminationBehaviorEquivalent({
         name: 'oracle regression',
-        entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'api' },
+        entry: {
+            bundleName: 'package',
+            targetFilePath: 'index.js',
+            exportName: 'api'
+        },
         leftName: 'original',
         leftBundles: [ bundle(left) ],
         rightName: 'changed',
         rightBundles: [ bundle(right) ]
     });
 }
-
 const api = 'export function api() { return 42; }';
 const event = 'globalThis.__packtoryDeadCodeEliminationEvents.push("effect");';
 
@@ -58,7 +69,6 @@ suite('dead code elimination semantic oracle', function () {
         ],
         [ 'dynamic import timing', `export async function api() { ${event} await Promise.resolve(); return 42; }`, api ]
     ] as const;
-
     for (const [ name, left, right ] of differences) {
         test(`rejects ${name}`, async function () {
             await assert.rejects(compare(left, right), /changed observable behavior/u);
@@ -80,16 +90,34 @@ suite('dead code elimination semantic oracle', function () {
 
     test('rejects a missing secondary root even when its original evaluation throws', async function () {
         const left = bundle(api);
-        const secondary = bundleResource('/source/secondary.js', { content: 'throw new Error();' });
-        const roots = { ...left.roots, secondary: { javaScript: secondary.fileDescription } };
+        const secondary = bundleResource('/source/secondary.js', {
+            content: 'throw new Error();'
+        });
+        const roots = {
+            ...left.roots,
+            secondary: {
+                javaScript: secondary.fileDescription
+            }
+        };
         await assert.rejects(
             assertDeadCodeEliminationBehaviorEquivalent({
                 name: 'missing secondary root',
-                entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'api' },
+                entry: {
+                    bundleName: 'package',
+                    targetFilePath: 'index.js',
+                    exportName: 'api'
+                },
                 leftName: 'original',
-                leftBundles: [ { ...left, roots, contents: [ ...left.contents, secondary ] } ],
+                leftBundles: [ {
+                    ...left,
+                    roots,
+                    contents: [ ...left.contents, secondary ]
+                } ],
                 rightName: 'changed',
-                rightBundles: [ { ...left, roots } ]
+                rightBundles: [ {
+                    ...left,
+                    roots
+                } ]
             }),
             /secondary\.js#api missing observed entry file/u
         );
@@ -97,17 +125,38 @@ suite('dead code elimination semantic oracle', function () {
 
     test('observes all configured roots independently', async function () {
         const left = bundle(api);
-        const secondary = bundleResource('/source/secondary.js', { content: 'export const extra = 1;' });
-        const right = bundleResource('/source/secondary.js', { content: 'export const extra = 2;' });
-        const roots = { ...left.roots, secondary: { javaScript: secondary.fileDescription } };
+        const secondary = bundleResource('/source/secondary.js', {
+            content: 'export const extra = 1;'
+        });
+        const right = bundleResource('/source/secondary.js', {
+            content: 'export const extra = 2;'
+        });
+        const roots = {
+            ...left.roots,
+            secondary: {
+                javaScript: secondary.fileDescription
+            }
+        };
         await assert.rejects(
             assertDeadCodeEliminationBehaviorEquivalent({
                 name: 'multiple roots',
-                entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'api' },
+                entry: {
+                    bundleName: 'package',
+                    targetFilePath: 'index.js',
+                    exportName: 'api'
+                },
                 leftName: 'original',
-                leftBundles: [ { ...left, roots, contents: [ ...left.contents, secondary ] } ],
+                leftBundles: [ {
+                    ...left,
+                    roots,
+                    contents: [ ...left.contents, secondary ]
+                } ],
                 rightName: 'changed',
-                rightBundles: [ { ...left, roots, contents: [ ...left.contents, right ] } ]
+                rightBundles: [ {
+                    ...left,
+                    roots,
+                    contents: [ ...left.contents, right ]
+                } ]
             }),
             /secondary\.js#api changed observable behavior/u
         );
@@ -115,7 +164,9 @@ suite('dead code elimination semantic oracle', function () {
 
     test('observes JavaScript roots alongside JSON and declaration-only roots', async function () {
         const code = bundle(api);
-        const json = bundleResource('/source/settings.json', { content: '{"value":1}' });
+        const json = bundleResource('/source/settings.json', {
+            content: '{"value":1}'
+        });
         const types = bundleResource('/source/settings.d.ts', {
             content: 'export interface Settings { value: number; }'
         });
@@ -123,14 +174,22 @@ suite('dead code elimination semantic oracle', function () {
             ...code,
             roots: {
                 ...code.roots,
-                settings: { json: json.fileDescription },
-                types: { declarationFile: types.fileDescription }
+                settings: {
+                    json: json.fileDescription
+                },
+                types: {
+                    declarationFile: types.fileDescription
+                }
             },
             contents: [ ...code.contents, json, types ]
         };
         await assertDeadCodeEliminationBehaviorEquivalent({
             name: 'mixed roots',
-            entry: { bundleName: 'package', targetFilePath: 'index.js', exportName: 'api' },
+            entry: {
+                bundleName: 'package',
+                targetFilePath: 'index.js',
+                exportName: 'api'
+            },
             leftName: 'original',
             leftBundles: [ mixed ],
             rightName: 'changed',
