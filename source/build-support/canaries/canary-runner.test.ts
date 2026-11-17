@@ -278,7 +278,7 @@ suite('canary-runner', function () {
     });
 
     test('compares successful baseline and source package surfaces', async function () {
-        const dependencies = createRunnerDependencies('pack', new Set());
+        const dependencies = createRunnerDependencies('pack', new Set(), []);
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
         assert.deepStrictEqual(result, {
             name: 'sample',
