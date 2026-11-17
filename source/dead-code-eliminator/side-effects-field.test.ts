@@ -84,7 +84,6 @@ function registerPathListTests(): void {
         const field = computeSideEffectsField([ resource('a.js', true), resource('b.js') ]);
         if (!Array.isArray(field)) {
             assert.fail('Expected sideEffects field to be an array');
-            return;
         }
         for (const path of field as readonly string[]) {
             assert.strictEqual(path.startsWith('./'), true);

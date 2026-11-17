@@ -25,8 +25,7 @@ export function getErrorResult<TValue, TError>(result: Result<TValue, TError>, m
         return result.error;
     }
 
-    assert.fail(message);
-    throw new Error(message);
+    return assert.fail(message);
 }
 
 export function getOkResult<TValue, TError>(result: Result<TValue, TError>, message: string): TValue {
@@ -34,8 +33,7 @@ export function getOkResult<TValue, TError>(result: Result<TValue, TError>, mess
         return result.value;
     }
 
-    assert.fail(message);
-    throw new Error(message);
+    return assert.fail(message);
 }
 
 export function toOutcome<TResult>(result: TResult): Outcome<TResult> {

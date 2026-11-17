@@ -139,7 +139,9 @@ export function parseWorkloadsFile(value: unknown): WorkloadsFile {
         performanceWorkload: parsePerformanceWorkload(value.performanceWorkload),
         seedFixture: value.seedFixture,
         workloads: parseWorkloadDefinitions(value.workloads),
-        commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(value.commandLineInterfaceWorkloads)
+        commandLineInterfaceWorkloads: parseCommandLineInterfaceWorkloadDefinitions(
+            value.commandLineInterfaceWorkloads
+        )
     };
 }
 

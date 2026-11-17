@@ -105,7 +105,6 @@ function assertSharedDeclarationIssue(
 ): void {
     if (!result.isErr) {
         assert.fail('Expected the noDuplicatedFiles rule to fail');
-        return;
     }
     if (result.error.type !== 'checks') {
         assert.fail(`Expected a checks failure, got ${result.error.type}`);

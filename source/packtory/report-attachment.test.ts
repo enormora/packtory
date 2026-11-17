@@ -136,7 +136,10 @@ function registerEffectiveConfigurationEmissionTests(): void {
         const broadcaster = createProgressBroadcaster();
         const received: { readonly packageName: string; readonly configurationName: string; }[] = [];
         broadcaster.consumer.on('effectiveConfigurationResolved', function (payload) {
-            received.push({ packageName: payload.packageName, configurationName: String(payload.configuration.name) });
+            received.push({
+                packageName: payload.packageName,
+                configurationName: String(payload.configuration.name)
+            });
         });
 
         emitEffectiveConfigurationPerPackage(broadcaster, createMinimalConfiguration([ 'only-pkg' ]));
