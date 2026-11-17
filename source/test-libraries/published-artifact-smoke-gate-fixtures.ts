@@ -93,6 +93,12 @@ export function sourceResource(
     return analyzedBundleResource(inputFilePath, { targetFilePath, content });
 }
 
+export function sourceTreeResources(sourceFileCount: number): VersionedBundleWithManifest['contents'] {
+    return Array.from({ length: sourceFileCount }, function (_value, index) {
+        return sourceResource(`/repo/packages/app/source/deep/module${index}.js`, `module${index}.js`);
+    });
+}
+
 export function bundle(
     overrides: Partial<VersionedBundleWithManifest> = {}
 ): VersionedBundleWithManifest {

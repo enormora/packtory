@@ -5,7 +5,8 @@
         "name": "packtory",
         "publishCommand": "npx just compile",
         "reference": "main",
-        "repository": "https://github.com/enormora/packtory.git"
+        "repository": "https://github.com/enormora/packtory.git",
+        "verificationCommands": []
     },
     {
         "failureMode": "non-blocking",
@@ -13,7 +14,8 @@
         "name": "objectory",
         "publishCommand": "npx just compile",
         "reference": "main",
-        "repository": "https://github.com/enormora/objectory.git"
+        "repository": "https://github.com/enormora/objectory.git",
+        "verificationCommands": []
     },
     {
         "failureMode": "non-blocking",
@@ -21,7 +23,8 @@
         "name": "eslint-config",
         "publishCommand": "npx just compile",
         "reference": "main",
-        "repository": "https://github.com/enormora/eslint-config.git"
+        "repository": "https://github.com/enormora/eslint-config.git",
+        "verificationCommands": []
     },
     {
         "failureMode": "non-blocking",
@@ -29,7 +32,8 @@
         "name": "pr-log",
         "publishCommand": "npx just prepare-packtory-source",
         "reference": "main",
-        "repository": "https://github.com/enormora/pr-log.git"
+        "repository": "https://github.com/enormora/pr-log.git",
+        "verificationCommands": []
     },
     {
         "failureMode": "non-blocking",
@@ -37,7 +41,10 @@
         "name": "overkill",
         "publishCommand": "npx just compile",
         "reference": "main",
-        "repository": "https://github.com/enormora/overkill.git"
+        "repository": "https://github.com/enormora/overkill.git",
+        "verificationCommands": [
+            "packtory publish"
+        ]
     },
     {
         "failureMode": "non-blocking",
@@ -45,6 +52,7 @@
         "name": "eslint-plugin-mocha",
         "publishCommand": "npx just compile",
         "reference": "main",
-        "repository": "https://github.com/lo1tuma/eslint-plugin-mocha.git"
+        "repository": "https://github.com/lo1tuma/eslint-plugin-mocha.git",
+        "verificationCommands": []
     }
 ]

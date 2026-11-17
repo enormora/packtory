@@ -12,6 +12,41 @@ import {
 
 suite('imported-expression-origin', function () {
     suite('import path resolution', function () {
+        for (
+            const content of [
+                'import { external as local } from "lib";const result=local;',
+                'import { external as \\u006c\\u006f\\u0063\\u0061\\u006c } from "lib";const result=local;',
+                'import { external as local } from "lib";const result=\\u006c\\u006f\\u0063\\u0061\\u006c;'
+            ]
+        ) {
+            test(`resolves the local import name in ${content}`, function () {
+                assert.deepStrictEqual(resolveImportedExpressionPath(firstVariableInitializerExpression(content)), {
+                    from: 'lib',
+                    path: [ 'external' ]
+                });
+            });
+        }
+
+        test('reads changed import bindings after source edits', function () {
+            const expression = firstVariableInitializerExpression('import value from "lib";const result=value;');
+            const source = expression.getSourceFile();
+            assert.deepStrictEqual(resolveImportedExpressionPath(expression), { from: 'lib', path: [ 'default' ] });
+            source.replaceWithText('const result=value;');
+            assert.strictEqual(
+                resolveImportedExpressionPath(
+                    source.getVariableDeclarationOrThrow('result').getInitializerOrThrow()
+                ),
+                undefined
+            );
+            source.replaceWithText('import other from "another";const result=other;');
+            assert.deepStrictEqual(
+                resolveImportedExpressionPath(
+                    source.getVariableDeclarationOrThrow('result').getInitializerOrThrow()
+                ),
+                { from: 'another', path: [ 'default' ] }
+            );
+        });
+
         test('resolveImportedExpressionPath returns undefined for a literal identifier with no import binding', function () {
             const expression = firstVariableInitializerExpression('const x = 1;\nconst a = x;');
 

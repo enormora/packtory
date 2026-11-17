@@ -78,6 +78,45 @@ function linkedCodeReference(
 }
 
 suite('substitute-bundles module references', function () {
+    for (
+        const content of [
+            'import {readFile} from "node:fs";export const read=readFile;',
+            'export {readFile} from "node:fs";'
+        ]
+    ) {
+        test(`preserves references without a local source target in ${content}`, function () {
+            const references: readonly ArtifactModuleReference[] = [ {
+                type: 'external-package',
+                sourceSpecifier: 'node:fs',
+                emittedSpecifier: 'node:fs',
+                packageName: 'node:fs'
+            } ];
+            const result = substituteDependencies(graphWithEntry(content, new Set(), references, []), [], [])
+                .flatten([ '/entry.js' ]);
+
+            assert.deepStrictEqual(
+                result.contents.map(function (entry) {
+                    return { content: entry.fileDescription.content, references: entry.moduleReferences };
+                }),
+                [ { content, references } ]
+            );
+        });
+    }
+
+    test('preserves local exports without resolving a module specifier', function () {
+        const content = 'const value=1;export {value};';
+        const result = substituteDependencies(graphWithEntry(content, new Set(), [], []), [], []).flatten([
+            '/entry.js'
+        ]);
+
+        assert.deepStrictEqual(
+            result.contents.map(function (entry) {
+                return entry.fileDescription.content;
+            }),
+            [ content ]
+        );
+    });
+
     test('rewrites local asset module references when substituted', function () {
         const inputGraph = graphWithEntry(
             'import data from "./data.json";',

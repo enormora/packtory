@@ -94,6 +94,57 @@ function assertRejected(requests: readonly ImportPathReplacementRequest[], bundl
 }
 
 describe('replacement-lookup symbol reachability', function () {
+    it('keeps aliased names separate through mixed re-export declarations', function () {
+        const bundle = peerBundle([
+            testResource('/b/entry.d.ts', 'entry.d.ts', 'export type { Bar as Foo } from "./middle.js";'),
+            testResource('/b/middle.d.ts', 'middle.d.ts', 'export type { Bar, Foo } from "./bridge.js";'),
+            testResource(
+                '/b/bridge.d.ts',
+                'bridge.d.ts',
+                'export type { Bar } from "./other.js";export type { Foo } from "./internal.js";'
+            ),
+            testResource('/b/other.d.ts', 'other.d.ts', 'export type Bar = 1;'),
+            testResource('/b/internal.d.ts', 'internal.d.ts', 'export type Foo = 2;')
+        ]);
+
+        assertRejected([ namedRequest('/b/internal.d.ts', [ 'Foo' ]) ], bundle);
+    });
+
+    it('checks each request against its own export requirements', function () {
+        const lookup = createPathReplacementLookup([], [
+            peerEntryBundle('export type { Public } from "./internal.js";\n')
+        ]);
+
+        assert.deepStrictEqual(
+            lookup([ namedRequest('/b/internal.d.ts', [ 'Public' ]) ]).importPathReplacements.get('/b/internal.d.ts'),
+            { emittedSpecifier: 'package-b/entry.js', packageName: 'package-b' }
+        );
+        assert.throws(function () {
+            lookup([ namedRequest('/b/internal.d.ts', [ 'Private' ]) ]);
+        }, /does not expose/u);
+        assert.throws(function () {
+            lookup([ namedRequest('/b/internal.d.ts', [ 'Public', 'Private' ]) ]);
+        }, /does not expose/u);
+        assert.throws(function () {
+            lookup([ namespaceRequest('/b/internal.d.ts') ]);
+        }, /does not expose/u);
+    });
+
+    it('uses the peer contents supplied to each lookup', function () {
+        const publicLookup = createPathReplacementLookup([], [
+            peerEntryBundle('export type { Public } from "./internal.js";\n')
+        ]);
+        const privateLookup = createPathReplacementLookup([], [
+            peerEntryBundle('export type { Private } from "./internal.js";\n')
+        ]);
+        const requests = [ namedRequest('/b/internal.d.ts', [ 'Public' ]) ];
+
+        assert.strictEqual(publicLookup(requests).importPathReplacements.size, 1);
+        assert.throws(function () {
+            privateLookup(requests);
+        }, /does not expose/u);
+    });
+
     describe('accepted replacements', function () {
         it('accepts a peer rewrite when the requested symbol is exported', function () {
             assertReplacement(

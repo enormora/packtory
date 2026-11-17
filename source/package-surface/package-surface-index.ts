@@ -166,15 +166,17 @@ function indexExplicitPublicModules(bundle: ExplicitModuleBundle): PublicModuleI
     return publicModuleIndex.build();
 }
 
-function declarationCompanionSpecifier(bundle: ImplicitModuleBundle, targetFilePath: string): string | undefined {
-    const companion = bundle.contents.find(function (entry) {
-        const candidatePaths = declarationCompanionCandidates(entry.fileDescription.targetFilePath);
-        return candidatePaths.includes(targetFilePath);
-    });
-    if (companion === undefined) {
-        return undefined;
+function declarationCompanionSpecifiers(bundle: ImplicitModuleBundle): ReadonlyMap<string, string> {
+    const specifiers = new Map<string, string>();
+    for (const entry of bundle.contents) {
+        const { targetFilePath } = entry.fileDescription;
+        for (const candidate of declarationCompanionCandidates(targetFilePath)) {
+            if (!specifiers.has(candidate)) {
+                specifiers.set(candidate, toPackageSpecifier(bundle.name, `./${targetFilePath}`));
+            }
+        }
     }
-    return toPackageSpecifier(bundle.name, `./${companion.fileDescription.targetFilePath}`);
+    return specifiers;
 }
 
 function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleIndex: PublicModuleIndexBuilder): void {
@@ -198,9 +200,10 @@ function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleInd
 function recordImplicitContentModule(
     bundle: ImplicitModuleBundle,
     publicModuleIndex: PublicModuleIndexBuilder,
+    companionSpecifiers: ReadonlyMap<string, string>,
     entry: ImplicitModuleBundle['contents'][number]
 ): void {
-    const companionSpecifier = declarationCompanionSpecifier(bundle, entry.fileDescription.targetFilePath);
+    const companionSpecifier = companionSpecifiers.get(entry.fileDescription.targetFilePath);
     if (companionSpecifier === undefined) {
         publicModuleIndex.recordFirstIndexedPublicSpecifier({
             publicInputFilePath: entry.fileDescription.inputFilePath,
@@ -220,8 +223,9 @@ function indexImplicitPublicModules(bundle: ImplicitModuleBundle): PublicModuleI
     const publicModuleIndex = createPublicModuleIndexBuilder();
 
     recordImplicitRootModules(bundle, publicModuleIndex);
+    const companionSpecifiers = declarationCompanionSpecifiers(bundle);
     for (const entry of bundle.contents) {
-        recordImplicitContentModule(bundle, publicModuleIndex, entry);
+        recordImplicitContentModule(bundle, publicModuleIndex, companionSpecifiers, entry);
     }
 
     return publicModuleIndex.build();

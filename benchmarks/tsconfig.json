@@ -6,5 +6,13 @@
         "types": ["node"]
     },
     "references": [{ "path": "../source/tsconfig.sources.json" }, { "path": "../integration-tests/tsconfig.json" }],
-    "include": ["./**/*.ts", "../source/test-libraries/public-module-usage-workload.ts"]
+    "include": [
+        "./**/*.ts",
+        "../source/test-libraries/public-module-usage-workload.ts",
+        "../source/test-libraries/path-replacement-workload.ts",
+        "../source/test-libraries/published-artifact-smoke-gate-fixtures.ts",
+        "../source/test-libraries/bundle-fixtures.ts",
+        "../source/test-libraries/module-reference-fixtures.ts",
+        "../source/test-libraries/typescript-project.ts"
+    ]
 }

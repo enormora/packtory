@@ -7,6 +7,16 @@ import { specializeExpressions } from './expression-specialization.ts';
 import { prepareInitialRuntimeSource, prepareResolvedRuntimeSource } from './runtime-source-preparation.ts';
 
 suite('runtime preparation convergence', function () {
+    test('prepares an edited source after reaching a fixed point', function () {
+        const source = createProject().createSourceFile('input.ts', 'export const answer = 42;');
+        const preparation = createSourcePreparation(source);
+
+        prepareInitialRuntimeSource(preparation);
+        source.replaceWithText('export const answer = 20 + 22;');
+        prepareInitialRuntimeSource(preparation);
+        assert.strictEqual(source.getFullText(), 'export const answer = (42);');
+    });
+
     for (const literal of [ '-0', '-1' ]) {
         test(`does not rewrite the canonical literal ${literal}`, function () {
             const content = `export const value=${literal};`;
@@ -50,6 +60,29 @@ suite('runtime preparation convergence', function () {
                 preparation.applyEdits(edits);
             }
         });
+        assert.ok(applications > 0);
+        assert.strictEqual(preparation.sourceFile.getFullText(), 'export const value=1;');
+    });
+
+    test('keeps transformation work bounded across repeated preparation of a fixed point', function () {
+        const preparation = createSourcePreparation(
+            createProject().createSourceFile('input.ts', 'export const value=1;')
+        );
+        const repetitions = 4;
+        const maximumApplications = 3;
+        let applications = 0;
+        const observed: SourcePreparation = {
+            ...preparation,
+            applyEdits(edits) {
+                applications += 1;
+                assert.ok(applications <= maximumApplications);
+                preparation.applyEdits(edits);
+            }
+        };
+
+        for (let iteration = 0; iteration < repetitions; iteration += 1) {
+            prepareInitialRuntimeSource(observed);
+        }
         assert.ok(applications > 0);
         assert.strictEqual(preparation.sourceFile.getFullText(), 'export const value=1;');
     });

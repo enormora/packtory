@@ -87,6 +87,24 @@ function reexportFiles(): readonly TestFile[] {
 }
 
 suite('external purity summary', function () {
+    test('keeps requested export paths separate within one project', function () {
+        const source = containingSourceFile(reexportFiles());
+        for (
+            const [ path, expected ] of [
+                [ [ 'renamed', 'object' ], 'pure-callable' ],
+                [ [ 'star' ], 'pure-object' ],
+                [ [ 'namespace', 'nested', 'object' ], 'pure-callable' ],
+                [ [ 'local', 'nested' ], 'pure-object' ],
+                [ [ 'renamed', 'missing' ], 'unknown' ]
+            ] as const
+        ) {
+            assert.strictEqual(
+                exportPurityForOrigin({ from: 'schema-lib', path }, source, resolveRuntimeModule),
+                expected
+            );
+        }
+    });
+
     suite('local exports', function () {
         test('distinguishes arrow expression returns from block bodies', function () {
             const files = [ {

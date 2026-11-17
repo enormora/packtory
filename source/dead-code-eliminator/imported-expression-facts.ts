@@ -58,10 +58,11 @@ function externalCallResultFact(
     context: PurityContext
 ): ExpressionFact {
     if (
+        exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule) !== 'pure-callable' ||
         !expressionBindingShapeIsStable(
             expression.getExpression(),
             createRuntimeCallablePurityProof(context.resolveRuntimeModule)
-        ) || exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule) !== 'pure-callable'
+        )
     ) {
         return unknownFact;
     }
@@ -90,14 +91,17 @@ function externalPropertyAccessFact(
     expression: Expression,
     context: PurityContext
 ): ExpressionFact {
-    if (!expressionBindingShapeIsStable(expression, createRuntimeCallablePurityProof(context.resolveRuntimeModule))) {
+    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule);
+    if (
+        exportPurity === 'unknown' ||
+        !expressionBindingShapeIsStable(expression, createRuntimeCallablePurityProof(context.resolveRuntimeModule))
+    ) {
         return unknownFact;
     }
-    const exportPurity = exportPurityForOrigin(origin, expression.getSourceFile(), context.resolveRuntimeModule);
     if (exportPurity === 'pure-callable') {
         return pureCallableWithOrigin(origin);
     }
-    return exportPurity === 'pure-object' ? pureObjectWithOrigin(origin) : unknownFact;
+    return pureObjectWithOrigin(origin);
 }
 
 export function propertyAccessExpressionFact(

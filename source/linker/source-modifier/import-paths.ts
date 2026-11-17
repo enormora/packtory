@@ -76,12 +76,12 @@ function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): Impor
 }
 
 export function replaceImportPathsWithTransform(
-    project: Project | undefined,
+    project: Pick<Project, 'getSourceFile'> | undefined,
     inputFilePath: string,
     sourceContent: string,
     replacements: Replacements
 ): ImportPathReplacementResult {
-    if (project === undefined) {
+    if (project === undefined || replacements.size === 0) {
         return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }
     const sourceFile = project.getSourceFile(inputFilePath);

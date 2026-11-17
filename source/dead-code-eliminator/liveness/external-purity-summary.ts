@@ -3,6 +3,7 @@ import {
     type ExportDeclaration,
     type ExportSpecifier,
     type Expression,
+    type FunctionDeclaration,
     type MethodDeclaration,
     type ObjectLiteralExpression,
     type Project,
@@ -42,7 +43,7 @@ type SummaryCache = {
     readonly set: (filePath: string, summary: ExternalPuritySummary) => unknown;
 };
 
-type ExternalPuritySummaryBuilder = (sourceFile: SourceFile) => ExternalPuritySummary;
+type ExternalPuritySummaryBuilder = (sourceFile: SourceFile, requestedPath: ExportPath) => ExternalPuritySummary;
 type ObjectEntriesCollector = (
     exportName: ExportPath,
     initializer: ObjectLiteralExpression
@@ -50,6 +51,7 @@ type ObjectEntriesCollector = (
 
 type SummaryContext = {
     readonly sourceFile: SourceFile;
+    readonly requestedPath: ExportPath;
     readonly namespaces: ReadonlyMap<string, string>;
     readonly exportPurities: ExportPurityRecorder;
     readonly buildSummary: ExternalPuritySummaryBuilder;
@@ -201,9 +203,13 @@ function mergeExports(context: SummaryContext, prefix: string, source: ReadonlyM
     }
 }
 
-function resolvedModuleSummary(context: SummaryContext, moduleSpecifier: string): ExternalPuritySummary | undefined {
+function resolvedModuleSummary(
+    context: SummaryContext,
+    moduleSpecifier: string,
+    requestedPath: ExportPath
+): ExternalPuritySummary | undefined {
     const target = resolveRuntimeModule(moduleSpecifier, context.sourceFile);
-    return target === undefined ? undefined : context.buildSummary(target);
+    return target === undefined ? undefined : context.buildSummary(target, requestedPath);
 }
 
 function importedNamespaceSources(sourceFile: SourceFile): ReadonlyMap<string, string> {
@@ -219,47 +225,65 @@ function importedNamespaceSources(sourceFile: SourceFile): ReadonlyMap<string, s
 
 function mergeNestedNamedExport(
     context: SummaryContext,
-    sourceName: string,
     exportedName: string,
     summary: ExternalPuritySummary
 ): void {
     for (const entry of summary.exports.values()) {
-        if (entry.path[0] === sourceName) {
-            context.exportPurities.set([ exportedName, ...entry.path.slice(1) ], entry.purity);
-        }
+        context.exportPurities.set([ exportedName, ...entry.path.slice(1) ], entry.purity);
     }
 }
 
 function mergeNamedExport(
     context: SummaryContext,
     namedExport: ExportSpecifier,
-    summary: ExternalPuritySummary
+    moduleSpecifier: string
 ): void {
     const sourceName = namedExport.getName();
     const exportedName = namedExport.getAliasNode()?.getText() ?? sourceName;
-    mergeNestedNamedExport(context, sourceName, exportedName, summary);
+    if (exportedName === context.requestedPath[0]) {
+        const summary = resolvedModuleSummary(context, moduleSpecifier, [
+            sourceName,
+            ...context.requestedPath.slice(1)
+        ]);
+        if (summary !== undefined) {
+            mergeNestedNamedExport(context, exportedName, summary);
+        }
+    }
 }
 
 function mergeNamedExports(
     context: SummaryContext,
     declaration: ExportDeclaration,
-    summary: ExternalPuritySummary
+    moduleSpecifier: string
 ): void {
     for (const namedExport of declaration.getNamedExports()) {
-        mergeNamedExport(context, namedExport, summary);
+        mergeNamedExport(context, namedExport, moduleSpecifier);
     }
 }
 
 function mergeModuleExportsByKind(
     context: SummaryContext,
     declaration: ExportDeclaration,
-    summary: ExternalPuritySummary
+    moduleSpecifier: string
 ): void {
     if (declaration.getNamedExports().length === 0) {
-        mergeExports(context, '', summary.exports);
+        const summary = resolvedModuleSummary(context, moduleSpecifier, context.requestedPath);
+        if (summary !== undefined) {
+            mergeExports(context, '', summary.exports);
+        }
         return;
     }
-    mergeNamedExports(context, declaration, summary);
+    mergeNamedExports(context, declaration, moduleSpecifier);
+}
+
+function mergeNamespaceExports(context: SummaryContext, exportedName: string, moduleSpecifier: string): void {
+    if (exportedName !== context.requestedPath[0]) {
+        return;
+    }
+    const summary = resolvedModuleSummary(context, moduleSpecifier, context.requestedPath.slice(1));
+    if (summary !== undefined) {
+        mergeExports(context, exportedName, summary.exports);
+    }
 }
 
 function mergeModuleExportDeclaration(
@@ -267,16 +291,12 @@ function mergeModuleExportDeclaration(
     declaration: ExportDeclaration,
     moduleSpecifier: string
 ): void {
-    const summary = resolvedModuleSummary(context, moduleSpecifier);
-    if (summary === undefined) {
-        return;
-    }
     const namespaceExport = declaration.getNamespaceExport();
     if (namespaceExport !== undefined) {
-        mergeExports(context, namespaceExport.getName(), summary.exports);
+        mergeNamespaceExports(context, namespaceExport.getName(), moduleSpecifier);
         return;
     }
-    mergeModuleExportsByKind(context, declaration, summary);
+    mergeModuleExportsByKind(context, declaration, moduleSpecifier);
 }
 
 function mergeNamespaceReexport(
@@ -284,13 +304,9 @@ function mergeNamespaceReexport(
     namedExport: ExportSpecifier,
     namespaceSource: string
 ): void {
-    const summary = resolvedModuleSummary(context, namespaceSource);
-    if (summary === undefined) {
-        return;
-    }
     const sourceName = namedExport.getName();
     const exportedName = namedExport.getAliasNode()?.getText() ?? sourceName;
-    mergeExports(context, exportedName, summary.exports);
+    mergeNamespaceExports(context, exportedName, namespaceSource);
 }
 
 function mergeLocalExportDeclaration(context: SummaryContext, declaration: ExportDeclaration): void {
@@ -311,12 +327,17 @@ function mergeExportDeclaration(context: SummaryContext, declaration: ExportDecl
     mergeLocalExportDeclaration(context, declaration);
 }
 
+function isRequestedFunctionExport(statement: Statement, context: SummaryContext): statement is FunctionDeclaration {
+    return TypeScriptMorphNode.isFunctionDeclaration(statement) &&
+        statement.getName() === context.requestedPath[0] && statement.isExported();
+}
+
 function addFunctionExport(statement: Statement, context: SummaryContext): void {
-    if (!TypeScriptMorphNode.isFunctionDeclaration(statement) || !statement.isExported()) {
+    if (!isRequestedFunctionExport(statement, context)) {
         return;
     }
-    const name = statement.getNameNode();
-    if (name !== undefined && bindingValueIsStable(name)) {
+    const name = statement.getNameNodeOrThrow();
+    if (bindingValueIsStable(name)) {
         context.exportPurities.set([ name.getText() ], callablePurity(statement));
         for (
             const [ path, purity ] of builderReturnObjectEntries(
@@ -335,7 +356,9 @@ function addVariableStatementExports(statement: Statement, context: SummaryConte
         return;
     }
     for (const declaration of statement.getDeclarations()) {
-        addVariableExport(declaration, context);
+        if (declaration.getName() === context.requestedPath[0]) {
+            addVariableExport(declaration, context);
+        }
     }
 }
 
@@ -349,11 +372,13 @@ function mergeStatementExports(context: SummaryContext, statement: Statement): v
 
 function summaryContext(
     sourceFile: SourceFile,
+    requestedPath: ExportPath,
     exportPurities: ExportPurityRecorder,
     buildSummary: ExternalPuritySummaryBuilder
 ): SummaryContext {
     return {
         sourceFile,
+        requestedPath,
         namespaces: importedNamespaceSources(sourceFile),
         exportPurities,
         buildSummary
@@ -362,13 +387,17 @@ function summaryContext(
 
 function createExternalPuritySummary(
     sourceFile: SourceFile,
+    requestedPath: ExportPath,
     cache: SummaryCache,
     buildSummary: ExternalPuritySummaryBuilder
 ): ExternalPuritySummary {
     const exportPurities = new Map<string, ExportEntry>();
     const summary: ExternalPuritySummary = { exports: exportPurities };
-    cache.set(sourceFile.getFilePath(), summary);
-    const context = summaryContext(sourceFile, {
+    cache.set(JSON.stringify([ sourceFile.getFilePath(), requestedPath ]), summary);
+    if (requestedPath.length === 0) {
+        return summary;
+    }
+    const context = summaryContext(sourceFile, requestedPath, {
         set(path, purity) {
             exportPurities.set(JSON.stringify(path), { path, purity });
         }
@@ -379,10 +408,10 @@ function createExternalPuritySummary(
     return summary;
 }
 
-function buildExternalPuritySummary(sourceFile: SourceFile): ExternalPuritySummary {
+function buildExternalPuritySummary(sourceFile: SourceFile, requestedPath: ExportPath): ExternalPuritySummary {
     const cache = projectSummaryCache(sourceFile.getProject());
-    const cached = cache.get(sourceFile.getFilePath());
-    return cached ?? createExternalPuritySummary(sourceFile, cache, buildExternalPuritySummary);
+    const cached = cache.get(JSON.stringify([ sourceFile.getFilePath(), requestedPath ]));
+    return cached ?? createExternalPuritySummary(sourceFile, requestedPath, cache, buildExternalPuritySummary);
 }
 
 function exportKey(origin: ImportedExpressionOrigin): string {
@@ -398,7 +427,7 @@ export function exportPurityForOrigin(
     if (sourceFile === undefined) {
         return 'unknown';
     }
-    return buildExternalPuritySummary(sourceFile).exports.get(exportKey(origin))?.purity ?? 'unknown';
+    return buildExternalPuritySummary(sourceFile, origin.path).exports.get(exportKey(origin))?.purity ?? 'unknown';
 }
 
 export function exportHasPureObjectReturnForOrigin(
@@ -410,6 +439,7 @@ export function exportHasPureObjectReturnForOrigin(
     if (sourceFile === undefined) {
         return false;
     }
-    return buildExternalPuritySummary(sourceFile).exports.get(JSON.stringify(callResultPath(origin.path)))?.purity ===
+    const requestedPath = callResultPath(origin.path);
+    return buildExternalPuritySummary(sourceFile, requestedPath).exports.get(JSON.stringify(requestedPath))?.purity ===
         'pure-object';
 }

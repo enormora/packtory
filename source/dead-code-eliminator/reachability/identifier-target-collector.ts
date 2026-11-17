@@ -14,6 +14,8 @@ import type { ArtifactModuleReference } from '../../resource-resolver/resolved-b
 import type { ExportGraph } from '../exports/export-graph.ts';
 import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
+import { hasTypeAncestor } from '../../source-transformation/type-ancestors.composition.ts';
+import { readBindingSyntax } from './binding-syntax.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
 import { buildDeclarationNodeIndex, type DeclarationNodeIndex, type FileBindings } from './binding-identifier.ts';
@@ -221,7 +223,7 @@ function identifierSymbol(identifier: Identifier): SymbolReference | undefined {
 
 function identifierTargets(identifier: Identifier, declarationIndex: IdentifierTargetIndex): readonly string[] {
     const symbol = identifierSymbol(identifier);
-    const runtimeReference = identifier.getFirstAncestor(TypeScriptMorphNode.isTypeNode) === undefined;
+    const runtimeReference = !hasTypeAncestor(identifier);
     const index = runtimeReference ? declarationIndex : { ...declarationIndex, exportGraph: undefined };
     return symbol === undefined ? [] : [
         ...symbolTargets(symbol, index),
@@ -232,15 +234,11 @@ function identifierTargets(identifier: Identifier, declarationIndex: IdentifierT
 }
 
 function shorthandPropertyTargets(
-    rootNode: TypeScriptMorphNode,
+    shorthands: readonly ShorthandPropertyAssignment[],
     declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
     const targets: string[] = [];
-    for (
-        const shorthand of rootNode.getDescendantsOfKind(
-            SyntaxKind.ShorthandPropertyAssignment
-        ) as readonly ShorthandPropertyAssignment[]
-    ) {
+    for (const shorthand of shorthands) {
         const valueSymbol = shorthand.getValueSymbol();
         if (valueSymbol !== undefined) {
             targets.push(
@@ -320,15 +318,16 @@ export function collectIdentifierTargets(
     exportGraph: ExportGraph | undefined
 ): Set<string> {
     const index = { ...declarationIndex, exportGraph };
+    const syntax = readBindingSyntax(rootNode);
     return new Set([
         ...TypeScriptMorphNode.isExportDeclaration(rootNode)
             ? reExportTargets(rootNode, index)
             : [],
-        ...rootNode.getDescendantsOfKind(SyntaxKind.Identifier).flatMap(function (identifier) {
+        ...syntax.identifiers.flatMap(function (identifier) {
             return identifierTargets(identifier, index);
         }),
-        ...shorthandPropertyTargets(rootNode, index),
-        ...rootNode.getDescendantsOfKind(SyntaxKind.CallExpression).flatMap(function (call) {
+        ...shorthandPropertyTargets(syntax.shorthands, index),
+        ...syntax.calls.flatMap(function (call) {
             const dynamicTargets = index.exportGraph?.dynamicTargets(call) ?? dynamicImportTargets(call, index);
             return [ ...dynamicTargets, ...directEvalTargets(call, index) ];
         })
