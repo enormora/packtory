@@ -7,9 +7,9 @@ import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { moduleEliminationInputs } from '../test-libraries/eliminator-test-support.ts';
 import {
     eliminateDeadCodeAndAssertAllOutputValid,
-    type DeadCodeEliminationOracleCase
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+    type DeadCodeEliminationCase
+} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 
 const cases = [
@@ -96,7 +96,7 @@ const cases = [
     }
 ];
 
-function mappedEmptyImportCase(): DeadCodeEliminationOracleCase {
+function mappedEmptyImportCase(): DeadCodeEliminationCase {
     const content =
         'import "./dep.js";export function probe(input){console.log("entry");return input;}\n//# sourceMappingURL=index.js.map';
     const mapping = new GenMapping({ file: 'index.js' });
@@ -142,7 +142,7 @@ suite('empty module links', function () {
     });
     for (const fixture of cases) {
         test(`preserves ${fixture.name}`, async function () {
-            const modules = await assertEquivalentModules(fixture.name, fixture.content, fixture.modules);
+            const modules = await assertModuleEliminationOutput(fixture.name, fixture.content, fixture.modules);
             assert.deepStrictEqual(new Set(modules.keys()), new Set(fixture.retained));
             const project = createProject();
             for (const [ path, content ] of modules) {

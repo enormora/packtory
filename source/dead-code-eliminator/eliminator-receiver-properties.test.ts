@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 
 const cases = [
     { body: 'return this.missing();', keepsUnused: true },
@@ -24,7 +24,7 @@ suite('namespace receiver property demand', function () {
     });
     for (const fixture of scenarios) {
         test(`preserves ${fixture.body}, dynamic ${fixture.dynamic}`, async function () {
-            const modules = await assertEquivalentModules(
+            const modules = await assertModuleEliminationOutput(
                 fixture.body,
                 fixture.dynamic
                     ? 'export async function probe(){const ns=await import("./dep.js");return ns.read();}'
@@ -42,7 +42,7 @@ suite('namespace receiver property demand', function () {
     }
 
     test('keeps receiver demand separate for a callable forwarded into different namespaces', async function () {
-        const modules = await assertEquivalentModules(
+        const modules = await assertModuleEliminationOutput(
             'forwarded receiver',
             'import * as a from "./a.js";import * as b from "./b.js";export function probe(){return [a.read(),b.read()];}',
             {

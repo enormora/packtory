@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createProject } from '../test-libraries/typescript-project.ts';
-import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { moduleEliminationInputs } from '../test-libraries/eliminator-test-support.ts';
-import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
+import { createProject } from '../../source/test-libraries/typescript-project.ts';
+import { createTestEliminator } from '../../source/test-libraries/eliminator-fixtures.ts';
+import { moduleEliminationInputs } from '../../source/test-libraries/eliminator-test-support.ts';
+import { assertDeepSubset } from '../../source/test-libraries/deep-subset-assertion.ts';
+import { collectDeadCodeEliminationOutputIssues } from '../../source/dead-code-eliminator/invariants/output-invariants.ts';
 import {
     assertDeadCodeEliminationBehaviorEquivalent,
     observeDeadCodeEliminationBehavior
-} from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
-import { collectDeadCodeEliminationOutputIssues } from './invariants/output-invariants.ts';
+} from './runtime-comparison.ts';
 
 const cases = [
     {

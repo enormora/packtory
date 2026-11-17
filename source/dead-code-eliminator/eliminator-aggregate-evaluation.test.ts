@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
 
@@ -49,7 +49,7 @@ suite('aggregate evaluation reductions', function () {
                 ),
                 { value }
             );
-            const modules = await assertEquivalentModules(name, content, {});
+            const modules = await assertModuleEliminationOutput(name, content, {});
             const output = Array.from(modules.values()).join('\n');
             assert.strictEqual(output.includes('compute'), false);
         });
@@ -57,7 +57,7 @@ suite('aggregate evaluation reductions', function () {
     for (const body of retained) {
         test(`preserves effects and uncertainty in ${body}`, async function () {
             const content = `function compute(){${body}}export function probe(){return compute();}`;
-            await assertEquivalentModules(body, content, {});
+            await assertModuleEliminationOutput(body, content, {});
             const source = createProject().createSourceFile('input.js', `${content}const value=compute();`);
             const call = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
             assert.strictEqual(createSourceEvaluation(source).primitiveValue(call), undefined);

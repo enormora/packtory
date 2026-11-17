@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import { assertDeadCodeEliminationEquivalent } from '../test-libraries/dead-code-elimination-oracle-test-support.ts';
+import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 
 const cases = [
     {
@@ -225,7 +225,10 @@ suite('fixed function reductions', function () {
         const content =
             'function strict(){"use strict";let sum=0;for(let index=1;index<=6;index++)sum+=index;return sum;}' +
             'module.exports=function probe(){try{return strict.caller;}catch(error){return error.name;}};';
-        const [ output ] = await assertDeadCodeEliminationEquivalent(singleFileOracleCase(content, 'index.cjs'));
+        const { bundles } = await assertDeadCodeEliminationOutput(
+            singleFileOracleCase(content, 'index.cjs')
+        );
+        const [ output ] = bundles;
         const source = createProject().createSourceFile(
             'output.cjs',
             output?.contents[0]?.fileDescription.content ?? ''
@@ -234,7 +237,7 @@ suite('fixed function reductions', function () {
     });
     for (const fixture of cases) {
         test(`preserves ${fixture.name}`, async function () {
-            const modules = await assertEquivalentModules(fixture.name, fixture.content, {});
+            const modules = await assertModuleEliminationOutput(fixture.name, fixture.content, {});
             const output = Array.from(modules.values()).join('\n');
             const source = createProject().createSourceFile('output.js', output);
             assert.strictEqual(source.getDescendantsOfKind(fixture.kind).length, fixture.count);

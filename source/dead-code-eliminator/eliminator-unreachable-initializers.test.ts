@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertEquivalentModules } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
 
 suite('unreachable initializer scope', function () {
     for (
@@ -15,13 +15,13 @@ suite('unreachable initializer scope', function () {
     ) {
         test(`preserves returned closures for ${declaration}`, async function () {
             const content = `function make(){return ()=>value;${declaration}}export function probe(){return make()();}`;
-            const modules = await assertEquivalentModules(declaration, content, {});
+            const modules = await assertModuleEliminationOutput(declaration, content, {});
             assert.strictEqual(Array.from(modules.values()).join('\n').includes('unreachable'), false);
         });
     }
 
     test('preserves a parameter sharing an unreachable var binding', async function () {
-        const modules = await assertEquivalentModules(
+        const modules = await assertModuleEliminationOutput(
             'parameter var binding',
             'function make(value){return ()=>value;var value=console.log("unreachable");}export function probe(){return make(42)();}',
             {}
