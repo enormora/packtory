@@ -78,7 +78,7 @@ function variableStatementEdits(
 ): readonly SourceTextEdit[] {
     const kind = statement.getDeclarationKind();
     if (
-        statement.isExported() || statement.isAmbient() ||
+        statement.hasExportKeyword() || statement.isAmbient() ||
         ![ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Var ].includes(kind)
     ) {
         return [];

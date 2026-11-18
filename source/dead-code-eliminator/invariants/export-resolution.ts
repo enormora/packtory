@@ -95,7 +95,7 @@ function moduleExportNames(statement: Statement): readonly string[] {
 }
 
 function variableExportNames(statement: Statement): readonly string[] {
-    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.isExported()) {
+    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.hasExportKeyword()) {
         return [];
     }
     return statement.getDeclarations().flatMap(function (declaration) {

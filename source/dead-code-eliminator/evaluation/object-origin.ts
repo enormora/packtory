@@ -21,7 +21,7 @@ function availableObjectDeclaration(read: Identifier): VariableDeclaration | und
         return undefined;
     }
     const statement = constantStatement(declaration);
-    if (statement === undefined || statement.isExported()) {
+    if (statement === undefined || statement.hasExportKeyword()) {
         return undefined;
     }
     return constantDominatesRead(declaration, read) ? declaration : undefined;

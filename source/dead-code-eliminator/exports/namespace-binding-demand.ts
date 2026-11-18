@@ -89,7 +89,7 @@ function initialDemand(
     if (statement === undefined) {
         return undefined;
     }
-    return statement.isExported()
+    return statement.hasExportKeyword()
         ? context.exported(declaration.getSourceFile(), name.getText())
         : noNamespaceProperties;
 }

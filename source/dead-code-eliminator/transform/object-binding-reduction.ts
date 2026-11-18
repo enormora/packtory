@@ -49,7 +49,7 @@ function elementCanDisappear(element: BindingElement, shape: ObjectReadShape, ev
 
 function objectBindingDeclaration(statement: VariableStatement): VariableDeclaration | undefined {
     if (
-        statement.isExported() || statement.isAmbient() ||
+        statement.hasExportKeyword() || statement.isAmbient() ||
         ![ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Var ].includes(
             statement.getDeclarationKind()
         )

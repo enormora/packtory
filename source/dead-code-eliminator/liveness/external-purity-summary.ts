@@ -331,7 +331,7 @@ function addFunctionExport(statement: Statement, context: SummaryContext): void 
 }
 
 function addVariableStatementExports(statement: Statement, context: SummaryContext): void {
-    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.isExported()) {
+    if (!TypeScriptMorphNode.isVariableStatement(statement) || !statement.hasExportKeyword()) {
         return;
     }
     for (const declaration of statement.getDeclarations()) {

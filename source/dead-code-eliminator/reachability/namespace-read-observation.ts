@@ -35,7 +35,7 @@ function observeBinding(declaration: VariableDeclaration, observation: Namespace
     }
     const statement = constantStatement(declaration);
     const name = declaration.getNameNode();
-    if (statement === undefined || statement.isExported() || !TypeScriptMorphNode.isIdentifier(name)) {
+    if (statement === undefined || statement.hasExportKeyword() || !TypeScriptMorphNode.isIdentifier(name)) {
         return false;
     }
     const references = observation.references(name, declaration);
