@@ -18,6 +18,27 @@ function preparedFiles(
 }
 
 suite('module constant snapshots', function () {
+    for (
+        const [ content, name ] of [ [ 'export function compute(){}', 'compute' ], [
+            'export class Box{}',
+            'Box'
+        ] ] as const
+    ) {
+        test(`does not request primitive evaluation of the declaration ${name}`, function () {
+            const fixture = createExportModuleFixture({ 'index.js': content }, []);
+            const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
+            assert.strictEqual(
+                exportedModuleValue(fixture.source('index.js'), name, {
+                    index,
+                    resolveModule: fixture.resolveModule
+                }, function () {
+                    return assert.fail('Named declarations do not supply primitive values');
+                }),
+                undefined
+            );
+        });
+    }
+
     test('rebuilds initialization dependencies after source transformations', function () {
         const files = preparedFiles([ { filePath: 'index.js', content: 'export const value=1;' } ]);
         const [ entry ] = files;

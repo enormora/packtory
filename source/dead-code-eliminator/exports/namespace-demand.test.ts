@@ -11,6 +11,15 @@ import {
 } from './namespace-demand.ts';
 
 suite('namespace property demands', function () {
+    test('reuses identical demands without reading their properties', function () {
+        const demand = new Proxy(new Map<string, NamespaceDemand>(), {
+            get() {
+                return assert.fail('Identical demands do not need to be inspected');
+            }
+        });
+        assert.strictEqual(mergeNamespaceDemand(demand, demand), demand);
+    });
+
     test('combines independent property reads without changing either input', function () {
         const left = namespaceMemberDemand('first', noNamespaceProperties);
         const right = namespaceMemberDemand('second', allNamespaceProperties);
