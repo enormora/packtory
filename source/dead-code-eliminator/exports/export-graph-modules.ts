@@ -51,7 +51,9 @@ function createGraphModule(
                 return moduleExportDependencies(record.model, name, {
                     ...targets,
                     resolveModule: analysis.resolveModule,
-                    demand: analysis.demand
+                    get demand() {
+                        return analysis.demand;
+                    }
                 });
             });
         }

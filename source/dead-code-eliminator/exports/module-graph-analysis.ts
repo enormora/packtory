@@ -67,13 +67,17 @@ export function createModuleGraphAnalysis(
             })
     );
     const effects = new Map<SourceFile, ReadonlySet<Statement>>();
+    let demand: NamespaceDemandAnalysis | null = null;
     return {
         records,
         index,
-        demand: createNamespaceDemandAnalysis(Array.from(records.keys()), publicFiles, resolveModule, {
-            receiverIsUnobserved: createNamespaceReceiverAnalysis(index, resolveModule, bindingIsStable),
-            isObserved: observeReachableBindings(input.files, input.observedBindings)
-        }),
+        get demand() {
+            demand = demand ?? createNamespaceDemandAnalysis(Array.from(records.keys()), publicFiles, resolveModule, {
+                receiverIsUnobserved: createNamespaceReceiverAnalysis(index, resolveModule, bindingIsStable),
+                isObserved: observeReachableBindings(input.files, input.observedBindings)
+            });
+            return demand;
+        },
         resolveModule,
         effects(source) {
             let statements = effects.get(source);
