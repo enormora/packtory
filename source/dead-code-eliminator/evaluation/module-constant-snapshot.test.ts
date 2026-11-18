@@ -114,8 +114,16 @@ suite('module constant snapshots', function () {
         );
     });
 
-    for (const content of [ 'export default class{}', 'export default function(){}' ]) {
-        test(`keeps callable default exports outside primitive snapshots for ${content}`, function () {
+    for (
+        const content of [
+            'export default class{}',
+            'export default function(){}',
+            'export class Value{}',
+            'export function value(){}',
+            'export enum Value{first}'
+        ]
+    ) {
+        test(`keeps declarations outside primitive snapshots for ${content}`, function () {
             const sourceFile = createProject().createSourceFile('/source/index.js', content);
             const snapshot = createModuleConstantSnapshot([ {
                 sourceFile,
