@@ -70,7 +70,6 @@ export function assertDeadCodeEliminationExpectedOutput(input: DeadCodeEliminati
 async function eliminateDeadCodeForAssertion(input: DeadCodeEliminationCase): Promise<readonly AnalyzedBundle[]> {
     const eliminated = await createTestEliminator().eliminate(input.eliminationInputs);
     verifyEntryBundle(input.name, input.entry, eliminated, 'eliminated');
-    assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
     return eliminated;
 }
 export async function eliminateDeadCodeAndAssertAllOutputValid(
@@ -85,6 +84,7 @@ export async function assertDeadCodeEliminationOutput(
 ): Promise<VerifiedDeadCodeElimination> {
     const original = originalBundles(input);
     const eliminated = await eliminateDeadCodeForAssertion(input);
+    assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
     verifyEntryBundle(input.name, input.entry, original, 'original');
     assertDeadCodeEliminationExpectedOutput({
         name: input.name,
