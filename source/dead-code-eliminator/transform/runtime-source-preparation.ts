@@ -30,13 +30,15 @@ export function prepareInitialRuntimeSource(preparation: SourcePreparation): voi
 
 export function prepareResolvedRuntimeSource(
     preparation: SourcePreparation,
-    evaluateImport: PrimitiveEvaluator,
+    evaluateImport: PrimitiveEvaluator | undefined,
     isPure: ExpressionPurityChecker
 ): void {
     if (!runtimeSourceIsValid(preparation.sourceFile)) {
         return;
     }
-    specializeImportedValues(preparation, evaluateImport);
+    if (evaluateImport !== undefined) {
+        specializeImportedValues(preparation, evaluateImport);
+    }
     prepareInitialRuntimeSource(preparation);
     reduceObjectBindings(preparation);
     removeUnusedValues(preparation, isPure);
