@@ -92,7 +92,21 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.strictEqual(result.resource.analysis.sideEffectStatements.length, 1);
+        assert.deepStrictEqual(result.resource.analysis.sideEffectStatements, [
+            { line: 1, kind: 'expression statement' }
+        ]);
+    });
+
+    test('buildAnalyzedResource retains original effect locations after source preparation', function () {
+        const prefix = 'const unused = 0;\n';
+        const loaded = loadedCodeResource(`${prefix}console.log(1);\n`);
+        loaded.applyEdits([ { start: 0, end: prefix.length, content: '' } ]);
+
+        const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
+
+        assert.deepStrictEqual(result.resource.analysis.sideEffectStatements, [
+            { line: 2, kind: 'expression statement' }
+        ]);
     });
 
     test('buildAnalyzedResource removes dead declarations while retaining side-effect statements', function () {
