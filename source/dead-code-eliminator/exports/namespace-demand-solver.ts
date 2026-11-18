@@ -99,9 +99,9 @@ export function createNamespaceDemandSolver<Key>(limits: NamespaceDemandLimits):
     }
 
     function publish(job: DemandJob, observation: NamespaceDemand): void {
-        const previous = job.demand;
-        const next = mergeNamespaceDemand(previous, observation);
-        if (next !== previous) {
+        const changes = new Set<NamespaceDemand>([ mergeNamespaceDemand(job.demand, observation) ]);
+        changes.delete(job.demand);
+        for (const next of changes) {
             job.recordDemand(next);
             const dependents = state.dependents.get(job) ?? [];
             for (const dependent of dependents) {
