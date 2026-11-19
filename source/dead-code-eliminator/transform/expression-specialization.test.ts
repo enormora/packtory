@@ -5,11 +5,11 @@ import { bundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource } from '../code-file-analyzer.ts';
-import { loadResource } from '../load-resource.ts';
+import { loadResource, type LoadedCodeResource } from '../load-resource.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import { prepareInitialRuntimeSource } from './runtime-source-preparation.ts';
 
-function preparedResource(content: string) {
+function preparedResource(content: string): LoadedCodeResource {
     const loaded = loadResource(createProject(), createProject(), {
         ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
