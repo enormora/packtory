@@ -4,6 +4,31 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
 
 suite('shared source evaluations', function () {
+    for (const names of [ [ 'early', 'later', 'after' ], [ 'after', 'later', 'early' ] ]) {
+        test(`preserves initialization order when querying ${names.join(', ')}`, function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                'const early=read();const later=42;function read(){return later;}const after=read();export{};'
+            );
+            const evaluation = createSourceEvaluation(source);
+            for (const name of names) {
+                const expression = source.getVariableDeclarationOrThrow(name).getInitializerOrThrow();
+                assert.deepStrictEqual(
+                    evaluation.primitiveValue(expression),
+                    name === 'early' ? undefined : { value: 42 }
+                );
+            }
+        });
+    }
+
+    test('leaves mutually unavailable constants unknown', function () {
+        const source = createProject().createSourceFile('input.ts', 'const first=second;const second=first;');
+        const evaluation = createSourceEvaluation(source);
+        for (const declaration of source.getVariableDeclarations()) {
+            assert.strictEqual(evaluation.primitiveValue(declaration.getInitializerOrThrow()), undefined);
+        }
+    });
+
     for (
         const [ content, expected ] of [ [ '{}', true ], [ '({value:1})', true ], [ 'effect()', false ], [
             '({value:effect()})',

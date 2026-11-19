@@ -1,11 +1,10 @@
 import {
     SyntaxKind,
     type Expression,
-    type SourceFile,
-    type VariableDeclaration
+    type SourceFile
 } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { evaluateConstantBindings, localReadHasNoEffects } from './constant-binding.ts';
+import { createConstantBindingValues, localReadHasNoEffects, type KnownConstants } from './constant-binding.ts';
 import { createBoundedEvaluator } from './local-call.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult, type AbstractValue } from './abstract-value.ts';
@@ -29,15 +28,23 @@ export function createSourceEvaluations(
 }
 
 function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
-    const values = new Map<VariableDeclaration, EvaluatedValue>();
-    const evaluate = createBoundedEvaluator(sourceFile, values);
+    let bounded: SourceEvaluation['knownValue'] | null = null;
+    const evaluation: { readonly values: KnownConstants; readonly evaluate: SourceEvaluation['knownValue']; } = {
+        values: createConstantBindingValues(
+            sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration),
+            function (expression) {
+                return primitiveResult(evaluation.evaluate(expression));
+            }
+        ),
+        get evaluate() {
+            bounded = bounded ?? createBoundedEvaluator(sourceFile, evaluation.values);
+            return bounded;
+        }
+    };
+    const { evaluate } = evaluation;
     const primitiveValue: PrimitiveEvaluator = function (expression) {
         return primitiveResult(evaluate(expression));
     };
-    const declarations = sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration);
-    for (const [ declaration, value ] of evaluateConstantBindings(declarations, primitiveValue)) {
-        values.set(declaration, value);
-    }
     return {
         knownValue: evaluate,
         primitiveValue,
