@@ -511,15 +511,19 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchStagedPackageVersions throws when staged results exceed the page budget', async function () {
-            const javaScriptObjectNotation = fake(async function () {
-                return { items: [ { version: '1.2.4' } ], total: 100_001 };
-            });
+            let requestedPages = 0;
+            const npmFetch: NpmFetch = {
+                async javaScriptObjectNotation() {
+                    requestedPages += 1;
+                    return { items: [ { version: '1.2.4' } ], total: 100_001 };
+                }
+            };
 
             await assert.rejects(
-                fetchStagedPackageVersions(fakeNpmFetch(javaScriptObjectNotation), 'package-a', settings),
+                fetchStagedPackageVersions(npmFetch, 'package-a', settings),
                 /^Error: Staged package listing exceeded 1000 pages$/u
             );
-            assert.strictEqual(javaScriptObjectNotation.callCount, 1000);
+            assert.strictEqual(requestedPages, 1000);
         });
     });
 });
