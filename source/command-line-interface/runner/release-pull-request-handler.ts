@@ -84,7 +84,7 @@ type PreparedReleaseCommit = {
 };
 
 type GitHubMergeGroupEvent = {
-    readonly base_hash?: string | undefined;
+    readonly base_sha?: string | undefined;
     readonly head_sha?: string | undefined;
 };
 type GitHubPullRequestEvent = {
@@ -364,7 +364,7 @@ async function runMergeGroupValidation(
     event: GitHubEvent
 ): Promise<void> {
     const headHash = event.merge_group?.head_sha;
-    const expectedBaseHash = event.merge_group?.base_hash;
+    const expectedBaseHash = event.merge_group?.base_sha;
     if (headHash === undefined || expectedBaseHash === undefined) {
         throw new Error('GitHub merge_group event payload is missing merge group SHAs');
     }
