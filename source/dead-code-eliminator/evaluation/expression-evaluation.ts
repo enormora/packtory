@@ -5,8 +5,11 @@ import {
     SyntaxKind,
     type Expression,
     type BinaryExpression,
+    type ConditionalExpression,
     type PrefixUnaryExpression,
     type PostfixUnaryExpression,
+    type TypeOfExpression,
+    type VoidExpression,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
@@ -52,24 +55,29 @@ function evaluateReference(expression: Expression, context: EvaluationContext): 
 }
 
 function literalValue(expression: Expression): EvaluatedValue | undefined {
-    if (TypeScriptMorphNode.isBigIntLiteral(expression)) {
-        return evaluated(BigInt(expression.compilerNode.text.slice(0, -1)));
-    }
-    if (TypeScriptMorphNode.isNumericLiteral(expression)) {
-        return evaluated(numericLiteralValue(expression));
-    }
-    if (
-        TypeScriptMorphNode.isStringLiteral(expression) ||
-        TypeScriptMorphNode.isNoSubstitutionTemplateLiteral(expression)
-    ) {
-        return evaluated(expression.getLiteralValue());
-    }
-    const keywordValues = new Map<SyntaxKind, EvaluatedValue>([
-        [ SyntaxKind.TrueKeyword, evaluated(true) ],
-        [ SyntaxKind.FalseKeyword, evaluated(false) ],
-        [ SyntaxKind.NullKeyword, evaluated(null) ]
-    ]);
-    return keywordValues.get(expression.getKind());
+    return match(expression)
+        .when(TypeScriptMorphNode.isBigIntLiteral, function (literal) {
+            return evaluated(BigInt(literal.compilerNode.text.slice(0, -1)));
+        })
+        .when(TypeScriptMorphNode.isNumericLiteral, function (literal) {
+            return evaluated(numericLiteralValue(literal));
+        })
+        .when(TypeScriptMorphNode.isStringLiteral, function (literal) {
+            return evaluated(literal.getLiteralValue());
+        })
+        .when(TypeScriptMorphNode.isNoSubstitutionTemplateLiteral, function (literal) {
+            return evaluated(literal.getLiteralValue());
+        })
+        .when(TypeScriptMorphNode.isTrueLiteral, function () {
+            return evaluated(true);
+        })
+        .when(TypeScriptMorphNode.isFalseLiteral, function () {
+            return evaluated(false);
+        })
+        .when(TypeScriptMorphNode.isNullLiteral, function () {
+            return evaluated(null);
+        })
+        .otherwise(constant(undefined));
 }
 
 function updateReference(reference: EvaluationReference, operator: SyntaxKind): AbstractValue | undefined {
@@ -93,13 +101,10 @@ function updateValue(
     return next !== undefined && TypeScriptMorphNode.isPostfixUnaryExpression(expression) ? previous : next;
 }
 
-function unaryValue(expression: Expression, context: EvaluationContext): AbstractValue | undefined {
-    if (TypeScriptMorphNode.isPostfixUnaryExpression(expression)) {
-        return updateValue(expression, context);
-    }
-    if (!TypeScriptMorphNode.isPrefixUnaryExpression(expression)) {
-        return undefined;
-    }
+function unaryValue(
+    expression: PostfixUnaryExpression | PrefixUnaryExpression,
+    context: EvaluationContext
+): AbstractValue | undefined {
     const operator = expression.getOperatorToken();
     if (operator === SyntaxKind.PlusPlusToken || operator === SyntaxKind.MinusMinusToken) {
         return updateValue(expression, context);
@@ -171,13 +176,7 @@ function binaryValue(expression: BinaryExpression, context: EvaluationContext): 
         : binaryOperandsValue(expression, context);
 }
 
-function branchingValue(expression: Expression, context: EvaluationContext): AbstractValue | undefined {
-    if (TypeScriptMorphNode.isCallExpression(expression)) {
-        return context.call(expression, context);
-    }
-    if (!TypeScriptMorphNode.isConditionalExpression(expression)) {
-        return undefined;
-    }
+function conditionalValue(expression: ConditionalExpression, context: EvaluationContext): AbstractValue | undefined {
     const condition = context.evaluate(expression.getCondition(), context);
     if (condition === undefined) {
         return undefined;
@@ -185,10 +184,10 @@ function branchingValue(expression: Expression, context: EvaluationContext): Abs
     return context.evaluate(isTruthy(condition.value) ? expression.getWhenTrue() : expression.getWhenFalse(), context);
 }
 
-function keywordUnaryValue(expression: Expression, context: EvaluationContext): EvaluatedValue | undefined {
-    if (!TypeScriptMorphNode.isVoidExpression(expression) && !TypeScriptMorphNode.isTypeOfExpression(expression)) {
-        return undefined;
-    }
+function keywordUnaryValue(
+    expression: TypeOfExpression | VoidExpression,
+    context: EvaluationContext
+): EvaluatedValue | undefined {
     const operand = context.evaluate(expression.getExpression(), context);
     if (operand === undefined) {
         return undefined;
@@ -196,19 +195,35 @@ function keywordUnaryValue(expression: Expression, context: EvaluationContext): 
     return evaluated(TypeScriptMorphNode.isTypeOfExpression(expression) ? typeof operand.value : undefined);
 }
 
-function valueWithoutMutation(expression: Expression, context: EvaluationContext): AbstractValue | undefined {
-    return literalValue(expression) ?? branchingValue(expression, context) ?? keywordUnaryValue(expression, context) ??
-        evaluateRecordExpression(expression, context);
-}
-
 function expressionValue(node: Expression, context: EvaluationContext): AbstractValue | undefined {
-    if (TypeScriptMorphNode.isIdentifier(node)) {
-        return bindingReference(node, context)?.value ?? context.readConstant(node);
-    }
-    if (TypeScriptMorphNode.isBinaryExpression(node)) {
-        return binaryValue(node, context);
-    }
-    return valueWithoutMutation(node, context) ?? unaryValue(node, context);
+    return match(node)
+        .when(TypeScriptMorphNode.isIdentifier, function (identifier) {
+            return bindingReference(identifier, context)?.value ?? context.readConstant(identifier);
+        })
+        .when(TypeScriptMorphNode.isBinaryExpression, function (binary) {
+            return binaryValue(binary, context);
+        })
+        .when(TypeScriptMorphNode.isPrefixUnaryExpression, function (unary) {
+            return unaryValue(unary, context);
+        })
+        .when(TypeScriptMorphNode.isPostfixUnaryExpression, function (unary) {
+            return unaryValue(unary, context);
+        })
+        .when(TypeScriptMorphNode.isCallExpression, function (call) {
+            return context.call(call, context);
+        })
+        .when(TypeScriptMorphNode.isConditionalExpression, function (conditional) {
+            return conditionalValue(conditional, context);
+        })
+        .when(TypeScriptMorphNode.isVoidExpression, function (unary) {
+            return keywordUnaryValue(unary, context);
+        })
+        .when(TypeScriptMorphNode.isTypeOfExpression, function (unary) {
+            return keywordUnaryValue(unary, context);
+        })
+        .otherwise(function () {
+            return literalValue(node) ?? evaluateRecordExpression(node, context);
+        });
 }
 
 export function evaluateExpression(

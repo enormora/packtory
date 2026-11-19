@@ -1,18 +1,21 @@
 import { parse, type ParserPlugin } from '@babel/parser';
 import { ScriptKind, ts, type SourceFile } from 'ts-morph';
+import { match } from 'ts-pattern';
+import { constant } from 'remeda';
 
 type RuntimeSourceType = 'commonjs' | 'module';
 
 function sourcePlugins(source: SourceFile): readonly ParserPlugin[] | undefined {
     const kind = source.getScriptKind();
-    if (kind === ScriptKind.JSX) {
-        return [ 'jsx' ];
-    }
-    if (kind !== ScriptKind.TS && kind !== ScriptKind.TSX) {
-        return undefined;
-    }
-    const plugins: readonly ParserPlugin[] = [ 'typescript', 'decorators-legacy', 'decoratorAutoAccessors' ];
-    return kind === ScriptKind.TSX ? plugins.concat('jsx') : plugins;
+    return match<number>(kind)
+        .with(ScriptKind.JSX, function () {
+            return [ 'jsx' ] as const;
+        })
+        .with(ScriptKind.TS, ScriptKind.TSX, function () {
+            const plugins: readonly ParserPlugin[] = [ 'typescript', 'decorators-legacy', 'decoratorAutoAccessors' ];
+            return kind === ScriptKind.TSX ? plugins.concat('jsx') : plugins;
+        })
+        .otherwise(constant(undefined));
 }
 
 function sourceTypes(source: SourceFile): readonly RuntimeSourceType[] {
