@@ -7,6 +7,10 @@ suite('local construction evaluation', function () {
     for (
         const [ expression, expected ] of [
             [ 'typeof new Empty()', 'object' ],
+            [ 'typeof new(function(){})()', 'object' ],
+            [ 'typeof new(function(){;})()', 'object' ],
+            [ 'typeof new(function(){{}})()', 'object' ],
+            [ 'typeof new(function(){return;})()', 'object' ],
             [ '!new Empty()', false ],
             [ '!!new Empty()', true ],
             [ 'new Empty() === new Empty()', false ],
@@ -49,6 +53,14 @@ suite('local construction evaluation', function () {
     for (
         const content of [
             'class Empty{}const result=new Empty();',
+            'const Empty=()=>{};const result=new Empty();export {};',
+            'async function Empty(){}const result=new Empty();export {};',
+            'function* Empty(){}const result=new Empty();export {};',
+            'function Empty(){console.log("effect");}const result=new Empty();export {};',
+            'function Empty(){return {};}const result=new Empty();export {};',
+            'function Empty(value=console.log("default")){}const result=new Empty();export {};',
+            'function Empty(...values){}const result=new Empty();export {};',
+            'const result=new(class{static{console.log("effect");}});export {};',
             'declare class Empty{}const result=new Empty();export {};',
             'let Empty=class{};const result=new Empty();export {};',
             'class Empty{value=1;}const result=new Empty();export {};',
@@ -66,13 +78,12 @@ suite('local construction evaluation', function () {
     }
 
     test('proves empty explicit construction without serializing the instance', function () {
-        const initializer = variableInitializer(
-            'class Empty{constructor(){}}const result=new Empty();export {};',
-            'result'
-        );
-        const evaluation = createSourceEvaluation(initializer.getSourceFile());
-        assert.strictEqual(evaluation.canDiscard(initializer), true);
-        assert.strictEqual(evaluation.primitiveValue(initializer), undefined);
+        for (const declaration of [ 'class Empty{constructor(){}}', 'function Empty(){}' ]) {
+            const initializer = variableInitializer(`${declaration}const result=new Empty();export {};`, 'result');
+            const evaluation = createSourceEvaluation(initializer.getSourceFile());
+            assert.strictEqual(evaluation.canDiscard(initializer), true);
+            assert.strictEqual(evaluation.primitiveValue(initializer), undefined);
+        }
     });
 
     test('does not infer runtime constructors from another script file', function () {
