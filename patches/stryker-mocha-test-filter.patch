@@ -1,0 +1,29 @@
+diff --git a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
+index f769974e..82f7f912 100644
+--- a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
++++ b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
+@@ -88,7 +88,7 @@ export class MochaTestRunner {
+             const metaRegExp = testFilter
+                 .map((testId) => `(^${escapeRegExp(testId)}$)`)
+                 .join('|');
+-            const regex = new RegExp(metaRegExp);
++            const regex = new SelectedTests(metaRegExp, testFilter);
+             this.mocha.grep(regex);
+         }
+         else {
+@@ -160,4 +160,14 @@ export class MochaTestRunner {
+         });
+     }
+ }
++class SelectedTests extends RegExp {
++    #testIds;
++    constructor(pattern, testIds) {
++        super(pattern);
++        this.#testIds = new Set(testIds);
++    }
++    test(testId) {
++        return this.#testIds.size === 0 || this.#testIds.has(testId);
++    }
++}
+ //# sourceMappingURL=mocha-test-runner.js.map
+\ No newline at end of file
