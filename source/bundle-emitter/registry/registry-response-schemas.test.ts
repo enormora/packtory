@@ -31,6 +31,14 @@ function digestMetadataResponse(): Record<string, unknown> {
 
 suite('registry-response-schemas', function () {
     suite('package metadata responses', function () {
+        test('only full responses validate publication times', function () {
+            const metadata = digestMetadataResponse();
+            const response = { ...metadata, time: 42 };
+
+            assert.deepStrictEqual(parseAbbreviatedPackageResponse(response), metadata);
+            assert.strictEqual(parseFullPackageResponse(response), undefined);
+        });
+
         test('parseAbbreviatedPackageResponse returns the data when the response matches the schema', function () {
             assert.deepStrictEqual(
                 parseAbbreviatedPackageResponse({
