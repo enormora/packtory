@@ -1,5 +1,4 @@
 import type { AsyncFunc as MochaAsynchronousTestFunction } from 'mocha';
-import getPort from 'get-port';
 import {
     createDeterministicGitHubApplicationProgrammingInterfaceServer
 } from './deterministic-github-application-programming-interface-server.ts';
@@ -23,10 +22,7 @@ export function withDeterministicGitHubApplicationProgrammingInterfaceServer(
     testFunction: DeterministicGitHubApplicationProgrammingInterfaceServerTest
 ): MochaAsynchronousTestFunction {
     return async function executeTestWithServer() {
-        const server = await createDeterministicGitHubApplicationProgrammingInterfaceServer({
-            port: await getPort(),
-            scenario
-        });
+        const server = await createDeterministicGitHubApplicationProgrammingInterfaceServer(scenario);
 
         try {
             await testFunction({

@@ -1,5 +1,7 @@
+import { once } from 'node:events';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { toGitHubResponse } from '../../source/test-libraries/github-response.ts';
+import { getServerPort } from '../../source/test-libraries/github-release-gate-test-support.ts';
 import type {
     DeterministicGitHubApplicationProgrammingInterfaceRequest,
     DeterministicGitHubApplicationProgrammingInterfaceResponse,
@@ -12,11 +14,6 @@ export type DeterministicGitHubApplicationProgrammingInterfaceServer = {
     readonly graphqlAddress: string;
     readonly requests: () => readonly DeterministicGitHubApplicationProgrammingInterfaceRequest[];
     readonly stop: () => Promise<void>;
-};
-
-export type DeterministicGitHubApplicationProgrammingInterfaceServerOptions = {
-    readonly port: number;
-    readonly scenario: DeterministicGitHubApplicationProgrammingInterfaceScenario;
 };
 
 const notFoundStatus = 404;
@@ -167,12 +164,6 @@ function routeRequest(
     });
 }
 
-async function listen(server: Server, port: number): Promise<void> {
-    await new Promise<void>(function (resolve) {
-        server.listen(port, '127.0.0.1', resolve);
-    });
-}
-
 async function close(server: Server): Promise<void> {
     await new Promise<void>(function (resolve) {
         server.close(function () {
@@ -181,18 +172,14 @@ async function close(server: Server): Promise<void> {
     });
 }
 
-function serverAddress(port: number): string {
-    return `http://127.0.0.1:${port}`;
-}
-
 export async function createDeterministicGitHubApplicationProgrammingInterfaceServer(
-    options: DeterministicGitHubApplicationProgrammingInterfaceServerOptions
+    scenario: DeterministicGitHubApplicationProgrammingInterfaceScenario
 ): Promise<DeterministicGitHubApplicationProgrammingInterfaceServer> {
     let requests: readonly DeterministicGitHubApplicationProgrammingInterfaceRequest[] = [];
     const server = createServer(function (request, response) {
         routeRequest(
             {
-                scenario: options.scenario,
+                scenario,
                 recordRequest(recordedRequest) {
                     requests = [ ...requests, recordedRequest ];
                 },
@@ -205,11 +192,13 @@ export async function createDeterministicGitHubApplicationProgrammingInterfaceSe
         );
     });
 
-    await listen(server, options.port);
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const baseAddress = `http://127.0.0.1:${getServerPort(server)}`;
 
     return {
-        baseAddress: serverAddress(options.port),
-        graphqlAddress: `${serverAddress(options.port)}/graphql`,
+        baseAddress,
+        graphqlAddress: `${baseAddress}/graphql`,
         requests() {
             return requests;
         },
