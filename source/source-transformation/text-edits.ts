@@ -26,7 +26,7 @@ export type SourceTextEdit = {
     readonly content: string;
 };
 
-function retainedTextRanges(originalLength: number, edits: readonly SourceTextEdit[]): readonly PositionAtom[] {
+export function retainedTextRanges(originalLength: number, edits: readonly SourceTextEdit[]): readonly PositionAtom[] {
     const atoms: PositionAtom[] = [];
     let originalOffset = 0;
     let displacement = 0;
