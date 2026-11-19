@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { SyntaxKind } from 'ts-morph';
 import { createSourceEvaluation } from '../dead-code-eliminator/evaluation/constant-evaluation.ts';
-import type { EvaluatedValue } from '../dead-code-eliminator/evaluation/primitive-value.ts';
+import type { ExpressionEvaluationCase } from './expression-evaluation-case.ts';
 import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
 import {
     type DeadCodeEliminationCase,
@@ -13,10 +13,7 @@ import { assertDefined } from './deep-subset-assertion.ts';
 import { bundleForCodeFile, inputs } from './eliminator-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
-export type SingleFileEvaluationCase = {
-    readonly name: string;
-    readonly content: string;
-    readonly result: EvaluatedValue | undefined;
+export type SingleFileEvaluationCase = ExpressionEvaluationCase & {
     readonly remainingCalls: number;
 };
 type CallReductionCase = {

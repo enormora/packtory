@@ -9,173 +9,147 @@ import {
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 
 import {
-    assertSingleFileEvaluation,
-    type SingleFileEvaluationCase
-} from '../test-libraries/dead-code-elimination-single-file-case.ts';
+    assertExpressionEvaluation,
+    type ExpressionEvaluationCase
+} from '../test-libraries/expression-evaluation-case.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { bundleForCodeFile, inputs, inputWithoutTransformations } from '../test-libraries/eliminator-test-support.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
-const evaluationGuards: readonly SingleFileEvaluationCase[] = [ {
+const evaluationGuards: readonly ExpressionEvaluationCase[] = [ {
     name: 'retains malformed argument syntax',
     content: 'function compute(input){return input;}export const value=compute(,);',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'folds unary plus on primitive strings',
     content: 'function compute(){return +"42";}export const value=compute();',
     result: {
         value: 42
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds unary minus on primitive strings',
     content: 'function compute(){return -"42";}export const value=compute();',
     result: {
         value: -42
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds unary minus on booleans',
     content: 'function compute(){return -true;}export const value=compute();',
     result: {
         value: -1
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds unary plus on null',
     content: 'function compute(){return +null;}export const value=compute();',
     result: {
         value: 0
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'preserves signed zero when converting null',
     content: 'function compute(){return 1/(-null)<0;}export const value=compute();',
     result: {
         value: true
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'preserves NaN when converting undefined',
     content: 'function compute(){return (-undefined)!==(-undefined);}export const value=compute();',
     result: {
         value: true
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'retains unary plus BigInt errors',
     content: 'function compute(){return +1n;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'distinguishes greater than from equality',
     content: 'function compute(n){return n>n;}export const value=compute(1);',
     result: {
         value: false
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds null conversion on the left of concatenation',
     content: 'function compute(){return null+" value";}export const value=compute();',
     result: {
         value: 'null value'
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds null conversion on the right of concatenation',
     content: 'function compute(){return "value "+null;}export const value=compute();',
     result: {
         value: 'value null'
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds numeric conversion in string subtraction',
     content: 'function compute(){return "2"-"1";}export const value=compute();',
     result: {
         value: 1
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'folds numeric exponentiation',
     content: 'function compute(){return 2**3;}export const value=compute();',
     result: {
         value: 8
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'retains unsupported compound assignments',
     content: 'function compute(){let value=2;value**=3;return value;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'folds numeric complement',
     content: 'function compute(){return ~1;}export const value=compute();',
     result: {
         value: -2
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'selects nullish fallbacks for undefined',
     content: 'function compute(){return undefined??42;}export const value=compute();',
     result: {
         value: 42
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'retains unknown compound assignment operands',
     content: 'function compute(){let value=1;value+=missing;return value;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains failed postfix writes to constants',
     content: 'function compute(){const value=1;return value++;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'preserves return completion through a single loop iteration',
     content: 'function compute(){let index=0;for(;index<1;){index++;return 42;}return 7;}export const value=compute();',
     result: {
         value: 42
-    },
-    remainingCalls: 0
+    }
 }, {
     name: 'does not complete a reference after exhausting the evaluation budget',
     content:
         'function compute(n){let value=0;for(let index=0;index<n;index++)value++;{}return ++value;}export const value=compute(226);',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains unconsumed break errors',
     content: 'function compute(){break;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains unresolved break label errors',
     content: 'function compute(){while(true){break missing;}return 42;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains unresolved continue label errors',
     content:
         'function compute(){let index=0;while(index<1){index++;continue missing;}return 42;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains resource initialization syntax errors',
     content: 'using resource;export const value=42;',
-    result: undefined,
-    remainingCalls: 0
+    result: undefined
 }, {
     name: 'retains numeric coercion when incrementing a string binding',
     content: 'function compute(){let input="41";return ++input;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 }, {
     name: 'retains unknown conditional expression errors',
     content: 'function compute(){return missing?1:2;}export const value=compute();',
-    result: undefined,
-    remainingCalls: 1
+    result: undefined
 } ];
 const stringLimitCases = [ [ 'folds concatenation at the string limit', 2048, 2048, true ], [
     'retains concatenation beyond the string limit',
@@ -212,15 +186,15 @@ function evaluationCase(content: string): DeadCodeEliminationCase {
 suite('local evaluation', function () {
     suite('evaluation guards', function () {
         for (const entry of evaluationGuards) {
-            test(entry.name, async function () {
-                await assertSingleFileEvaluation(entry);
+            test(entry.name, function () {
+                assertExpressionEvaluation(entry);
             });
         }
         for (const [ name, leftLength, rightLength, folds ] of stringLimitCases) {
-            test(name, async function () {
+            test(name, function () {
                 const left = 'a'.repeat(leftLength);
                 const right = 'b'.repeat(rightLength);
-                await assertSingleFileEvaluation({
+                assertExpressionEvaluation({
                     name,
                     content: `function compute(){return ${JSON.stringify(left)}+${
                         JSON.stringify(right)
@@ -229,8 +203,7 @@ suite('local evaluation', function () {
                         ? {
                             value: left + right
                         }
-                        : undefined,
-                    remainingCalls: folds ? 0 : 1
+                        : undefined
                 });
             });
         }

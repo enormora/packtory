@@ -1,296 +1,340 @@
 import { suite, test } from 'mocha';
-import { assertSingleFileCallReduction } from '../test-libraries/dead-code-elimination-single-file-case.ts';
+import { assertReturnEvaluation, type ReturnEvaluationCase } from '../test-libraries/expression-evaluation-case.ts';
 
-const discardedRecordCases = [ {
+const discardedRecordCases: readonly ReturnEvaluationCase[] = [ {
     name: 'unused record result with constant argument',
     content:
         'function compute(n){const state={sum:0};for(let i=0;i<n;i++)state.sum+=i;return state;}const limit=10;const unused=compute(limit);export function probe(){return 42;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'unused cyclic record result',
     content:
         'function compute(){const state={self:null,n:1};state.self=state;state.self.n++;return state;}const unused=compute();export function probe(){return 42;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'unused getter result after a loop',
     content:
         'function compute(n){const state={sum:0};for(let i=0;i<n;i++)state.sum+=i;return {get value(){console.log("never");return state.sum;}};}const unused=compute(10);export function probe(){return 42;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'unused method result after a loop',
     content:
         'function compute(n){const state={sum:0};for(let i=0;i<n;i++)state.sum+=i;return {method(){console.log("never");return state.sum;}};}const unused=compute(10);export function probe(){return 42;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'unused function-valued field',
     content:
         'function compute(n){const state={value:n};state.value++;return {method:()=>{console.log("never");return state.value;}};}const unused=compute(1);export function probe(){return 42;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'data field beside an unused method',
     content:
         'function compute(n){return {value:n,method(){console.log("never");}};}export function probe(){return compute(42).value;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'data field beside an unused getter',
     content:
         'function compute(n){return {value:n,get other(){console.log("never");}};}export function probe(){return compute(42).value;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'data overrides a getter',
     content:
         'function compute(){return {get n(){console.log("never");return 0;},n:42};}export function probe(){return compute().n;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'data overrides a function-valued field',
     content:
         'function compute(){return {n:()=>console.log("never"),n:42};}export function probe(){return compute().n;}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'computed method key order',
     content:
         'function compute(){let n=1;return {[(n+=1,"method")](){console.log("never");},value:n};}export function probe(){return compute().value;}',
-    calls: 0
+    discardable: true,
+    result: { value: 2 }
 }, {
     name: 'null prototype own getter',
     content:
         'function compute(){return {__proto__:null,get n(){console.log("get");return 42;}};}export function probe(){return compute().n;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'null prototype accessor assignment',
     content:
         'function compute(){const state={__proto__:null,set n(value){console.log("set",value);}};state.n=42;return 7;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'getter overrides data',
     content:
         'function compute(){return {n:0,get n(){console.log("get");return 42;}};}export function probe(){return compute().n;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'method overrides data',
     content: 'function compute(){return {n:0,n(){return 42;}};}export function probe(){return typeof compute().n;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'function-valued prototype setter',
     content: 'function compute(){return {__proto__:function(){},n:42};}export function probe(){return compute().n;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'computed method key coercion',
     content:
         'function compute(){const key={toString(){console.log("key");return "method";}};return {[key](){},value:42};}export function probe(){return compute().value;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'opaque prototype property on a null prototype',
     content:
         'function compute(){return {__proto__:null,get __proto__(){console.log("get");return 42;}};}export function probe(){return compute().__proto__;}',
-    calls: 1
+    discardable: false,
+    result: undefined
 } ];
 
-const recordWriteCases = [ {
+const recordWriteCases: readonly ReturnEvaluationCase[] = [ {
     name: 'empty record state loop',
     content:
         'function compute(n){const state={sum:0};for(let i=0;i<n;i++)state.sum+=i;return state.sum;}export function probe(){return compute(0);}',
-    calls: 0
+    discardable: true,
+    result: { value: 0 }
 }, {
     name: 'record state loop',
     content:
         'function compute(n){const state={sum:0};for(let i=0;i<n;i++)state.sum+=i;return state.sum;}export function probe(){return compute(10);}',
-    calls: 0
+    discardable: true,
+    result: { value: 45 }
 }, {
     name: 'nested record state',
     content:
         'function compute(){const state={counter:{n:0},sum:0};for(let i=0;i<5;i++)state.sum+=state.counter.n++;return state.sum;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 10 }
 }, {
     name: 'shared alias',
     content:
         'function compute(){const state={n:1};const alias=state;alias.n++;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 2 }
 }, {
     name: 'record passed to another function',
     content:
         'function increment(state){state.n++;return state.n;}function compute(){const state={n:1};const result=increment(state);return state.n*100+result;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 202 }
 }, {
     name: 'compound value before right side mutation',
     content:
         'function compute(){let reads=0;const state={n:1};state[(reads++,"n")]+=((state.n=5),2);return state.n*10+reads;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 31 }
 }, {
     name: 'assignment receiver before right side rebinding',
     content:
         'function compute(){let state={n:1};const original=state;state.n=(state={n:9},2);return original.n*100+state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 209 }
 }, {
     name: 'compound receiver before right side rebinding',
     content:
         'function compute(){let state={n:1};const original=state;state.n+=(state={n:9},2);return original.n*100+state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 309 }
 }, {
     name: 'computed update receiver evaluated once',
     content:
         'function compute(){let reads=0;const state={nested:{n:1}};const before=state[(reads++,"nested")].n++;return before*100+reads;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 101 }
 }, {
     name: 'postfix negative zero',
     content: 'function compute(){const state={n:-0};return state.n++;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: -0 }
 }, {
     name: 'string accumulation',
     content:
         'function compute(){const state={text:"a"};state.text+="b";return state.text;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 'ab' }
 }, {
     name: 'addition assignment',
     content: 'function compute(){const state={n:12};return state.n+=3;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 15 }
 }, {
     name: 'subtraction assignment',
     content: 'function compute(){const state={n:12};return state.n-=3;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 9 }
 }, {
     name: 'multiplication assignment',
     content: 'function compute(){const state={n:12};return state.n*=3;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 36 }
 }, {
     name: 'division assignment',
     content: 'function compute(){const state={n:12};return state.n/=3;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 4 }
 }, {
     name: 'remainder assignment',
     content: 'function compute(){const state={n:12};return state.n%=3;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 0 }
 }, {
     name: 'active OR assignment',
     content:
         'function compute(){const state={n:0};state.n||=42;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'bypassed OR assignment',
     content:
         'function compute(){const state={n:3};return state.n||=missing();}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 3 }
 }, {
     name: 'active AND assignment',
     content:
         'function compute(){const state={n:3};state.n&&=42;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'bypassed AND assignment',
     content:
         'function compute(){const state={n:0};return state.n&&=missing();}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 0 }
 }, {
     name: 'active nullish assignment',
     content:
         'function compute(){const state={n:null};state.n??=42;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'bypassed nullish assignment',
     content:
         'function compute(){const state={n:0};return state.n??=missing();}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 0 }
 }, {
     name: 'bypassed const binding assignment',
     content: 'function compute(){const value=3;return value||=missing();}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 3 }
 }, {
     name: 'null prototype added field',
     content:
         'function compute(){const state={__proto__:null};state.n=42;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'null prototype added prototype field',
     content:
         'function compute(){const state={__proto__:null};state.__proto__={n:42};return state.__proto__.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'cyclic record identity',
     content:
         'function compute(){const state={self:null};state.self=state;return state.self===state;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: true }
 }, {
     name: 'write through a cyclic alias',
     content:
         'function compute(){const state={self:null,n:1};state.self=state;state.self.n++;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 2 }
 }, {
     name: 'own field bypasses inherited setter',
     content:
         'Object.defineProperty(Object.prototype,"n",{set(value){console.log("setter",value);}});function compute(){const state={n:1};state.n=42;return state.n;}export function probe(){return compute();}',
-    calls: 0
+    discardable: true,
+    result: { value: 42 }
 }, {
     name: 'const binding failure',
     content:
         'function compute(){const state={n:1};state={n:42};return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'active const logical assignment failure',
     content: 'function compute(){const value=0;return value||=42;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'inherited setter',
     content:
         'Object.defineProperty(Object.prototype,"n",{set(value){console.log("setter",value);}});function compute(){const state={};state.n=42;return 7;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'ordinary prototype replacement',
     content:
         'function compute(){const state={};state.__proto__={n:42};return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'accessor assignment',
     content:
         'function compute(){const state={set n(value){console.log("setter",value);}};state.n=42;return 7;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'Proxy assignment',
     content:
         'function compute(){const state=new Proxy({n:1},{set(target,key,value){console.log("set",key,value);return Reflect.set(target,key,value);}});state.n=42;return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'frozen record failure',
     content:
         'function compute(){const state={n:1};Object.freeze(state);state.n=42;return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'escaped mutable record',
     content:
         'function publish(state){globalThis.saved=state;console.log("escape");}function compute(){const state={n:1};publish(state);state.n=42;return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'record coercion in compound assignment',
     content:
         'Object.defineProperty(Object.prototype,"valueOf",{value(){console.log("coerce");return 41;}});function compute(){const state={n:{}};return state.n+=1;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 }, {
     name: 'evaluation budget fallback',
     content:
         'function compute(){const state={n:0};for(let i=0;i<4000;i++)state.n++;return state.n;}export function probe(){return compute();}',
-    calls: 1
+    discardable: false,
+    result: undefined
 } ];
 
 for (
-    const { title, cases } of [
-        { title: 'record result discardability', cases: discardedRecordCases },
-        { title: 'bounded record writes', cases: recordWriteCases }
-    ]
+    const { title, cases } of [ { title: 'record result discardability', cases: discardedRecordCases }, {
+        title: 'bounded record writes',
+        cases: recordWriteCases
+    } ]
 ) {
     suite(title, function () {
-        for (
-            const {
-                name,
-                content,
-                calls
-            } of cases
-        ) {
-            test(`preserves ${name}`, async function () {
-                await assertSingleFileCallReduction({
-                    content,
-                    targetFilePath: 'index.js',
-                    callee: 'compute',
-                    remainingCalls: calls
-                });
+        for (const input of cases) {
+            test(`preserves ${input.name}`, function () {
+                assertReturnEvaluation(input);
             });
         }
     });
