@@ -9,8 +9,11 @@ import {
     type BindingLocation
 } from './reachability/binding-extractor.ts';
 
-export type LoadedCodeResource = SourcePreparation & {
+type CodeResourceSource = SourcePreparation & {
     readonly resource: LinkedBundleResource;
+};
+
+export type LoadedCodeResource = CodeResourceSource & {
     readonly bindings: readonly BindingDescriptor[];
     readonly symbolLocations: readonly BindingLocation[];
 };
@@ -34,11 +37,11 @@ function projectForResource(
     return isDeclarationCodeFile(resource.fileDescription.targetFilePath) ? declarationProject : runtimeProject;
 }
 
-export function loadResource(
+function loadResource(
     runtimeProject: Project,
     declarationProject: Project,
     resource: LinkedBundleResource
-): LoadedResource {
+): CodeResourceSource | LoadedNonCodeResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
         return { resource, sourceFile: undefined };
     }
@@ -48,8 +51,22 @@ export function loadResource(
         resource.fileDescription.content,
         { overwrite: true }
     );
-    const preparation = createSourcePreparation(sourceFile);
-    const bindings = extractTopLevelBindings(sourceFile);
-    const symbolLocations = captureBindingLocations(bindings);
-    return { resource, ...preparation, bindings, symbolLocations };
+    return { resource, ...createSourcePreparation(sourceFile) };
+}
+
+export function loadResources(
+    runtimeProject: Project,
+    declarationProject: Project,
+    resources: readonly LinkedBundleResource[]
+): readonly LoadedResource[] {
+    const loaded = resources.map(function (resource) {
+        return loadResource(runtimeProject, declarationProject, resource);
+    });
+    return loaded.map(function (entry) {
+        if (entry.sourceFile === undefined) {
+            return entry;
+        }
+        const bindings = extractTopLevelBindings(entry.sourceFile);
+        return { ...entry, bindings, symbolLocations: captureBindingLocations(bindings) };
+    });
 }

@@ -4,11 +4,11 @@ import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
-import { loadResource, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
+import { loadResources, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 
 function loadedCodeResource(content: string): LoadedCodeResource {
-    const loaded = loadResource(createProject(), createProject(), {
+    const [ loaded ] = loadResources(createProject(), createProject(), [ {
         fileDescription: {
             inputFilePath: '/source/a.ts',
             targetFilePath: 'a.ts',
@@ -19,8 +19,8 @@ function loadedCodeResource(content: string): LoadedCodeResource {
         moduleReferences: [],
         isExplicitlyIncluded: true,
         isSubstituted: false
-    });
-    if (loaded.sourceFile === undefined) {
+    } ]);
+    if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a code resource');
     }
     return loaded;

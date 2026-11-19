@@ -5,16 +5,16 @@ import { bundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource } from '../code-file-analyzer.ts';
-import { loadResource, type LoadedCodeResource } from '../load-resource.ts';
+import { loadResources, type LoadedCodeResource } from '../load-resource.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import { prepareLocalRuntimeSource } from './local-source-preparation.ts';
 
 function preparedResource(content: string): LoadedCodeResource {
-    const loaded = loadResource(createProject(), createProject(), {
+    const [ loaded ] = loadResources(createProject(), createProject(), [ {
         ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
-    });
-    if (loaded.sourceFile === undefined) {
+    } ]);
+    if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a runtime source');
     }
     prepareLocalRuntimeSource(loaded);
