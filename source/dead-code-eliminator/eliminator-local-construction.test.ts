@@ -2,12 +2,14 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
-    eliminateDeadCodeAndAssertExpectedOutput,
     eliminateDeadCodeAndAssertAllOutputValid
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import { prepareStandaloneRuntimeSource } from '../test-libraries/standalone-runtime-source.ts';
+import { eliminateEntryModule } from '../test-libraries/eliminator-test-support.ts';
+import { withSource } from '../test-libraries/transform-test-support.ts';
 
 type ConstructionCase = {
     readonly name: string;
@@ -141,6 +143,51 @@ const cases: readonly ConstructionCase[] = [ {
 } ];
 
 suite('local construction elimination', function () {
+    test('retains class initialization before argument effects through the DCE pipeline', async function () {
+        const source = withSource(
+            await eliminateEntryModule(
+                'const unused=new(class{static{console.log("definition");}})(console.log("argument"));export function probe(){return 42;}'
+            )
+        );
+        assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.NewExpression).length, 0);
+        assert.deepStrictEqual(
+            source.getDescendantsOfKind(SyntaxKind.CallExpression).map(function (call) {
+                return call.getArguments().map(function (argument) {
+                    return argument.getText();
+                });
+            }),
+            [ [ '"definition"' ], [ '"argument"' ] ]
+        );
+        assert.deepStrictEqual(
+            source.getExportSymbols().map(function (symbol) {
+                return symbol.getName();
+            }),
+            [ 'probe' ]
+        );
+    });
+
+    test('retains a static prototype error before argument evaluation through the DCE pipeline', async function () {
+        const source = withSource(
+            await eliminateEntryModule(
+                'const unused=new(class{static ["prototype"]=42;})(console.log("unreachable"));export function probe(){return 42;}'
+            )
+        );
+        const field = source.getFirstDescendantByKindOrThrow(SyntaxKind.PropertyDeclaration);
+        const argument = source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
+        assert.strictEqual(field.isStatic(), true);
+        assert.strictEqual(field.getNameNode().getText(), '["prototype"]');
+        assert.strictEqual(field.getInitializerOrThrow().getText(), '42');
+        assert.strictEqual(argument.getText(), 'console.log("unreachable")');
+        assert.ok(field.getStart() < argument.getStart());
+        assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.NewExpression).length, 0);
+        assert.deepStrictEqual(
+            source.getExportSymbols().map(function (symbol) {
+                return symbol.getName();
+            }),
+            [ 'probe' ]
+        );
+    });
+
     test('removes the unused class together with its instance', async function () {
         const fixture = singleFileOracleCase(
             'class Empty{}const unused=new Empty();export function probe(){return 42;}',
@@ -161,15 +208,19 @@ suite('local construction elimination', function () {
         assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.NewExpression).length, 0);
     });
     for (const fixture of cases) {
-        test(`preserves ${fixture.name}`, async function () {
-            const input = singleFileOracleCase(`${fixture.content}export function probe(){return 42;}`, 'index.js');
-            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(input);
-            assertDefined(output);
-            const remaining = output.contents.reduce(function (count, resource) {
-                const source = createProject().createSourceFile('output.js', resource.fileDescription.content);
-                return count + source.getDescendantsOfKind(SyntaxKind.NewExpression).length;
-            }, 0);
-            assert.strictEqual(remaining, fixture.remaining);
+        test(`preserves ${fixture.name}`, function () {
+            const source = createProject().createSourceFile(
+                'index.js',
+                `${fixture.content}export function probe(){return 42;}`
+            );
+            prepareStandaloneRuntimeSource(source);
+            assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.NewExpression).length, fixture.remaining);
+            assert.deepStrictEqual(
+                source.getExportSymbols().map(function (symbol) {
+                    return symbol.getName();
+                }),
+                [ 'probe' ]
+            );
         });
     }
 });
