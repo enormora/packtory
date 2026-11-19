@@ -2,7 +2,10 @@ import assert from 'node:assert';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
 import type { Packtory, ReleasePlanPackage } from '../packtory/packtory.ts';
-import type { ReleasePullRequestHandlerDependencies } from '../command-line-interface/runner/release-pull-request-handler.ts';
+import {
+    runReleasePullRequestHandler,
+    type ReleasePullRequestHandlerDependencies
+} from '../command-line-interface/runner/release-pull-request-handler.ts';
 import type { ReleasePullRequestGitHubClient } from '../command-line-interface/runner/release-pull-request-github-client.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
@@ -265,6 +268,27 @@ export function createPullRequestHead(
         subject: 'Release packages',
         title: 'Prepare release',
         ...overrides
+    };
+}
+
+export function createMergeGroupAncestryTest(
+    parentHash: string,
+    expectedExitCode: number,
+    expectedMessage: string
+): () => Promise<void> {
+    return async function () {
+        const listCommitPullRequests = fake.resolves([ { number: 12 } ]);
+        const getPullRequestHead = fake.resolves(createPullRequestHead({ parentHashes: [ parentHash ] }));
+        const { dependencies, log } = createValidationDependencies(
+            'merge_group',
+            { merge_group: { base_sha: 'base-sha', head_sha: 'head-sha' } },
+            { getPullRequestHead, listCommitPullRequests }
+        );
+
+        assert.strictEqual(await runReleasePullRequestHandler(dependencies), expectedExitCode);
+        assert.strictEqual(listCommitPullRequests.firstCall.args[0], 'head-sha');
+        assert.strictEqual(getPullRequestHead.firstCall.args[0], 12);
+        assert.strictEqual(log.lastCall.args[0], expectedMessage);
     };
 }
 
