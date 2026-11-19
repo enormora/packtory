@@ -3,13 +3,12 @@ type DeclarationCompanionRule = {
     readonly javaScriptExtension: string;
 };
 
-const declarationCompanionRules: readonly DeclarationCompanionRule[] = [
-    { declarationExtensions: [ '.d.mts', '.d.ts' ], javaScriptExtension: '.mjs' },
-    { declarationExtensions: [ '.d.cts', '.d.ts' ], javaScriptExtension: '.cjs' },
-    { declarationExtensions: [ '.d.ts' ], javaScriptExtension: '.js' }
-];
-
 export function declarationCompanionCandidates(filePath: string): readonly string[] {
+    const declarationCompanionRules: readonly DeclarationCompanionRule[] = [
+        { declarationExtensions: [ '.d.mts', '.d.ts' ], javaScriptExtension: '.mjs' },
+        { declarationExtensions: [ '.d.cts', '.d.ts' ], javaScriptExtension: '.cjs' },
+        { declarationExtensions: [ '.d.ts' ], javaScriptExtension: '.js' }
+    ];
     const rule = declarationCompanionRules.find(function (candidate) {
         return filePath.endsWith(candidate.javaScriptExtension);
     });
