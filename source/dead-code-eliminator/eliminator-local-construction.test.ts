@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
-    assertDeadCodeEliminationOutput,
+    eliminateDeadCodeAndAssertExpectedOutput,
     eliminateDeadCodeAndAssertAllOutputValid
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
@@ -163,8 +163,7 @@ suite('local construction elimination', function () {
     for (const fixture of cases) {
         test(`preserves ${fixture.name}`, async function () {
             const input = singleFileOracleCase(`${fixture.content}export function probe(){return 42;}`, 'index.js');
-            await assertDeadCodeEliminationOutput(input);
-            const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(input);
+            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(input);
             assertDefined(output);
             const remaining = output.contents.reduce(function (count, resource) {
                 const source = createProject().createSourceFile('output.js', resource.fileDescription.content);

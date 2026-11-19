@@ -2,8 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
-    assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -312,8 +311,7 @@ suite('unused call effects', function () {
                 ? content
                 : `${content}\nexport function probe() { return 42; }`;
             const fixture = singleFileOracleCase(source, targetFilePath);
-            await assertDeadCodeEliminationOutput(fixture);
-            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             const output = result[0]?.contents[0]?.fileDescription.content;
             assertDefined(output);
             assertRemainingCalls(output, namedCalls, inlineCalls);

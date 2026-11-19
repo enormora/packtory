@@ -2,8 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
-    assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -24,8 +23,7 @@ suite('construction value specialization', function () {
                 `class Empty{}export const value=${expression};export function probe(){return value;}`,
                 'index.js'
             );
-            await assertDeadCodeEliminationOutput(fixture);
-            const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             assertDefined(output);
             const content = output
                 .contents
@@ -54,8 +52,7 @@ suite('construction value specialization', function () {
     ) {
         test(`preserves observable construction in ${content}`, async function () {
             const fixture = singleFileOracleCase(`${content}export function probe(){return value;}`, 'index.js');
-            await assertDeadCodeEliminationOutput(fixture);
-            const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             assertDefined(output);
             const remaining = output.contents.reduce(function (count, resource) {
                 const source = createProject().createSourceFile('output.js', resource.fileDescription.content);

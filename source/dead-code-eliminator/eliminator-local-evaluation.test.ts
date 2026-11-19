@@ -5,7 +5,7 @@ import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     type DeadCodeEliminationCase,
     assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 
 import {
@@ -309,8 +309,7 @@ suite('local evaluation', function () {
                     exportName: 'read'
                 }
             };
-            await assertDeadCodeEliminationOutput(called);
-            const bundles = await eliminateDeadCodeAndAssertAllOutputValid(called);
+            const bundles = await eliminateDeadCodeAndAssertExpectedOutput(called);
             const output = bundles[0]?.contents[0]?.fileDescription.content;
             assert.strictEqual(output?.includes('compute'), false);
             assert.strictEqual(output.includes('export function read() { return (42); }'), true);
@@ -335,8 +334,7 @@ suite('local evaluation', function () {
         for (const content of publicComputations) {
             test(`specializes public results: ${content}`, async function () {
                 const fixture = evaluationCase(content);
-                await assertDeadCodeEliminationOutput(fixture);
-                const bundles = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+                const bundles = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
                 const output = emittedCode(bundles);
                 assert.strictEqual(output.includes('compute'), false);
                 assert.strictEqual(output.includes('export const value'), true);
@@ -356,8 +354,7 @@ suite('local evaluation', function () {
         for (const content of removable) {
             test(`removes the complete computation: ${content}`, async function () {
                 const fixture = evaluationCase(content);
-                await assertDeadCodeEliminationOutput(fixture);
-                const bundles = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+                const bundles = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
                 const output = emittedCode(bundles);
                 assert.strictEqual(output.trim(), 'export function probe() { return 42; }');
             });

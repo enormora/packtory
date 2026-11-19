@@ -98,3 +98,11 @@ export async function assertDeadCodeEliminationOutput(
         bundles: eliminated
     };
 }
+
+export async function eliminateDeadCodeAndAssertExpectedOutput(
+    input: DeadCodeEliminationCase
+): Promise<readonly AnalyzedBundle[]> {
+    const { bundles } = await assertDeadCodeEliminationOutput(input);
+    assertValidDeadCodeEliminationOutput(input.name, bundles);
+    return bundles;
+}

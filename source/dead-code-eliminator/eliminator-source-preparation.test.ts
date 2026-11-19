@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationOutput,
+    eliminateDeadCodeAndAssertExpectedOutput,
     eliminateDeadCodeAndAssertAllOutputValid
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
@@ -105,8 +106,7 @@ suite('source preparation elimination', function () {
                 ? content
                 : `${content}\nexport function probe() { return 42; }`;
             const fixture = singleFileOracleCase(source, 'index.js');
-            await assertDeadCodeEliminationOutput(fixture);
-            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             const output = result[0]?.contents[0]?.fileDescription.content;
             assertDefined(output);
             assert.strictEqual(output.includes('unreachable'), false);
