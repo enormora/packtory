@@ -69,6 +69,12 @@ jobs:
                   mutation_monitor_pid=$!
                   trap 'kill "$mutation_monitor_pid" 2>/dev/null || true' EXIT
                   npx just test-mutation
+            - name: Save normal mutation report
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: mutation-report-normal
+                  path: target/stryker/mutation-report.json
             - name: Validate reversed mutation test order
               run: |
                   cp target/stryker/mutation-report.json target/stryker/mutation-report-normal.json
