@@ -1,8 +1,23 @@
 diff --git a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
-index f769974e..82f7f912 100644
+index f769974e..c71e3839 100644
 --- a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
 +++ b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
-@@ -88,7 +88,7 @@ export class MochaTestRunner {
+@@ -11,6 +11,7 @@ export class MochaTestRunner {
+     mocha;
+     instrumenterContext;
+     originalGrep;
++    selectedTestIds;
+     beforeEach;
+     static inject = tokens(commonTokens.logger, commonTokens.options, pluginTokens.loader, pluginTokens.mochaAdapter, pluginTokens.globalNamespace);
+     loadedEnv = false;
+@@ -82,13 +83,14 @@ export class MochaTestRunner {
+         return runResult;
+     }
+     async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation, }) {
++        this.selectedTestIds = testFilter?.length ? new Set(testFilter) : undefined;
+         this.instrumenterContext.hitLimit = hitLimit;
+         this.instrumenterContext.hitCount = hitLimit ? 0 : undefined;
+         if (testFilter) {
              const metaRegExp = testFilter
                  .map((testId) => `(^${escapeRegExp(testId)}$)`)
                  .join('|');
@@ -11,7 +26,35 @@ index f769974e..82f7f912 100644
              this.mocha.grep(regex);
          }
          else {
-@@ -160,4 +160,14 @@ export class MochaTestRunner {
+@@ -99,6 +101,7 @@ export class MochaTestRunner {
+     }
+     async run(disableBail, activeMutantId, mutantActivation) {
+         setBail(!disableBail, this.mocha.suite);
++        let restoreTests = () => { };
+         try {
+             if (!this.loadedEnv) {
+                 this.instrumenterContext.activeMutant =
+@@ -109,6 +112,9 @@ export class MochaTestRunner {
+                 this.loadedEnv = true;
+             }
+             this.instrumenterContext.activeMutant = activeMutantId;
++            if (this.selectedTestIds) {
++                restoreTests = selectTests(this.mocha.suite, this.selectedTestIds);
++            }
+             await this.runMocha();
+             const reporter = StrykerMochaReporter.currentInstance;
+             if (reporter) {
+@@ -137,6 +143,9 @@ export class MochaTestRunner {
+                 status: DryRunStatus.Error,
+             };
+         }
++        finally {
++            restoreTests();
++        }
+         function setBail(bail, suite) {
+             suite.bail(bail);
+             suite.suites.forEach((childSuite) => setBail(bail, childSuite));
+@@ -160,4 +169,31 @@ export class MochaTestRunner {
          });
      }
  }
@@ -24,6 +67,23 @@ index f769974e..82f7f912 100644
 +    test(testId) {
 +        return this.#testIds.size === 0 || this.#testIds.has(testId);
 +    }
++}
++
++function selectTests(root, selected) {
++    const originals = [];
++    function select(suite) {
++        originals.push([suite, suite.tests, suite.suites]);
++        suite.tests = suite.tests.filter((test) => selected.has(test.fullTitle()));
++        suite.suites = suite.suites.filter(select);
++        return suite.tests.length > 0 || suite.suites.length > 0;
++    }
++    select(root);
++    return () => {
++        for (const [suite, tests, suites] of originals) {
++            suite.tests = tests;
++            suite.suites = suites;
++        }
++    };
 +}
  //# sourceMappingURL=mocha-test-runner.js.map
 \ No newline at end of file
