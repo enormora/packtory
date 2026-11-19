@@ -69,15 +69,35 @@ jobs:
                   mutation_monitor_pid=$!
                   trap 'kill "$mutation_monitor_pid" 2>/dev/null || true' EXIT
                   npx just test-mutation
-            - name: Save normal mutation report
+            - name: Save mutation report
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  name: mutation-report-normal
-                  path: target/stryker/mutation-report.json
+                  name: mutation-report
+                  path: |
+                      target/stryker/mutation-report.json
+                      target/mutation-system-resources.log
+
+    mutation-order-validation:
+        runs-on: ubuntu-latest
+        name: Reversed mutation validation
+        timeout-minutes: 90
+        permissions:
+            contents: read # required for actions/checkout to read the workflow source
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 26.x
+                  cache: npm
+            - name: Install dependencies
+              run: npm clean-install --ignore-scripts
             - name: Validate reversed mutation test order
               run: |
-                  cp target/stryker/mutation-report.json target/stryker/mutation-report-normal.json
+                  mkdir -p target
                   node --input-type=module <<'NODE'
                   import fs from 'node:fs';
                   import path from 'node:path';
@@ -103,14 +123,17 @@ jobs:
                   config.mochaOptions.require = [...mocha.require, hookPath];
                   fs.writeFileSync('target/stryker-reversed.config.json', JSON.stringify(config));
                   NODE
+                  vmstat 10 > target/mutation-system-resources.log &
+                  mutation_monitor_pid=$!
+                  trap 'kill "$mutation_monitor_pid" 2>/dev/null || true' EXIT
                   npx just test-mutation target/stryker-reversed.config.json
             - name: Save mutation report
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  name: mutation-report
+                  name: mutation-report-reversed
                   path: |
-                      target/stryker/mutation-report*.json
+                      target/stryker/mutation-report.json
                       target/mutation-system-resources.log
 
     benchmarks:
