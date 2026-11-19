@@ -35,9 +35,6 @@ export function applySourcePreparation(
     });
     for (const pass of passes) {
         const edits = editsFor(pass.sourceFile);
-        if (edits.length === 0) {
-            return;
-        }
         pass.applyEdits(edits);
     }
 }
