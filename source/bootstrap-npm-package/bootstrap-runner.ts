@@ -24,8 +24,6 @@ export type BootstrapRunner = {
 const registryAddress = 'https://registry.npmjs.org/';
 const workaroundAddress = 'https://github.com/npm/cli/issues/8544';
 const distTag = 'bootstrap';
-const placeholderVersion = '0.0.1';
-const placeholderLicense = 'MIT';
 
 function buildManifestDescription(packageName: string): string {
     return (
@@ -42,9 +40,9 @@ function buildDeprecationMessage(): string {
 function buildManifest(packageName: string): PublicationManifest {
     return {
         name: packageName,
-        version: placeholderVersion,
+        version: '0.0.1',
         description: buildManifestDescription(packageName),
-        license: placeholderLicense,
+        license: 'MIT',
         deprecated: buildDeprecationMessage()
     };
 }
