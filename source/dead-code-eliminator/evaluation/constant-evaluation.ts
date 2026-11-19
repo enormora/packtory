@@ -8,6 +8,7 @@ import { createConstantBindingValues, localReadHasNoEffects, type KnownConstants
 import { createBoundedEvaluator } from './local-call.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult, type AbstractValue } from './abstract-value.ts';
+import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 
 export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
@@ -27,7 +28,10 @@ export function createSourceEvaluations(
     };
 }
 
-function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
+function evaluateSourceConstants(
+    sourceFile: SourceFile,
+    createEvaluator: typeof createBoundedEvaluator
+): SourceEvaluation {
     let bounded: SourceEvaluation['knownValue'] | null = null;
     const evaluation: { readonly values: KnownConstants; readonly evaluate: SourceEvaluation['knownValue']; } = {
         values: createConstantBindingValues(
@@ -37,7 +41,7 @@ function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
             }
         ),
         get evaluate() {
-            bounded = bounded ?? createBoundedEvaluator(sourceFile, evaluation.values);
+            bounded = bounded ?? createEvaluator(sourceFile, evaluation.values);
             return bounded;
         }
     };
@@ -54,20 +58,28 @@ function evaluateSourceConstants(sourceFile: SourceFile): SourceEvaluation {
     };
 }
 
-export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
+function sourceEvaluation(sourceFile: SourceFile, createEvaluator: typeof createBoundedEvaluator): SourceEvaluation {
     let evaluation: SourceEvaluation | null = null;
     return {
         knownValue(expression) {
-            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile, createEvaluator);
             return evaluation.knownValue(expression);
         },
         primitiveValue(expression) {
-            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile, createEvaluator);
             return evaluation.primitiveValue(expression);
         },
         canDiscard(expression) {
-            evaluation = evaluation ?? evaluateSourceConstants(sourceFile);
+            evaluation = evaluation ?? evaluateSourceConstants(sourceFile, createEvaluator);
             return evaluation.canDiscard(expression);
         }
     };
+}
+
+export function createSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
+    return sourceEvaluation(sourceFile, createBoundedEvaluator);
+}
+
+export function createRuntimeSourceEvaluation(sourceFile: SourceFile): SourceEvaluation {
+    return sourceEvaluation(sourceFile, createRuntimeBoundedEvaluator);
 }

@@ -13,7 +13,7 @@ import {
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
-import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from './evaluation/constant-evaluation.ts';
 import { resourceDeclarationIsHarmless } from './evaluation/resource-binding.ts';
 
 type StatementClassifier = (
@@ -76,7 +76,7 @@ function resourceStatementHasEffects(statement: VariableStatement): boolean {
     if (![ VariableDeclarationKind.Using, VariableDeclarationKind.AwaitUsing ].includes(kind)) {
         return false;
     }
-    const evaluate = createSourceEvaluation(statement.getSourceFile()).primitiveValue;
+    const evaluate = createRuntimeSourceEvaluation(statement.getSourceFile()).primitiveValue;
     return statement.getDeclarations().some(function (declaration) {
         return !resourceDeclarationIsHarmless(kind, declaration, evaluate);
     });

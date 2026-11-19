@@ -9,7 +9,7 @@ import {
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { resolveImportedExpressionPropertyPath } from '../imported-expression-origin.ts';
 import { constantInitializer } from './constant-binding.ts';
-import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from './constant-evaluation.ts';
 import { moduleDependenciesInitialize, moduleInitializesBinding } from './module-initialization.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 
@@ -102,5 +102,5 @@ export function evaluateImportedConstant(
     ) {
         return undefined;
     }
-    return createSourceEvaluation(binding.expression.getSourceFile()).primitiveValue(binding.expression);
+    return createRuntimeSourceEvaluation(binding.expression.getSourceFile()).primitiveValue(binding.expression);
 }

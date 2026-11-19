@@ -1,5 +1,4 @@
-import type { CallExpression, Expression, SourceFile } from 'ts-morph';
-import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
+import type { Expression, SourceFile } from 'ts-morph';
 import {
     createLocalScope,
     createEvaluationBudget,
@@ -19,11 +18,7 @@ export function createBoundedEvaluator(
     values: KnownConstants
 ): (expression: Expression) => AbstractValue | undefined {
     const evaluateCallSite = createCallEvaluator(sourceFile);
-    const sourceIsValid = runtimeSourceIsValid(sourceFile);
     return function (expression) {
-        if (!sourceIsValid) {
-            return undefined;
-        }
         const context: EvaluationContext = {
             locals: createLocalScope(new Map()),
             depth: 0,
@@ -47,8 +42,4 @@ export function createConstantEvaluator(
     return function (expression) {
         return primitiveResult(evaluate(expression));
     };
-}
-
-export function evaluateLocalCall(call: CallExpression): EvaluatedValue | undefined {
-    return createConstantEvaluator(call.getSourceFile(), new Map())(call);
 }

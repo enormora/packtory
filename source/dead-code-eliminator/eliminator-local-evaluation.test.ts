@@ -17,10 +17,6 @@ import { bundleForCodeFile, inputs, inputWithoutTransformations } from '../test-
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
 const evaluationGuards: readonly ExpressionEvaluationCase[] = [ {
-    name: 'retains malformed argument syntax',
-    content: 'function compute(input){return input;}export const value=compute(,);',
-    result: undefined
-}, {
     name: 'folds unary plus on primitive strings',
     content: 'function compute(){return +"42";}export const value=compute();',
     result: {
@@ -137,10 +133,6 @@ const evaluationGuards: readonly ExpressionEvaluationCase[] = [ {
     name: 'retains unresolved continue label errors',
     content:
         'function compute(){let index=0;while(index<1){index++;continue missing;}return 42;}export const value=compute();',
-    result: undefined
-}, {
-    name: 'retains resource initialization syntax errors',
-    content: 'using resource;export const value=42;',
     result: undefined
 }, {
     name: 'retains numeric coercion when incrementing a string binding',

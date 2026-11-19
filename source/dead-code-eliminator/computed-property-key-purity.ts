@@ -6,7 +6,7 @@ import {
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import { constantDominatesRead } from './evaluation/constant-binding.ts';
-import { createConstantEvaluator } from './evaluation/local-call.ts';
+import { createRuntimeConstantEvaluator } from './evaluation/runtime-evaluation.ts';
 import { evaluateImportedConstant } from './evaluation/imported-constant.ts';
 
 function constantKeyInitializer(expression: Identifier): Expression | undefined {
@@ -18,7 +18,7 @@ function constantKeyInitializer(expression: Identifier): Expression | undefined 
 }
 
 function primitiveExpressionKey(expression: Expression): string | undefined {
-    const value = createConstantEvaluator(expression.getSourceFile(), new Map())(expression);
+    const value = createRuntimeConstantEvaluator(expression.getSourceFile(), new Map())(expression);
     return value === undefined ? undefined : String(value.value);
 }
 

@@ -11,7 +11,11 @@ import {
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { pureDeclarationKinds } from '../syntax-kind-sets.ts';
-import { createSourceEvaluation, createSourceEvaluations, type SourceEvaluation } from './constant-evaluation.ts';
+import {
+    createRuntimeSourceEvaluation,
+    createSourceEvaluations,
+    type SourceEvaluation
+} from './constant-evaluation.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { runtimeImportBindings } from './runtime-import-bindings.ts';
 
@@ -174,11 +178,11 @@ export function moduleInitializesBinding(
     declaration: ExportAssignment | VariableDeclaration,
     resolveModule: RuntimeModuleResolver
 ): boolean {
-    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createRuntimeSourceEvaluation))
         .initializesBinding(declaration);
 }
 
 export function moduleDependenciesInitialize(sourceFile: SourceFile, resolveModule: RuntimeModuleResolver): boolean {
-    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createRuntimeSourceEvaluation))
         .dependenciesInitialize(sourceFile);
 }
