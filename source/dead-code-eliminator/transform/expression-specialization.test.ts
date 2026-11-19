@@ -7,7 +7,7 @@ import { classifySideEffects } from '../../test-libraries/side-effect-classifier
 import { buildAnalyzedResource } from '../code-file-analyzer.ts';
 import { loadResource, type LoadedCodeResource } from '../load-resource.ts';
 import { bindingIdentifier } from '../reachability/binding-identifier.ts';
-import { prepareInitialRuntimeSource } from './runtime-source-preparation.ts';
+import { prepareLocalRuntimeSource } from './local-source-preparation.ts';
 
 function preparedResource(content: string): LoadedCodeResource {
     const loaded = loadResource(createProject(), createProject(), {
@@ -17,7 +17,7 @@ function preparedResource(content: string): LoadedCodeResource {
     if (loaded.sourceFile === undefined) {
         assert.fail('Expected a runtime source');
     }
-    prepareInitialRuntimeSource(loaded);
+    prepareLocalRuntimeSource(loaded);
     return loaded;
 }
 

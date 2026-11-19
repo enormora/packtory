@@ -12,14 +12,14 @@ import {
 } from '../test-libraries/dead-code-elimination-semantic-programs.ts';
 import { inputs } from '../test-libraries/eliminator-test-support.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
+import { prepareLocalRuntimeSource } from './transform/local-source-preparation.ts';
 
 suite('dead code elimination semantic regressions', function () {
     for (const expression of [ '(0, eval)("typeof hidden")', '-1', '-0', '1 / 0', '-1 / 0', '0 / 0' ]) {
         test(`preserves ${expression} without source edits`, function () {
             const content = `export function api() { return ${expression}; }`;
             const preparation = createSourcePreparation(createProject().createSourceFile('index.js', content));
-            prepareInitialRuntimeSource({
+            prepareLocalRuntimeSource({
                 ...preparation,
                 applyEdits(edits) {
                     assert.deepStrictEqual(edits, [], 'canonical runtime expressions must not require source edits');
