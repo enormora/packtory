@@ -1,19 +1,41 @@
 diff --git a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
-index f769974e..c71e3839 100644
+index f769974e..3243c22a 100644
 --- a/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
 +++ b/node_modules/@stryker-mutator/mocha-runner/dist/src/mocha-test-runner.js
-@@ -11,6 +11,7 @@ export class MochaTestRunner {
+@@ -1,3 +1,5 @@
++import fs from 'node:fs';
++import path from 'node:path';
+ import { commonTokens, tokens } from '@stryker-mutator/api/plugin';
+ import { escapeRegExp, testFilesProvided } from '@stryker-mutator/util';
+ import { DryRunStatus, toMutantRunResult, determineHitLimitReached, } from '@stryker-mutator/api/test-runner';
+@@ -11,6 +13,8 @@ export class MochaTestRunner {
      mocha;
      instrumenterContext;
      originalGrep;
 +    selectedTestIds;
++    relatedTests;
      beforeEach;
      static inject = tokens(commonTokens.logger, commonTokens.options, pluginTokens.loader, pluginTokens.mochaAdapter, pluginTokens.globalNamespace);
      loadedEnv = false;
-@@ -82,13 +83,14 @@ export class MochaTestRunner {
+@@ -30,6 +34,9 @@ export class MochaTestRunner {
+         });
+     }
+     async init() {
++        if (process.env.PACKTORY_MUTATION_TEST_PLAN) {
++            this.relatedTests = createRelatedTestSelector(process.env.PACKTORY_MUTATION_TEST_PLAN);
++        }
+         const mochaOptions = this.loader.load(this.options);
+         if (testFilesProvided(this.options)) {
+             mochaOptions.spec = this.options.testFiles;
+@@ -81,14 +88,18 @@ export class MochaTestRunner {
+         delete this.beforeEach;
          return runResult;
      }
-     async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation, }) {
+-    async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation, }) {
++    async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation, sandboxFileName }) {
++        if (mutantActivation === "static" && this.relatedTests) {
++            this.mocha.files = this.relatedTests(this.mocha.files, sandboxFileName);
++        }
 +        this.selectedTestIds = testFilter?.length ? new Set(testFilter) : undefined;
          this.instrumenterContext.hitLimit = hitLimit;
          this.instrumenterContext.hitCount = hitLimit ? 0 : undefined;
@@ -26,7 +48,7 @@ index f769974e..c71e3839 100644
              this.mocha.grep(regex);
          }
          else {
-@@ -99,6 +101,7 @@ export class MochaTestRunner {
+@@ -99,6 +110,7 @@ export class MochaTestRunner {
      }
      async run(disableBail, activeMutantId, mutantActivation) {
          setBail(!disableBail, this.mocha.suite);
@@ -34,7 +56,7 @@ index f769974e..c71e3839 100644
          try {
              if (!this.loadedEnv) {
                  this.instrumenterContext.activeMutant =
-@@ -109,6 +112,9 @@ export class MochaTestRunner {
+@@ -109,6 +121,9 @@ export class MochaTestRunner {
                  this.loadedEnv = true;
              }
              this.instrumenterContext.activeMutant = activeMutantId;
@@ -44,7 +66,7 @@ index f769974e..c71e3839 100644
              await this.runMocha();
              const reporter = StrykerMochaReporter.currentInstance;
              if (reporter) {
-@@ -137,6 +143,9 @@ export class MochaTestRunner {
+@@ -137,6 +152,9 @@ export class MochaTestRunner {
                  status: DryRunStatus.Error,
              };
          }
@@ -54,7 +76,7 @@ index f769974e..c71e3839 100644
          function setBail(bail, suite) {
              suite.bail(bail);
              suite.suites.forEach((childSuite) => setBail(bail, childSuite));
-@@ -160,4 +169,31 @@ export class MochaTestRunner {
+@@ -160,4 +178,56 @@ export class MochaTestRunner {
          });
      }
  }
@@ -83,6 +105,31 @@ index f769974e..c71e3839 100644
 +            suite.tests = tests;
 +            suite.suites = suites;
 +        }
++    };
++}
++function createRelatedTestSelector(planPath) {
++    const graph = JSON.parse(fs.readFileSync(planPath, 'utf8'));
++    const modules = new Map(graph.modules.map((module) => [path.resolve(module.source), module]));
++    const importers = new Map();
++    for (const module of graph.modules) {
++        for (const dependency of module.dependencies) {
++            if (dependency.couldNotResolve && (dependency.module.startsWith('.') || path.isAbsolute(dependency.module))) {
++                throw new Error('Unresolved local mutation test dependency: ' + dependency.module);
++            }
++            const target = path.resolve(dependency.resolved);
++            const parents = importers.get(target) ?? new Set();
++            parents.add(path.resolve(module.source));
++            importers.set(target, parents);
++        }
++    }
++    return (files, mutatedFile) => {
++        if (!modules.has(mutatedFile)) return files;
++        const related = new Set([mutatedFile]);
++        related.forEach(function addImporters(file) {
++            for (const importer of importers.get(file) ?? []) related.add(importer);
++        });
++        const selected = files.filter((file) => !modules.has(file) || related.has(file));
++        return selected.length ? selected : files;
 +    };
 +}
  //# sourceMappingURL=mocha-test-runner.js.map

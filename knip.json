@@ -7,6 +7,7 @@
         "source/**/*.property.ts",
         "source/**/*.type-test.ts",
         "source/test-libraries/test-lifecycle.ts",
+        "source/test-libraries/prepare-mutation-test-plan.entry-point.ts",
         "source/test-libraries/github-release-gate-test-support.ts!",
         "source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts!",
         "source/build-support/mutation-timeout/mutation-timeout-reporter.entry-point.ts!",

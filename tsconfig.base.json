@@ -3,6 +3,7 @@
     "compilerOptions": {
         "lib": [
             "ES2025",
+            "ESNext.Array",
             "DOM",
             "DOM.Iterable"
         ],
