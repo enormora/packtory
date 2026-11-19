@@ -93,6 +93,19 @@ suite('return completion proofs', function () {
     });
 
     suite('unknown statement boundaries', function () {
+        for (const content of [ 'for(missing();true;){return 42;}', 'for(let value=missing;true;){return 42;}' ]) {
+            test(`rejects the unknown initializer in ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', content);
+                assert.strictEqual(
+                    evaluateStatement(
+                        source.getFirstDescendantByKindOrThrow(SyntaxKind.ForStatement),
+                        createBoundedEvaluationContext(0, 100)
+                    ),
+                    undefined
+                );
+            });
+        }
+
         for (const content of [ 'let value=missing;', 'using value=42;' ]) {
             test(`retains unresolved initialization in ${content}`, function () {
                 const source = createProject().createSourceFile('input.ts', content);
