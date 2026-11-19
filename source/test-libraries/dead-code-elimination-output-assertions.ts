@@ -58,12 +58,6 @@ function originalBundles(input: DeadCodeEliminationCase): readonly WritableBundl
         return eliminationInput.bundle;
     });
 }
-function entryBundles(input: DeadCodeEliminationCase, bundles: readonly AnalyzedBundle[]): readonly AnalyzedBundle[] {
-    return bundles.filter(function (bundle) {
-        return bundle.name === input.entry.bundleName;
-    });
-}
-
 export function assertDeadCodeEliminationExpectedOutput(input: DeadCodeEliminationBehaviorComparison): void {
     assertExpectedElimination(input.entry, input.leftBundles, input.rightBundles);
 }
@@ -84,7 +78,10 @@ export async function assertDeadCodeEliminationOutput(
 ): Promise<VerifiedDeadCodeElimination> {
     const original = originalBundles(input);
     const eliminated = await eliminateDeadCodeForAssertion(input);
-    assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
+    const entryBundles = eliminated.filter(function (bundle) {
+        return bundle.name === input.entry.bundleName;
+    });
+    assertValidDeadCodeEliminationOutput(input.name, entryBundles);
     verifyEntryBundle(input.name, input.entry, original, 'original');
     assertDeadCodeEliminationExpectedOutput({
         name: input.name,
@@ -103,6 +100,9 @@ export async function eliminateDeadCodeAndAssertExpectedOutput(
     input: DeadCodeEliminationCase
 ): Promise<readonly AnalyzedBundle[]> {
     const { bundles } = await assertDeadCodeEliminationOutput(input);
-    assertValidDeadCodeEliminationOutput(input.name, bundles);
+    const otherBundles = bundles.filter(function (bundle) {
+        return bundle.name !== input.entry.bundleName;
+    });
+    assertValidDeadCodeEliminationOutput(input.name, otherBundles);
     return bundles;
 }
