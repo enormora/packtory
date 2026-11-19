@@ -23,7 +23,11 @@ import {
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { arePureCallArguments, type PurityContext } from './imported-expression-origin.ts';
+import {
+    arePureCallArguments,
+    type PurityContext,
+    type ExpressionPurityChecker
+} from './imported-expression-origin.ts';
 import { hasPureCallAnnotation } from './call-annotation.ts';
 import {
     importedCallResultFact,
@@ -342,14 +346,24 @@ function expressionFactFor(expression: Expression, context: ExpressionFactContex
     return context.cache.get(expression) ?? cacheCalculatedExpressionFact(expression, context, factFor);
 }
 
+export function createPreparedExpressionPurityChecker(
+    settings: DeadCodeEliminationSettings | undefined,
+    resolveModule: RuntimeModuleResolver
+): ExpressionPurityChecker {
+    const context: ExpressionFactContext = {
+        cache: new WeakMap(),
+        purity: { settings, resolveRuntimeModule: resolveModule }
+    };
+    return function (expression) {
+        return expressionFactIsPure(expressionFactFor(expression, context));
+    };
+}
+
 export function createExpressionPurityChecker(
     settings: DeadCodeEliminationSettings | undefined,
     resolveModule: RuntimeModuleResolver
-): (expression: Expression) => boolean {
+): ExpressionPurityChecker {
     return function (expression) {
-        return expressionFactIsPure(expressionFactFor(expression, {
-            cache: new WeakMap(),
-            purity: { settings, resolveRuntimeModule: resolveModule }
-        }));
+        return createPreparedExpressionPurityChecker(settings, resolveModule)(expression);
     };
 }
