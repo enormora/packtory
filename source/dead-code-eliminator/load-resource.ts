@@ -8,7 +8,6 @@ import {
     type BindingDescriptor,
     type BindingLocation
 } from './reachability/binding-extractor.ts';
-import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
 
 export type LoadedCodeResource = SourcePreparation & {
     readonly resource: LinkedBundleResource;
@@ -38,8 +37,7 @@ function projectForResource(
 export function loadResource(
     runtimeProject: Project,
     declarationProject: Project,
-    resource: LinkedBundleResource,
-    transformationsEnabled: boolean
+    resource: LinkedBundleResource
 ): LoadedResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
         return { resource, sourceFile: undefined };
@@ -51,9 +49,7 @@ export function loadResource(
         { overwrite: true }
     );
     const preparation = createSourcePreparation(sourceFile);
-    const symbolLocations = captureBindingLocations(extractTopLevelBindings(sourceFile));
-    if (transformationsEnabled && !isDeclarationCodeFile(resource.fileDescription.targetFilePath)) {
-        prepareInitialRuntimeSource(preparation);
-    }
-    return { resource, ...preparation, bindings: extractTopLevelBindings(sourceFile), symbolLocations };
+    const bindings = extractTopLevelBindings(sourceFile);
+    const symbolLocations = captureBindingLocations(bindings);
+    return { resource, ...preparation, bindings, symbolLocations };
 }

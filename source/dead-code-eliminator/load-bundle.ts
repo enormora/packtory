@@ -88,7 +88,7 @@ export function loadBundle(
     const declarationProject = createProject();
     const loaded = prepareLoadedResources(
         input.bundle.contents.map(function (resource) {
-            return loadResource(runtimeProject, declarationProject, resource, input.transformationsEnabled);
+            return loadResource(runtimeProject, declarationProject, resource);
         }),
         input,
         trace

@@ -24,7 +24,7 @@ suite('loaded resource preparation', function () {
         const input = inputs(bundle)[0];
         assertDefined(input);
         const loaded = bundle.contents.map(function (resource) {
-            return loadResource(projects.runtime, projects.declarations, resource, false);
+            return loadResource(projects.runtime, projects.declarations, resource);
         });
         const prepared = prepareLoadedResources(loaded, input, undefined);
         const source = prepared[0]?.sourceFile;
