@@ -8,6 +8,7 @@ import {
     assertReleasePullRequestWasUpdated,
     createDependencies,
     createEmptyReleaseChangelogEngine,
+    createMergeGroupAncestryTest,
     createPacktoryWithPlan,
     createPullRequestHead,
     createReleaseContentDependencies,
@@ -427,27 +428,19 @@ suite('release-pull-request-handler', function () {
         });
 
         suite('merge group events', function () {
-            for (
-                const [ parentHash, expectedExitCode, expectedMessage ] of [
-                    [ 'base-sha', 0, 'Release PR policy passed.' ],
-                    [ 'different-base-sha', 1, 'Release PR head must be based on expected main' ]
-                ] as const
-            ) {
-                test(`validate checks release PR ancestry for merge group parent ${parentHash}`, async function () {
-                    const listCommitPullRequests = fake.resolves([ { number: 12 } ]);
-                    const getPullRequestHead = fake.resolves(createPullRequestHead({ parentHashes: [ parentHash ] }));
-                    const { dependencies, log } = createValidationDependencies(
-                        'merge_group',
-                        { merge_group: { base_sha: 'base-sha', head_sha: 'head-sha' } },
-                        { getPullRequestHead, listCommitPullRequests }
-                    );
+            test(
+                'validate checks release PR ancestry for merge group parent base-sha',
+                createMergeGroupAncestryTest('base-sha', 0, 'Release PR policy passed.')
+            );
 
-                    assert.strictEqual(await runReleasePullRequestHandler(dependencies), expectedExitCode);
-                    assert.strictEqual(listCommitPullRequests.firstCall.args[0], 'head-sha');
-                    assert.strictEqual(getPullRequestHead.firstCall.args[0], 12);
-                    assert.strictEqual(log.lastCall.args[0], expectedMessage);
-                });
-            }
+            test(
+                'validate checks release PR ancestry for merge group parent different-base-sha',
+                createMergeGroupAncestryTest(
+                    'different-base-sha',
+                    1,
+                    'Release PR head must be based on expected main'
+                )
+            );
 
             test('validate rejects merge group events without a base SHA', async function () {
                 const { dependencies, log } = createValidationDependencies(
