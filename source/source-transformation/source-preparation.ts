@@ -1,6 +1,6 @@
 import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
 import { buildLineIndex, offsetToLineColumn } from './line-index.ts';
-import { retainedTextRanges, type PositionAtom, type SourceTextEdit, type TextTransformMap } from './text-edits.ts';
+import { applySourceTextEdits, type PositionAtom, type SourceTextEdit, type TextTransformMap } from './text-edits.ts';
 
 const maximumPreparationPasses = 32;
 
@@ -86,15 +86,11 @@ export function createSourcePreparation(sourceFile: SourceFile): SourcePreparati
         transformations,
         applyEdits(edits) {
             if (edits.length > 0) {
-                const originalCode = sourceFile.getFullText();
+                const transformation = applySourceTextEdits(sourceFile.getFullText(), edits);
                 sourceFile.applyTextChanges(edits.map(function ({ start, end, content }) {
                     return { span: { start, length: end - start }, newText: content };
                 }));
-                transformations.push({
-                    originalCode,
-                    transformedCode: sourceFile.getFullText(),
-                    atoms: retainedTextRanges(originalCode.length, edits)
-                });
+                transformations.push(transformation);
             }
         },
         originalLineFor(node) {

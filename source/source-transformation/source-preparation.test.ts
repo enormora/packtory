@@ -38,6 +38,16 @@ function assertOriginalExpressionLine(preparation: SourcePreparation, expected: 
 
 suite('source preparation', function () {
     suite('edit application', function () {
+        test('rejects invalid edit offsets before changing source or mappings', function () {
+            const content = 'export const value=42;';
+            const preparation = createSourcePreparation(createProject().createSourceFile('index.ts', content));
+            assert.throws(function () {
+                preparation.applyEdits([ { start: Number.NaN, end: content.length, content: '' } ]);
+            }, /index must be an integer/);
+            assert.strictEqual(preparation.sourceFile.getFullText(), content);
+            assert.deepStrictEqual(preparation.transformations, []);
+        });
+
         test('retains remaining edits after the preparation budget is exhausted', function () {
             const source = createProject().createSourceFile('input.ts', `${';'.repeat(40)}effect();`);
             applySourcePreparation(createSourcePreparation(source), function (file) {
