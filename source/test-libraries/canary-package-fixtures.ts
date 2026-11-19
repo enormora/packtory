@@ -1,4 +1,3 @@
-import assert from 'node:assert';
 import fileSystem from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir as temporaryDirectory } from 'node:os';
@@ -60,13 +59,4 @@ export async function writeScopedPackage(
         throw new Error(`Package "${packageName}" is not scoped`);
     }
     await writePackageAt(path.join(nodeModulesFolder, scopeName, localName), packageName, manifest, files);
-}
-
-export function assertPresent<T>(value: T | undefined): T {
-    if (value === undefined) {
-        throw new assert.AssertionError({
-            message: 'Expected value to be present'
-        });
-    }
-    return value;
 }

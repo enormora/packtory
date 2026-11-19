@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
 import type { FileManager } from '../../file-manager/file-manager.ts';
-import { assertPresent } from '../../test-libraries/canary-package-fixtures.ts';
+import { assertPresent } from '../../test-libraries/deep-subset-assertion.ts';
 import { writeCanaryPackage } from '../../test-libraries/canary-package-writer.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { withInMemoryCanaryPackages } from '../../test-libraries/in-memory-canary-packages.ts';

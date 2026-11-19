@@ -55,3 +55,12 @@ export function assertDefined<T>(value: T | undefined, message = 'expected value
         assert.fail(message);
     }
 }
+
+export function assertPresent<T>(value: T | undefined): T {
+    if (value === undefined) {
+        throw new assert.AssertionError({
+            message: 'Expected value to be present'
+        });
+    }
+    return value;
+}
