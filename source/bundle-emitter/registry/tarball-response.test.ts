@@ -27,6 +27,9 @@ suite('tarball-response', function () {
                 pull(controller) {
                     pulled += 1;
                     controller.enqueue(Buffer.from('abc'));
+                    if (pulled === 3) {
+                        controller.close();
+                    }
                 },
                 cancel
             }, { highWaterMark: 0 });
@@ -43,7 +46,9 @@ suite('tarball-response', function () {
     }
 
     test('cancels oversized content-length before pulling any bytes', async function () {
-        const pull = fake();
+        const pull = fake(function (controller: ReadableStreamDefaultController<Uint8Array>) {
+            controller.error(new Error('Unexpected body pull'));
+        });
         const cancel = fake();
         const body = new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 });
         await assert.rejects(
