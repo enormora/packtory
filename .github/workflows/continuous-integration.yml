@@ -101,26 +101,11 @@ jobs:
                   node --input-type=module <<'NODE'
                   import fs from 'node:fs';
                   import path from 'node:path';
-                  const hookPath = path.resolve('target/reverse-mutation-order.cjs');
-                  fs.writeFileSync(hookPath, `
-                  const reversed = new WeakSet();
-                  exports.mochaHooks = {
-                      beforeAll() {
-                          const root = this.test.parent;
-                          if (reversed.has(root)) return;
-                          function reverse(suite) {
-                              suite.tests.reverse();
-                              suite.suites.reverse();
-                              suite.suites.forEach(reverse);
-                          }
-                          reverse(root);
-                          reversed.add(root);
-                      }
-                  };
-                  `);
+                  import collectFiles from 'mocha/lib/cli/collect-files.js';
                   const config = JSON.parse(fs.readFileSync('stryker.config.json', 'utf8'));
                   const mocha = JSON.parse(fs.readFileSync(config.mochaOptions.config, 'utf8'));
-                  config.mochaOptions.require = [...mocha.require, hookPath];
+                  const { files } = collectFiles({ file: [], ignore: [], ...mocha });
+                  config.mochaOptions.spec = files.map(file => path.relative(process.cwd(), file)).reverse();
                   fs.writeFileSync('target/stryker-reversed.config.json', JSON.stringify(config));
                   NODE
                   vmstat 10 > target/mutation-system-resources.log &
