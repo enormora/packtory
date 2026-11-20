@@ -143,32 +143,16 @@ function expressionStatementClassifier(): string {
     return 'expression statement';
 }
 
-function declarationStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    if (kind === SyntaxKind.ImportDeclaration) {
-        return importDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.ExportAssignment) {
-        return exportAssignmentClassifier;
-    }
-    return undefined;
-}
-
-function executableStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    if (kind === SyntaxKind.ClassDeclaration) {
-        return classDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.EnumDeclaration) {
-        return enumDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.ModuleDeclaration) {
-        return moduleDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.VariableStatement) {
-        return variableStatementClassifier;
-    }
-    return kind === SyntaxKind.ExpressionStatement ? expressionStatementClassifier : undefined;
-}
+const statementClassifiers: Readonly<Partial<Record<SyntaxKind, StatementClassifier>>> = {
+    [SyntaxKind.ImportDeclaration]: importDeclarationClassifier,
+    [SyntaxKind.ExportAssignment]: exportAssignmentClassifier,
+    [SyntaxKind.ClassDeclaration]: classDeclarationClassifier,
+    [SyntaxKind.EnumDeclaration]: enumDeclarationClassifier,
+    [SyntaxKind.ModuleDeclaration]: moduleDeclarationClassifier,
+    [SyntaxKind.VariableStatement]: variableStatementClassifier,
+    [SyntaxKind.ExpressionStatement]: expressionStatementClassifier
+};
 
 export function statementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    return declarationStatementClassifierFor(kind) ?? executableStatementClassifierFor(kind);
+    return statementClassifiers[kind];
 }
