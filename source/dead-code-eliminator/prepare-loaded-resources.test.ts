@@ -10,7 +10,6 @@ import { prepareLoadedResources } from './prepare-loaded-resources.ts';
 
 suite('loaded resource preparation', function () {
     test('uses linked module origins to reduce imported computations', function () {
-        const projects = { runtime: createProject(), declarations: createProject() };
         const bundle = bundleForCodeFile({
             name: 'package',
             inputFilePath: '/source/index.js',
@@ -23,7 +22,7 @@ suite('loaded resource preparation', function () {
         });
         const input = inputs(bundle)[0];
         assertDefined(input);
-        const loaded = loadResources(projects.runtime, projects.declarations, bundle.contents);
+        const loaded = loadResources(createProject, bundle.contents);
         const prepared = prepareLoadedResources(loaded, input, undefined);
         const source = prepared[0]?.sourceFile;
         assertDefined(source);

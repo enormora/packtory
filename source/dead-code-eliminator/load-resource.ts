@@ -29,23 +29,27 @@ function parseFilePathFor(resource: LinkedBundleResource): string {
     return `/.packtory-artifacts/${resource.fileDescription.targetFilePath}`;
 }
 
-function projectForResource(
-    runtimeProject: Project,
-    declarationProject: Project,
-    resource: LinkedBundleResource
-): Project {
-    return isDeclarationCodeFile(resource.fileDescription.targetFilePath) ? declarationProject : runtimeProject;
+function projectsForResources(createProject: () => Project): (resource: LinkedBundleResource) => Project {
+    let runtimeProject: Project | null = null;
+    let declarationProject: Project | null = null;
+    return function (resource) {
+        if (isDeclarationCodeFile(resource.fileDescription.targetFilePath)) {
+            declarationProject = declarationProject ?? createProject();
+            return declarationProject;
+        }
+        runtimeProject = runtimeProject ?? createProject();
+        return runtimeProject;
+    };
 }
 
 function loadResource(
-    runtimeProject: Project,
-    declarationProject: Project,
+    projectForResource: (resource: LinkedBundleResource) => Project,
     resource: LinkedBundleResource
 ): CodeResourceSource | LoadedNonCodeResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
         return { resource, sourceFile: undefined };
     }
-    const project = projectForResource(runtimeProject, declarationProject, resource);
+    const project = projectForResource(resource);
     const sourceFile = project.createSourceFile(
         parseFilePathFor(resource),
         resource.fileDescription.content,
@@ -55,12 +59,12 @@ function loadResource(
 }
 
 export function loadResources(
-    runtimeProject: Project,
-    declarationProject: Project,
+    createProject: () => Project,
     resources: readonly LinkedBundleResource[]
 ): readonly LoadedResource[] {
+    const projectForResource = projectsForResources(createProject);
     const loaded = resources.map(function (resource) {
-        return loadResource(runtimeProject, declarationProject, resource);
+        return loadResource(projectForResource, resource);
     });
     return loaded.map(function (entry) {
         if (entry.sourceFile === undefined) {

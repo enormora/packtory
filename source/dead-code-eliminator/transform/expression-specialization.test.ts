@@ -10,7 +10,7 @@ import { bindingIdentifier } from '../reachability/binding-identifier.ts';
 import { prepareLocalRuntimeSource } from './local-source-preparation.ts';
 
 function preparedResource(content: string): LoadedCodeResource {
-    const [ loaded ] = loadResources(createProject(), createProject(), [ {
+    const [ loaded ] = loadResources(createProject, [ {
         ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
     } ]);

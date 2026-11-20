@@ -8,7 +8,7 @@ import { loadResources, type LoadedCodeResource, type LoadedResource } from './l
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 
 function loadedCodeResource(content: string): LoadedCodeResource {
-    const [ loaded ] = loadResources(createProject(), createProject(), [ {
+    const [ loaded ] = loadResources(createProject, [ {
         fileDescription: {
             inputFilePath: '/source/a.ts',
             targetFilePath: 'a.ts',
