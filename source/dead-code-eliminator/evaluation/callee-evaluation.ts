@@ -1,5 +1,5 @@
 import { Node as TypeScriptMorphNode, type CallExpression, type ParameterDeclaration, type SourceFile } from 'ts-morph';
-import { isDefined } from 'remeda';
+import { isDefined, isNonNullish } from 'remeda';
 import { isPrimitiveResult, primitiveResult, type AbstractValue } from './abstract-value.ts';
 import {
     createCallTargetResolver,
@@ -99,7 +99,8 @@ function primitiveArguments(values: readonly AbstractValue[]): readonly Primitiv
 function createCallResults(numberIdentity: NumberIdentity): CallResults {
     const numericArguments = new Map<PrimitiveValue, CallResults>();
     const primitiveArgumentsByValue = new Map<PrimitiveValue, CallResults>();
-    let result: EvaluatedValue | null = null;
+    let result: EvaluatedValue | null | undefined = null;
+    let evaluating = false;
     return {
         argument(value) {
             const numeric = typeof value === 'number';
@@ -110,12 +111,17 @@ function createCallResults(numberIdentity: NumberIdentity): CallResults {
             return next;
         },
         evaluate(invoke) {
-            if (result !== null) {
-                return result;
+            if (evaluating || isNonNullish(result)) {
+                return result ?? undefined;
             }
-            const value = invoke();
-            result = primitiveResult(value) ?? null;
-            return value;
+            evaluating = true;
+            try {
+                const value = invoke();
+                result = primitiveResult(value);
+                return value;
+            } finally {
+                evaluating = false;
+            }
         }
     };
 }
