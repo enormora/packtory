@@ -121,6 +121,27 @@ suite('binding-id', function () {
         ]);
     });
 
+    suite('ambiguous declaration companions', function () {
+        for (const extensions of [ [ 'mjs', 'cjs' ], [ 'cjs', 'mjs' ] ] as const) {
+            for (const firstName of [ 'configuration', 'other' ]) {
+                test(`keeps the first companion match for ${extensions.join(',')} with ${firstName}`, function () {
+                    const [ first, second ] = extensions;
+                    const index = buildDeclarationNodeIndex([
+                        fileBindings(`/source/shared.${first}`, [ descriptor(firstName) ]),
+                        fileBindings(`/source/shared.${second}`, [ descriptor('configuration') ]),
+                        fileBindings('/source/shared.d.ts', [ descriptor('configuration') ])
+                    ]);
+                    assert.deepStrictEqual(
+                        index.identifiersByFileAndName.get('/source/shared.d.ts')?.get('configuration'),
+                        firstName === 'configuration'
+                            ? [ '/source/shared.d.ts::configuration', `/source/shared.${first}::configuration` ]
+                            : [ '/source/shared.d.ts::configuration' ]
+                    );
+                });
+            }
+        }
+    });
+
     test('buildDeclarationNodeIndex ignores files without a declaration companion relationship', function () {
         const { declarationNode, index } = companionIndexFixture({
             declarationBindingName: 'configuration',
