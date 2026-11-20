@@ -62,11 +62,13 @@ function sourceIsStrict(source: SourceFile): boolean {
 
 function declarationHasConditionalReplacement(declaration: FunctionDeclaration): boolean {
     const source = declaration.getSourceFile();
-    const replaced = source.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).some(function (candidate) {
+    if (sourceIsStrict(source)) {
+        return false;
+    }
+    return source.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).some(function (candidate) {
         return candidate !== declaration && candidate.getName() === declaration.getName() &&
             !TypeScriptMorphNode.isSourceFile(candidate.getParent());
     });
-    return replaced && !sourceIsStrict(source);
 }
 
 function declarationBindingIsStable(declaration: FunctionDeclaration): boolean {
