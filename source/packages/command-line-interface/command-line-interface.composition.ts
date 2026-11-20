@@ -24,7 +24,7 @@ import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
 
-const createPullRequestLogEngine = createPullRequestLogEngineFactory(createLibraryEngine);
+type CommandLineInterface = { readonly run: () => Promise<void>; readonly fail: (error: unknown) => Promise<void>; };
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
@@ -52,102 +52,109 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
     });
 }
 
-const spinnerRenderer = createSpinnerRenderer();
-const clock = createClock();
-const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
-const workingDirectory = process.cwd();
-const previewInputOutput = preview.createDefaultPreviewInputOutput({
-    async openFile(filePath) {
-        const { default: open } = await import('open');
-        await open(filePath, { wait: false });
-    },
-    shell: process.env.SHELL,
-    pager: process.env.PAGER,
-    standardOutputIsTerminal: isTerminal(process.stdout)
-});
-
-const promptForOneTimePassword = createOneTimePasswordPrompt({
-    clock,
-    isInteractiveTerminal() {
-        return isTerminal(process.stdin) && isTerminal(process.stdout);
-    },
-    stopSpinner() {
-        spinnerRenderer.stopAll();
-    },
-    createInterface() {
-        return readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
-    }
-});
-
-async function readPackageInformation(): Promise<Record<string, unknown>> {
-    return parsePackageInformation(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
-}
-
-const { packtory, progressBroadcaster } = buildPacktoryComposition({
-    promptForOneTimePassword,
-    continuousIntegrationEnvironment: readContinuousIntegrationEnvironment(process.env),
-    resolveVersionSource: createPullRequestLabelVersionSourceResolver({
-        createPullRequestLogEngine,
-        readEnvironmentVariable(name) {
-            return process.env[name];
-        },
-        readPackageInformation,
-        workingDirectory
-    })
-});
-
-const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
-    createPullRequestLogEngine,
-    createGitHubReleaseClient(context) {
-        return createGitHubReleaseClient({ ...context, fetch });
-    },
-    createReleasePullRequestGitHubClient(context) {
-        return releaseGitHub.createReleasePullRequestGitHubClient({ ...context, fetch });
-    },
-    currentDate() {
-        return new Date(clock.getCurrentTimeInMilliseconds());
-    },
-    packtory,
-    progressBroadcaster: progressBroadcaster.consumer,
-    spinnerRenderer,
-    configurationLoader: createConfigurationLoader({ currentWorkingDirectory: workingDirectory, importModule }),
-    fileManager,
-    async pageOutput(content) {
-        const didPage = await previewInputOutput.pagePreviewOutput(content);
-        if (!didPage) {
-            console.log(content);
-        }
-    },
-    openFile: previewInputOutput.openPreviewFile,
-    createTemporaryFilePath: previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath,
-    readEnvironmentVariable(name) {
-        return process.env[name];
-    },
-    readPackageInformation,
-    async sleep(milliseconds) {
-        await delay(milliseconds);
-    },
-    workingDirectory,
-    log: console.log
-});
-
 function setExitCode(exitCode: number): void {
     process.exitCode = exitCode;
 }
 
-export async function runCommandLineInterface(): Promise<void> {
-    const exitCode = await commandLinerInterfaceRunner.run(process.argv);
-    setExitCode(exitCode);
-    spinnerRenderer.stopAll();
-    await awaitSpinnerWorkerTermination();
-}
+export function createCommandLineInterface(): CommandLineInterface {
+    const createPullRequestLogEngine = createPullRequestLogEngineFactory(createLibraryEngine);
 
-export async function failCommandLineInterface(error: unknown): Promise<void> {
-    spinnerRenderer.stopAll();
-    console.error(error);
-    process.exitCode = 1;
-    await awaitSpinnerWorkerTermination();
+    const spinnerRenderer = createSpinnerRenderer();
+
+    const clock = createClock();
+
+    const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+
+    const workingDirectory = process.cwd();
+
+    const previewInputOutput = preview.createDefaultPreviewInputOutput({
+        async openFile(filePath) {
+            const { default: open } = await import('open');
+            await open(filePath, { wait: false });
+        },
+        shell: process.env.SHELL,
+        pager: process.env.PAGER,
+        standardOutputIsTerminal: isTerminal(process.stdout)
+    });
+
+    async function readPackageInformation(): Promise<Record<string, unknown>> {
+        return parsePackageInformation(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
+    }
+
+    const { packtory, progressBroadcaster } = buildPacktoryComposition({
+        promptForOneTimePassword: createOneTimePasswordPrompt({
+            clock,
+            isInteractiveTerminal() {
+                return isTerminal(process.stdin) && isTerminal(process.stdout);
+            },
+            stopSpinner() {
+                spinnerRenderer.stopAll();
+            },
+            createInterface() {
+                return readline.createInterface({
+                    input: process.stdin,
+                    output: process.stdout
+                });
+            }
+        }),
+        continuousIntegrationEnvironment: readContinuousIntegrationEnvironment(process.env),
+        resolveVersionSource: createPullRequestLabelVersionSourceResolver({
+            createPullRequestLogEngine,
+            readEnvironmentVariable(name) {
+                return process.env[name];
+            },
+            readPackageInformation,
+            workingDirectory
+        })
+    });
+
+    const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
+        createPullRequestLogEngine,
+        createGitHubReleaseClient(context) {
+            return createGitHubReleaseClient({ ...context, fetch });
+        },
+        createReleasePullRequestGitHubClient(context) {
+            return releaseGitHub.createReleasePullRequestGitHubClient({ ...context, fetch });
+        },
+        currentDate() {
+            return new Date(clock.getCurrentTimeInMilliseconds());
+        },
+        packtory,
+        progressBroadcaster: progressBroadcaster.consumer,
+        spinnerRenderer,
+        configurationLoader: createConfigurationLoader({ currentWorkingDirectory: workingDirectory, importModule }),
+        fileManager,
+        async pageOutput(content) {
+            const didPage = await previewInputOutput.pagePreviewOutput(content);
+            if (!didPage) {
+                console.log(content);
+            }
+        },
+        openFile: previewInputOutput.openPreviewFile,
+        createTemporaryFilePath: previewInputOutput.createTemporaryPreviewHypertextMarkupLanguagePath,
+        readEnvironmentVariable(name) {
+            return process.env[name];
+        },
+        readPackageInformation,
+        async sleep(milliseconds) {
+            await delay(milliseconds);
+        },
+        workingDirectory,
+        log: console.log
+    });
+
+    return {
+        async run() {
+            const exitCode = await commandLinerInterfaceRunner.run(process.argv);
+            setExitCode(exitCode);
+            spinnerRenderer.stopAll();
+            await awaitSpinnerWorkerTermination();
+        },
+        async fail(error: unknown) {
+            spinnerRenderer.stopAll();
+            console.error(error);
+            process.exitCode = 1;
+            await awaitSpinnerWorkerTermination();
+        }
+    };
 }

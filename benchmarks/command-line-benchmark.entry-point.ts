@@ -1,12 +1,12 @@
 import {
-    runCommandLineInterface,
-    failCommandLineInterface
+    createCommandLineInterface
 } from '../source/packages/command-line-interface/command-line-interface.composition.ts';
 
+const commandLineInterface = createCommandLineInterface();
 const started = performance.now();
 try {
-    await runCommandLineInterface();
+    await commandLineInterface.run();
 } catch (error: unknown) {
-    await failCommandLineInterface(error);
+    await commandLineInterface.fail(error);
 }
 process.stderr.write(`${JSON.stringify({ workMilliseconds: performance.now() - started })}\n`);
