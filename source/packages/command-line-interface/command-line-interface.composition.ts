@@ -26,10 +26,6 @@ import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spi
 
 type CommandLineInterface = { readonly run: () => Promise<void>; readonly fail: (error: unknown) => Promise<void>; };
 
-async function importModule(modulePath: string): Promise<unknown> {
-    return import(modulePath);
-}
-
 function isPackageInformation(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -56,7 +52,9 @@ function setExitCode(exitCode: number): void {
     process.exitCode = exitCode;
 }
 
-export function createCommandLineInterface(): CommandLineInterface {
+export function createCommandLineInterface(
+    importModule: (modulePath: string) => Promise<unknown>
+): CommandLineInterface {
     const createPullRequestLogEngine = createPullRequestLogEngineFactory(createLibraryEngine);
 
     const spinnerRenderer = createSpinnerRenderer();

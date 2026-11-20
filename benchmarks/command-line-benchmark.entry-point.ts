@@ -2,7 +2,11 @@ import {
     createCommandLineInterface
 } from '../source/packages/command-line-interface/command-line-interface.composition.ts';
 
-const commandLineInterface = createCommandLineInterface();
+async function importModule(modulePath: string): Promise<unknown> {
+    return import(modulePath);
+}
+
+const commandLineInterface = createCommandLineInterface(importModule);
 const started = performance.now();
 try {
     await commandLineInterface.run();

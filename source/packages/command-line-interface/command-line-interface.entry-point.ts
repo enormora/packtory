@@ -5,7 +5,11 @@ import type {
 } from '../../command-line-interface/runner/release-pull-request-configuration.ts';
 import { createCommandLineInterface } from './command-line-interface.composition.ts';
 
-const commandLineInterface = createCommandLineInterface();
+async function importModule(modulePath: string): Promise<unknown> {
+    return import(modulePath);
+}
+
+const commandLineInterface = createCommandLineInterface(importModule);
 commandLineInterface.run().catch(commandLineInterface.fail);
 
 // eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
