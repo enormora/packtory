@@ -16,7 +16,6 @@ import { gatherLocalSeeds, type LocalSeedGatheringInput } from './local-seed-gat
 export type ReachabilityInput = Except<LocalSeedGatheringInput, 'declarationIndex'>;
 
 export type ReachabilityIndex = {
-    readonly classifySideEffects: ReachabilityInput['classifySideEffects'];
     readonly localReachable: ReadonlySet<string>;
     readonly bindingIdentifiersByFile: ReadonlyMap<string, ReadonlySet<string>>;
     readonly expandWith: (externalSeeds: ReadonlySet<string> | undefined) => ReadonlySet<string>;
@@ -176,7 +175,6 @@ export function buildReachabilityIndex(
             : refineReachability(classifiedInput, conservative, externalSeeds, resolvedDependencies);
     };
     return {
-        classifySideEffects: classifiedInput.classifySideEffects,
         localReachable: local.bindings,
         bindingIdentifiersByFile: buildBindingsByFile(input.files),
         expandWith(externalSeeds) {

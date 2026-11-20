@@ -99,5 +99,5 @@ export function loadBundle(
         classifySideEffects,
         trace
     });
-    return { input, loaded, fileBindings, reachability, classifySideEffects: reachability.classifySideEffects };
+    return { input, loaded, fileBindings, reachability, classifySideEffects };
 }
