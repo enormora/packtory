@@ -1,4 +1,5 @@
 import { SyntaxKind } from 'ts-morph';
+import { toKebabCase } from 'remeda';
 
 function createSyntaxKindSet(...kinds: readonly SyntaxKind[]): ReadonlySet<SyntaxKind> {
     return new Set(kinds);
@@ -74,20 +75,26 @@ export const pureDeclarationKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet
     SyntaxKind.EmptyStatement
 );
 
-export function describeControlFlowStatementKind(kind: SyntaxKind): string | undefined {
-    const descriptions: Partial<Record<SyntaxKind, string>> = {
-        [SyntaxKind.IfStatement]: 'if statement',
-        [SyntaxKind.ForStatement]: 'for statement',
-        [SyntaxKind.ForInStatement]: 'for-in statement',
-        [SyntaxKind.ForOfStatement]: 'for-of statement',
-        [SyntaxKind.WhileStatement]: 'while statement',
-        [SyntaxKind.DoStatement]: 'do-while statement',
-        [SyntaxKind.SwitchStatement]: 'switch statement',
-        [SyntaxKind.TryStatement]: 'try statement',
-        [SyntaxKind.ThrowStatement]: 'throw statement',
-        [SyntaxKind.LabeledStatement]: 'labeled statement',
-        [SyntaxKind.Block]: 'block statement'
-    };
+const controlFlowStatementKinds = createSyntaxKindSet(
+    SyntaxKind.IfStatement,
+    SyntaxKind.ForStatement,
+    SyntaxKind.ForInStatement,
+    SyntaxKind.ForOfStatement,
+    SyntaxKind.WhileStatement,
+    SyntaxKind.DoStatement,
+    SyntaxKind.SwitchStatement,
+    SyntaxKind.TryStatement,
+    SyntaxKind.ThrowStatement,
+    SyntaxKind.LabeledStatement,
+    SyntaxKind.Block
+);
 
-    return descriptions[kind];
+export function describeControlFlowStatementKind(kind: SyntaxKind): string | undefined {
+    if (!controlFlowStatementKinds.has(kind)) {
+        return undefined;
+    }
+    const name = kind === SyntaxKind.DoStatement
+        ? 'do-while'
+        : toKebabCase(SyntaxKind[kind].replace('Statement', ''));
+    return `${name} statement`;
 }
