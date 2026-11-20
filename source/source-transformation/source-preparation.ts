@@ -87,9 +87,7 @@ export function createSourcePreparation(sourceFile: SourceFile): SourcePreparati
         applyEdits(edits) {
             if (edits.length > 0) {
                 const transformation = applySourceTextEdits(sourceFile.getFullText(), edits);
-                sourceFile.applyTextChanges(edits.map(function ({ start, end, content }) {
-                    return { span: { start, length: end - start }, newText: content };
-                }));
+                sourceFile.replaceWithText(transformation.transformedCode);
                 transformations.push(transformation);
             }
         },
