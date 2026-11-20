@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import type { Server } from 'node:http';
-import getPort from 'get-port';
 import { runServer } from 'verdaccio';
 import type { RegistrySettings } from '../source/configuration/registry-settings.ts';
 import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
@@ -16,7 +15,7 @@ function isServerNotRunningError(error: Error): boolean {
 }
 
 type ListenableServer = {
-    listen: (port: number, callback: () => void) => Server;
+    listen: (port: number, hostname: string, callback: () => void) => Server;
 };
 
 function isListenableServer(value: unknown): value is ListenableServer {
@@ -25,15 +24,21 @@ function isListenableServer(value: unknown): value is ListenableServer {
         typeof Reflect.get(value, 'listen') === 'function';
 }
 
-async function startServer(server: ListenableServer, port: number): Promise<Server> {
+async function startServer(server: ListenableServer): Promise<Server> {
     return new Promise(function (resolve, reject) {
-        const webServer = server.listen(port, function () {
+        const webServer = server.listen(0, '127.0.0.1', function () {
             resolve(webServer);
         });
         webServer.keepAliveTimeout = registryKeepAliveTimeoutMilliseconds;
         webServer.headersTimeout = registryHeadersTimeoutMilliseconds;
         webServer.once('error', reject);
     });
+}
+
+function registryAddressFor(server: Server): string {
+    const address = server.address();
+    assert.ok(address !== null && typeof address === 'object');
+    return `http://127.0.0.1:${address.port}`;
 }
 
 async function stopServer(server: Server): Promise<void> {
@@ -131,10 +136,8 @@ async function releaseRegistry(server: Server, storageDirectory: string): Promis
 export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     const storageDirectory = await createTemporaryDirectory('packtory-benchmark-registry-');
     const server = await createRegistryServer(storageDirectory);
-    const port = await getPort();
-    const registryAddress = `http://localhost:${port}`;
-
-    const webServer = await startServer(server, port);
+    const webServer = await startServer(server);
+    const registryAddress = registryAddressFor(webServer);
     try {
         const token = await createToken(registryAddress);
         return {
