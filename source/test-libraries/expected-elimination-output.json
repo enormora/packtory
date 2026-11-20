@@ -16366,18 +16366,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (-1) { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return -1;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = -1;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16396,10 +16384,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (-1) { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return -1;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16425,18 +16409,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value } = { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16455,10 +16427,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value } = { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16484,18 +16452,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value } = { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16514,10 +16470,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value } = { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16543,18 +16495,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { nested: { value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } } = { nested: {} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16573,10 +16513,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { nested: { value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } } = { nested: {} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16602,18 +16538,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } = {};\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16632,10 +16556,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } = {};\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16661,18 +16581,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } = { value: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16691,10 +16599,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16720,18 +16624,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() ] = [];\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16750,10 +16642,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() ] = [];\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16779,18 +16667,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ [ value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() ] ] = [ [] ];\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16809,10 +16685,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ [ value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() ] ] = [ [] ];\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16838,18 +16710,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value ] = { *[Symbol.iterator]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nyield 7;\n} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16868,10 +16728,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value ] = { *[Symbol.iterator]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nyield 7;\n} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16897,18 +16753,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value ] = { *[Symbol.iterator]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16927,10 +16771,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const [ value ] = { *[Symbol.iterator]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -16956,18 +16796,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { value } = { value: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -16986,10 +16814,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17015,18 +16839,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const object = { [7]: 1 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17045,10 +16857,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17074,18 +16882,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const object = { [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17104,10 +16900,6 @@
                             {
                                 "path": "index.js",
                                 "content": "({ [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 });\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17133,18 +16925,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const object = { [{ toString: undefined, valueOf() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17163,10 +16943,6 @@
                             {
                                 "path": "index.js",
                                 "content": "({ [{ toString: undefined, valueOf() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 });\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17192,18 +16968,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const object = { [{ [Symbol.toPrimitive]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17222,10 +16986,6 @@
                             {
                                 "path": "index.js",
                                 "content": "({ [{ [Symbol.toPrimitive]() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"key\";\n} }]: 7 });\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17251,18 +17011,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const object = { [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} }]: 7 };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17281,10 +17029,6 @@
                             {
                                 "path": "index.js",
                                 "content": "({ [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nthrow new RangeError(\"generated\");\n} }]: 7 });\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17310,18 +17054,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (class {}) {}\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17340,10 +17072,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17369,18 +17097,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends null {}\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17399,10 +17115,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17428,18 +17140,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (7) { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17458,10 +17158,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (7) { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17487,18 +17183,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (() => 7) {}\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17517,10 +17201,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused extends (() => 7) {}\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17546,18 +17226,6 @@
                             {
                                 "path": "index.js",
                                 "content": "function Base() {} Base.prototype = 1;\nclass Unused extends Base {}\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17576,10 +17244,6 @@
                             {
                                 "path": "index.js",
                                 "content": "function Base() {} Base.prototype = 1;\nclass Unused extends Base {}\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17605,18 +17269,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17635,10 +17287,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused { static { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\n} }\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17664,18 +17312,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused { [(() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"method\";\n})()]() {} }\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17694,10 +17330,6 @@
                             {
                                 "path": "index.js",
                                 "content": "class Unused { [(() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"method\";\n})()]() {} }\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17723,18 +17355,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { return eval(\"hidden\");\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17753,10 +17373,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { return eval(\"hidden\");\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17782,18 +17398,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { const local = 1;\nreturn (() => eval(\"hidden + local\"))();\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17812,10 +17416,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { const local = 1;\nreturn (() => eval(\"hidden + local\"))();\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17841,18 +17441,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { return (0, eval)(\"typeof hidden\");\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17871,10 +17459,6 @@
                             {
                                 "path": "index.js",
                                 "content": "export function api() { return (0, eval)(\"typeof hidden\");\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17900,18 +17484,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { const hidden = 1;\nreturn eval(\"hidden\");\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -17930,10 +17502,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const hidden = 7;\nexport function api() { const hidden = 1;\nreturn eval(\"hidden\");\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }
@@ -17963,14 +17531,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18022,14 +17582,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18081,14 +17633,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18140,14 +17684,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18199,14 +17735,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18258,14 +17786,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18317,14 +17837,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18376,10 +17888,6 @@
                             {
                                 "path": "feature.js",
                                 "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
                             },
                             {
                                 "path": "barrel.js",
@@ -18443,10 +17951,6 @@
                             {
                                 "path": "other.js",
                                 "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18506,10 +18010,6 @@
                             {
                                 "path": "other.js",
                                 "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18561,18 +18061,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"value\";\n} }]: value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } =\n            { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn undefined;\n} };\nexport function api() { return 7;\n}\nconst independentConstant = 99;"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "globalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");\nexport let value = 7;\n            export const extra = \"public\";\nexport function increment() { value++;\n}"
-                            },
-                            {
-                                "path": "other.js",
-                                "content": "export const value = \"ambiguous\";\nexport const other = true;"
-                            },
-                            {
-                                "path": "barrel.js",
-                                "content": "export * from \"./feature.js\";"
                             }
                         ]
                     }
@@ -18591,10 +18079,6 @@
                             {
                                 "path": "index.js",
                                 "content": "const { [{ toString() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn \"value\";\n} }]: value = (() => { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn 7;\n})() } =\n            { get value() { globalThis.__packtoryDeadCodeEliminationEvents.push(\"effect\");\nreturn undefined;\n} };\nexport function api() { return 7;\n}"
-                            },
-                            {
-                                "path": "feature.js",
-                                "content": "export {};\nglobalThis.__packtoryDeadCodeEliminationEvents.push(\"feature\");"
                             }
                         ]
                     }

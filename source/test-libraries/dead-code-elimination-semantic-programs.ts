@@ -62,6 +62,19 @@ export const deadCodeEliminationSemanticScenarios = {
 
 export type DeadCodeEliminationSemanticScenario = keyof typeof deadCodeEliminationSemanticScenarios;
 
+const semanticModuleDependencies: ReadonlyMap<DeadCodeEliminationSemanticScenario, readonly string[]> = new Map([
+    [ 'namespace-read', [ 'feature.js' ] ],
+    [ 'namespace-enumeration', [ 'feature.js' ] ],
+    [ 'namespace-escape', [ 'feature.js' ] ],
+    [ 'namespace-live-binding', [ 'feature.js' ] ],
+    [ 'dynamic-namespace', [ 'feature.js' ] ],
+    [ 'named-export', [ 'feature.js' ] ],
+    [ 'star-export', [ 'feature.js' ] ],
+    [ 'transitive-export', [ 'feature.js', 'barrel.js' ] ],
+    [ 'ambiguous-export', [ 'feature.js', 'other.js' ] ],
+    [ 'disambiguated-export', [ 'feature.js', 'other.js' ] ]
+]);
+
 export type DeadCodeEliminationSemanticParameters = {
     readonly scenario: DeadCodeEliminationSemanticScenario;
     readonly value: number;
@@ -69,6 +82,38 @@ export type DeadCodeEliminationSemanticParameters = {
     readonly singleLine: boolean;
     readonly sourceSkew: boolean;
 };
+
+function semanticRuntimeResources(
+    source: string,
+    parameters: DeadCodeEliminationSemanticParameters
+): GeneratedDeadCodeEliminationProgram['bundle']['contents'] {
+    const files = {
+        'index.js': `${source}\nconst independentConstant = 99;`,
+        'feature.js': `${eventLog}.push("feature"); export let value = ${parameters.value};
+            export const extra = "public"; export function increment() { value++; }`,
+        'other.js': 'export const value = "ambiguous"; export const other = true;',
+        'barrel.js': 'export * from "./feature.js";'
+    };
+    const requiredFiles = new Set([ 'index.js', ...semanticModuleDependencies.get(parameters.scenario) ?? [] ]);
+    return Object
+        .entries(files)
+        .filter(function ([ targetFilePath ]) {
+            return requiredFiles.has(targetFilePath);
+        })
+        .map(function ([ targetFilePath, content ]) {
+            const resource = bundleResource(`/source/${parameters.sourceSkew ? 'authored/' : ''}${targetFilePath}`, {
+                targetFilePath,
+                content: parameters.singleLine ? content.replaceAll('\n', ' ') : content.replaceAll('; ', ';\n')
+            });
+            return {
+                ...resource,
+                directDependencies: new Set(resource.moduleReferences.flatMap(function (reference) {
+                    return reference.type === 'local-code' ? reference.targetFilePath : [];
+                })),
+                isSubstituted: false
+            };
+        });
+}
 
 export function deadCodeEliminationSemanticProgram(
     parameters: DeadCodeEliminationSemanticParameters
@@ -82,26 +127,7 @@ export function deadCodeEliminationSemanticProgram(
     const source = selected.includes('function api()')
         ? selected
         : `${selected}\nexport function api() { return ${parameters.value}; }`;
-    const files = {
-        'index.js': `${source}\nconst independentConstant = 99;`,
-        'feature.js': `${eventLog}.push("feature"); export let value = ${parameters.value};
-            export const extra = "public"; export function increment() { value++; }`,
-        'other.js': 'export const value = "ambiguous"; export const other = true;',
-        'barrel.js': 'export * from "./feature.js";'
-    };
-    const contents = Object.entries(files).map(function ([ targetFilePath, content ]) {
-        const resource = bundleResource(`/source/${parameters.sourceSkew ? 'authored/' : ''}${targetFilePath}`, {
-            targetFilePath,
-            content: parameters.singleLine ? content.replaceAll('\n', ' ') : content.replaceAll('; ', ';\n')
-        });
-        return {
-            ...resource,
-            directDependencies: new Set(resource.moduleReferences.flatMap(function (reference) {
-                return reference.type === 'local-code' ? reference.targetFilePath : [];
-            })),
-            isSubstituted: false
-        };
-    });
+    const contents = semanticRuntimeResources(source, parameters);
     const entry = contents[0];
     if (entry === undefined) {
         throw new Error('semantic program requires an entry');
