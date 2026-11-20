@@ -29,7 +29,8 @@ function reachabilityInput(
 
 suite('reachability', function () {
     test('classifies each source once while resolving local and external bindings', function () {
-        const files = [ fileBindingsFor('entry.ts', 'export const publicValue=42;const privateValue=1;') ];
+        const file = fileBindingsFor('entry.ts', 'export const publicValue=42;const privateValue=1;');
+        const files = [ file ];
         let classifications = 0;
         const index = buildReachabilityIndex({
             ...reachabilityInput(files, new Set([ 'entry.ts' ])),
@@ -42,6 +43,7 @@ suite('reachability', function () {
         const expanded = index.resolveWith(new Set([ 'entry.ts::privateValue' ]));
         assert.deepStrictEqual(expanded.bindings, new Set([ 'entry.ts::publicValue', 'entry.ts::privateValue' ]));
         assert.deepStrictEqual(expanded.exports.get('entry.ts'), new Set([ 'publicValue' ]));
+        assert.deepStrictEqual(index.classifySideEffects(file.sourceFile, undefined), []);
         assert.strictEqual(classifications, 1);
     });
 
