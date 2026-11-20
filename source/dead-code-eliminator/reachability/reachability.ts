@@ -1,7 +1,6 @@
-import type { SideEffectClassifier } from '../side-effect-classifier.ts';
-import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
+import { errors } from '@ts-morph/common';
+import type { Except } from 'type-fest';
 import { assertArtifactModuleReferenceContract } from '../artifact-module-reference-contract.ts';
-import type { DeadCodeEliminationTrace } from '../trace.ts';
 import { createExportGraph, type ExportGraph } from '../exports/export-graph.ts';
 import { createReachabilityTrace } from './reachability-trace.ts';
 import { breadthFirstClosure, type BreadthFirstClosureDependencies } from './breadth-first-closure.ts';
@@ -9,20 +8,12 @@ import {
     buildBindingsByFile,
     buildDeclarationNodeIndex,
     buildNodeByIdentifier,
-    type DeclarationNodeIndex,
-    type FileBindings
+    type DeclarationNodeIndex
 } from './binding-identifier.ts';
 import { collectIdentifierTargets, survivingDeclarationExports } from './identifier-target-collector.ts';
-import { gatherLocalSeeds } from './local-seed-gathering.ts';
+import { gatherLocalSeeds, type LocalSeedGatheringInput } from './local-seed-gathering.ts';
 
-export type ReachabilityInput = {
-    readonly bundleName: string;
-    readonly files: readonly FileBindings[];
-    readonly entryPointFilePaths: ReadonlySet<string>;
-    readonly classifySideEffects: SideEffectClassifier;
-    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
-    readonly trace: DeadCodeEliminationTrace;
-};
+export type ReachabilityInput = Except<LocalSeedGatheringInput, 'declarationIndex'>;
 
 export type ReachabilityIndex = {
     readonly localReachable: ReadonlySet<string>;
@@ -152,22 +143,36 @@ function refineReachability(
     };
 }
 
+function classifyReachabilitySources(input: ReachabilityInput): ReachabilityInput {
+    const effects = new Map(input.files.map(function (file) {
+        const source = file.sourceFile.getSourceFile();
+        return [ source, input.classifySideEffects(source, input.deadCodeElimination) ] as const;
+    }));
+    return {
+        ...input,
+        classifySideEffects(source) {
+            return errors.throwIfNullOrUndefined(effects.get(source.getSourceFile()), source.getFilePath(), source);
+        }
+    };
+}
+
 export function buildReachabilityIndex(
     input: ReachabilityInput,
     dependencies: Partial<BreadthFirstClosureDependencies<string>> = {}
 ): ReachabilityIndex {
     assertArtifactModuleReferenceContract({ bundleName: input.bundleName, files: input.files });
-    const graph = createBindingGraph(input, undefined);
+    const classifiedInput = classifyReachabilitySources(input);
+    const graph = createBindingGraph(classifiedInput, undefined);
     const conservative = {
         graph,
-        closure: traverseBindings({ ...input, trace: undefined }, graph, undefined, defaultDependencies)
+        closure: traverseBindings({ ...classifiedInput, trace: undefined }, graph, undefined, defaultDependencies)
     };
     const resolvedDependencies = { ...defaultDependencies, ...dependencies };
-    const local = refineReachability(input, conservative, undefined, resolvedDependencies);
+    const local = refineReachability(classifiedInput, conservative, undefined, resolvedDependencies);
     const resolve = function (externalSeeds: ReadonlySet<string> | undefined): ReachabilityResult {
         return externalSeeds === undefined || externalSeeds.size === 0
             ? local
-            : refineReachability(input, conservative, externalSeeds, resolvedDependencies);
+            : refineReachability(classifiedInput, conservative, externalSeeds, resolvedDependencies);
     };
     return {
         localReachable: local.bindings,
