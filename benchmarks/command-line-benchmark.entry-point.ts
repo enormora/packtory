@@ -6,11 +6,19 @@ async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
 }
 
+const microsecondsPerMillisecond = 1000;
 const commandLineInterface = createCommandLineInterface(importModule);
-const started = performance.now();
+const initialCpuUsage = process.cpuUsage();
 try {
     await commandLineInterface.run();
 } catch (error: unknown) {
     await commandLineInterface.fail(error);
 }
-process.stderr.write(`${JSON.stringify({ workMilliseconds: performance.now() - started })}\n`);
+const commandCpuUsage = process.cpuUsage(initialCpuUsage);
+process.stderr.write(
+    `${
+        JSON.stringify({
+            workMilliseconds: (commandCpuUsage.user + commandCpuUsage.system) / microsecondsPerMillisecond
+        })
+    }\n`
+);

@@ -143,7 +143,7 @@ function commandLineWorkGrowth(
 ): number {
     const packingWork = pack.workMilliseconds;
     const sequenceWork = sequence.workMilliseconds;
-    assert.ok(packingWork > 0 && sequenceWork > 0, 'CLI work must be measured');
+    assert.ok(packingWork > 0 && sequenceWork > 0, 'CLI CPU work must be measured');
     return sequenceWork / packingWork;
 }
 
@@ -163,7 +163,7 @@ async function checkCommandLineSequence(
         const growth = commandLineWorkGrowth(pack, sequence);
         writeLine([
             `- timing/command-line-sequence: ${growth.toFixed(diagnosticDecimalPlaces)}x`,
-            `(budget ${maximum}x), command work ${sequence.workMilliseconds.toFixed(1)}ms`
+            `(budget ${maximum}x), command CPU work ${sequence.workMilliseconds.toFixed(1)}ms`
         ]
             .join(' '));
         assert.ok(growth <= maximum, `CLI analysis sequence grew ${growth.toFixed(diagnosticDecimalPlaces)}x`);
