@@ -138,14 +138,12 @@ function scalingBudgets(thresholds: PerformanceThresholds): readonly ScalingBudg
 }
 
 function commandLineWorkGrowth(
-    startup: PerformanceMeasurement,
     pack: PerformanceMeasurement,
     sequence: PerformanceMeasurement
 ): number {
-    const sequenceProcessCount = 2;
-    const packingWork = pack.medianMilliseconds - startup.medianMilliseconds;
-    const sequenceWork = sequence.medianMilliseconds - sequenceProcessCount * startup.medianMilliseconds;
-    assert.ok(packingWork > 0 && sequenceWork > 0, 'CLI work must exceed the measured startup control');
+    const packingWork = pack.workMilliseconds;
+    const sequenceWork = sequence.workMilliseconds;
+    assert.ok(packingWork > 0 && sequenceWork > 0, 'CLI work must be measured');
     return sequenceWork / packingWork;
 }
 
@@ -156,17 +154,16 @@ async function checkCommandLineSequence(
     writeLine: (message: string) => void
 ): Promise<void> {
     await check('timing/command-line-sequence', async function () {
-        const startup = measurements.get('pipeline/command-line-startup');
         const pack = measurements.get('pipeline/command-line-pack');
         const sequence = measurements.get('pipeline/command-line-sequence');
-        if (startup === undefined || pack === undefined || sequence === undefined) {
+        if (pack === undefined || sequence === undefined) {
             writeLine('SKIP timing/command-line-sequence: a required measurement failed');
             return;
         }
-        const growth = commandLineWorkGrowth(startup, pack, sequence);
+        const growth = commandLineWorkGrowth(pack, sequence);
         writeLine([
             `- timing/command-line-sequence: ${growth.toFixed(diagnosticDecimalPlaces)}x`,
-            `(budget ${maximum}x), process startup ${startup.medianMilliseconds.toFixed(1)}ms`
+            `(budget ${maximum}x), command work ${sequence.workMilliseconds.toFixed(1)}ms`
         ]
             .join(' '));
         assert.ok(growth <= maximum, `CLI analysis sequence grew ${growth.toFixed(diagnosticDecimalPlaces)}x`);

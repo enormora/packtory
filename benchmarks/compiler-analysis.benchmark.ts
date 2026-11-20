@@ -94,5 +94,11 @@ export async function runCompilerAnalysisBenchmark(
     });
     const metrics = samples.at(-1);
     assert.ok(metrics !== undefined && metrics.sourceBytesRead > 0, 'Cold analysis must actually read compiler inputs');
-    return { name: `compiler-analysis/${scenario.name}`, kind: 'analysis', ...measurement, metrics };
+    return {
+        name: `compiler-analysis/${scenario.name}`,
+        kind: 'analysis',
+        ...measurement,
+        metrics,
+        workMilliseconds: measurement.medianMilliseconds
+    };
 }

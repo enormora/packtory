@@ -37,7 +37,9 @@ if (scenario.commandLine) {
     await prepareCommandLineConfiguration(fileManager, execution);
 }
 const started = performance.now();
-const metrics = scenario.commandLine ? await executeCommandLinePipeline(execution) : await executePipeline(execution);
+const commandLine = scenario.commandLine ? await executeCommandLinePipeline(execution) : undefined;
+const metrics = commandLine?.metrics ?? await executePipeline(execution);
 const durationMilliseconds = performance.now() - started;
+const workMilliseconds = commandLine?.workMilliseconds ?? durationMilliseconds;
 await verifyPipelineExecution(fileManager, execution);
-process.stdout.write(`${JSON.stringify({ durationMilliseconds, metrics })}\n`);
+process.stdout.write(`${JSON.stringify({ durationMilliseconds, workMilliseconds, metrics })}\n`);

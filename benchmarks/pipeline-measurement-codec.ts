@@ -15,7 +15,11 @@ const workMetricsSchema: z.ZodMiniType<WorkMetrics> = z.object({
     repeatedEliminationFraction: z.number(),
     repeatedIntegrityFraction: z.number()
 });
-const measurementSchema = z.object({ durationMilliseconds: z.number().check(z.gte(0)), metrics: workMetricsSchema });
+const measurementSchema = z.object({
+    durationMilliseconds: z.number().check(z.gte(0)),
+    workMilliseconds: z.number().check(z.gte(0)),
+    metrics: workMetricsSchema
+});
 export type PipelineProcessMeasurement = Readonly<z.infer<typeof measurementSchema>>;
 
 export function parsePipelineMeasurement(value: unknown): PipelineProcessMeasurement {
