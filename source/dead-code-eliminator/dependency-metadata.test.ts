@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { identity } from 'remeda';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { ArtifactModuleReference } from '../resource-resolver/resolved-bundle.ts';
 import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
@@ -32,7 +33,8 @@ function recomputePackageDependency(
     return recomputeDependencyMetadata(
         { ...emptyDependencyMetadata, externalDependencies: new Map([ [ dependency.name, dependency ] ]) },
         resources,
-        sourceFileIndex(resources)
+        sourceFileIndex(resources),
+        identity()
     )
         .externalDependencies
         .get(dependency.name);
@@ -47,6 +49,47 @@ function dependencyWithReferences(
 }
 
 suite('dependency metadata', function () {
+    test('retains dependency references only from selected resources after recomputing local edges', function () {
+        const resources = [ 'index.js', 'unused.js', 'unused.d.ts' ].map(function (targetFilePath) {
+            return analyzedBundleResource(`/source/${targetFilePath}`, {
+                targetFilePath,
+                content: 'import "dep";',
+                directDependencies: new Set([ 'unused-target.js' ])
+            });
+        });
+        const dependency: ExternalDependency = {
+            name: 'dep',
+            referencedFrom: [ 'index.js', 'unused.js', 'unused.d.ts' ],
+            references: [
+                { targetFilePath: 'index.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' },
+                { targetFilePath: 'unused.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' },
+                { targetFilePath: 'unused.d.ts', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
+            ]
+        };
+        const result = recomputeDependencyMetadata(
+            { ...emptyDependencyMetadata, externalDependencies: new Map([ [ 'dep', dependency ] ]) },
+            resources,
+            sourceFileIndex(resources),
+            function (candidates) {
+                return candidates.filter(function (resource) {
+                    return resource.fileDescription.targetFilePath === 'index.js' &&
+                        resource.directDependencies.size === 0;
+                });
+            }
+        );
+        assert.deepStrictEqual(
+            result.contents.map(function (resource) {
+                return resource.fileDescription.targetFilePath;
+            }),
+            [ 'index.js' ]
+        );
+        assert.deepStrictEqual(result.externalDependencies.get('dep'), {
+            name: 'dep',
+            referencedFrom: [ 'index.js' ],
+            references: [ { targetFilePath: 'index.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' } ]
+        });
+    });
+
     test('recomputeDependencyMetadata preserves dependencies belonging to non-code resources', function () {
         const resource = analyzedBundleResource('/source/settings.json', {
             targetFilePath: 'settings.json',
@@ -56,7 +99,8 @@ suite('dependency metadata', function () {
         const result = recomputeDependencyMetadata(
             emptyDependencyMetadata,
             [ resource ],
-            new Map()
+            new Map(),
+            identity()
         );
 
         assert.deepStrictEqual(result.contents, [ resource ]);
@@ -114,7 +158,8 @@ suite('dependency metadata', function () {
         const result = recomputeDependencyMetadata(
             emptyDependencyMetadata,
             [ resource ],
-            sourceFileIndex([ resource ])
+            sourceFileIndex([ resource ]),
+            identity()
         );
 
         assert.deepStrictEqual(
@@ -220,7 +265,8 @@ suite('dependency metadata', function () {
                 ])
             },
             [ resource ],
-            sourceFileIndex([ resource ])
+            sourceFileIndex([ resource ]),
+            identity()
         );
 
         assert.deepStrictEqual(result.externalDependencies.get('dep')?.references, references.slice(0, 2));

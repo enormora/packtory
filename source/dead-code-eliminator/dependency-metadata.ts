@@ -55,9 +55,8 @@ function survivingSpecifiersFor(
 
 function survivingLocalTargets(
     resource: AnalyzedBundleResource,
-    sourceFilesByPath: SourceFileByPath
+    specifiers: ReadonlySet<string>
 ): ReadonlySet<string> {
-    const specifiers = survivingSpecifiersFor(resource, sourceFilesByPath);
     return new Set(
         resource.moduleReferences.flatMap(function (reference) {
             return isLocalDependencyReference(reference) && specifiers.has(reference.emittedSpecifier)
@@ -69,13 +68,13 @@ function survivingLocalTargets(
 
 function recomputeDirectDependencies(
     resource: AnalyzedBundleResource,
-    sourceFilesByPath: SourceFileByPath
+    specifiers: ReadonlySet<string>
 ): AnalyzedBundleResource {
     if (!isCodeTargetPath(resource.fileDescription.targetFilePath)) {
         return resource;
     }
 
-    const survivingPaths = survivingLocalTargets(resource, sourceFilesByPath);
+    const survivingPaths = survivingLocalTargets(resource, specifiers);
     return {
         ...resource,
         directDependencies: new Set(
@@ -86,25 +85,22 @@ function recomputeDirectDependencies(
     };
 }
 
-function referencedPackagesByPath(
-    contents: readonly AnalyzedBundleResource[],
-    sourceFilesByPath: SourceFileByPath
-): ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>> {
-    return new Map(contents.map(function (resource) {
-        const specifiers = survivingSpecifiersFor(resource, sourceFilesByPath);
-        const packagesByName = new Map<string, ReadonlySet<string>>();
-        const survivingReferences = resource
-            .moduleReferences
-            .filter(isPackageDependencyReference)
-            .filter(function (reference) {
-                return specifiers.has(reference.emittedSpecifier);
-            });
-        for (const reference of survivingReferences) {
-            const existing = packagesByName.get(reference.packageName) ?? [];
-            packagesByName.set(reference.packageName, new Set([ ...existing, reference.emittedSpecifier ]));
-        }
-        return [ resource.fileDescription.targetFilePath, packagesByName ];
-    }));
+function referencedPackages(
+    resource: AnalyzedBundleResource,
+    specifiers: ReadonlySet<string>
+): ReadonlyMap<string, ReadonlySet<string>> {
+    const packagesByName = new Map<string, ReadonlySet<string>>();
+    const survivingReferences = resource
+        .moduleReferences
+        .filter(isPackageDependencyReference)
+        .filter(function (reference) {
+            return specifiers.has(reference.emittedSpecifier);
+        });
+    for (const reference of survivingReferences) {
+        const existing = packagesByName.get(reference.packageName) ?? [];
+        packagesByName.set(reference.packageName, new Set([ ...existing, reference.emittedSpecifier ]));
+    }
+    return packagesByName;
 }
 
 function legacyDependencyReference(dependency: ExternalDependency, targetFilePath: string): DependencyReference {
@@ -218,26 +214,30 @@ export function indexSourceFiles(loaded: LoadedBundle): SourceFileByPath {
     }));
 }
 
-export function recomputeDependencyMetadata(
+function metadataForRetainedResources(
     bundle: MetadataBundle,
     contents: readonly AnalyzedBundleResource[],
-    sourceFileIndex: SourceFileByPath
+    packagesByPath: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>
 ): MetadataBundle & { readonly contents: readonly AnalyzedBundleResource[]; } {
-    const recomputedContents = contents.map(function (resource) {
-        return recomputeDirectDependencies(resource, sourceFileIndex);
-    });
-    const packagesByPath = referencedPackagesByPath(recomputedContents, sourceFileIndex);
-    const preservedReferencePaths = declarationTargetPaths(recomputedContents);
+    const retainedPaths = new Set(contents.map(function (resource) {
+        return resource.fileDescription.targetFilePath;
+    }));
+    const retainedPackages = new Map(
+        Array.from(packagesByPath).filter(function ([ targetFilePath ]) {
+            return retainedPaths.has(targetFilePath);
+        })
+    );
+    const preservedReferencePaths = declarationTargetPaths(contents);
     const linkedBundleDependencies = recomputeDependencies(
         bundle.linkedBundleDependencies,
-        packagesByPath,
+        retainedPackages,
         preservedReferencePaths
     );
     return {
-        contents: recomputedContents,
+        contents,
         externalDependencies: recomputeDependencies(
             bundle.externalDependencies,
-            packagesByPath,
+            retainedPackages,
             preservedReferencePaths
         ),
         linkedBundleDependencies,
@@ -246,4 +246,20 @@ export function recomputeDependencyMetadata(
             linkedBundleDependencies
         )
     };
+}
+
+export function recomputeDependencyMetadata(
+    bundle: MetadataBundle,
+    contents: readonly AnalyzedBundleResource[],
+    sourceFileIndex: SourceFileByPath,
+    retainContents: (resources: readonly AnalyzedBundleResource[]) => readonly AnalyzedBundleResource[]
+): MetadataBundle & { readonly contents: readonly AnalyzedBundleResource[]; } {
+    const recomputedContents: AnalyzedBundleResource[] = [];
+    const packagesByPath = new Map<string, ReadonlyMap<string, ReadonlySet<string>>>();
+    for (const resource of contents) {
+        const specifiers = survivingSpecifiersFor(resource, sourceFileIndex);
+        recomputedContents.push(recomputeDirectDependencies(resource, specifiers));
+        packagesByPath.set(resource.fileDescription.targetFilePath, referencedPackages(resource, specifiers));
+    }
+    return metadataForRetainedResources(bundle, retainContents(recomputedContents), packagesByPath);
 }
