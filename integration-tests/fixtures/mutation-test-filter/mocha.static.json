@@ -1,8 +1,0 @@
-{
-    "ui": "tdd",
-    "extension": ["ts"],
-    "spec": [
-        "integration-tests/fixtures/mutation-test-filter/unrelated-cases.ts",
-        "integration-tests/fixtures/mutation-test-filter/static-cases.ts"
-    ]
-}

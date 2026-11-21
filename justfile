@@ -42,18 +42,14 @@ test-unit-property:
 test-types:
     tstyche
 
-prepare-mutation-tests:
-    git apply --reverse --check patches/stryker-mocha-test-filter.patch 2>/dev/null || git apply patches/stryker-mocha-test-filter.patch
-
-test-mutation *ARGS: prepare-mutation-tests
-    node --experimental-strip-types ./source/test-libraries/prepare-mutation-test-plan.entry-point.ts
-    PACKTORY_MUTATION_TEST_PLAN="$PWD/target/mutation-test-plan.json" stryker run {{ARGS}}
+test-mutation *ARGS:
+    stryker run {{ARGS}}
     node --experimental-strip-types --enable-source-maps ./source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts
 
 test-mutation-incremental *ARGS:
     just test-mutation --incremental {{ARGS}}
 
-test-integration: prepare-mutation-tests
+test-integration:
     mocha --config mocha.config.integration-tests.json
 
 benchmark:
