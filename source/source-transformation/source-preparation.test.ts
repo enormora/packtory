@@ -62,9 +62,35 @@ suite('source preparation', function () {
         test('preserves identity locations without recording empty edits', function () {
             const sourceFile = createProject().createSourceFile('index.ts', 'const first = 1;\nconst second = 2;');
             const preparation = createSourcePreparation(sourceFile);
+            const declaration = sourceFile.getVariableDeclarationOrThrow('second');
             preparation.applyEdits([]);
-            assert.strictEqual(preparation.originalLineFor(sourceFile.getVariableDeclarationOrThrow('second')), 2);
+            assert.strictEqual(preparation.originalLineFor(declaration), 2);
             assert.strictEqual(preparation.transformations.length, 0);
+        });
+
+        test('applies adjacent insertions and replacements in their specified order', function () {
+            const source = createProject().createSourceFile('input.ts', 'export const value=1;');
+            const preparation = createSourcePreparation(source);
+            const initializer = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
+            const start = initializer.getStart();
+            const end = initializer.getEnd();
+            preparation.applyEdits([
+                { start, end: start, content: '(' },
+                { start, end, content: '42' },
+                { start: end, end, content: ')' }
+            ]);
+            assert.strictEqual(source.getFullText(), 'export const value=(42);');
+            assert.strictEqual(preparation.transformations[0]?.transformedCode, source.getFullText());
+        });
+
+        test('retains generated-source mappings when replacement text is identical', function () {
+            const content = 'const first=1;\nconst second=2;';
+            const source = createProject().createSourceFile('input.ts', content);
+            const preparation = createSourcePreparation(source);
+            preparation.applyEdits([ { start: 0, end: content.length, content } ]);
+            assert.strictEqual(source.getFullText(), content);
+            assert.strictEqual(preparation.transformations.length, 1);
+            assert.strictEqual(preparation.originalLineFor(source.getVariableDeclarationOrThrow('second')), 1);
         });
     });
 
