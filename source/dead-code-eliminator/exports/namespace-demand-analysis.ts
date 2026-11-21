@@ -1,5 +1,5 @@
 import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
-import { createSourceEvaluation, createSourceEvaluations } from '../evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation, createSourceEvaluations } from '../evaluation/constant-evaluation.ts';
 import { bindingReferenceTargets, createBindingReferenceResolver } from '../reference-target.ts';
 import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { collectNamespaceConsumers } from './namespace-consumers.ts';
@@ -42,7 +42,7 @@ export function createNamespaceDemandAnalysis(
         exportedKeys: new Map<SourceFile, Map<string, ExportDemandKey>>()
     };
     const references = createBindingReferenceResolver(bindingReferenceTargets);
-    const evaluations = createSourceEvaluations(createSourceEvaluation);
+    const evaluations = createSourceEvaluations(createRuntimeSourceEvaluation);
 
     function exportKey(source: SourceFile, name: string): ExportDemandKey {
         const keys = state.exportedKeys.get(source) ?? new Map<string, ExportDemandKey>();

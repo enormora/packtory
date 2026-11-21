@@ -1,9 +1,9 @@
 import path from 'node:path';
 import assert from 'node:assert';
+import { once } from 'node:events';
 import { request as requestRegistry, type Server } from 'node:http';
 import fileSystem from 'node:fs/promises';
 import operatingSystem from 'node:os';
-import getPort from 'get-port';
 import type { AsyncFunc as AsynchronousTestFunction } from 'mocha';
 import { runServer } from 'verdaccio';
 import { withRegistryServer } from './bundle-emitter/registry-server-test-support.ts';
@@ -47,11 +47,12 @@ const configuration = {
     }
 };
 
-async function startServer(server: Server, port: number): Promise<void> {
-    return new Promise(function (resolve, reject) {
-        server.once('error', reject);
-        server.listen(port, '127.0.0.1', resolve);
-    });
+async function startServer(server: Server): Promise<number> {
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    assert.ok(address !== null && typeof address === 'object');
+    return address.port;
 }
 
 async function stopServer(server: Server): Promise<void> {
@@ -96,11 +97,10 @@ export type RegistryDetails = {
 };
 
 async function startRegistry(server: Server, storageDirectory: string): Promise<RegistryDetails> {
-    const port = await getPort();
+    const port = await startServer(server);
     const registryAddress = `http://127.0.0.1:${port}`;
     const credentials = `${username}:${password}`;
 
-    await startServer(server, port);
     const response = await fetch(`${registryAddress}/-/user/org.couchdb.user:${username}`, {
         method: 'PUT',
         body: JSON.stringify({

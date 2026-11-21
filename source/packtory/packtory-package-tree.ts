@@ -16,14 +16,12 @@ type PackageTreeDependencies = {
     readonly versionManager: Pick<VersionManager, 'addVersion'>;
 };
 
-const treeManifestVersionPrefix = '0.0';
-const treeManifestVersion = `${treeManifestVersionPrefix}.0`;
-
 function versionedDependenciesForTree(
-    dependencies: readonly { readonly name: string; }[]
+    dependencies: readonly { readonly name: string; }[],
+    version: string
 ): readonly { readonly name: string; readonly version: string; }[] {
     return dependencies.map(function (dependency) {
-        return { name: dependency.name, version: treeManifestVersion };
+        return { name: dependency.name, version };
     });
 }
 
@@ -32,14 +30,15 @@ function inspectTreePackage(
     target: ResolvedPackage,
     publicModuleUsage: ReadonlyMap<string, ReadonlySet<string>>
 ): void {
+    const version = '0.0.0';
     const { analyzedBundle, resolveOptions } = target;
     const substitutionPublicModuleSourcePaths = publicModuleUsage.get(target.name);
     const versionedBundle = dependencies.versionManager.addVersion({
         bundle: analyzedBundle,
-        version: treeManifestVersion,
+        version,
         mainPackageManifest: resolveOptions.mainPackageManifest,
-        bundleDependencies: versionedDependenciesForTree(resolveOptions.bundleDependencies),
-        bundlePeerDependencies: versionedDependenciesForTree(resolveOptions.bundlePeerDependencies),
+        bundleDependencies: versionedDependenciesForTree(resolveOptions.bundleDependencies, version),
+        bundlePeerDependencies: versionedDependenciesForTree(resolveOptions.bundlePeerDependencies, version),
         additionalPackageManifestAttributes: resolveOptions.additionalPackageManifestAttributes,
         allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers,
         substitutionPublicModuleSourcePaths

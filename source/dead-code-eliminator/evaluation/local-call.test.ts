@@ -2,9 +2,10 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, ts } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { assertExpectedModuleExpression } from '../../test-libraries/expected-module-source.ts';
 import { variableInitializer } from '../pure-expression-test-support.ts';
-import { createConstantEvaluator, evaluateLocalCall } from './local-call.ts';
+import { evaluateLocalCall } from '../../test-libraries/expression-evaluation-case.ts';
+import { createConstantEvaluator } from './local-call.ts';
+import { createRuntimeConstantEvaluator } from './runtime-evaluation.ts';
 import type { PrimitiveValue } from './primitive-value.ts';
 import { createPureCallResolver } from './pure-local-call.ts';
 
@@ -13,7 +14,7 @@ suite('bounded local evaluation values', function () {
         const content =
             'function compute(){return 42;}const invalid={__proto__:null,__proto__:null};const result=compute();export{};';
         const call = variableInitializer(content, 'result').asKindOrThrow(SyntaxKind.CallExpression);
-        assert.strictEqual(evaluateLocalCall(call), undefined);
+        assert.strictEqual(createRuntimeConstantEvaluator(call.getSourceFile(), new Map())(call), undefined);
     });
 
     suite('evaluation limits', function () {
@@ -71,13 +72,16 @@ suite('bounded local evaluation values', function () {
             ]
         ];
         for (const [ content, expected ] of typedCalls) {
-            test(`matches erased parameter behavior for ${content}`, async function () {
+            test(`matches erased parameter behavior for ${content}`, function () {
                 const runtime = ts.transpileModule(content, {
                     compilerOptions: {
                         module: ts.ModuleKind.ESNext
                     }
                 });
-                assertExpectedModuleExpression(runtime.outputText, 'module.value');
+                const runtimeCall = variableInitializer(runtime.outputText, 'value').asKindOrThrow(
+                    SyntaxKind.CallExpression
+                );
+                assert.deepStrictEqual(evaluateLocalCall(runtimeCall), { value: expected });
                 const call = variableInitializer(content, 'value').asKindOrThrow(SyntaxKind.CallExpression);
                 assert.deepStrictEqual(evaluateLocalCall(call), {
                     value: expected
@@ -106,14 +110,17 @@ suite('bounded local evaluation values', function () {
             assert.strictEqual(evaluateLocalCall(call), undefined);
         });
 
-        test('leaves a typed declaration without a runtime implementation unknown', async function () {
+        test('leaves a typed declaration without a runtime implementation unknown', function () {
             const content = 'declare function compute(n:number):number;export const value=compute(1);';
             const runtime = ts.transpileModule(content, {
                 compilerOptions: {
                     module: ts.ModuleKind.ESNext
                 }
             });
-            assertExpectedModuleExpression(runtime.outputText, 'module.value');
+            const runtimeCall = variableInitializer(runtime.outputText, 'value').asKindOrThrow(
+                SyntaxKind.CallExpression
+            );
+            assert.strictEqual(evaluateLocalCall(runtimeCall), undefined);
             const call = variableInitializer(content, 'value').asKindOrThrow(SyntaxKind.CallExpression);
             assert.strictEqual(evaluateLocalCall(call), undefined);
         });

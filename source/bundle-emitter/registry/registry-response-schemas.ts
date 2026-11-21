@@ -1,35 +1,30 @@
 import { z } from 'zod/mini';
 import { safeParse } from '../../common/schema-validation.ts';
 
-const packageVersionDetailsSchema = z.object({
-    dist: z.object({
-        tarball: z.string(),
-        integrity: z.optional(z.unknown()),
-        shasum: z.optional(z.unknown())
-    }),
-    gitHead: z.optional(z.string())
-});
-
-const abbreviatedPackageResponseSchema = z.object({
-    name: z.string(),
-    'dist-tags': z.object({
-        latest: z.optional(z.string())
-    }),
-    versions: z.record(z.string(), packageVersionDetailsSchema)
-});
-const fullPackageResponseSchema = z.object({
-    name: z.string(),
-    'dist-tags': z.object({
-        latest: z.optional(z.string())
-    }),
-    time: z.optional(z.record(z.string(), z.string())),
-    versions: z.record(z.string(), packageVersionDetailsSchema)
-});
-
-const openIdentityConnectExchangeResponseSchema = z.object({
-    token: z.string(),
-    expires: z.coerce.date()
-});
+function packageResponseSchema(includePublicationTimes: boolean): z.ZodMiniType<FullPackageResponse> {
+    const metadata = {
+        name: z.string(),
+        'dist-tags': z.object({
+            latest: z.optional(z.string())
+        })
+    };
+    const versions = z.record(
+        z.string(),
+        z.object({
+            dist: z.object({
+                tarball: z.string(),
+                integrity: z.optional(z.unknown()),
+                shasum: z.optional(z.unknown())
+            }),
+            gitHead: z.optional(z.string())
+        })
+    );
+    return z.object(
+        includePublicationTimes
+            ? { ...metadata, time: z.optional(z.record(z.string(), z.string())), versions }
+            : { ...metadata, versions }
+    );
+}
 
 export type AbbreviatedPackageResponse = {
     readonly name: string;
@@ -94,12 +89,12 @@ function isRecord(response: unknown): response is Readonly<Record<string, unknow
 }
 
 export function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageResponse | undefined {
-    const result = abbreviatedPackageResponseSchema.safeParse(response);
+    const result = packageResponseSchema(false).safeParse(response);
     return result.success ? result.data : undefined;
 }
 
 export function parseFullPackageResponse(response: unknown): FullPackageResponse | undefined {
-    const result = fullPackageResponseSchema.safeParse(response);
+    const result = packageResponseSchema(true).safeParse(response);
     return result.success ? result.data : undefined;
 }
 
@@ -107,7 +102,8 @@ export function parseOpenIdentityConnectExchangeResponse(response: unknown): Ope
     if (!isRecord(response)) {
         return { success: false, issues: [ 'expected object' ] };
     }
-    const result = safeParse(openIdentityConnectExchangeResponseSchema, response);
+    const schema = z.object({ token: z.string(), expires: z.coerce.date() });
+    const result = safeParse(schema, response);
     if (result.success) {
         return { success: true, data: result.data };
     }

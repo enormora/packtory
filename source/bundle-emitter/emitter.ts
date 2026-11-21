@@ -97,9 +97,6 @@ export type BundleEmitter = {
     verifyBundlePublishTarget: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishTargetCheckResult>;
 };
 
-const stageRegistryUnsupportedMessage = 'npm staged publishing is only supported with the npmjs.org registry';
-const stageFirstPublishUnsupportedMessage =
-    'npm staged publishing requires the package to already exist on the npm registry';
 const npmRegistryAddress = 'https://registry.npmjs.org/';
 
 function isNpmRegistry(registryAddress: string | undefined): boolean {
@@ -193,12 +190,12 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         versioning: VersioningSettings
     ): Promise<Maybe<string>> {
         if (!isNpmRegistry(registrySettings.registryAddress)) {
-            throw new Error(stageRegistryUnsupportedMessage);
+            throw new Error('npm staged publishing is only supported with the npmjs.org registry');
         }
 
         const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
         if (latestVersion.isNothing) {
-            throw new Error(stageFirstPublishUnsupportedMessage);
+            throw new Error('npm staged publishing requires the package to already exist on the npm registry');
         }
 
         if (!versioning.automatic && !hasVersionProvider(versioning)) {

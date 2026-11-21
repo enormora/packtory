@@ -41,12 +41,18 @@ function moduleReference(importerTargetFilePath: string, specifier: string): Art
     };
 }
 
+function mayContainModuleReferences(content: string): boolean {
+    return [ 'import', 'from', 'require', '\\' ].some(function (fragment) {
+        return content.includes(fragment);
+    });
+}
+
 export function inferredModuleReferences(
     inputFilePath: string,
     targetFilePath: string,
     content: string
 ): readonly ArtifactModuleReference[] {
-    if (!codeTargetPattern.test(targetFilePath)) {
+    if (!codeTargetPattern.test(targetFilePath) || !mayContainModuleReferences(content)) {
         return [];
     }
     const project = createProject({ withFiles: [ { filePath: inputFilePath, content } ] });

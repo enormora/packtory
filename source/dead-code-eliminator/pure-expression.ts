@@ -1,3 +1,5 @@
+import { constant } from 'remeda';
+import { match } from 'ts-pattern';
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
@@ -5,7 +7,6 @@ import {
     type Expression,
     type NewExpression
 } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import {
     classExpressionFact,
     expressionFactIsPure,
@@ -20,10 +21,13 @@ import {
     type ExpressionFact,
     type ExpressionFactResolver
 } from './expression-facts.ts';
-import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { arePureCallArguments, type PurityContext } from './imported-expression-origin.ts';
+import {
+    arePureCallArguments,
+    type PurityContext,
+    type ExpressionPurityChecker
+} from './imported-expression-origin.ts';
 import { hasPureCallAnnotation } from './call-annotation.ts';
 import {
     importedCallResultFact,
@@ -266,44 +270,24 @@ function newExpressionFact(
         : unknownFact;
 }
 
-function literalStructurePurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    if (kind === SyntaxKind.ClassExpression) {
-        return classExpressionFact;
-    }
-    if (kind === SyntaxKind.TemplateExpression) {
-        return templateExpressionFact;
-    }
-    if (kind === SyntaxKind.ArrayLiteralExpression) {
-        return arrayLiteralExpressionFact;
-    }
-    if (kind === SyntaxKind.ObjectLiteralExpression) {
-        return objectLiteralExpressionFact;
-    }
-    return undefined;
-}
-
-function memberPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    if (kind === SyntaxKind.PropertyAccessExpression) {
-        return propertyAccessExpressionFact;
-    }
-    return undefined;
-}
-
 function voidExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
     const operand = expression.asKindOrThrow(SyntaxKind.VoidExpression).getExpression();
     return expressionFactIsPure(factFor(operand)) ? purePrimitiveFact : unknownFact;
 }
 
-const operationPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map([
-    [ SyntaxKind.VoidExpression, voidExpressionFact ],
-    [ SyntaxKind.PrefixUnaryExpression, prefixUnaryExpressionFact ],
-    [ SyntaxKind.BinaryExpression, binaryExpressionFact ],
-    [ SyntaxKind.CallExpression, callExpressionRule ],
-    [ SyntaxKind.NewExpression, newExpressionFact ]
-]);
-
 function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
-    return memberPurityRuleFor(kind) ?? literalStructurePurityRuleFor(kind) ?? operationPurityRules.get(kind);
+    return match<number>(kind)
+        .with(SyntaxKind.ClassExpression, constant(classExpressionFact))
+        .with(SyntaxKind.TemplateExpression, constant(templateExpressionFact))
+        .with(SyntaxKind.ArrayLiteralExpression, constant(arrayLiteralExpressionFact))
+        .with(SyntaxKind.ObjectLiteralExpression, constant(objectLiteralExpressionFact))
+        .with(SyntaxKind.PropertyAccessExpression, constant(propertyAccessExpressionFact))
+        .with(SyntaxKind.VoidExpression, constant(voidExpressionFact))
+        .with(SyntaxKind.PrefixUnaryExpression, constant(prefixUnaryExpressionFact))
+        .with(SyntaxKind.BinaryExpression, constant(binaryExpressionFact))
+        .with(SyntaxKind.CallExpression, constant(callExpressionRule))
+        .with(SyntaxKind.NewExpression, constant(newExpressionFact))
+        .otherwise(constant(undefined));
 }
 
 function calculateExpressionFact(
@@ -342,14 +326,24 @@ function expressionFactFor(expression: Expression, context: ExpressionFactContex
     return context.cache.get(expression) ?? cacheCalculatedExpressionFact(expression, context, factFor);
 }
 
-export function createExpressionPurityChecker(
-    settings: DeadCodeEliminationSettings | undefined,
-    resolveModule: RuntimeModuleResolver
-): (expression: Expression) => boolean {
+export function createPreparedExpressionPurityChecker(
+    settings: PurityContext['settings'],
+    resolveModule: PurityContext['resolveRuntimeModule']
+): ExpressionPurityChecker {
+    const context: ExpressionFactContext = {
+        cache: new WeakMap(),
+        purity: { settings, resolveRuntimeModule: resolveModule }
+    };
     return function (expression) {
-        return expressionFactIsPure(expressionFactFor(expression, {
-            cache: new WeakMap(),
-            purity: { settings, resolveRuntimeModule: resolveModule }
-        }));
+        return expressionFactIsPure(expressionFactFor(expression, context));
+    };
+}
+
+export function createExpressionPurityChecker(
+    settings: PurityContext['settings'],
+    resolveModule: PurityContext['resolveRuntimeModule']
+): ExpressionPurityChecker {
+    return function (expression) {
+        return createPreparedExpressionPurityChecker(settings, resolveModule)(expression);
     };
 }

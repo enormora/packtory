@@ -77,5 +77,11 @@ export async function runVendoringBenchmark(
     });
     const metrics = samples.at(-1);
     assert.ok(metrics !== undefined);
-    return { name: `vendoring/${name}`, kind: 'vendoring', ...measurement, metrics };
+    return {
+        name: `vendoring/${name}`,
+        kind: 'vendoring',
+        ...measurement,
+        metrics,
+        workMilliseconds: measurement.medianMilliseconds
+    };
 }

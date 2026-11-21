@@ -278,7 +278,10 @@ export function buildStagedVersionsFetchJavaScriptObjectNotation(
 ): SinonSpy {
     let callIndex = 0;
     return fake(async function () {
-        const page = pages[callIndex] ?? pages.at(-1) ?? { items: [], total: 0 };
+        const page = pages[callIndex];
+        if (page === undefined) {
+            throw new Error('Unexpected extra stage lookup');
+        }
         callIndex += 1;
         return page;
     });

@@ -1,12 +1,12 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type CallExpression, type Expression } from 'ts-morph';
-import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from './evaluation/constant-evaluation.ts';
 import { hasDynamicScope } from './dynamic-scope.ts';
 
 function computedSpecifier(argument: Expression): string | undefined {
     if (hasDynamicScope(argument.getSourceFile())) {
         return undefined;
     }
-    const value = createSourceEvaluation(argument.getSourceFile()).primitiveValue(argument);
+    const value = createRuntimeSourceEvaluation(argument.getSourceFile()).primitiveValue(argument);
     return typeof value?.value === 'string' ? value.value : undefined;
 }
 

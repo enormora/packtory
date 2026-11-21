@@ -6,5 +6,5 @@ export function contentDigest(content: string): string {
 }
 
 export function valueFingerprint(value: unknown): string {
-    return createHash('sha256').update(serialize(value)).digest('hex');
+    return createHash('sha256').update(serialize(structuredClone(value))).digest('hex');
 }

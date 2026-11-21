@@ -13,7 +13,7 @@ import {
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from './class-purity.ts';
 import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
-import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from './evaluation/constant-evaluation.ts';
 import { resourceDeclarationIsHarmless } from './evaluation/resource-binding.ts';
 
 type StatementClassifier = (
@@ -76,7 +76,7 @@ function resourceStatementHasEffects(statement: VariableStatement): boolean {
     if (![ VariableDeclarationKind.Using, VariableDeclarationKind.AwaitUsing ].includes(kind)) {
         return false;
     }
-    const evaluate = createSourceEvaluation(statement.getSourceFile()).primitiveValue;
+    const evaluate = createRuntimeSourceEvaluation(statement.getSourceFile()).primitiveValue;
     return statement.getDeclarations().some(function (declaration) {
         return !resourceDeclarationIsHarmless(kind, declaration, evaluate);
     });
@@ -143,32 +143,16 @@ function expressionStatementClassifier(): string {
     return 'expression statement';
 }
 
-function declarationStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    if (kind === SyntaxKind.ImportDeclaration) {
-        return importDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.ExportAssignment) {
-        return exportAssignmentClassifier;
-    }
-    return undefined;
-}
-
-function executableStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    if (kind === SyntaxKind.ClassDeclaration) {
-        return classDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.EnumDeclaration) {
-        return enumDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.ModuleDeclaration) {
-        return moduleDeclarationClassifier;
-    }
-    if (kind === SyntaxKind.VariableStatement) {
-        return variableStatementClassifier;
-    }
-    return kind === SyntaxKind.ExpressionStatement ? expressionStatementClassifier : undefined;
-}
+const statementClassifiers: Readonly<Partial<Record<SyntaxKind, StatementClassifier>>> = {
+    [SyntaxKind.ImportDeclaration]: importDeclarationClassifier,
+    [SyntaxKind.ExportAssignment]: exportAssignmentClassifier,
+    [SyntaxKind.ClassDeclaration]: classDeclarationClassifier,
+    [SyntaxKind.EnumDeclaration]: enumDeclarationClassifier,
+    [SyntaxKind.ModuleDeclaration]: moduleDeclarationClassifier,
+    [SyntaxKind.VariableStatement]: variableStatementClassifier,
+    [SyntaxKind.ExpressionStatement]: expressionStatementClassifier
+};
 
 export function statementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    return declarationStatementClassifierFor(kind) ?? executableStatementClassifierFor(kind);
+    return statementClassifiers[kind];
 }

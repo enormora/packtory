@@ -20,7 +20,7 @@ import {
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { evaluateLocalCall, createBoundedEvaluator } from './evaluation/local-call.ts';
+import { createRuntimeConstantEvaluator, createRuntimeBoundedEvaluator } from './evaluation/runtime-evaluation.ts';
 import { expressionBindingShapeIsStable } from './binding-stability.ts';
 import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
 import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
@@ -43,11 +43,13 @@ export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin
 export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
 export function localCallFact(expression: CallExpression): ExpressionFact {
-    return evaluateLocalCall(expression) === undefined ? unknownFact : purePrimitiveFact;
+    return createRuntimeConstantEvaluator(expression.getSourceFile(), new Map())(expression) === undefined
+        ? unknownFact
+        : purePrimitiveFact;
 }
 
 export function localConstructionFact(expression: NewExpression): ExpressionFact {
-    const value = createBoundedEvaluator(expression.getSourceFile(), new Map())(expression);
+    const value = createRuntimeBoundedEvaluator(expression.getSourceFile(), new Map())(expression);
     return value === undefined ? unknownFact : pureValueFact;
 }
 

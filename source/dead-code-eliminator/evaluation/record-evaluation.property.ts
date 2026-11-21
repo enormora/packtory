@@ -4,7 +4,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { variableInitializer } from '../pure-expression-test-support.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
-import { evaluateLocalCall } from './local-call.ts';
+import { evaluateLocalCall } from '../../test-libraries/expression-evaluation-case.ts';
 
 function evaluate(content: string): unknown {
     const call = variableInitializer(content, 'result').asKindOrThrow(SyntaxKind.CallExpression);

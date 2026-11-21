@@ -127,6 +127,13 @@ suite('binding-extractor', function () {
                 { name: 'b', isExported: true }
             ]);
         });
+
+        test('keeps separately exported variables outside declaration export metadata', function () {
+            assert.deepStrictEqual(descriptors('const value = 42; export {value as publicValue};'), [ {
+                name: 'value',
+                isExported: false
+            } ]);
+        });
     });
 
     suite('export metadata for bindings and imports', function () {

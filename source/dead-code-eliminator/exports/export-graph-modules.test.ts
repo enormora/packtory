@@ -35,6 +35,19 @@ function moduleFor(graph: ExportGraphModules, name: string): GraphModule {
 }
 
 suite('export graph module ownership', function () {
+    test('resolves local exports without requesting namespace analysis', function () {
+        const graph = createExportGraphModules({
+            ...moduleAnalysis(),
+            get demand() {
+                return assert.fail('Local exports do not need namespace analysis');
+            }
+        });
+        const library = moduleFor(graph, 'library.js');
+        const key = library.exported('Value');
+        graph.materialize();
+        assert.deepStrictEqual(graph.nodes.get(key)?.(), [ 'library.js::Value' ]);
+    });
+
     test('does not resolve runtime modules for erased namespace bindings', function () {
         const graph = createExportGraphModules({
             ...moduleAnalysis(),

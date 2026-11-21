@@ -7,7 +7,6 @@ import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
 import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import { packageNameMap } from '../common/package-name-map.ts';
 import { serializeStableJavaScriptObjectNotation } from '../common/stable-structured-data.ts';
-import { createWorklist } from '../common/worklist.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PackEmitter, PackFormat } from '../pack-emitter/pack-emitter.ts';
@@ -137,7 +136,7 @@ function collectBundleDependencies(
         packageNames: new Set<string>(),
         peerRequirements: new Map<string, readonly string[]>(),
         packages: [ target ],
-        pendingDependencyNames: createWorklist(target.analyzedBundle.linkedBundleDependencies.keys())
+        pendingDependencyNames: new Set(target.analyzedBundle.linkedBundleDependencies.keys())
     };
 
     function appendBundleDependency(resolvedPackage: ResolvedPackage): void {
@@ -159,21 +158,17 @@ function collectBundleDependencies(
         }
         closure.peerRequirements.set(resolvedPackage.name, Object.keys(versioned.peerDependencies));
         closure.packages.push(resolvedPackage);
-        closure.pendingDependencyNames.scheduleAll(resolvedPackage.analyzedBundle.linkedBundleDependencies.keys());
+        for (const name of resolvedPackage.analyzedBundle.linkedBundleDependencies.keys()) {
+            closure.pendingDependencyNames.add(name);
+        }
     }
 
-    for (
-        let dependencyName = closure.pendingDependencyNames.takeNext();
-        dependencyName !== undefined;
-        dependencyName = closure.pendingDependencyNames.takeNext()
-    ) {
-        const resolvedPackage = closure.packageNames.has(dependencyName)
-            ? undefined
-            : resolvedByName.get(dependencyName);
+    closure.pendingDependencyNames.forEach(function (dependencyName) {
+        const resolvedPackage = resolvedByName.get(dependencyName);
         if (resolvedPackage !== undefined) {
             appendBundleDependency(resolvedPackage);
         }
-    }
+    });
 
     return {
         extraFiles: closure.extraFiles,

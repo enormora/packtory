@@ -51,21 +51,13 @@ export function analyzeBundleWithSeeds(
     });
     const finalContents = recomposePairedSourceMaps(contents, transformsByMapPath);
     const sourceFileIndex = indexSourceFiles(loaded);
-    const prePruneMetadata = recomputeDependencyMetadata(
-        loaded.input.bundle,
-        finalContents,
-        sourceFileIndex
-    );
-    const prunedContents = pruneContents(
-        loaded.input.bundle,
-        prePruneMetadata.contents,
-        loaded.input.transformationsEnabled,
-        trace
-    );
     const dependencyMetadata = recomputeDependencyMetadata(
         loaded.input.bundle,
-        prunedContents,
-        sourceFileIndex
+        finalContents,
+        sourceFileIndex,
+        function (resources) {
+            return pruneContents(loaded.input.bundle, resources, loaded.input.transformationsEnabled, trace);
+        }
     );
     return {
         ...loaded.input.bundle,

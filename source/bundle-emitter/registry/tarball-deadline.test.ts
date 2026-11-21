@@ -17,6 +17,7 @@ suite('tarball-deadline', function () {
                 async fetch(_address, options) {
                     const signal = options?.signal;
                     assert.ok(signal instanceof AbortSignal);
+                    signal.throwIfAborted();
                     requestSignals.push(signal);
                     return new Promise<Response>(function (_resolve, reject) {
                         signal.addEventListener('abort', function () {

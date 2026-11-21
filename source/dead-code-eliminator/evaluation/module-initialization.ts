@@ -1,3 +1,4 @@
+import { constant } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     VariableDeclarationKind,
@@ -11,7 +12,11 @@ import {
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { pureDeclarationKinds } from '../syntax-kind-sets.ts';
-import { createSourceEvaluation, createSourceEvaluations, type SourceEvaluation } from './constant-evaluation.ts';
+import {
+    createRuntimeSourceEvaluation,
+    createSourceEvaluations,
+    type SourceEvaluation
+} from './constant-evaluation.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { runtimeImportBindings } from './runtime-import-bindings.ts';
 
@@ -102,34 +107,37 @@ type InitializationGraph = {
     readonly prefixIsSafe: (source: SourceFile, limit: number) => boolean;
 };
 
+type ModuleInitializationProof = (sourceFile: SourceFile, limit: number) => boolean;
+
 function initializationReaches(
     root: SourceFile,
     initializedThrough: number,
     graph: InitializationGraph
 ): boolean {
     const completed = new Set<SourceFile>();
-    function visit(sourceFile: SourceFile, limit: number, ancestors: ReadonlySet<SourceFile>): boolean {
-        if (ancestors.has(sourceFile) || ancestors.size >= maximumEvaluationDepth) {
-            return false;
-        }
-        if (completed.has(sourceFile)) {
-            return true;
-        }
-        const next = new Set([ ...ancestors, sourceFile ]);
-        const initialized = graph.dependenciesOf(sourceFile).every(function (specifier) {
-            if (specifier.startsWith('node:')) {
+    const initializes = Array.from({ length: maximumEvaluationDepth }).reduce<ModuleInitializationProof>(
+        function (initializesDependency) {
+            return function (sourceFile, limit) {
+                if (completed.has(sourceFile)) {
+                    return true;
+                }
+                const initialized = graph.dependenciesOf(sourceFile).every(function (specifier) {
+                    if (specifier.startsWith('node:')) {
+                        return true;
+                    }
+                    const dependency = graph.resolveModule(specifier, sourceFile);
+                    return dependency !== undefined && initializesDependency(dependency, dependency.getEnd());
+                }) && graph.prefixIsSafe(sourceFile, limit);
+                if (!initialized) {
+                    return false;
+                }
+                completed.add(sourceFile);
                 return true;
-            }
-            const dependency = graph.resolveModule(specifier, sourceFile);
-            return dependency !== undefined && visit(dependency, dependency.getEnd(), next);
-        }) && graph.prefixIsSafe(sourceFile, limit);
-        if (!initialized) {
-            return false;
-        }
-        completed.add(sourceFile);
-        return true;
-    }
-    return visit(root, initializedThrough, new Set());
+            };
+        },
+        constant(false)
+    );
+    return initializes(root, initializedThrough);
 }
 
 type ModuleInitialization = {
@@ -174,11 +182,11 @@ export function moduleInitializesBinding(
     declaration: ExportAssignment | VariableDeclaration,
     resolveModule: RuntimeModuleResolver
 ): boolean {
-    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createRuntimeSourceEvaluation))
         .initializesBinding(declaration);
 }
 
 export function moduleDependenciesInitialize(sourceFile: SourceFile, resolveModule: RuntimeModuleResolver): boolean {
-    return createModuleInitialization(resolveModule, createSourceEvaluations(createSourceEvaluation))
+    return createModuleInitialization(resolveModule, createSourceEvaluations(createRuntimeSourceEvaluation))
         .dependenciesInitialize(sourceFile);
 }

@@ -4,7 +4,8 @@ import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourcePreparation, type SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { specializeExpressions } from './expression-specialization.ts';
-import { prepareInitialRuntimeSource, prepareResolvedRuntimeSource } from './runtime-source-preparation.ts';
+import { prepareResolvedRuntimeSource } from './runtime-source-preparation.ts';
+import { prepareLocalRuntimeSource } from './local-source-preparation.ts';
 
 suite('runtime preparation convergence', function () {
     for (const literal of [ '-0', '-1' ]) {
@@ -27,7 +28,7 @@ suite('runtime preparation convergence', function () {
     ) {
         test(`keeps ineligible preparation unchanged for ${content}`, function () {
             const preparation = createSourcePreparation(createProject().createSourceFile('input.ts', content));
-            prepareInitialRuntimeSource({
+            prepareLocalRuntimeSource({
                 ...preparation,
                 applyEdits() {
                     assert.fail('ineligible sources must not schedule transformations');
@@ -42,7 +43,7 @@ suite('runtime preparation convergence', function () {
             createProject().createSourceFile('input.ts', 'export const value=1;')
         );
         let applications = 0;
-        prepareInitialRuntimeSource({
+        prepareLocalRuntimeSource({
             ...preparation,
             applyEdits(edits) {
                 applications += 1;
@@ -69,7 +70,7 @@ suite('runtime preparation convergence', function () {
                 preparation.applyEdits([ { start: end, end, content: ';' } ]);
             }
         };
-        prepareInitialRuntimeSource(changingPreparation);
+        prepareLocalRuntimeSource(changingPreparation);
         assert.strictEqual(applications, 64);
     });
 
@@ -104,7 +105,7 @@ suite('runtime preparation convergence', function () {
                 'index.js',
                 'function compute(){return 21*2;}export const value=compute();'
             );
-            prepareInitialRuntimeSource(createSourcePreparation(source));
+            prepareLocalRuntimeSource(createSourcePreparation(source));
             assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.CallExpression).length, 0);
             assert.strictEqual(source.getVariableDeclarationOrThrow('value').getInitializerOrThrow().getText(), '(42)');
         });

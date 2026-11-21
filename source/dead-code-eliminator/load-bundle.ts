@@ -6,7 +6,7 @@ import { createSideEffectClassifier, type SideEffectClassifier } from './side-ef
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { buildReachabilityIndex, type ReachabilityIndex, type ReachabilityInput } from './reachability/reachability.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
-import { loadResource, type LoadedResource } from './load-resource.ts';
+import { loadResources, type LoadedResource } from './load-resource.ts';
 import { prepareLoadedResources } from './prepare-loaded-resources.ts';
 
 type FileBindings = ReachabilityInput['files'][number];
@@ -84,12 +84,8 @@ export function loadBundle(
     input: EliminationInput,
     trace: DeadCodeEliminationTrace
 ): LoadedBundle {
-    const runtimeProject = createProject();
-    const declarationProject = createProject();
     const loaded = prepareLoadedResources(
-        input.bundle.contents.map(function (resource) {
-            return loadResource(runtimeProject, declarationProject, resource, input.transformationsEnabled);
-        }),
+        loadResources(createProject, input.bundle.contents),
         input,
         trace
     );

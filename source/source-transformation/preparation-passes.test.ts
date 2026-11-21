@@ -29,13 +29,22 @@ suite('preparation convergence', function () {
 
     test('bounds preparation that keeps producing new states', function () {
         const preparation = { changes: 0 };
+        const observed: string[] = [];
         const passes = preparationPasses(preparation, function () {
-            return String(preparation.changes);
+            const state = String(preparation.changes);
+            observed.push(state);
+            return state;
         });
         for (const pass of passes) {
             pass.changes += 1;
             assert.ok(pass.changes <= 32);
         }
         assert.strictEqual(preparation.changes, 32);
+        assert.deepStrictEqual(
+            observed,
+            Array.from({ length: 33 }, function (_value, index) {
+                return String(index);
+            })
+        );
     });
 });

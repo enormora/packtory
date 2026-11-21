@@ -28,6 +28,23 @@ function reachabilityInput(
 }
 
 suite('reachability', function () {
+    test('classifies each source once while resolving local and external bindings', function () {
+        const files = [ fileBindingsFor('entry.ts', 'export const publicValue=42;const privateValue=1;') ];
+        let classifications = 0;
+        const index = buildReachabilityIndex({
+            ...reachabilityInput(files, new Set([ 'entry.ts' ])),
+            classifySideEffects(source, settings) {
+                classifications += 1;
+                return classifySideEffects(source, settings);
+            }
+        });
+        assert.deepStrictEqual(index.localReachable, new Set([ 'entry.ts::publicValue' ]));
+        const expanded = index.resolveWith(new Set([ 'entry.ts::privateValue' ]));
+        assert.deepStrictEqual(expanded.bindings, new Set([ 'entry.ts::publicValue', 'entry.ts::privateValue' ]));
+        assert.deepStrictEqual(expanded.exports.get('entry.ts'), new Set([ 'publicValue' ]));
+        assert.strictEqual(classifications, 1);
+    });
+
     suite('entry-point and local binding reachability', function () {
         test('keeps every exported entry-point binding reachable', function () {
             const files = [ fileBindingsFor('entry.ts', 'export function pub() {}\nexport class Pub {}') ];

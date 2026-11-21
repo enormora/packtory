@@ -1,7 +1,7 @@
 import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
-import { createExpressionPurityChecker } from './pure-expression.ts';
+import { createPreparedExpressionPurityChecker } from './pure-expression.ts';
 import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
 import type { ClassPropertyKeyResolver } from './class-purity.ts';
 import {
@@ -82,7 +82,7 @@ export function createSideEffectClassifier(files: readonly RuntimeModuleOrigin[]
     return function (sourceFile, settings) {
         return classifyPreparedSideEffects(
             sourceFile,
-            createExpressionPurityChecker(settings, resolveModule),
+            createPreparedExpressionPurityChecker(settings, resolveModule),
             propertyKeyFor
         );
     };

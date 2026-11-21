@@ -1,33 +1,16 @@
-const codeFilePattern = /(?:\.d\.ts|\.[cm]?[jt]sx?)$/;
 export function isCodeFile(targetFilePath: string): boolean {
-    return codeFilePattern.test(targetFilePath);
+    return /\.[cm]?[jt]sx?$/.test(targetFilePath);
 }
 
 export function isDeclarationCodeFile(targetFilePath: string): boolean {
     return targetFilePath.endsWith('.d.ts');
 }
 
-const textDiffablePatterns: readonly RegExp[] = [
-    codeFilePattern,
-    /\.json$/,
-    /\.md$/,
-    /\.txt$/,
-    /\.ya?ml$/,
-    /\.map$/
-];
-
-const textDiffableBasenames: ReadonlySet<string> = new Set([ 'LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme' ]);
-
 function basenameOf(targetFilePath: string): string {
     return targetFilePath.slice(targetFilePath.lastIndexOf('/') + 1);
 }
 
 export function isTextDiffablePath(targetFilePath: string): boolean {
-    const matchesPattern = textDiffablePatterns.some(function (pattern) {
-        return pattern.test(targetFilePath);
-    });
-    if (matchesPattern) {
-        return true;
-    }
-    return textDiffableBasenames.has(basenameOf(targetFilePath));
+    return isCodeFile(targetFilePath) || /\.(?:json|md|txt|ya?ml|map)$/.test(targetFilePath) ||
+        [ 'LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme' ].includes(basenameOf(targetFilePath));
 }

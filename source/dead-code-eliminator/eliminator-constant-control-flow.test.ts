@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -67,8 +67,7 @@ suite('constant control flow elimination', function () {
                     `${content} export function probe() { return value; }`,
                     'index.js'
                 );
-                await assertDeadCodeEliminationOutput(fixture);
-                const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+                const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
                 const output = result[0]?.contents[0]?.fileDescription.content;
                 assertDefined(output);
                 assert.doesNotMatch(output, /\b(?:class|new|compute)\b/u);
@@ -80,8 +79,7 @@ suite('constant control flow elimination', function () {
         for (const content of removable) {
             test(`removes unreachable operations in ${content}`, async function () {
                 const fixture = singleFileOracleCase(`${content}\nexport function probe() { return 42; }`, 'index.js');
-                await assertDeadCodeEliminationOutput(fixture);
-                const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+                const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
                 assert.strictEqual(result[0]?.contents[0]?.fileDescription.content.includes('unreachable'), false);
             });
         }
@@ -91,8 +89,7 @@ suite('constant control flow elimination', function () {
                 'export function probe() { if (false) { console.log("unreachable"); } return 42; }',
                 'index.js'
             );
-            await assertDeadCodeEliminationOutput(fixture);
-            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             assert.strictEqual(result[0]?.contents[0]?.fileDescription.content.includes('unreachable'), false);
         });
         for (
@@ -105,8 +102,7 @@ suite('constant control flow elimination', function () {
         ) {
             test(`removes a public function tail after ${body}`, async function () {
                 const fixture = singleFileOracleCase(`export function probe() { ${body} }`, 'index.js');
-                await assertDeadCodeEliminationOutput(fixture);
-                const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+                const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
                 assert.strictEqual(result[0]?.contents[0]?.fileDescription.content.includes('unreachable'), false);
             });
         }

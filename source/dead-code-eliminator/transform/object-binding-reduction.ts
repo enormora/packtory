@@ -12,7 +12,7 @@ import type { SourcePreparation } from '../../source-transformation/source-prepa
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import { bindingHasOnlyUses } from '../binding-stability.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
-import { createSourceEvaluation, type PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation, type PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import { unescapedObjectOrigin, type ObjectOrigin } from '../evaluation/object-origin.ts';
 import {
     objectReadShape,
@@ -49,7 +49,7 @@ function elementCanDisappear(element: BindingElement, shape: ObjectReadShape, ev
 
 function objectBindingDeclaration(statement: VariableStatement): VariableDeclaration | undefined {
     if (
-        statement.isExported() || statement.isAmbient() ||
+        statement.hasExportKeyword() || statement.isAmbient() ||
         ![ VariableDeclarationKind.Const, VariableDeclarationKind.Let, VariableDeclarationKind.Var ].includes(
             statement.getDeclarationKind()
         )
@@ -101,7 +101,7 @@ export function reduceObjectBindings(preparation: SourcePreparation): void {
     if (hasDynamicScope(sourceFile)) {
         return;
     }
-    const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
+    const evaluate = createRuntimeSourceEvaluation(sourceFile).primitiveValue;
     let previousEnd = 0;
     const edits = sourceFile.getDescendantsOfKind(SyntaxKind.VariableStatement).flatMap(
         function (statement): readonly SourceTextEdit[] {

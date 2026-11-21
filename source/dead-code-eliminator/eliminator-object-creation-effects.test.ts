@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
     assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import {
     assertSingleFileCallReduction,
@@ -41,8 +41,7 @@ suite('discarded object creation', function () {
         ]
             .join('\n');
         const fixture = singleFileOracleCase(content, 'index.js');
-        await assertDeadCodeEliminationOutput(fixture);
-        const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+        const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
         const emitted = result[0]?.contents[0]?.fileDescription.content;
         assertDefined(emitted);
         const source = createProject().createSourceFile('output.js', emitted);
@@ -71,8 +70,7 @@ suite('discarded object creation', function () {
     ) {
         test(`removes unused properties while preserving effects in ${content}`, async function () {
             const fixture = singleFileOracleCase(`${content}export function probe(){return 42;}`, 'index.js');
-            await assertDeadCodeEliminationOutput(fixture);
-            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             assert.strictEqual(result[0]?.contents[0]?.fileDescription.content.includes('removable'), false);
         });
     }

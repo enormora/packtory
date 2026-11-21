@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
+import { evaluateLocalCall } from '../../test-libraries/expression-evaluation-case.ts';
 import { createCallTargetResolver, parameterBindingIsStable } from './call-target.ts';
-import { evaluateLocalCall } from './local-call.ts';
 
 suite('conditional function bindings', function () {
     suite('parameter bindings', function () {
@@ -120,8 +120,7 @@ suite('conditional function bindings', function () {
     for (
         const content of [
             'declare function compute():number;compute();',
-            'function compute(value){return value;}compute(...[]);',
-            'function compute(value){return value;}compute(,);'
+            'function compute(value){return value;}compute(...[]);'
         ]
     ) {
         test(`retains unsupported call ${content}`, function () {

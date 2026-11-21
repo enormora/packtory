@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { assertValidDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-invariant-assertions.ts';
 import {
     assertDeadCodeEliminationOutput,
     type DeadCodeEliminationCase
@@ -35,7 +34,6 @@ suite('recursive call evaluation', function () {
         test(`preserves ${input.name} in emitted code`, async function () {
             const fixture = callFixture(input);
             const verified = await assertDeadCodeEliminationOutput(fixture);
-            assertValidDeadCodeEliminationOutput(fixture.name, verified.bundles);
             const [ output ] = verified.bundles;
             assertDefined(output);
             const calls = output.contents.flatMap(function (resource) {

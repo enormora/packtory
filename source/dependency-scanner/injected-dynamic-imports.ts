@@ -88,7 +88,10 @@ function stringLiteralArguments(callExpression: Readonly<CallExpression>): reado
         .filter(isStringLiteralArgument);
 }
 
-function collectParameterInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
+function collectParameterInjectedImportCalls(
+    callExpression: Readonly<CallExpression>,
+    literalArgument: StringLiteralArgument
+): readonly InjectedImportCall[] {
     const callee = callExpression.getExpression().asKind(SyntaxKind.Identifier);
     if (callee === undefined) {
         return [];
@@ -100,17 +103,18 @@ function collectParameterInjectedImportCalls(callExpression: Readonly<CallExpres
         return [];
     }
 
-    return stringLiteralArguments(callExpression).map(function (literalArgument) {
-        return {
-            functionDeclaration: target.functionDeclaration,
-            injectedParameterIndex: target.parameterIndex,
-            importArgumentIndex: literalArgument.argumentIndex,
-            literal: literalArgument.literal
-        };
-    });
+    return [ {
+        functionDeclaration: target.functionDeclaration,
+        injectedParameterIndex: target.parameterIndex,
+        importArgumentIndex: literalArgument.argumentIndex,
+        literal: literalArgument.literal
+    } ];
 }
 
-function collectPropertyInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
+function collectPropertyInjectedImportCalls(
+    callExpression: Readonly<CallExpression>,
+    literalArgument: StringLiteralArgument
+): readonly InjectedImportCall[] {
     const callee = callExpression.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
     if (callee === undefined) {
         return [];
@@ -123,22 +127,22 @@ function collectPropertyInjectedImportCalls(callExpression: Readonly<CallExpress
         return [];
     }
 
-    return stringLiteralArguments(callExpression).map(function (literalArgument) {
-        return {
-            containerParameterIndex: target.parameterIndex,
-            functionDeclaration: target.functionDeclaration,
-            importArgumentIndex: literalArgument.argumentIndex,
-            literal: literalArgument.literal,
-            propertyName: callee.getName()
-        };
-    });
+    return [ {
+        containerParameterIndex: target.parameterIndex,
+        functionDeclaration: target.functionDeclaration,
+        importArgumentIndex: literalArgument.argumentIndex,
+        literal: literalArgument.literal,
+        propertyName: callee.getName()
+    } ];
 }
 
 function collectInjectedImportCalls(callExpression: Readonly<CallExpression>): readonly InjectedImportCall[] {
-    return [
-        ...collectParameterInjectedImportCalls(callExpression),
-        ...collectPropertyInjectedImportCalls(callExpression)
-    ];
+    return stringLiteralArguments(callExpression).flatMap(function (literalArgument) {
+        return [
+            ...collectParameterInjectedImportCalls(callExpression, literalArgument),
+            ...collectPropertyInjectedImportCalls(callExpression, literalArgument)
+        ];
+    });
 }
 
 function callTargetsFunctionDeclaration(

@@ -35,6 +35,23 @@ function exportedValue(module: PreparedModule | undefined): EvaluatedValue | und
 }
 
 suite('bundle preparation convergence', function () {
+    test('does not resolve re-exports when no imported values are read', function () {
+        const content = 'export * from "./external.js";';
+        const [ file ] = multiFileBindingsFor([ { filePath: '/repo/index.js', content } ]);
+        assertDefined(file);
+        const preparation = createSourcePreparation(file.sourceFile.getSourceFile());
+        prepareBundleSources([ preparation ], [ {
+            sourceFile: preparation.sourceFile,
+            targetFilePath: 'index.js',
+            moduleReferences: []
+        } ], function () {
+            return assert.fail('Re-exports cannot supply imported value reads');
+        }, function () {
+            return false;
+        });
+        assert.strictEqual(preparation.sourceFile.getFullText(), content);
+    });
+
     test('stops when all prepared sources remain unchanged', function () {
         const [ file ] = multiFileBindingsFor([ { filePath: '/repo/index.js', content: 'export const value=1;' } ]);
         assertDefined(file);

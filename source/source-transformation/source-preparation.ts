@@ -9,12 +9,9 @@ export function* preparationPasses<Preparation>(
     readState: () => string
 ): Iterable<Preparation> {
     const pending = new Map([ [ readState(), preparation ] ]);
-    const passes = pending.values();
-    for (let pass = passes.next(); pass.done !== true; pass = passes.next()) {
-        if (pending.size > maximumPreparationPasses) {
-            return;
-        }
-        yield pass.value;
+    const passes = pending.values().take(maximumPreparationPasses);
+    for (const pass of passes) {
+        yield pass;
         pending.set(readState(), preparation);
     }
 }
@@ -38,9 +35,6 @@ export function applySourcePreparation(
     });
     for (const pass of passes) {
         const edits = editsFor(pass.sourceFile);
-        if (edits.length === 0) {
-            return;
-        }
         pass.applyEdits(edits);
     }
 }
@@ -93,15 +87,17 @@ export function createSourcePreparation(sourceFile: SourceFile): SourcePreparati
         applyEdits(edits) {
             if (edits.length > 0) {
                 const transformation = applySourceTextEdits(sourceFile.getFullText(), edits);
-                sourceFile.replaceWithText(transformation.transformedCode);
+                sourceFile.applyTextChanges(edits.map(function (edit) {
+                    return {
+                        span: { start: edit.start, length: edit.end - edit.start },
+                        newText: edit.content
+                    };
+                }));
                 transformations.push(transformation);
             }
         },
         originalLineFor(node) {
-            let range = { start: node.getStart(), end: node.getEnd() };
-            for (const transformation of transformations.toReversed()) {
-                range = originalRange(range, transformation);
-            }
+            const range = transformations.reduceRight(originalRange, { start: node.getStart(), end: node.getEnd() });
             return offsetToLineColumn(originalLines, range.start).line;
         }
     };

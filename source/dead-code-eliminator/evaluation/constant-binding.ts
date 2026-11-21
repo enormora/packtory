@@ -12,7 +12,7 @@ import { isIncludedIn } from 'remeda';
 import { declarationOf } from './evaluation-context.ts';
 import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 
-export type KnownConstants = ReadonlyMap<VariableDeclaration, EvaluatedValue>;
+export type KnownConstants = Pick<ReadonlyMap<VariableDeclaration, EvaluatedValue>, 'get'>;
 
 function lexicalStatement(declaration: VariableDeclaration): VariableStatement | undefined {
     const statement = declaration.getVariableStatement();
@@ -40,17 +40,30 @@ export function constantInitializer(declaration: VariableDeclaration): Expressio
     return constantStatement(declaration) === undefined ? undefined : declaration.getInitializer();
 }
 
-export function* evaluateConstantBindings(
+export function createConstantBindingValues(
     declarations: readonly VariableDeclaration[],
     evaluate: (expression: Expression) => EvaluatedValue | undefined
-): Generator<readonly [VariableDeclaration, EvaluatedValue]> {
-    for (const declaration of declarations) {
-        const initializer = constantInitializer(declaration);
-        const value = initializer === undefined ? undefined : evaluate(initializer);
-        if (value !== undefined) {
-            yield [ declaration, value ];
+): KnownConstants {
+    const values = new Map<VariableDeclaration, EvaluatedValue | undefined>();
+    const pending = declarations.values();
+    function initializeThrough(declaration: VariableDeclaration): void {
+        for (const candidate of pending) {
+            values.set(candidate, undefined);
+            const initializer = constantInitializer(candidate);
+            values.set(candidate, initializer === undefined ? undefined : evaluate(initializer));
+            if (candidate === declaration) {
+                break;
+            }
         }
     }
+    return {
+        get(declaration) {
+            if (!values.has(declaration)) {
+                initializeThrough(declaration);
+            }
+            return values.get(declaration);
+        }
+    };
 }
 
 function sameActivation(declaration: ParameterDeclaration | VariableDeclaration, read: Expression): boolean {

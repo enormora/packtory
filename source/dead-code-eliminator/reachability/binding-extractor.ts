@@ -62,7 +62,7 @@ function bindingsFromNamedDeclaration(statement: NamedDeclarationStatement): rea
 }
 
 function bindingsFromVariableStatement(statement: VariableStatement): readonly BindingDescriptor[] {
-    const isExported = statement.isExported();
+    const isExported = statement.hasExportKeyword();
     return statement.getDeclarations().flatMap(function (declarator) {
         return collectVariableDeclarationBindings(declarator).map(function (binding) {
             return {

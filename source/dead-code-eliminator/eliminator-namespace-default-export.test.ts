@@ -1,32 +1,48 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
-import { assertExpectedModuleSource } from '../test-libraries/expected-module-source.ts';
-
-function moduleAddress(content: string): string {
-    return `data:text/javascript;base64,${Buffer.from(content).toString('base64')}`;
-}
-function assertEmittedModule(modules: ReadonlyMap<string, string>): void {
-    const dependency = modules.get('dep.js');
-    const barrel = modules.get('barrel.js');
-    const entry = modules.get('index.js');
-    assertDefined(dependency);
-    assertDefined(barrel);
-    assertDefined(entry);
-    const barrelAddress = moduleAddress(barrel.replace('./dep.js', function () {
-        return moduleAddress(dependency);
-    }));
-    const address = moduleAddress(entry.replace('./barrel.js', function () {
-        return barrelAddress;
-    }));
-    assertExpectedModuleSource(`
-        const module = await import(${JSON.stringify(address)});
-        console.log(JSON.stringify(module.value));
-    `);
-}
+import { createProject } from '../test-libraries/typescript-project.ts';
+import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
 
 suite('eliminator namespace default export', function () {
+    test('retains a default-exported namespace observed as a value', async function () {
+        const emitted = await eliminateCodeModules(
+            'import ns from "./barrel.js"; export const namespace = ns;',
+            {
+                'barrel.js': 'import * as ns from "./dep.js"; export default ns;',
+                'dep.js': 'export const used = 42; export const other = 9; const dead = 123;'
+            }
+        );
+        const project = createProject({
+            withFiles: Array.from(emitted, function ([ filePath, content ]) {
+                return { filePath: `/output/${filePath}`, content };
+            })
+        });
+        const entry = project.getSourceFileOrThrow('/output/index.js');
+        const barrel = project.getSourceFileOrThrow('/output/barrel.js');
+        const dependency = project.getSourceFileOrThrow('/output/dep.js');
+        assert.deepStrictEqual(
+            entry.getExportSymbols().map(function (symbol) {
+                return symbol.getName();
+            }),
+            [ 'namespace' ]
+        );
+        assert.deepStrictEqual(
+            barrel.getExportSymbols().map(function (symbol) {
+                return symbol.getName();
+            }),
+            [ 'default' ]
+        );
+        assert.deepStrictEqual(
+            dependency.getExportSymbols().map(function (symbol) {
+                return symbol.getName();
+            }),
+            [ 'used', 'other' ]
+        );
+        assert.strictEqual(entry.getVariableDeclarationOrThrow('namespace').getInitializerOrThrow().getText(), 'ns');
+        assert.strictEqual(dependency.getVariableDeclaration('dead'), undefined);
+    });
+
     for (
         const statement of [ 'export default ns;', 'export default (ns);', 'const alias = ns; export default alias;' ]
     ) {
@@ -41,9 +57,27 @@ suite('eliminator namespace default export', function () {
                     'barrel.js': `import * as ns from "./dep.js"; ${statement}`,
                     'dep.js': 'export const used = 42; export const unused = 9; const dead = 123;'
                 };
-                assertEmittedModule(new Map([ [ 'index.js', entry ], ...Object.entries(modules) ]));
                 const emitted = await eliminateCodeModules(entry, modules);
-                assertEmittedModule(emitted);
+                const project = createProject({
+                    withFiles: Array.from(emitted, function ([ filePath, content ]) {
+                        return { filePath: `/output/${filePath}`, content };
+                    })
+                });
+                const output = project.getSourceFileOrThrow('/output/index.js');
+                project.getSourceFileOrThrow('/output/barrel.js');
+                project.getSourceFileOrThrow('/output/dep.js');
+                assert.deepStrictEqual(
+                    output.getExportSymbols().map(function (symbol) {
+                        return symbol.getName();
+                    }),
+                    [ 'value' ]
+                );
+                assert.deepStrictEqual(
+                    createSourceEvaluation(output).primitiveValue(
+                        output.getVariableDeclarationOrThrow('value').getInitializerOrThrow()
+                    ),
+                    { value: 42 }
+                );
                 assert.strictEqual(emitted.get('dep.js')?.includes('dead'), false);
                 assert.strictEqual(emitted.get('dep.js')?.includes('unused'), false);
             });
