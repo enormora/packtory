@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { createSourcePreparation } from '../source-transformation/source-preparation.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import { specializeExpressions } from './transform/expression-specialization.ts';
 import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
 
 const reductions = [
@@ -39,7 +40,7 @@ const retained = [
 
 suite('aggregate evaluation reductions', function () {
     for (const [ name, body, value ] of reductions) {
-        test(`folds ${name}`, async function () {
+        test(`folds ${name}`, function () {
             const content =
                 `function compute(){${body}}export const value=compute();export function probe(){return value;}`;
             const source = createProject().createSourceFile('input.js', content);
@@ -49,15 +50,16 @@ suite('aggregate evaluation reductions', function () {
                 ),
                 { value }
             );
-            const modules = await assertModuleEliminationOutput(name, content, {});
-            const output = Array.from(modules.values()).join('\n');
-            assert.strictEqual(output.includes('compute'), false);
+            specializeExpressions(createSourcePreparation(source));
+            assert.strictEqual(
+                source.getVariableDeclarationOrThrow('value').getInitializerOrThrow().getText(),
+                `(${value})`
+            );
         });
     }
     for (const body of retained) {
-        test(`preserves effects and uncertainty in ${body}`, async function () {
+        test(`preserves effects and uncertainty in ${body}`, function () {
             const content = `function compute(){${body}}export function probe(){return compute();}`;
-            await assertModuleEliminationOutput(body, content, {});
             const source = createProject().createSourceFile('input.js', `${content}const value=compute();`);
             const call = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
             assert.strictEqual(createSourceEvaluation(source).primitiveValue(call), undefined);

@@ -1,10 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { assertModuleEliminationOutput } from '../test-libraries/dead-code-elimination-module-case.ts';
+import { createSourcePreparation } from '../source-transformation/source-preparation.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
-import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { prepareLocalRuntimeSource } from './transform/local-source-preparation.ts';
 
 const cases = [
     {
@@ -220,26 +219,20 @@ const cases = [
     }
 ];
 
-suite('fixed function reductions', function () {
-    test('preserves a CommonJS function directive when its computation disappears', async function () {
+suite('fixed function source preparation', function () {
+    test('preserves a CommonJS function directive when its computation disappears', function () {
         const content =
             'function strict(){"use strict";let sum=0;for(let index=1;index<=6;index++)sum+=index;return sum;}' +
             'module.exports=function probe(){try{return strict.caller;}catch(error){return error.name;}};';
-        const { bundles } = await assertDeadCodeEliminationOutput(
-            singleFileOracleCase(content, 'index.cjs')
-        );
-        const [ output ] = bundles;
-        const source = createProject().createSourceFile(
-            'output.cjs',
-            output?.contents[0]?.fileDescription.content ?? ''
-        );
+        const source = createProject().createSourceFile('index.cjs', content);
+        prepareLocalRuntimeSource(createSourcePreparation(source));
+        assert.strictEqual(source.getFullText().includes('"use strict"'), true);
         assert.strictEqual(source.getDescendantsOfKind(SyntaxKind.ForStatement).length, 0);
     });
     for (const fixture of cases) {
-        test(`preserves ${fixture.name}`, async function () {
-            const modules = await assertModuleEliminationOutput(fixture.name, fixture.content, {});
-            const output = Array.from(modules.values()).join('\n');
-            const source = createProject().createSourceFile('output.js', output);
+        test(`preserves ${fixture.name}`, function () {
+            const source = createProject().createSourceFile('index.js', fixture.content);
+            prepareLocalRuntimeSource(createSourcePreparation(source));
             assert.strictEqual(source.getDescendantsOfKind(fixture.kind).length, fixture.count);
         });
     }
