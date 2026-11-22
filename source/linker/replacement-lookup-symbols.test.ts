@@ -126,7 +126,7 @@ describe('replacement-lookup symbol reachability', function () {
             lookup([ namedRequest('/b/internal.d.ts', [ 'Public', 'Private' ]) ]);
         }, /does not expose/u);
         assert.throws(function () {
-            lookup([ namespaceRequest('/b/internal.d.ts') ]);
+            lookup([ namespaceRequest() ]);
         }, /does not expose/u);
     });
 

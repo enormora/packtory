@@ -34,10 +34,10 @@ function exportDeclaration(
 
 function moduleSpecifierText(statement: Readonly<typescript.ExportDeclaration>): string | undefined {
     const { moduleSpecifier } = statement;
-    if (moduleSpecifier === undefined) {
-        return undefined;
-    }
-    if (!typescript.isStringLiteral(moduleSpecifier) || !moduleSpecifier.text.startsWith('.')) {
+    if (
+        moduleSpecifier === undefined || !typescript.isStringLiteral(moduleSpecifier) ||
+        !moduleSpecifier.text.startsWith('.')
+    ) {
         return undefined;
     }
     return moduleSpecifier.text;

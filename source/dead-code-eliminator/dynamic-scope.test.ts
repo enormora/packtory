@@ -17,6 +17,7 @@ suite('dynamic scope detection', function () {
             assert.strictEqual(hasDynamicScope(createProject().createSourceFile('input.js', content)), expected);
         });
     }
+
     test('reads the current source after edits', function () {
         const source = createProject().createSourceFile('index.js', 'export const value = 42;');
 
