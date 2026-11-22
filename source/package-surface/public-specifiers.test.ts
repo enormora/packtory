@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import type { BundleLike } from './package-shape.ts';
-import { getPublicModuleSpecifierForSourcePath } from './public-specifiers.ts';
 import { indexPublicModules } from './package-surface-index.ts';
 
 const mainRoots = { main: rootWithSource('/source/index.js', 'index.js') };
@@ -25,15 +24,18 @@ const implicitBundle: BundleLike = {
 };
 
 suite('public-specifiers', function () {
-    test('getPublicModuleSpecifierForSourcePath dispatches to the explicit builder for explicit surfaces', function () {
+    test('maps explicit root source paths to their public module specifiers', function () {
         assert.strictEqual(
-            getPublicModuleSpecifierForSourcePath(explicitBundle, '/source/index.js'),
+            indexPublicModules(explicitBundle).specifierByInputFilePath.get('/source/index.js'),
             'package-a/entry'
         );
     });
 
-    test('getPublicModuleSpecifierForSourcePath dispatches to the implicit builder for implicit surfaces', function () {
-        assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/source/index.js'), 'package-a');
+    test('maps implicit root source paths to their public module specifiers', function () {
+        assert.strictEqual(
+            indexPublicModules(implicitBundle).specifierByInputFilePath.get('/source/index.js'),
+            'package-a'
+        );
     });
 
     test('public module indexes resolve explicit specifiers', function () {

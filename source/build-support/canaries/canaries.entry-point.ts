@@ -10,8 +10,10 @@ import { createNodeImportProbe } from './package-application-programming-interfa
 
 const importProbeTimeoutMilliseconds = 10_000;
 const shellCommandTimeoutMilliseconds = 900_000;
+const millisecondsPerSecond = 1000;
 
 const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+const runShellCommand = createShellCommandRunner(shellCommandTimeoutMilliseconds, executeFile);
 
 process.exitCode = await runCanaryCommandLineInterface(process.argv, {
     fileManager,
@@ -28,8 +30,19 @@ process.exitCode = await runCanaryCommandLineInterface(process.argv, {
                 await fileSystem.promises.rm(folderPath, { recursive: true, force: true });
             },
             repositoryFolder: process.cwd(),
-            runCommand: createShellCommandRunner(shellCommandTimeoutMilliseconds, executeFile),
-            runImportProbe: createNodeImportProbe(importProbeTimeoutMilliseconds, executeFile, process.execPath)
+            runImportProbe: createNodeImportProbe(importProbeTimeoutMilliseconds, executeFile, process.execPath),
+            async runCommand(command, cwd) {
+                const started = performance.now();
+                try {
+                    return await runShellCommand(command, cwd);
+                } finally {
+                    if (command === 'packtory publish' || command.startsWith('packtory pack --all ')) {
+                        const seconds = (performance.now() - started) / millisecondsPerSecond;
+                        const phase = command === 'packtory publish' ? 'publish dry run' : 'pack --all';
+                        process.stdout.write(`Canary ${phase}: ${seconds.toFixed(1)}s\n`);
+                    }
+                }
+            }
         });
     },
     standardErrorWrite(message) {

@@ -189,6 +189,10 @@ If yes, the import is replaced. The path becomes `<siblingName>/<targetFilePath>
 
 When a rewritten cross-package import targets a sibling JavaScript file, packtory records that exact sibling source path. After the first link pass, typed sibling packages promote only the readable declaration companions for those substituted JavaScript files, then the final link and analysis run from that narrowed file set. This keeps implicit substitution exports typed when the companion exists without bundling unrelated declaration files.
 
+Each link pass indexes sibling source paths and public exports once. Requests still
+check their required symbols independently, including aliases and namespace imports.
+Requests for public roots use their declared specifiers directly.
+
 ```mermaid
 flowchart LR
     subgraph BEFORE ["before"]
@@ -389,6 +393,13 @@ Number arithmetic, exponentiation, bitwise operations, and shifts preserve nativ
 Function-local `var` evaluation initializes bindings before executing the body and shares their state across blocks and loops. Duplicate variable or parameter declarations and `arguments` aliasing remain unknown. Empty base constructors can disappear while argument and class-definition effects remain. Conditions with proven outcomes can select branches even when evaluating the condition has effects; those effects and exceptions stay in order. Empty `do...while` loops disappear only when the condition is proven harmless and false.
 
 Runtime preparation first validates syntax with `@babel/parser`, including early errors that TypeScript's AST can represent. Preparation leaves invalid sources unchanged. Sources whose module format is ambiguous must parse as both modules and CommonJS before preparation can change them.
+
+Binding reference queries reuse results until any source in the compiler program changes.
+Syntax checks reuse results for unchanged compiler snapshots. Local preparation
+skips sources that have reached a fixed point until their syntax changes. External
+purity proofs follow the requested export path without inspecting unrelated namespace members.
+Import origin checks reject local names absent from the file's import bindings
+before requesting symbol analysis.
 
 The same classifier serves three purposes:
 

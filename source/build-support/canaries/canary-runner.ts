@@ -198,18 +198,29 @@ async function packGeneratedPackages(
     );
 }
 
+async function prepareCanaryPackages(
+    dependencies: CanaryRunnerDependencies,
+    canary: Canary,
+    clone: PreparedClone
+): Promise<void> {
+    await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
+    for (const command of canary.verificationCommands) {
+        await dependencies.runCommand(command, clone.cloneFolder);
+    }
+    await writeCanaryConfigurationOverlay({
+        cloneFolder: clone.cloneFolder,
+        fileManager: dependencies.fileManager
+    });
+    await packGeneratedPackages(dependencies, clone);
+}
+
 async function inspectCanaryClone(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
     clone: PreparedClone
 ): Promise<PacktoryRunResult> {
     try {
-        await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
-        await writeCanaryConfigurationOverlay({
-            cloneFolder: clone.cloneFolder,
-            fileManager: dependencies.fileManager
-        });
-        await packGeneratedPackages(dependencies, clone);
+        await prepareCanaryPackages(dependencies, canary, clone);
         return {
             failed: false,
             inspection: await inspectPackageApplicationProgrammingInterfaces({

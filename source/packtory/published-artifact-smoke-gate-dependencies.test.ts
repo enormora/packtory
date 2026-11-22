@@ -10,6 +10,7 @@ import {
     matchingAnalyzedBundle,
     resource,
     sourceResource,
+    sourceTreeResources,
     type SmokeGateContext,
     temporaryFolderPath,
     verify,
@@ -58,6 +59,89 @@ function createPackageSourceDependencyContext(
 }
 
 suite('published artifact smoke gate dependency staging', function () {
+    suite('dependency lookup work budgets', function () {
+        test('does not resolve dependencies above the repository boundary', async function () {
+            const { checkReadability, targetBundle } = createPackageSourceDependencyContext(
+                '/repo/project/packages/app/source/index.js',
+                path.join('/repo', 'node_modules', 'external')
+            );
+            const context = createContext({
+                repositoryFolder: '/repo/project',
+                fileManager: {
+                    checkReadability,
+                    setExecutable: fake.resolves(undefined),
+                    writeFile: fake.resolves(undefined)
+                }
+            });
+
+            await assertRejectsWithMessages(async function () {
+                await verify(context.gate, targetBundle);
+            }, [ 'dependency "external" is not installed' ]);
+
+            assertReadabilityPaths(
+                checkReadability,
+                [
+                    '/repo/project',
+                    '/repo/project/packages/app/source',
+                    '/repo/project/packages/app',
+                    '/repo/project/packages'
+                ]
+                    .map(function (folder) {
+                        return path.join(folder, 'node_modules', 'external');
+                    })
+            );
+            assert.strictEqual(context.createTemporaryFolder.callCount, 0);
+        });
+
+        test('checks repository dependencies twice regardless of source file count', async function () {
+            const dependencyPath = path.join('/repo', 'node_modules', 'external');
+            const { checkReadability, context, targetBundle } = createPackageSourceDependencyContext(
+                '/repo/packages/app/source/index.js',
+                dependencyPath
+            );
+            await verify(context.gate, {
+                ...targetBundle,
+                contents: [ ...targetBundle.contents, ...sourceTreeResources(64) ]
+            });
+
+            assert.strictEqual(checkReadability.callCount, 2);
+            assertReadabilityPaths(checkReadability, [ dependencyPath, dependencyPath ]);
+            assert.strictEqual(context.linkDirectory.firstCall.args[0], dependencyPath);
+        });
+
+        test('checks each fallback folder once in each lookup phase', async function () {
+            const dependencyPath = path.join('/repo', 'alternate', 'node_modules', 'external');
+            const { checkReadability, context, targetBundle } = createPackageSourceDependencyContext(
+                '/repo/packages/app/source/index.js',
+                dependencyPath
+            );
+            await verify(context.gate, {
+                ...targetBundle,
+                contents: [
+                    ...targetBundle.contents,
+                    ...sourceTreeResources(64),
+                    sourceResource('/repo/alternate/source/index.js', 'alternate.js')
+                ]
+            });
+            const paths = [
+                '/repo',
+                '/repo/packages/app/source',
+                '/repo/packages/app',
+                '/repo/packages',
+                '/repo/packages/app/source/deep',
+                '/repo/alternate/source',
+                '/repo/alternate'
+            ]
+                .map(function (folder) {
+                    return path.join(folder, 'node_modules', 'external');
+                });
+
+            assert.strictEqual(checkReadability.callCount, paths.length * 2);
+            assertReadabilityPaths(checkReadability, [ ...paths, ...paths ]);
+            assert.strictEqual(context.linkDirectory.firstCall.args[0], dependencyPath);
+        });
+    });
+
     test('stages bundle dependencies and symlinks generated external dependencies', async function () {
         const targetBundle = withPackageManifest(bundle(), {
             dependencies: {

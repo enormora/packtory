@@ -1,3 +1,4 @@
+import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
 import {
     allNamespaceProperties,
     mergeNamespaceDemand,
@@ -12,6 +13,29 @@ export type NamespaceDemandLimits = {
 
 const maximumDemandQueries = 2048;
 const maximumDemandEvaluations = 32_768;
+
+function* namespaceSyntaxNodes(node: TypeScriptMorphNode): Generator<TypeScriptMorphNode> {
+    for (let index = 0; index < node.getChildCount(); index += 1) {
+        const child = node.getChildAtIndex(index);
+        yield child;
+        yield* namespaceSyntaxNodes(child);
+    }
+}
+
+export function namespaceSyntaxBudgetSize(files: readonly SourceFile[]): number {
+    const maximumSyntaxBudgetSize = Math.ceil(Math.sqrt(maximumDemandEvaluations)) - 1;
+    let syntaxNodes = 0;
+    for (const source of files) {
+        const syntax = namespaceSyntaxNodes(source);
+        for (let node = syntax.next(); node.done !== true; node = syntax.next()) {
+            syntaxNodes += 1;
+            if (syntaxNodes === maximumSyntaxBudgetSize) {
+                return syntaxNodes;
+            }
+        }
+    }
+    return syntaxNodes;
+}
 
 export function namespaceDemandLimits(syntaxSizes: readonly number[]): NamespaceDemandLimits {
     const syntaxNodes = syntaxSizes.reduce(function (total, size) {

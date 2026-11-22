@@ -5,6 +5,9 @@
         "rootDir": "..",
         "types": ["node"]
     },
-    "references": [{ "path": "../source/tsconfig.sources.json" }, { "path": "../integration-tests/tsconfig.json" }],
-    "include": ["./**/*.ts", "../source/test-libraries/public-module-usage-workload.ts"]
+    "references": [
+        { "path": "../source/tsconfig.sources.json" },
+        { "path": "../source/tsconfig.unit-tests.json" }
+    ],
+    "include": ["./**/*.ts"]
 }

@@ -6,6 +6,9 @@
         "noEmit": true,
         "types": ["node"]
     },
-    "references": [{ "path": "./tsconfig.sources.json" }],
-    "include": ["./**/*.type-test.ts", "./test-libraries/public-package-api-expectations.ts"]
+    "references": [
+        { "path": "./tsconfig.sources.json" },
+        { "path": "./tsconfig.unit-tests.json" }
+    ],
+    "include": ["./**/*.type-test.ts"]
 }

@@ -1,5 +1,6 @@
-import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier } from 'ts-morph';
+import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier, type SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../source-transformation/syntax-analysis.ts';
 import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
@@ -55,7 +56,30 @@ function importedOriginForDeclaration(declaration: TypeScriptMorphNode): Importe
     return undefined;
 }
 
+const importedBindingResults: SyntaxAnalysisResults<ReadonlySet<string | undefined>> = new WeakMap();
+
+function readImportedBindingNames(source: SourceFile): ReadonlySet<string | undefined> {
+    return new Set(
+        source.getDescendantsOfKind(SyntaxKind.ImportDeclaration).flatMap(function (declaration) {
+            return [
+                declaration.getDefaultImport()?.compilerNode.text,
+                declaration.getNamespaceImport()?.compilerNode.text,
+                ...declaration.getNamedImports().map(function (namedImport) {
+                    return namedImport.getAliasNode()?.compilerNode.text ?? namedImport.getNameNode().compilerNode.text;
+                })
+            ];
+        })
+    );
+}
+
+function importedBindingNames(source: SourceFile): ReadonlySet<string | undefined> {
+    return createSyntaxAnalysis(readImportedBindingNames, importedBindingResults)(source);
+}
+
 function importedOriginForIdentifier(identifier: Identifier): ImportedExpressionOrigin | undefined {
+    if (!importedBindingNames(identifier.getSourceFile()).has(identifier.compilerNode.text)) {
+        return undefined;
+    }
     const symbol = identifier.getSymbol();
     if (symbol === undefined) {
         return undefined;

@@ -16,7 +16,7 @@ import { runCommandLineInterfaceResponsivenessBenchmark } from './command-line-i
 import { runReleaseAnalysisMemoryBenchmark } from './release-analysis-memory.benchmark.ts';
 import { createBenchmarkChecks, type BenchmarkCheck } from './benchmark-checks.ts';
 import { runConsumerPerformanceBenchmarks } from './consumer-performance.benchmark.ts';
-import { runPublicModuleUsageBenchmark } from './public-module-usage.benchmark.ts';
+import { runModuleAnalysisBenchmarks } from './module-analysis.benchmark.ts';
 
 function writeLine(message: string): void {
     process.stdout.write(`${message}\n`);
@@ -166,9 +166,7 @@ async function runConfiguredBenchmarks(configuration: BenchmarkConfiguration, ch
         await runReleaseAnalysisMemoryBenchmark(benchmarkFiles.thresholds.performance.maximumAdditionalResidentMiB);
     });
     writeHeading('Analysis, Vendoring, Packing and Publishing Benchmarks');
-    await check('public-module-usage/repeated-lookups', async function () {
-        await runPublicModuleUsageBenchmark(benchmarkFiles.workloads.performanceWorkload, writeLine);
-    });
+    await runModuleAnalysisBenchmarks(configuration, check, writeLine);
     await runConsumerPerformanceBenchmarks(configuration, check, writeLine);
     await runResolveBenchmarks(thresholdMultiplier, benchmarkFiles, check);
     await runBuildBenchmarks(thresholdMultiplier, benchmarkFiles, check);
