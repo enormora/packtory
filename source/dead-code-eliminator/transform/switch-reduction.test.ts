@@ -22,4 +22,23 @@ suite('switch reduction convergence', function () {
         assert.strictEqual(source.getFullText(), content);
         assert.deepStrictEqual(preparation.transformations, []);
     });
+    for (
+        const [ body, expected ] of [
+            [ 'switch(2){case 1:first();break;case 2:second();break;default:other();}', '{second();}' ],
+            [ 'switch(3){case 1:first();break;default:other();}', '{other();}' ],
+            [ 'switch(2){default:other();case 1:first();break;case 2:second();break;}', '{second();}' ],
+            [ 'switch(3){case 1:first();break;}', '{}' ],
+            [
+                'outer:{switch(2){case 1:first();break;case 2:break outer;}second();}',
+                'outer:{{break outer;}}'
+            ],
+            [ 'switch(value){case 1:first();break;}', 'switch(value){case 1:first();break;}' ]
+        ]
+    ) {
+        test(`selects only the reachable statements in ${body}`, function () {
+            const source = createProject().createSourceFile('input.js', `function probe(){${body}}`);
+            simplifyConstantControlFlow(createSourcePreparation(source));
+            assert.strictEqual(source.getFullText(), `function probe(){${expected}}`);
+        });
+    }
 });
