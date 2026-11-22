@@ -11,7 +11,7 @@ import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult, type AbstractValue } from './abstract-value.ts';
 import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 
-export type PrimitiveEvaluator = (expression: TypeScriptMorphNode) => EvaluatedValue | undefined;
+export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
     readonly knownValue: (expression: TypeScriptMorphNode) => AbstractValue | undefined;
     readonly primitiveValue: (node: TypeScriptMorphNode) => EvaluatedValue | undefined;
@@ -47,7 +47,7 @@ function evaluateSourceConstants(
         }
     };
     const { evaluate } = evaluation;
-    const primitiveValue: PrimitiveEvaluator = function (expression) {
+    const primitiveValue: SourceEvaluation['primitiveValue'] = function (expression) {
         return primitiveResult(evaluate(expression));
     };
     return {

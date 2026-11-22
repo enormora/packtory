@@ -18,27 +18,6 @@ function preparedFiles(
 }
 
 suite('module constant snapshots', function () {
-    for (
-        const [ content, name ] of [ [ 'export function compute(){}', 'compute' ], [
-            'export class Box{}',
-            'Box'
-        ] ] as const
-    ) {
-        test(`does not request primitive evaluation of the declaration ${name}`, function () {
-            const fixture = createExportModuleFixture({ 'index.js': content }, []);
-            const source = fixture.source('index.js');
-            const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
-            assert.deepStrictEqual(
-                exportedModuleValue(fixture.source('index.js'), name, {
-                    index,
-                    resolveModule: fixture.resolveModule
-                }, function () {
-                    return assert.fail('Named declarations do not supply primitive values');
-                }),
-                name === 'compute' ? { kind: 'callable', source, name } : undefined
-            );
-        });
-    }
     suite('completion boundaries', function () {
         for (
             const [ prefix, modules, known ] of [
@@ -177,25 +156,56 @@ suite('module constant snapshots', function () {
         );
     });
 
-    for (
-        const content of [
-            'export default class{}',
-            'export default function(){}',
-            'export class Value{}',
-            'export function value(){}',
-            'export enum Value{first}'
-        ]
-    ) {
-        test(`keeps declarations outside primitive snapshots for ${content}`, function () {
-            const sourceFile = createProject().createSourceFile('/source/index.js', content);
-            const snapshot = createModuleConstantSnapshot([ {
-                sourceFile,
-                targetFilePath: 'index.js',
-                moduleReferences: []
-            } ], function () {
-                return undefined;
+    suite('declaration snapshots', function () {
+        for (
+            const [ content, name ] of [ [ 'export function compute(){}', 'compute' ], [
+                'export class Box{}',
+                'Box'
+            ] ] as const
+        ) {
+            test(`does not request primitive evaluation of the declaration ${name}`, function () {
+                const fixture = createExportModuleFixture({ 'index.js': content }, []);
+                const source = fixture.source('index.js');
+                const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
+                assert.deepStrictEqual(
+                    exportedModuleValue(fixture.source('index.js'), name, {
+                        index,
+                        resolveModule: fixture.resolveModule
+                    }, function () {
+                        return assert.fail('Named declarations do not supply primitive values');
+                    }),
+                    name === 'compute' ? { kind: 'callable', source, name } : undefined
+                );
             });
-            assert.deepStrictEqual(snapshot.modules.get(sourceFile)?.exports, new Map());
-        });
-    }
+        }
+
+        for (
+            const content of [
+                'export default class{}',
+                'export default function(){}',
+                'export class Value{}',
+                'export function value(){}',
+                'export enum Value{first}'
+            ]
+        ) {
+            test(`retains only callable declaration snapshots for ${content}`, function () {
+                const sourceFile = createProject().createSourceFile('/source/index.js', content);
+                const snapshot = createModuleConstantSnapshot([ {
+                    sourceFile,
+                    targetFilePath: 'index.js',
+                    moduleReferences: []
+                } ], function () {
+                    return undefined;
+                });
+                assert.deepStrictEqual(
+                    snapshot.modules.get(sourceFile)?.exports,
+                    new Map(
+                        content === 'export function value(){}'
+                            ? [ [ 'value', { kind: 'callable', source: sourceFile, name: 'value' } ] ]
+                            : []
+                    )
+                );
+            });
+        }
+    });
 });

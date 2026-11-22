@@ -23,6 +23,7 @@ suite('declaration type demand', function () {
                 bundleName: 'package',
                 files,
                 entryPointFilePaths: new Set([ '/index.js', '/index.d.ts' ]),
+                deadCodeElimination: undefined,
                 classifySideEffects,
                 trace: undefined
             })
@@ -41,6 +42,7 @@ suite('declaration type demand', function () {
             bundleName: 'package',
             files,
             entryPointFilePaths: new Set([ '/index.d.ts' ]),
+            deadCodeElimination: undefined,
             classifySideEffects,
             trace: undefined
         })

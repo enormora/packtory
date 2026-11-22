@@ -1,8 +1,28 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { Project } from 'ts-morph';
 import { eliminateCodeModules } from '../test-libraries/eliminator-test-support.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
+
+function assertNamespaceValue(project: Project): void {
+    const output = project.getSourceFileOrThrow('/output/index.js');
+    project.getSourceFileOrThrow('/output/barrel.js');
+    const dependency = project.getSourceFileOrThrow('/output/dep.js');
+    assert.deepStrictEqual(
+        output.getExportSymbols().map(function (symbol) {
+            return symbol.getName();
+        }),
+        [ 'value' ]
+    );
+    const initializer = output.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
+    const used = dependency.getVariableDeclarationOrThrow('used');
+    assert.strictEqual(initializer.getSymbolOrThrow().getValueDeclaration(), used);
+    assert.deepStrictEqual(
+        createSourceEvaluation(dependency).primitiveValue(used.getInitializerOrThrow()),
+        { value: 42 }
+    );
+}
 
 suite('eliminator namespace default export', function () {
     test('retains a default-exported namespace observed as a value', async function () {
@@ -63,21 +83,7 @@ suite('eliminator namespace default export', function () {
                         return { filePath: `/output/${filePath}`, content };
                     })
                 });
-                const output = project.getSourceFileOrThrow('/output/index.js');
-                project.getSourceFileOrThrow('/output/barrel.js');
-                project.getSourceFileOrThrow('/output/dep.js');
-                assert.deepStrictEqual(
-                    output.getExportSymbols().map(function (symbol) {
-                        return symbol.getName();
-                    }),
-                    [ 'value' ]
-                );
-                assert.deepStrictEqual(
-                    createSourceEvaluation(output).primitiveValue(
-                        output.getVariableDeclarationOrThrow('value').getInitializerOrThrow()
-                    ),
-                    { value: 42 }
-                );
+                assertNamespaceValue(project);
                 assert.strictEqual(emitted.get('dep.js')?.includes('dead'), false);
                 assert.strictEqual(emitted.get('dep.js')?.includes('unused'), false);
             });
