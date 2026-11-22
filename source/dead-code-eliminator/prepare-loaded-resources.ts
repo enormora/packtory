@@ -8,6 +8,7 @@ import { createRuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { prepareBundleSources } from './transform/bundle-source-preparation.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 import { prepareLoadedExports } from './exports/loaded-export-preparation.ts';
+import { bypassFunctionForwarding } from './transform/function-forwarding.ts';
 
 function recordRemovedBindings(entry: LoadedCodeResource, bundleName: string, trace: DeadCodeEliminationTrace): void {
     const remaining = new Set(entry.bindings.map(function (binding) {
@@ -49,7 +50,7 @@ export function prepareLoadedResources(
     const resolveModule = createRuntimeModuleResolver(origins);
     const isPure = createExpressionPurityChecker(input.deadCodeElimination, resolveModule);
     prepareBundleSources(loaded.filter(isRuntimeCodeResource), origins, resolveModule, isPure);
-    return loaded.map(function (entry) {
+    return bypassFunctionForwarding(loaded).map(function (entry) {
         if (entry.sourceFile === undefined) {
             return entry;
         }
