@@ -6,7 +6,22 @@ import { createBoundedEvaluationContext } from '../../test-libraries/bounded-eva
 import { createBindingReference } from './evaluation-context.ts';
 import { evaluateExpression } from './expression-evaluation.ts';
 
-suite('expression evaluation writes', function () {
+suite('bounded expression evaluation', function () {
+    suite('array reads', function () {
+        for (const [ content, value ] of [ [ '[21,42].length', 2 ], [ '[21,42][1]', 42 ] ] as const) {
+            test(`evaluates the array read ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', `const value=${content};`);
+                assert.deepStrictEqual(
+                    evaluateExpression(
+                        source.getVariableDeclarationOrThrow('value').getInitializerOrThrow(),
+                        createBoundedEvaluationContext(0, 100)
+                    ),
+                    { value }
+                );
+            });
+        }
+    });
+
     for (
         const { fuel, result, value } of [
             { fuel: 1, result: undefined, value: 1 },
