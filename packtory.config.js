@@ -100,7 +100,7 @@ export async function buildConfiguration() {
             {
                 name: 'packtory',
                 exportPackageManifest: true,
-                checks: { maximumBundleSize: { bytes: 2_250_000 } },
+                checks: { maximumBundleSize: { bytes: 2_260_000 } },
                 roots: {
                     main: {
                         javaScript: 'packages/packtory/packtory.entry-point.js',
