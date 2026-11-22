@@ -9,6 +9,7 @@ import {
     type SourceEvaluation
 } from './constant-evaluation.ts';
 import { createInitializedImportOrigin } from './initialized-import-origin.ts';
+import { createFunctionEvaluation, type FunctionEvaluation } from './function-evaluation.ts';
 import { evaluateImportedCall } from './imported-call-evaluation.ts';
 import type { ModuleConstantSnapshot } from './module-constant-snapshot.ts';
 import type { ModuleValue } from './module-export-value.ts';
@@ -45,10 +46,11 @@ function projectedValue(
 function evaluateModuleValue(
     expression: Expression,
     value: ModuleValue | undefined,
-    evaluateSource: (source: SourceFile) => SourceEvaluation
+    evaluateSource: (source: SourceFile) => SourceEvaluation,
+    evaluateFunction: (source: SourceFile) => FunctionEvaluation
 ): ReturnType<PrimitiveEvaluator> {
     if (TypeScriptMorphNode.isCallExpression(expression)) {
-        return evaluateImportedCall(expression, value, evaluateSource);
+        return evaluateImportedCall(expression, value, evaluateSource, evaluateFunction);
     }
     return value?.kind === 'constant' ? value.value : undefined;
 }
@@ -58,6 +60,7 @@ export function createBundleConstantEvaluator(
     resolveExternal: RuntimeModuleResolver
 ): PrimitiveEvaluator {
     const sourceEvaluation = createSourceEvaluations(createSourceEvaluation);
+    const evaluateFunction = createSourceEvaluations(createFunctionEvaluation);
     const originFor = createInitializedImportOrigin(function (expression) {
         return sourceEvaluation(expression.getSourceFile()).primitiveValue(expression);
     });
@@ -72,7 +75,8 @@ export function createBundleConstantEvaluator(
             ? evaluateModuleValue(
                 expression,
                 projectedValue(source, origin.path, expression.getSourceFile(), snapshot),
-                sourceEvaluation
+                sourceEvaluation,
+                evaluateFunction
             )
             : evaluateImportedConstant(expression, resolveExternal);
     };

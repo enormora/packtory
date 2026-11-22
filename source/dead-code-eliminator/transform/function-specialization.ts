@@ -1,8 +1,13 @@
 import { takeWhile } from 'remeda';
-import { Node as TypeScriptMorphNode, type Block, type Node as TypeScriptMorphNodeType } from 'ts-morph';
+import {
+    Node as TypeScriptMorphNode,
+    type Block,
+    type SourceFile,
+    type Node as TypeScriptMorphNodeType
+} from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import { localFunction } from '../evaluation/call-target.ts';
-import { evaluateLocalFunction } from '../evaluation/function-evaluation.ts';
+import { createFunctionEvaluation, type FunctionEvaluation } from '../evaluation/function-evaluation.ts';
 import type { EvaluatedValue } from '../evaluation/primitive-value.ts';
 import { primitiveSource } from './primitive-source.ts';
 import { sourceReplacement } from './source-replacement.ts';
@@ -25,7 +30,10 @@ function constantBodyEdits(body: Block, value: EvaluatedValue): readonly SourceT
     return sourceReplacement(body, [ '{', ...directives, result ]);
 }
 
-export function functionSpecializationEdits(node: TypeScriptMorphNodeType): readonly SourceTextEdit[] {
+function functionSpecializationEdits(
+    node: TypeScriptMorphNodeType,
+    evaluate: FunctionEvaluation['bodyValue']
+): readonly SourceTextEdit[] {
     const target = localFunction(node);
     if (target === undefined) {
         return [];
@@ -34,9 +42,18 @@ export function functionSpecializationEdits(node: TypeScriptMorphNodeType): read
     if (!TypeScriptMorphNode.isBlock(body) || !bodyHasComputation(body)) {
         return [];
     }
-    const value = evaluateLocalFunction(target);
+    const value = evaluate(target);
     if (value === undefined) {
         return [];
     }
     return constantBodyEdits(body, value);
+}
+
+export function createFunctionSpecialization(
+    source: SourceFile
+): (node: TypeScriptMorphNodeType) => readonly SourceTextEdit[] {
+    const evaluate = createFunctionEvaluation(source).bodyValue;
+    return function (node) {
+        return functionSpecializationEdits(node, evaluate);
+    };
 }

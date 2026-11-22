@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createFunctionEvaluation } from './function-evaluation.ts';
 import { evaluateImportedCall } from './imported-call-evaluation.ts';
 
 suite('imported call evaluation', function () {
@@ -16,7 +17,8 @@ suite('imported call evaluation', function () {
                 evaluateImportedCall(
                     call,
                     { kind: 'callable', source: provider, name: 'twice' },
-                    createSourceEvaluation
+                    createSourceEvaluation,
+                    createFunctionEvaluation
                 ),
                 argumentsText === '' ? { value: 42 } : undefined
             );
@@ -31,7 +33,7 @@ suite('imported call evaluation', function () {
             assert.strictEqual(
                 evaluateImportedCall(call, { kind: 'callable', source: provider, name: 'twice' }, function () {
                     assert.fail('An unavailable callable cannot evaluate its arguments');
-                }),
+                }, createFunctionEvaluation),
                 undefined
             );
         });
@@ -43,7 +45,12 @@ suite('imported call evaluation', function () {
         const consumer = project.createSourceFile('index.js', 'twice(...[21]);');
         const call = consumer.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
         assert.strictEqual(
-            evaluateImportedCall(call, { kind: 'callable', source: provider, name: 'twice' }, createSourceEvaluation),
+            evaluateImportedCall(
+                call,
+                { kind: 'callable', source: provider, name: 'twice' },
+                createSourceEvaluation,
+                createFunctionEvaluation
+            ),
             undefined
         );
     });

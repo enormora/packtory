@@ -70,6 +70,9 @@ function completionValue(completion: Completion | undefined): AbstractValue | un
 }
 
 export function evaluateFunctionBody(target: LocalFunction, context: EvaluationContext): AbstractValue | undefined {
+    if (!initializeHoistedLocals(target, context)) {
+        return undefined;
+    }
     const body = target.getBody();
     if (!TypeScriptMorphNode.isBlock(body)) {
         return TypeScriptMorphNode.isExpression(body) ? context.evaluate(body, context) : undefined;
@@ -83,7 +86,7 @@ export function evaluateFunctionCall(
     context: EvaluationContext
 ): AbstractValue | undefined {
     const local = { ...context, locals: createLocalScope(new Map()), depth: context.depth + 1 };
-    return bindParameters(target, values, local) && initializeHoistedLocals(target, local)
+    return bindParameters(target, values, local)
         ? evaluateFunctionBody(target, local)
         : undefined;
 }

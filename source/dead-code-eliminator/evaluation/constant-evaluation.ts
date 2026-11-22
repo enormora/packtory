@@ -18,10 +18,10 @@ export type SourceEvaluation = {
     readonly canDiscard: (expression: Expression) => boolean;
 };
 
-export function createSourceEvaluations(
-    evaluateSource: (source: SourceFile) => SourceEvaluation
-): (source: SourceFile) => SourceEvaluation {
-    const evaluations = new WeakMap<SourceFile, SourceEvaluation>();
+export function createSourceEvaluations<Value>(
+    evaluateSource: (source: SourceFile) => Value
+): (source: SourceFile) => Value {
+    const evaluations = new WeakMap<SourceFile, Value>();
     return function (source) {
         const evaluation = evaluations.get(source) ?? evaluateSource(source);
         evaluations.set(source, evaluation);

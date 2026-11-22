@@ -9,7 +9,7 @@ import type { SourcePreparation } from '../../source-transformation/source-prepa
 import { createRuntimeSourceEvaluation, type PrimitiveEvaluator } from '../evaluation/constant-evaluation.ts';
 import type { EvaluatedValue } from '../evaluation/primitive-value.ts';
 import { createPureCallResolver, type PureCallResolver } from '../evaluation/pure-local-call.ts';
-import { functionSpecializationEdits } from './function-specialization.ts';
+import { createFunctionSpecialization } from './function-specialization.ts';
 import { expressionIsWriteTarget } from './expression-write.ts';
 import { primitiveSource } from './primitive-source.ts';
 import { sourceReplacement } from './source-replacement.ts';
@@ -44,9 +44,10 @@ function isSpecializableExpression(node: TypeScriptMorphNodeType): node is Expre
 function valueSpecializationEdits(
     expression: TypeScriptMorphNodeType,
     evaluate: PrimitiveEvaluator,
-    resolveCall: PureCallResolver
+    resolveCall: PureCallResolver,
+    specializeFunction: ReturnType<typeof createFunctionSpecialization>
 ): readonly SourceTextEdit[] {
-    const functionEdits = functionSpecializationEdits(expression);
+    const functionEdits = specializeFunction(expression);
     if (functionEdits.length > 0) {
         return functionEdits;
     }
@@ -60,9 +61,10 @@ function valueSpecializationEdits(
 function expressionSpecializationEdits(sourceFile: SourceFile): readonly SourceTextEdit[] {
     const evaluate = createRuntimeSourceEvaluation(sourceFile).primitiveValue;
     const resolveCall = createPureCallResolver(sourceFile);
+    const specializeFunction = createFunctionSpecialization(sourceFile);
     const changes: SourceTextEdit[] = [];
     sourceFile.forEachDescendant(function (expression, traversal) {
-        const edits = valueSpecializationEdits(expression, evaluate, resolveCall);
+        const edits = valueSpecializationEdits(expression, evaluate, resolveCall, specializeFunction);
         if (edits.length === 0) {
             return;
         }
