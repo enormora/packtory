@@ -74,33 +74,11 @@ export type PackHandlerDependencies = {
     readonly flags: PackFlags;
 };
 
-type PackModeRule = {
-    readonly invalid: (flags: PackFlags) => boolean;
-    readonly message: string;
-};
-const conflictingAllPackageMessage = 'Pass either --all or <package>, not both';
-const unsupportedAllFormatMessage = 'pack --all only supports --format folder';
-const missingPackageMessage = 'Pass <package> or --all';
 const allPackMode = new Set<never>();
 type AllPackMode = typeof allPackMode;
 type InvalidPackMode = { readonly message: string; };
 type SinglePackMode = { readonly packageName: string; };
 type PackMode = AllPackMode | InvalidPackMode | SinglePackMode;
-
-const packModeRules: readonly PackModeRule[] = [
-    {
-        invalid(flags) {
-            return flags.all && flags.packageName !== undefined;
-        },
-        message: conflictingAllPackageMessage
-    },
-    {
-        invalid(flags) {
-            return flags.all && flags.format !== 'folder';
-        },
-        message: unsupportedAllFormatMessage
-    }
-];
 
 function formatIssueList(prefix: string, issues: readonly string[]): string {
     const issueCount = `${issues.length} issue(s)`;
@@ -238,23 +216,22 @@ function reportAllOutcome(
     return 0;
 }
 
+function allPackagesMode(flags: PackFlags): AllPackMode | InvalidPackMode {
+    if (flags.packageName !== undefined) {
+        return { message: 'Pass either --all or <package>, not both' };
+    }
+    return flags.format === 'folder'
+        ? allPackMode
+        : { message: 'pack --all only supports --format folder' };
+}
+
 function packMode(flags: PackFlags): PackMode {
-    const rule = packModeRules.find(function (candidate) {
-        return candidate.invalid(flags);
-    });
-    if (rule !== undefined) {
-        return { message: rule.message };
-    }
-
     if (flags.all) {
-        return allPackMode;
+        return allPackagesMode(flags);
     }
-
-    if (flags.packageName === undefined) {
-        return { message: missingPackageMessage };
-    }
-
-    return { packageName: flags.packageName };
+    return flags.packageName === undefined
+        ? { message: 'Pass <package> or --all' }
+        : { packageName: flags.packageName };
 }
 
 async function runPackAll(dependencies: PackHandlerDependencies, configuration: unknown): Promise<number> {

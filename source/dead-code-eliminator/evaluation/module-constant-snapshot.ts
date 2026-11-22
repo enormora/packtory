@@ -7,7 +7,7 @@ import {
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { ModuleExportModel } from '../exports/module-export-model.ts';
-import { createSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
+import { createRuntimeSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
 import { createModuleBindingEvaluator, type ModuleBindingEvaluator } from './module-binding-evaluation.ts';
 import { createModuleInitialization } from './module-initialization.ts';
 import { exportedModuleValue, type ModuleValue } from './module-export-value.ts';
@@ -46,7 +46,7 @@ export function createModuleConstantSnapshot(
     const resolveModule: RuntimeModuleResolver = function (specifier, source) {
         return resolveLocal(source, specifier) ?? resolveExternal(specifier, source);
     };
-    const evaluateSource = createSourceEvaluations(createSourceEvaluation);
+    const evaluateSource = createSourceEvaluations(createRuntimeSourceEvaluation);
     const initialization = createModuleInitialization(resolveModule, evaluateSource);
     const evaluate = createModuleBindingEvaluator({
         evaluateSource,

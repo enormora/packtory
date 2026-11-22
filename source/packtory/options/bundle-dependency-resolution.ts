@@ -53,26 +53,15 @@ function collectBundleDependencyClosureNames(
     packageName: string,
     packageConfigurations: PackageConfigurationsByName
 ): readonly string[] {
-    const visitedNames = new Set([ packageName ]);
-    const dependencyNames: string[] = [];
-    const pendingPackageNames = [ packageName ];
-
-    function scheduleDependency(dependencyName: string): void {
-        if (visitedNames.has(dependencyName)) {
-            return;
-        }
-        visitedNames.add(dependencyName);
-        dependencyNames.push(dependencyName);
-        pendingPackageNames.push(dependencyName);
-    }
-
-    for (const currentPackageName of pendingPackageNames) {
+    const dependencyNames = new Set([ packageName ]);
+    dependencyNames.forEach(function (currentPackageName) {
         const packageConfiguration = packageConfigurationByName(currentPackageName, packageConfigurations);
         for (const dependencyName of getBundledDependencies(packageConfiguration)) {
-            scheduleDependency(dependencyName);
+            dependencyNames.add(dependencyName);
         }
-    }
-    return dependencyNames;
+    });
+    dependencyNames.delete(packageName);
+    return Array.from(dependencyNames);
 }
 
 export function resolveBundleDependencyClosure<TBundle extends { readonly name: string; }>(

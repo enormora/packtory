@@ -4,11 +4,11 @@ import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { classifySideEffects } from '../test-libraries/side-effect-classifier-test-support.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
-import { loadResource, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
+import { loadResources, type LoadedCodeResource, type LoadedResource } from './load-resource.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 
 function loadedCodeResource(content: string): LoadedCodeResource {
-    const loaded = loadResource(createProject(), createProject(), {
+    const [ loaded ] = loadResources(createProject, [ {
         fileDescription: {
             inputFilePath: '/source/a.ts',
             targetFilePath: 'a.ts',
@@ -19,8 +19,8 @@ function loadedCodeResource(content: string): LoadedCodeResource {
         moduleReferences: [],
         isExplicitlyIncluded: true,
         isSubstituted: false
-    }, false);
-    if (loaded.sourceFile === undefined) {
+    } ]);
+    if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a code resource');
     }
     return loaded;
@@ -92,7 +92,21 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.strictEqual(result.resource.analysis.sideEffectStatements.length, 1);
+        assert.deepStrictEqual(result.resource.analysis.sideEffectStatements, [
+            { line: 1, kind: 'expression statement' }
+        ]);
+    });
+
+    test('buildAnalyzedResource retains original effect locations after source preparation', function () {
+        const prefix = 'const unused = 0;\n';
+        const loaded = loadedCodeResource(`${prefix}console.log(1);\n`);
+        loaded.applyEdits([ { start: 0, end: prefix.length, content: '' } ]);
+
+        const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
+
+        assert.deepStrictEqual(result.resource.analysis.sideEffectStatements, [
+            { line: 2, kind: 'expression statement' }
+        ]);
     });
 
     test('buildAnalyzedResource removes dead declarations while retaining side-effect statements', function () {

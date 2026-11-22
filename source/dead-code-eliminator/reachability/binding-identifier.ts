@@ -55,25 +55,24 @@ function bindingIdentifiersByFile(files: readonly FileBindingSet[]): Map<string,
     }));
 }
 
-function companionBindingIdentifier(
-    binding: BindingDescriptor,
-    file: FileBindingSet,
+function bindingIdentifiersByCompanionPath(
     identifiersByFile: ReadonlyMap<string, BindingIdentifiersByName>
-): string | undefined {
-    for (const [ targetFilePath, bindingIdentifiers ] of identifiersByFile) {
-        if (declarationCompanionCandidates(targetFilePath).includes(file.targetFilePath)) {
-            return bindingIdentifiers.get(binding.name);
-        }
-    }
-    return undefined;
+): ReadonlyMap<string, BindingIdentifiersByName> {
+    return new Map(
+        Array.from(identifiersByFile).toReversed().flatMap(function ([ targetFilePath, identifiers ]) {
+            return declarationCompanionCandidates(targetFilePath).map(function (companionPath) {
+                return [ companionPath, identifiers ] as const;
+            });
+        })
+    );
 }
 
 function declarationBindingIdentifiers(
     binding: BindingDescriptor,
     file: FileBindingSet,
-    identifiersByFile: ReadonlyMap<string, BindingIdentifiersByName>
+    identifiersByCompanionPath: ReadonlyMap<string, BindingIdentifiersByName>
 ): readonly string[] {
-    const companionIdentifier = companionBindingIdentifier(binding, file, identifiersByFile);
+    const companionIdentifier = identifiersByCompanionPath.get(file.targetFilePath)?.get(binding.name);
     return [
         bindingIdentifier(file.targetFilePath, binding.name),
         ...companionIdentifier === undefined ? [] : [ companionIdentifier ]
@@ -87,12 +86,12 @@ function inputFilePathFromDeclaration(declarationNode: TypeScriptMorphNode): str
 
 function bindingIdentifiersForFile(
     file: FileBindingSet,
-    identifiersByFile: ReadonlyMap<string, BindingIdentifiersByName>
+    identifiersByCompanionPath: ReadonlyMap<string, BindingIdentifiersByName>
 ): FileDeclarationIdentifiers {
     const identifiersByName = new Map<string, readonly string[]>();
     const identifiersByNode: DeclarationNodeEntry[] = [];
     for (const binding of file.bindings) {
-        const bindingIdentifiers = declarationBindingIdentifiers(binding, file, identifiersByFile);
+        const bindingIdentifiers = declarationBindingIdentifiers(binding, file, identifiersByCompanionPath);
         identifiersByNode.push([ binding.declarationNode, bindingIdentifiers ]);
         identifiersByName.set(binding.name, bindingIdentifiers);
     }
@@ -121,7 +120,7 @@ export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): Dec
         moduleReferencesByTargetFilePath: new Map<string, readonly ArtifactModuleReference[]>(),
         targetFilePathByInputFilePath: new Map<string, string>()
     };
-    const identifiersByFile = bindingIdentifiersByFile(files);
+    const identifiersByCompanionPath = bindingIdentifiersByCompanionPath(bindingIdentifiersByFile(files));
 
     function addFilePathEntries(file: FileBindingSet, identifiersByName: DeclarationIdentifiersByName): void {
         index.identifiersByFileAndName.set(file.inputFilePath, identifiersByName);
@@ -138,7 +137,7 @@ export function buildDeclarationNodeIndex(files: readonly FileBindingSet[]): Dec
     function addFileDeclarationIdentifiers(file: FileBindingSet): void {
         const { identifiersByName, identifiersByNode: nodeIdentifiers } = bindingIdentifiersForFile(
             file,
-            identifiersByFile
+            identifiersByCompanionPath
         );
         for (const [ node, bindingIdentifiers ] of nodeIdentifiers) {
             index.identifiersByNode.set(node, bindingIdentifiers);

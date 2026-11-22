@@ -4,8 +4,7 @@ import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     type DeadCodeEliminationCase,
-    assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -357,8 +356,7 @@ suite('dynamic import property demand', function () {
     for (const fixture of cases) {
         test(`preserves ${fixture.name}`, async function () {
             const input = oracleCase(fixture);
-            await assertDeadCodeEliminationOutput(input);
-            const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(input);
+            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(input);
             assertDefined(output);
             const retainsUnused = output.contents.some(function (resource) {
                 const source = createProject().createSourceFile('output.js', resource.fileDescription.content);

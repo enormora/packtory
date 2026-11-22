@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -45,8 +45,7 @@ suite('class member key effects', function () {
             'class Unused{["a"+"b"](){}}export function probe(){return 42;}',
             'index.js'
         );
-        await assertDeadCodeEliminationOutput(fixture);
-        const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+        const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
         assertDefined(output);
         assert.strictEqual(
             output.contents.some(function (resource) {

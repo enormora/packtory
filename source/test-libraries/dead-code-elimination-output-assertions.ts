@@ -58,19 +58,12 @@ function originalBundles(input: DeadCodeEliminationCase): readonly WritableBundl
         return eliminationInput.bundle;
     });
 }
-function entryBundles(input: DeadCodeEliminationCase, bundles: readonly AnalyzedBundle[]): readonly AnalyzedBundle[] {
-    return bundles.filter(function (bundle) {
-        return bundle.name === input.entry.bundleName;
-    });
-}
-
 export function assertDeadCodeEliminationExpectedOutput(input: DeadCodeEliminationBehaviorComparison): void {
     assertExpectedElimination(input.entry, input.leftBundles, input.rightBundles);
 }
 async function eliminateDeadCodeForAssertion(input: DeadCodeEliminationCase): Promise<readonly AnalyzedBundle[]> {
     const eliminated = await createTestEliminator().eliminate(input.eliminationInputs);
     verifyEntryBundle(input.name, input.entry, eliminated, 'eliminated');
-    assertValidDeadCodeEliminationOutput(input.name, entryBundles(input, eliminated));
     return eliminated;
 }
 export async function eliminateDeadCodeAndAssertAllOutputValid(
@@ -85,6 +78,10 @@ export async function assertDeadCodeEliminationOutput(
 ): Promise<VerifiedDeadCodeElimination> {
     const original = originalBundles(input);
     const eliminated = await eliminateDeadCodeForAssertion(input);
+    const entryBundles = eliminated.filter(function (bundle) {
+        return bundle.name === input.entry.bundleName;
+    });
+    assertValidDeadCodeEliminationOutput(input.name, entryBundles);
     verifyEntryBundle(input.name, input.entry, original, 'original');
     assertDeadCodeEliminationExpectedOutput({
         name: input.name,
@@ -97,4 +94,15 @@ export async function assertDeadCodeEliminationOutput(
     return {
         bundles: eliminated
     };
+}
+
+export async function eliminateDeadCodeAndAssertExpectedOutput(
+    input: DeadCodeEliminationCase
+): Promise<readonly AnalyzedBundle[]> {
+    const { bundles } = await assertDeadCodeEliminationOutput(input);
+    const otherBundles = bundles.filter(function (bundle) {
+        return bundle.name !== input.entry.bundleName;
+    });
+    assertValidDeadCodeEliminationOutput(input.name, otherBundles);
+    return bundles;
 }

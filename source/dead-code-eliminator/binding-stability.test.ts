@@ -55,6 +55,7 @@ suite('binding stability', function () {
             [ 'arrow member', 'const object={read:()=>1};object.read();', true ],
             [ 'function member', 'const object={read:function(){return 1;}};object.read();', true ],
             [ 'non-callable member', 'const object={read:1};object.read();', false ],
+            [ 'unresolved member', 'const object={};object.missing();', false ],
             [ 'accessor member', 'const object={get read(){return ()=>1;}};object.read();', false ],
             [ 'cyclic aliases with an escaping read', 'const object=alias;const alias=object;consume(object);', false ]
         ] as const

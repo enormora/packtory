@@ -48,7 +48,7 @@ function mergeDemandPair(
     operation: DemandMerge,
     complete: DemandCompletion
 ): void {
-    if (left === undefined) {
+    if (left === undefined || left === right) {
         complete(right);
         return;
     }

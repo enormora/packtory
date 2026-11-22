@@ -10,7 +10,7 @@ import {
 } from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
-import { createSourceEvaluation } from '../evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from '../evaluation/constant-evaluation.ts';
 import type { EvaluatedValue } from '../evaluation/primitive-value.ts';
 
 type OptionalChain = CallExpression | ElementAccessExpression | NonNullExpression | PropertyAccessExpression;
@@ -45,7 +45,7 @@ function reductionFor(node: TypeScriptMorphNodeType, evaluate: PrimitiveEvaluato
 
 export function reduceOptionalChains(preparation: SourcePreparation): void {
     const { sourceFile } = preparation;
-    const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
+    const evaluate = createRuntimeSourceEvaluation(sourceFile).primitiveValue;
     const edits: SourceTextEdit[] = [];
     sourceFile.forEachDescendant(function (node, traversal) {
         const edit = reductionFor(node, evaluate);

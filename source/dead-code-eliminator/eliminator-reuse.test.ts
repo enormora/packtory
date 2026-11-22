@@ -48,7 +48,7 @@ suite('elimination reuse', function () {
         Object.assign(resource.fileDescription, { content: 'export const renamed = 43;' });
         const changed = await eliminator.eliminate(original);
         assert.match(changed[0]?.contents[0]?.fileDescription.content ?? '', /renamed/u);
-        assert.strictEqual(projects.callCount, 4);
+        assert.strictEqual(projects.callCount, 2);
     });
 
     test('continues analyzing inputs with nonserializable metadata', async function () {
@@ -66,7 +66,7 @@ suite('elimination reuse', function () {
         });
         const first = await eliminator.eliminate(original);
         assert.deepStrictEqual(await eliminator.eliminate(original), first);
-        assert.strictEqual(projects.callCount, 4);
+        assert.strictEqual(projects.callCount, 2);
     });
 
     test('reuses identical graphs and preserves progress events without rebuilding compiler projects', async function () {
@@ -74,7 +74,7 @@ suite('elimination reuse', function () {
         const original = eliminationInput('const dead = 1; export const value = 42;');
         const first = await eliminator.eliminate(original);
         assert.deepStrictEqual(await eliminator.eliminate(structuredClone(original)), first);
-        assert.strictEqual(projects.callCount, 2);
+        assert.strictEqual(projects.callCount, 1);
         assertDeepSubset(emit, { callCount: 2, firstCall: { arguments: emit.secondCall.args } });
     });
 
@@ -84,13 +84,13 @@ suite('elimination reuse', function () {
         const changed = eliminationInput('const dead = 1; export const value = 43;');
         const output = await eliminator.eliminate(changed);
         assert.strictEqual(output[0]?.contents[0]?.fileDescription.content.includes('43'), true);
-        assert.strictEqual(projects.callCount, 4);
+        assert.strictEqual(projects.callCount, 2);
         const disabled = changed.map(function (input) {
             return { ...input, transformationsEnabled: false };
         });
         const preserved = await eliminator.eliminate(disabled);
         assert.strictEqual(preserved[0]?.contents[0]?.fileDescription.content.includes('dead'), true);
-        assert.strictEqual(projects.callCount, 6);
+        assert.strictEqual(projects.callCount, 3);
     });
 
     test('repeats full traces for identical inputs', async function () {
@@ -104,6 +104,6 @@ suite('elimination reuse', function () {
         assert.ok(first.length > 0);
         await eliminator.eliminate(structuredClone(original));
         assert.deepStrictEqual(record.args.slice(first.length), first);
-        assert.strictEqual(projects.callCount, 4);
+        assert.strictEqual(projects.callCount, 2);
     });
 });

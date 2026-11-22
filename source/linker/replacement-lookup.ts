@@ -4,10 +4,7 @@ import {
     declarationCompanionCandidates,
     isDeclarationCompanionFilePath
 } from '../common/declaration-companion-paths.ts';
-import {
-    breadthFirstClosure,
-    type BreadthFirstClosureDependencies
-} from '../dead-code-eliminator/reachability/breadth-first-closure.ts';
+import { breadthFirstClosure } from '../dead-code-eliminator/reachability/breadth-first-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { indexPublicModules, rootInputFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
@@ -151,36 +148,11 @@ function declarationInputFilePaths(
     return exportedInputFilePaths(lookup, currentTargetFilePath, moduleSpecifierText(declaration) ?? '');
 }
 
-const pathClosureDependencies: BreadthFirstClosureDependencies<string> = {
-    visitedHas(visited, value): boolean {
-        return visited.has(value);
-    },
-    neighborAdded: undefined
-};
-
-function exportStateValue(value: unknown, property: keyof ExportState): unknown {
-    return Reflect.get(new Object(value), property);
-}
-
-function inputFilePathForState(state: ExportState): string {
-    return state.inputFilePath;
-}
-
-const exportClosureDependencies: BreadthFirstClosureDependencies<ExportState> = {
-    visitedHas<T>(visited: ReadonlySet<T>, value: T): boolean {
-        return Array.from(visited).some(function (state) {
-            return exportStateValue(state, 'inputFilePath') === exportStateValue(value, 'inputFilePath') &&
-                exportStateValue(state, 'exportName') === exportStateValue(value, 'exportName');
-        });
-    },
-    neighborAdded: undefined
-};
-
 function exportedStateNames(
     lookup: ContentLookup,
     state: ExportState
 ): readonly ExportState[] {
-    const content = lookup.contentBySourcePath.get(inputFilePathForState(state));
+    const content = lookup.contentBySourcePath.get(state.inputFilePath);
     if (content === undefined) {
         return Array.from(new Set<ExportState>());
     }
@@ -222,10 +194,20 @@ function publicModuleCanExport(
             return exportedStateNames(lookup, state);
         },
         new Set(),
-        { dependencies: exportClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+        {
+            dependencies: {
+                visitedHas(visited, value) {
+                    return Array.from(visited).some(function (state) {
+                        return state.inputFilePath === value.inputFilePath && state.exportName === value.exportName;
+                    });
+                },
+                neighborAdded: undefined
+            },
+            maximumNodeCount: lookup.contentBySourcePath.size
+        }
     );
     return Array.from(closure).some(function (state) {
-        return inputFilePathForState(state) === request.inputFilePath;
+        return state.inputFilePath === request.inputFilePath;
     });
 }
 
@@ -245,7 +227,15 @@ function publicModuleReachesSourceFile(
                 });
         },
         new Set(),
-        { dependencies: pathClosureDependencies, maximumNodeCount: lookup.contentBySourcePath.size }
+        {
+            dependencies: {
+                visitedHas(visited, value) {
+                    return visited.has(value);
+                },
+                neighborAdded: undefined
+            },
+            maximumNodeCount: lookup.contentBySourcePath.size
+        }
     );
     return closure.has(request.inputFilePath);
 }

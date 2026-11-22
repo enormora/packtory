@@ -6,7 +6,7 @@ import {
 } from 'ts-morph';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
-import { createSourceEvaluation } from '../evaluation/constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from '../evaluation/constant-evaluation.ts';
 import type { EvaluatedValue } from '../evaluation/primitive-value.ts';
 import { createPureCallResolver, type PureCallResolver } from '../evaluation/pure-local-call.ts';
 import { expressionIsWriteTarget } from './expression-write.ts';
@@ -41,7 +41,7 @@ function isSpecializableExpression(node: TypeScriptMorphNodeType): node is Expre
 }
 
 function expressionSpecializationEdits(sourceFile: SourceFile): readonly SourceTextEdit[] {
-    const evaluate = createSourceEvaluation(sourceFile).primitiveValue;
+    const evaluate = createRuntimeSourceEvaluation(sourceFile).primitiveValue;
     const resolveCall = createPureCallResolver(sourceFile);
     const changes: SourceTextEdit[] = [];
     sourceFile.forEachDescendant(function (expression, traversal) {

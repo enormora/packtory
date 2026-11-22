@@ -1,5 +1,8 @@
+import { match } from 'ts-pattern';
+import { constant } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
+    ts,
     type ClassDeclaration,
     type ExportDeclaration,
     type FunctionDeclaration,
@@ -34,9 +37,14 @@ export function isOrdinaryStarExport(declaration: ExportDeclaration): boolean {
 }
 
 function isDefaultDeclaration(statement: Statement): statement is ClassDeclaration | FunctionDeclaration {
-    return (TypeScriptMorphNode.isFunctionDeclaration(statement) ||
-        TypeScriptMorphNode.isClassDeclaration(statement)) &&
-        statement.isDefaultExport();
+    return match(statement)
+        .when(TypeScriptMorphNode.isFunctionDeclaration, function (declaration) {
+            return declaration.isDefaultExport();
+        })
+        .when(TypeScriptMorphNode.isClassDeclaration, function (declaration) {
+            return declaration.isDefaultExport();
+        })
+        .otherwise(constant(false));
 }
 
 function bindingExport(binding: BindingDescriptor): NamedExport {
@@ -45,10 +53,7 @@ function bindingExport(binding: BindingDescriptor): NamedExport {
     return [ isDefault ? 'default' : binding.name, { kind: 'local', local: binding.name } ];
 }
 
-function anonymousDefaultExport(statement: Statement): readonly NamedExport[] {
-    if (!isDefaultDeclaration(statement)) {
-        return [];
-    }
+function anonymousDefaultExport(statement: ClassDeclaration | FunctionDeclaration): readonly NamedExport[] {
     return statement.getName() === undefined
         ? [ [ 'default', { kind: 'anonymous' } ] ]
         : [];
@@ -81,10 +86,20 @@ function declarationExports(declaration: ExportDeclaration): readonly NamedExpor
 }
 
 function opaqueStatement(statement: Statement): boolean {
-    return TypeScriptMorphNode.isAmbientable(statement) && statement.isAmbient() ||
-        TypeScriptMorphNode.isInterfaceDeclaration(statement) ||
-        TypeScriptMorphNode.isTypeAliasDeclaration(statement) ||
-        TypeScriptMorphNode.isExportAssignment(statement) && statement.isExportEquals();
+    return match(statement)
+        .when(TypeScriptMorphNode.isInterfaceDeclaration, function () {
+            return true;
+        })
+        .when(TypeScriptMorphNode.isTypeAliasDeclaration, function () {
+            return true;
+        })
+        .when(TypeScriptMorphNode.isExportAssignment, function (assignment) {
+            return assignment.isExportEquals();
+        })
+        .when(TypeScriptMorphNode.isAmbientable, function (declaration) {
+            return declaration.isAmbient();
+        })
+        .otherwise(constant(false));
 }
 
 function containsTypeOnlyRequests(source: SourceFile): boolean {
@@ -108,8 +123,9 @@ function hasModuleSyntax(source: SourceFile, bindings: readonly BindingDescripto
 }
 
 function closedExportNames(source: SourceFile, bindings: readonly BindingDescriptor[]): boolean {
+    const openExtensions: readonly string[] = [ ts.Extension.Cjs, ts.Extension.Cts ];
     return hasModuleSyntax(source, bindings) && !source.isDeclarationFile() &&
-        !source.getFilePath().endsWith('.cjs') && !source.getFilePath().endsWith('.cts') &&
+        !openExtensions.includes(source.getExtension()) &&
         !source.getStatements().some(opaqueStatement) && !containsTypeOnlyRequests(source);
 }
 
@@ -126,7 +142,7 @@ export function readModuleExportModel(source: SourceFile): ModuleExportModel {
         })),
         entries: new Map([
             ...exportedBindings.map(bindingExport),
-            ...source.getStatements().flatMap(anonymousDefaultExport),
+            ...source.getStatements().filter(isDefaultDeclaration).flatMap(anonymousDefaultExport),
             ...declarations.flatMap(declarationExports)
         ]),
         stars: declarations

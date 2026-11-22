@@ -11,6 +11,15 @@ import {
 } from './namespace-demand.ts';
 
 suite('namespace property demands', function () {
+    test('reuses identical demands without reading their properties', function () {
+        const demand = new Proxy(new Map<string, NamespaceDemand>(), {
+            get() {
+                return assert.fail('Identical demands do not need to be inspected');
+            }
+        });
+        assert.strictEqual(mergeNamespaceDemand(demand, demand), demand);
+    });
+
     test('combines independent property reads without changing either input', function () {
         const left = namespaceMemberDemand('first', noNamespaceProperties);
         const right = namespaceMemberDemand('second', allNamespaceProperties);
@@ -68,6 +77,19 @@ suite('namespace property demands', function () {
         ] ]);
         const observation = namespaceMemberDemand('escaped', namespaceMemberDemand('nested', noNamespaceProperties));
         assert.strictEqual(mergeNamespaceDemand(demand, observation), demand);
+    });
+
+    test('preserves shared subtree demands while adding another property', function () {
+        const shared = namespaceMemberDemand('observed', allNamespaceProperties);
+        const left = new Map<string, NamespaceDemand>([ [ 'first', shared ], [ 'second', shared ] ]);
+        const right = new Map<string, NamespaceDemand>([ [ 'first', shared ], [ 'third', shared ] ]);
+        const merged = mergeNamespaceDemand(left, right);
+        assert.deepStrictEqual(namespaceProperties(merged), new Set([ 'first', 'second', 'third' ]));
+        for (const name of [ 'first', 'second', 'third' ]) {
+            assert.strictEqual(namespacePropertyDemand(merged, name), shared);
+        }
+        assert.deepStrictEqual(namespaceProperties(left), new Set([ 'first', 'second' ]));
+        assert.deepStrictEqual(namespaceProperties(right), new Set([ 'first', 'third' ]));
     });
 
     test('merges deep property paths without recursive stack growth', function () {

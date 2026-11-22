@@ -18,16 +18,6 @@ export type CompilerInputObservation = {
     readonly snapshot: () => CompilerInputs | null;
 };
 const sourceTextSchema = z.string();
-const directoryEntriesSchema = z.array(z.object({
-    name: z.string(),
-    isDirectory: z.boolean(),
-    isSymlink: z.boolean()
-}));
-const directoryFilesSchema = z.array(z.object({
-    name: z.string(),
-    isFile: z.boolean(),
-    isSymlink: z.boolean()
-}));
 
 function observedValue(operation: Operation, value: unknown): string {
     if (operation === 'readFile') {
@@ -35,9 +25,16 @@ function observedValue(operation: Operation, value: unknown): string {
     }
     if (operation === 'readDir') {
         return JSON.stringify(
-            directoryEntriesSchema.parse(value).toSorted(function (left, right) {
-                return left.name.localeCompare(right.name);
-            })
+            z
+                .array(z.object({
+                    name: z.string(),
+                    isDirectory: z.boolean(),
+                    isSymlink: z.boolean()
+                }))
+                .parse(value)
+                .toSorted(function (left, right) {
+                    return left.name.localeCompare(right.name);
+                })
         );
     }
     return JSON.stringify(value);
@@ -56,7 +53,14 @@ export function observeCompilerInputs(fileSystemHost: FileSystemHost): CompilerI
         inputs.set(key, { operation, filePath, value });
     }
     function recordLinkedFiles(value: unknown): void {
-        for (const entry of directoryFilesSchema.parse(value)) {
+        const entries = z
+            .array(z.object({
+                name: z.string(),
+                isFile: z.boolean(),
+                isSymlink: z.boolean()
+            }))
+            .parse(value);
+        for (const entry of entries) {
             if (entry.isSymlink) {
                 record('fileExists', entry.name, JSON.stringify(entry.isFile));
             }

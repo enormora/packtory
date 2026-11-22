@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { recursiveCallCases } from '../../test-libraries/recursive-call-cases.ts';
 import { variableInitializer } from '../pure-expression-test-support.ts';
-import { evaluateLocalCall } from './local-call.ts';
+import { evaluateLocalCall } from '../../test-libraries/expression-evaluation-case.ts';
 
 suite('recursive call evaluation', function () {
     for (const input of recursiveCallCases) {

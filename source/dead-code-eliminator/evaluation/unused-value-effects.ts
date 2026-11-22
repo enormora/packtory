@@ -14,7 +14,7 @@ import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from '../class-purity.ts';
 import { arePureCallArguments, type ExpressionPurityChecker } from '../imported-expression-origin.ts';
 import { shortCircuitOperators } from '../syntax-kind-sets.ts';
-import { createSourceEvaluation } from './constant-evaluation.ts';
+import { createRuntimeSourceEvaluation } from './constant-evaluation.ts';
 import { createPureCallResolver } from './pure-local-call.ts';
 import { resolveLocalConstruction } from './construction-target.ts';
 
@@ -149,7 +149,7 @@ export function createUnusedValueResolver(
     sourceFile: SourceFile,
     isPure: ExpressionPurityChecker
 ): UnusedValueResolver {
-    const evaluation = createSourceEvaluation(sourceFile);
+    const evaluation = createRuntimeSourceEvaluation(sourceFile);
     const callEffects = createPureCallResolver(sourceFile);
     const propertyKeyFor: ClassPropertyKeyResolver = function (expression) {
         const value = evaluation.primitiveValue(expression);

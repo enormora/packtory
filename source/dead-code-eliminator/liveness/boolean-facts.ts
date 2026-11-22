@@ -3,6 +3,8 @@ import {
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
+    type BinaryExpression,
+    type PrefixUnaryExpression,
     type Statement,
     type VariableDeclaration,
     type VariableStatement
@@ -13,66 +15,28 @@ export type BooleanFacts = ReadonlyMap<string, boolean>;
 
 type BooleanValueEvaluator = (expression: Expression, facts: BooleanFacts) => boolean | undefined;
 
-function andOperator(left: boolean, right: boolean): boolean {
-    return left && right;
-}
-
-function orOperator(left: boolean, right: boolean): boolean {
-    return left || right;
-}
-
-function equalOperator(left: boolean, right: boolean): boolean {
-    return left === right;
-}
-
-function notEqualOperator(left: boolean, right: boolean): boolean {
-    return left !== right;
-}
-
-function literalBooleanValue(expression: Expression): boolean | undefined {
-    if (expression.getKind() === SyntaxKind.TrueKeyword) {
-        return true;
-    }
-    return expression.getKind() === SyntaxKind.FalseKeyword ? false : undefined;
-}
-
-function logicalBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
-    if (kind === SyntaxKind.AmpersandAmpersandToken) {
-        return andOperator(left, right);
-    }
-    if (kind === SyntaxKind.BarBarToken) {
-        return orOperator(left, right);
-    }
-    return undefined;
-}
-
-function equalityBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
+function booleanEquality(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
     if (kind === SyntaxKind.EqualsEqualsEqualsToken) {
-        return equalOperator(left, right);
+        return left === right;
     }
-    if (kind === SyntaxKind.ExclamationEqualsEqualsToken) {
-        return notEqualOperator(left, right);
-    }
-    return undefined;
+    return kind === SyntaxKind.ExclamationEqualsEqualsToken ? left !== right : undefined;
 }
 
 function binaryBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
-    return logicalBooleanOperatorValue(kind, left, right) ?? equalityBooleanOperatorValue(kind, left, right);
-}
-
-function identifierBooleanValue(expression: Expression, facts: BooleanFacts): boolean | undefined {
-    return TypeScriptMorphNode.isIdentifier(expression) ? facts.get(expression.getText()) : undefined;
+    if (kind === SyntaxKind.AmpersandAmpersandToken) {
+        return left && right;
+    }
+    if (kind === SyntaxKind.BarBarToken) {
+        return left || right;
+    }
+    return booleanEquality(kind, left, right);
 }
 
 function binaryBooleanValue(
-    expression: Expression,
+    binary: BinaryExpression,
     facts: BooleanFacts,
     evaluate: BooleanValueEvaluator
 ): boolean | undefined {
-    if (!TypeScriptMorphNode.isBinaryExpression(expression)) {
-        return undefined;
-    }
-    const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
     const left = evaluate(binary.getLeft(), facts);
     const right = evaluate(binary.getRight(), facts);
     if (left === undefined || right === undefined) {
@@ -82,13 +46,10 @@ function binaryBooleanValue(
 }
 
 function prefixBooleanValue(
-    expression: Expression,
+    expression: PrefixUnaryExpression,
     facts: BooleanFacts,
     evaluate: BooleanValueEvaluator
 ): boolean | undefined {
-    if (!TypeScriptMorphNode.isPrefixUnaryExpression(expression)) {
-        return undefined;
-    }
     const operand = evaluate(expression.getOperand(), facts);
     return operand !== undefined && expression.getOperatorToken() === SyntaxKind.ExclamationToken
         ? !operand
@@ -97,10 +58,19 @@ function prefixBooleanValue(
 
 export function booleanValue(expression: Expression, facts: BooleanFacts): boolean | undefined {
     const unwrapped = unwrapExpression(expression);
-    return literalBooleanValue(unwrapped) ??
-        identifierBooleanValue(unwrapped, facts) ??
-        prefixBooleanValue(unwrapped, facts, booleanValue) ??
-        binaryBooleanValue(unwrapped, facts, booleanValue);
+    const kind = unwrapped.getKind();
+    if (kind === SyntaxKind.TrueKeyword || kind === SyntaxKind.FalseKeyword) {
+        return kind === SyntaxKind.TrueKeyword;
+    }
+    if (kind === SyntaxKind.Identifier) {
+        return facts.get(unwrapped.getText());
+    }
+    if (kind === SyntaxKind.PrefixUnaryExpression) {
+        return prefixBooleanValue(unwrapped.asKindOrThrow(SyntaxKind.PrefixUnaryExpression), facts, booleanValue);
+    }
+    return kind === SyntaxKind.BinaryExpression
+        ? binaryBooleanValue(unwrapped.asKindOrThrow(SyntaxKind.BinaryExpression), facts, booleanValue)
+        : undefined;
 }
 
 function collectBooleanFact(

@@ -1,8 +1,7 @@
 import assert from 'node:assert';
 import { SyntaxKind } from 'ts-morph';
 import { createSourceEvaluation } from '../dead-code-eliminator/evaluation/constant-evaluation.ts';
-import type { EvaluatedValue } from '../dead-code-eliminator/evaluation/primitive-value.ts';
-import { assertValidDeadCodeEliminationOutput } from './dead-code-elimination-invariant-assertions.ts';
+import type { ExpressionEvaluationCase } from './expression-evaluation-case.ts';
 import {
     type DeadCodeEliminationCase,
     assertDeadCodeEliminationOutput,
@@ -13,10 +12,7 @@ import { assertDefined } from './deep-subset-assertion.ts';
 import { bundleForCodeFile, inputs } from './eliminator-test-support.ts';
 import { createProject } from './typescript-project.ts';
 
-export type SingleFileEvaluationCase = {
-    readonly name: string;
-    readonly content: string;
-    readonly result: EvaluatedValue | undefined;
+export type SingleFileEvaluationCase = ExpressionEvaluationCase & {
     readonly remainingCalls: number;
 };
 type CallReductionCase = {
@@ -44,7 +40,6 @@ export function singleFileOracleCase(content: string, targetFilePath: string): D
 async function verifySingleFileCallReduction(input: CallReductionCase): Promise<VerifiedDeadCodeElimination> {
     const fixture = singleFileOracleCase(input.content, input.targetFilePath);
     const result = await assertDeadCodeEliminationOutput(fixture);
-    assertValidDeadCodeEliminationOutput(fixture.name, result.bundles);
     const output = result.bundles[0]?.contents[0]?.fileDescription.content;
     assertDefined(output);
     const source = createProject().createSourceFile('output.js', output);

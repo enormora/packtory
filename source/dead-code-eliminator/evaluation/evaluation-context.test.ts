@@ -13,6 +13,23 @@ suite('evaluation context', function () {
         assert.strictEqual(createEvaluationBudget(0)(), false);
     });
 
+    for (const maximumSteps of [ -1, 0.5, Number.NaN ]) {
+        test(`keeps an unavailable budget exhausted for ${maximumSteps}`, function () {
+            const consume = createEvaluationBudget(maximumSteps);
+            assert.deepStrictEqual([ consume(), consume() ], [ false, false ]);
+        });
+    }
+
+    test('allows only complete steps from a fractional budget', function () {
+        const consume = createEvaluationBudget(2.5);
+        assert.deepStrictEqual([ consume(), consume(), consume(), consume() ], [ true, true, false, false ]);
+    });
+
+    test('supports large evaluation budgets', function () {
+        const consume = createEvaluationBudget(Number.MAX_SAFE_INTEGER);
+        assert.deepStrictEqual([ consume(), consume() ], [ true, true ]);
+    });
+
     test('keeps separate evaluations independent', function () {
         const first = createEvaluationBudget(1);
         const second = createEvaluationBudget(1);

@@ -34,14 +34,6 @@ export function getContinuousIntegrationRepositoryAddress(
     return undefined;
 }
 
-const noRepositoryDeclaredMessage = 'Provenance is enabled but the package has no repository declared.\n' +
-    'Add a "repository" entry to additionalPackageManifestAttributes\n' +
-    "so consumers can verify the attestation's source claim.";
-
-const noContinuousIntegrationDetectedMessage = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
-    'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
-    'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
-
 type RepositoryManifest = {
     readonly repository?: unknown;
 };
@@ -63,12 +55,18 @@ export function assertRepositoryCoherence(
 ): void {
     const normalizedManifestAddress = normalizeRepositoryAddress(manifest.repository);
     if (normalizedManifestAddress === undefined) {
-        throw new Error(noRepositoryDeclaredMessage);
+        const message = 'Provenance is enabled but the package has no repository declared.\n' +
+            'Add a "repository" entry to additionalPackageManifestAttributes\n' +
+            "so consumers can verify the attestation's source claim.";
+        throw new Error(message);
     }
 
     const normalizedContinuousIntegrationAddress = normalizeRepositoryAddress(continuousIntegrationRepositoryAddress);
     if (normalizedContinuousIntegrationAddress === undefined) {
-        throw new Error(noContinuousIntegrationDetectedMessage);
+        const message = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
+            'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
+            'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
+        throw new Error(message);
     }
 
     if (normalizedContinuousIntegrationAddress !== normalizedManifestAddress) {

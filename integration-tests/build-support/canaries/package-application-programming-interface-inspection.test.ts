@@ -7,12 +7,12 @@ import {
     inspectPackageApplicationProgrammingInterfaces
 } from '../../../source/build-support/canaries/package-application-programming-interface-inspection.ts';
 import {
-    assertPresent,
     fileManager,
     withTemporaryNodeModules,
     writePackage,
     writeScopedPackage
 } from '../../../source/test-libraries/canary-package-fixtures.ts';
+import { assertPresent } from '../../../source/test-libraries/deep-subset-assertion.ts';
 
 import { createNativeCanaryRuntime, executeNativeCanaryProcess, nativeNodePath } from './native-runtime.ts';
 

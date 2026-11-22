@@ -156,10 +156,6 @@ export function resolveMetadataAuthenticationOptions(
     return resolveInheritedMetadataAuthentication(registrySettings.authentication, registrySettings);
 }
 
-const stagedVersionLookupRequiresTokenAuthenticationMessage =
-    'npm staged publishing with automatic versioning requires token-based metadata auth ' +
-    'when publish auth uses npm-oidc';
-
 export function resolveStageListingAuthenticationOptions(
     registrySettings: Readonly<RegistrySettings>
 ): AuthenticationResolution {
@@ -177,7 +173,9 @@ export function resolveStageListingAuthenticationOptions(
     }
 
     if (publishAuthentication.type === 'npm-open-identity-connect') {
-        throw new Error(stagedVersionLookupRequiresTokenAuthenticationMessage);
+        const message = 'npm staged publishing with automatic versioning requires token-based metadata auth ' +
+            'when publish auth uses npm-oidc';
+        throw new Error(message);
     }
 
     return buildAuthenticationOptions(publishAuthentication, registrySettings);

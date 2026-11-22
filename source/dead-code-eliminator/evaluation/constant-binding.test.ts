@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { constantDominatesRead, constantValueFor, evaluateConstantBindings } from './constant-binding.ts';
+import { constantDominatesRead, constantValueFor, createConstantBindingValues } from './constant-binding.ts';
 import { evaluated } from './primitive-value.ts';
 
 suite('constant-binding', function () {
@@ -48,7 +48,29 @@ suite('constant-binding', function () {
         assert.strictEqual(constantDominatesRead(declaration, declaration.getInitializerOrThrow()), false);
     });
 
-    test('evaluates only constant initializers and yields only known values', function () {
+    test('keeps an initializing binding unavailable without evaluating later declarations', function () {
+        const source = createProject().createSourceFile('input.ts', 'const first=first;const later=1;');
+        const declaration = source.getVariableDeclarationOrThrow('first');
+        const evaluatedInitializers: string[] = [];
+        const bindings = createConstantBindingValues(source.getVariableDeclarations(), function (expression) {
+            evaluatedInitializers.push(expression.getText());
+            return bindings.get(declaration);
+        });
+        assert.strictEqual(bindings.get(declaration), undefined);
+        assert.deepStrictEqual(evaluatedInitializers, [ 'first' ]);
+    });
+
+    test('leaves declarations outside the source unknown', function () {
+        const declaration = createProject()
+            .createSourceFile('outside.ts', 'const outside=1;')
+            .getVariableDeclarationOrThrow('outside');
+        const bindings = createConstantBindingValues([], function () {
+            return assert.fail('There are no initializers');
+        });
+        assert.strictEqual(bindings.get(declaration), undefined);
+    });
+
+    test('evaluates constant initializers only when a dependency requests them', function () {
         const source = createProject().createSourceFile(
             'constants.ts',
             [
@@ -62,12 +84,21 @@ suite('constant-binding', function () {
                 .join('')
         );
         const evaluatedInitializers: string[] = [];
-        const bindings = Array.from(evaluateConstantBindings(source.getVariableDeclarations(), function (expression) {
+        const bindings = createConstantBindingValues(source.getVariableDeclarations(), function (expression) {
             evaluatedInitializers.push(expression.getText());
             return expression.getText() === '1' ? evaluated(1) : undefined;
-        }));
+        });
+        assert.deepStrictEqual(evaluatedInitializers, []);
+        assert.deepStrictEqual(bindings.get(source.getVariableDeclarationOrThrow('known')), evaluated(1));
+        assert.deepStrictEqual(evaluatedInitializers, [ '1' ]);
+        for (const declaration of source.getVariableDeclarations().slice(1)) {
+            assert.strictEqual(bindings.get(declaration), undefined);
+        }
         assert.deepStrictEqual(evaluatedInitializers, [ '1', 'consume()' ]);
-        assert.deepStrictEqual(bindings, [ [ source.getVariableDeclarationOrThrow('known'), evaluated(1) ] ]);
+        assert.deepStrictEqual(
+            [ bindings.get(source.getVariableDeclarationOrThrow('unknown')), evaluatedInitializers ],
+            [ undefined, [ '1', 'consume()' ] ]
+        );
     });
 
     test('does not treat a declaration name or initializer as a subsequent read', function () {

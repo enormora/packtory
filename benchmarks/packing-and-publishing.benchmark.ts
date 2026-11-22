@@ -75,6 +75,12 @@ export async function runPackingAndPublishingBenchmark(
         kind: kindByMode[scenario.mode],
         medianMilliseconds: representative.durationMilliseconds,
         sampleCount: samples.length,
-        metrics: representative.metrics
+        metrics: representative.metrics,
+        workMilliseconds: calculatePercentile(
+            samples.map(function (sample) {
+                return sample.workMilliseconds;
+            }),
+            medianPercentile
+        )
     };
 }

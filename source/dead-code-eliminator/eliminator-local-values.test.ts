@@ -5,8 +5,7 @@ import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     type DeadCodeEliminationCase,
     assertDeadCodeEliminationExpectedOutput,
-    assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -194,8 +193,7 @@ suite('local module value propagation', function () {
     for (const input of cases) {
         test(input.name, async function () {
             const fixture = localValueFixture(input);
-            await assertDeadCodeEliminationOutput(fixture);
-            const [ output ] = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const [ output ] = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             assertDefined(output);
             const calls = output.contents.flatMap(function (resource) {
                 return createProject()

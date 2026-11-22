@@ -1,35 +1,41 @@
 import { suite, test } from 'mocha';
-import { assertSingleFileCallReduction } from '../test-libraries/dead-code-elimination-single-file-case.ts';
+import { assertExpressionEvaluation } from '../test-libraries/expression-evaluation-case.ts';
 
 suite('BigInt computation elimination', function () {
-    for (const expression of [ 'n*2n', 'n+21n', 'n-(-21n)', 'n/2n', 'n%2n', 'n<42n', 'n>=42n' ]) {
-        test(`replaces the public result of ${expression}`, async function () {
-            await assertSingleFileCallReduction({
-                content: `function compute(n){return ${expression};}export function probe(){return compute(21n);}`,
-                targetFilePath: 'index.js',
-                callee: 'compute',
-                remainingCalls: 0
+    for (
+        const [ expression, value ] of [
+            [ 'n*2n', 42n ],
+            [ 'n+21n', 42n ],
+            [ 'n-(-21n)', 42n ],
+            [ 'n/2n', 10n ],
+            [ 'n%2n', 1n ],
+            [ 'n<42n', true ],
+            [ 'n>=42n', false ]
+        ] as const
+    ) {
+        test(`replaces the public result of ${expression}`, function () {
+            assertExpressionEvaluation({
+                name: expression,
+                content: `function compute(n){return ${expression};}export const value=compute(21n);`,
+                result: { value }
             });
         });
     }
     for (const expression of [ 'n/0n', 'n%0n', 'n+2', '+n' ]) {
-        test(`preserves the exception from ${expression}`, async function () {
-            await assertSingleFileCallReduction({
-                content: `function compute(n){return ${expression};}export function probe(){return compute(21n);}`,
-                targetFilePath: 'index.js',
-                callee: 'compute',
-                remainingCalls: 1
+        test(`preserves the exception from ${expression}`, function () {
+            assertExpressionEvaluation({
+                name: expression,
+                content: `function compute(n){return ${expression};}export const value=compute(21n);`,
+                result: undefined
             });
         });
     }
 
-    test('folds recursive BigInt arithmetic', async function () {
-        await assertSingleFileCallReduction({
-            content:
-                'function compute(n){return n<=1n?1n:n*compute(n-1n);}export function probe(){return compute(10n);}',
-            targetFilePath: 'index.js',
-            callee: 'compute',
-            remainingCalls: 0
+    test('folds recursive BigInt arithmetic', function () {
+        assertExpressionEvaluation({
+            name: 'BigInt factorial',
+            content: 'function compute(n){return n<=1n?1n:n*compute(n-1n);}export const value=compute(10n);',
+            result: { value: 3_628_800n }
         });
     });
 });

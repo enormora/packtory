@@ -4,7 +4,6 @@ import type { TextTransformMap } from '../source-transformation/text-edits.ts';
 import type { SideEffectClassifier } from './side-effect-classifier.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-resource.ts';
-import { buildModuleAnalysis } from './liveness/module-analysis.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
@@ -77,16 +76,11 @@ type CodeAnalysis = {
 };
 
 function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): CodeAnalysis {
-    const moduleAnalysis = buildModuleAnalysis({
-        inputFilePath: loaded.resource.fileDescription.inputFilePath,
-        targetFilePath: loaded.resource.fileDescription.targetFilePath,
-        sourceFile: loaded.sourceFile,
-        originalLineFor: loaded.originalLineFor,
-        bindings: loaded.bindings,
-        deadCodeElimination: context.deadCodeElimination,
-        classifySideEffects: context.classifySideEffects
-    });
-    const sideEffectStatements = moduleAnalysis.effects;
+    const sideEffectStatements = context
+        .classifySideEffects(loaded.sourceFile, context.deadCodeElimination)
+        .map(function (effect) {
+            return { line: loaded.originalLineFor(effect.statement), kind: effect.kind };
+        });
     const reachableBindings = reachableBindingsFor(loaded, context.reachable);
     const shouldTransform = context.transformationsEnabled;
     const survivingBindings = shouldTransform ? reachableBindings : allBindingNamesFor(loaded);

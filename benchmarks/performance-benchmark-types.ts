@@ -45,4 +45,5 @@ export type PerformanceMeasurement = TinybenchMeasurement & {
     readonly name: string;
     readonly kind: 'analysis' | 'packing' | 'publishing' | 'vendoring';
     readonly metrics: WorkMetrics;
+    readonly workMilliseconds: number;
 };

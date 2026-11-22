@@ -5,12 +5,11 @@ import { bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { bundleForCodeFile, inputs } from '../test-libraries/eliminator-test-support.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createSourceEvaluation } from './evaluation/constant-evaluation.ts';
-import { loadResource } from './load-resource.ts';
+import { loadResources } from './load-resource.ts';
 import { prepareLoadedResources } from './prepare-loaded-resources.ts';
 
 suite('loaded resource preparation', function () {
     test('uses linked module origins to reduce imported computations', function () {
-        const projects = { runtime: createProject(), declarations: createProject() };
         const bundle = bundleForCodeFile({
             name: 'package',
             inputFilePath: '/source/index.js',
@@ -23,9 +22,7 @@ suite('loaded resource preparation', function () {
         });
         const input = inputs(bundle)[0];
         assertDefined(input);
-        const loaded = bundle.contents.map(function (resource) {
-            return loadResource(projects.runtime, projects.declarations, resource, false);
-        });
+        const loaded = loadResources(createProject, bundle.contents);
         const prepared = prepareLoadedResources(loaded, input, undefined);
         const source = prepared[0]?.sourceFile;
         assertDefined(source);

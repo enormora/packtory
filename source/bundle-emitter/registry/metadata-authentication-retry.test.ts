@@ -25,14 +25,17 @@ async function expectRethrown(
     resolution: AuthenticationResolution,
     statusCode: number
 ): Promise<void> {
+    let attempts = 0;
     try {
         await retryWithFallbackAuthentication(settings, resolution, async function () {
+            attempts += 1;
             throw authenticationFailure(statusCode);
         });
         assert.fail('Expected retryWithFallbackAuthentication() to throw but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as { readonly statusCode: number; }).statusCode, statusCode);
     }
+    assert.strictEqual(attempts, 1);
 }
 
 suite('metadata-auth-retry', function () {

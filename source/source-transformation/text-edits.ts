@@ -62,7 +62,7 @@ export function buildTextTransformMap(originalCode: string, transformedCode: str
             ? [ { start, end: originalOffset, content: change.added ? change.value : '' } ]
             : [];
     });
-    return applySourceTextEdits(originalCode, edits);
+    return { originalCode, transformedCode, atoms: retainedTextRanges(originalCode.length, edits) };
 }
 
 export function toSourceMapTransform(textTransform: TextTransformMap): SourceMapTransform {

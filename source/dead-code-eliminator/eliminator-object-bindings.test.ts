@@ -1,9 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import {
-    assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
-} from '../test-libraries/dead-code-elimination-output-assertions.ts';
+import { assertDeadCodeEliminationOutput } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 
@@ -156,10 +153,9 @@ suite('object binding reduction', function () {
     ) {
         test(`preserves behavior for ${name}`, async function () {
             const fixture = singleFileOracleCase(`${content}\nexport function probe() { return 42; }`, 'index.js');
-            await assertDeadCodeEliminationOutput(fixture);
+            const { bundles } = await assertDeadCodeEliminationOutput(fixture);
             if (removesPattern) {
-                const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
-                const output = result[0]?.contents[0]?.fileDescription.content;
+                const output = bundles[0]?.contents[0]?.fileDescription.content;
                 assertDefined(output);
                 assert.doesNotMatch(output, /\b(?:const|let|var)\s*\{/u);
             }

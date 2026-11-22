@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationOutput,
-    eliminateDeadCodeAndAssertAllOutputValid
+    eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
@@ -30,8 +30,7 @@ suite('condition effects', function () {
     ) {
         test(`selects branches while preserving effects in ${body}`, async function () {
             const fixture = singleFileOracleCase(`export function probe(){${body}}`, 'index.js');
-            await assertDeadCodeEliminationOutput(fixture);
-            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const result = await eliminateDeadCodeAndAssertExpectedOutput(fixture);
             const output = result[0]?.contents[0]?.fileDescription.content;
             assertDefined(output);
             assert.doesNotMatch(output, /unreachable/u);

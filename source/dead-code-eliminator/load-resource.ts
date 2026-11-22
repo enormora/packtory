@@ -8,10 +8,12 @@ import {
     type BindingDescriptor,
     type BindingLocation
 } from './reachability/binding-extractor.ts';
-import { prepareInitialRuntimeSource } from './transform/runtime-source-preparation.ts';
 
-export type LoadedCodeResource = SourcePreparation & {
+type CodeResourceSource = SourcePreparation & {
     readonly resource: LinkedBundleResource;
+};
+
+export type LoadedCodeResource = CodeResourceSource & {
     readonly bindings: readonly BindingDescriptor[];
     readonly symbolLocations: readonly BindingLocation[];
 };
@@ -27,33 +29,48 @@ function parseFilePathFor(resource: LinkedBundleResource): string {
     return `/.packtory-artifacts/${resource.fileDescription.targetFilePath}`;
 }
 
-function projectForResource(
-    runtimeProject: Project,
-    declarationProject: Project,
-    resource: LinkedBundleResource
-): Project {
-    return isDeclarationCodeFile(resource.fileDescription.targetFilePath) ? declarationProject : runtimeProject;
+function projectsForResources(createProject: () => Project): (resource: LinkedBundleResource) => Project {
+    let runtimeProject: Project | null = null;
+    let declarationProject: Project | null = null;
+    return function (resource) {
+        if (isDeclarationCodeFile(resource.fileDescription.targetFilePath)) {
+            declarationProject = declarationProject ?? createProject();
+            return declarationProject;
+        }
+        runtimeProject = runtimeProject ?? createProject();
+        return runtimeProject;
+    };
 }
 
-export function loadResource(
-    runtimeProject: Project,
-    declarationProject: Project,
-    resource: LinkedBundleResource,
-    transformationsEnabled: boolean
-): LoadedResource {
+function loadResource(
+    projectForResource: (resource: LinkedBundleResource) => Project,
+    resource: LinkedBundleResource
+): CodeResourceSource | LoadedNonCodeResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
         return { resource, sourceFile: undefined };
     }
-    const project = projectForResource(runtimeProject, declarationProject, resource);
+    const project = projectForResource(resource);
     const sourceFile = project.createSourceFile(
         parseFilePathFor(resource),
         resource.fileDescription.content,
         { overwrite: true }
     );
-    const preparation = createSourcePreparation(sourceFile);
-    const symbolLocations = captureBindingLocations(extractTopLevelBindings(sourceFile));
-    if (transformationsEnabled && !isDeclarationCodeFile(resource.fileDescription.targetFilePath)) {
-        prepareInitialRuntimeSource(preparation);
-    }
-    return { resource, ...preparation, bindings: extractTopLevelBindings(sourceFile), symbolLocations };
+    return { resource, ...createSourcePreparation(sourceFile) };
+}
+
+export function loadResources(
+    createProject: () => Project,
+    resources: readonly LinkedBundleResource[]
+): readonly LoadedResource[] {
+    const projectForResource = projectsForResources(createProject);
+    const loaded = resources.map(function (resource) {
+        return loadResource(projectForResource, resource);
+    });
+    return loaded.map(function (entry) {
+        if (entry.sourceFile === undefined) {
+            return entry;
+        }
+        const bindings = extractTopLevelBindings(entry.sourceFile);
+        return { ...entry, bindings, symbolLocations: captureBindingLocations(bindings) };
+    });
 }
