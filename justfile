@@ -55,8 +55,5 @@ test-integration:
 benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts
 
-benchmark-module-analysis:
-    node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts --module-analysis
-
 publish-dry-run: compile
     packtory publish

@@ -176,11 +176,7 @@ async function runConfiguredBenchmarks(configuration: BenchmarkConfiguration, ch
 async function main(): Promise<void> {
     const checks = createBenchmarkChecks(writeLine);
     const configuration = await loadBenchmarkConfiguration(writeLine);
-    if (process.argv.includes('--module-analysis')) {
-        await runModuleAnalysisBenchmarks(configuration, checks.check, writeLine);
-    } else {
-        await runConfiguredBenchmarks(configuration, checks.check);
-    }
+    await runConfiguredBenchmarks(configuration, checks.check);
     checks.finish();
 }
 
