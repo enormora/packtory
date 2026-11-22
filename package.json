@@ -37,7 +37,7 @@
         "@octokit/plugin-rest-endpoint-methods": "18.0.0",
         "@pr-log/core": "0.0.5",
         "@schema-hub/zod-error-formatter": "0.0.21",
-        "@ts-morph/common": "0.29.0",
+        "@ts-morph/common": "0.29.1",
         "@types/common-tags": "1.8.4",
         "@types/hosted-git-info": "3.0.5",
         "@types/libnpmpublish": "11.2.0",
