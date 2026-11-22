@@ -16,7 +16,7 @@ suite('unused arguments', function () {
             { parameters: 'unused', body: 'console.log("called");', values: 'missing', retained: 1 },
             {
                 parameters: 'unused',
-                body: 'console.log((() => argum\\u0065nts.length)());',
+                body: `console.log((() => ${'arguments'.replace(/^a/u, '\\u0061')}.length)());`,
                 values: '{ unused: 42 }',
                 retained: 1
             },

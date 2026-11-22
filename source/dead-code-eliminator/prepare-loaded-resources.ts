@@ -1,14 +1,10 @@
-import { isDeclarationCodeFile } from '../common/code-files.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import type { LoadedResource, LoadedCodeResource } from './load-resource.ts';
 import { extractTopLevelBindings } from './reachability/binding-extractor.ts';
 import { bindingIdentifier } from './reachability/binding-identifier.ts';
-import { createExpressionPurityChecker } from './pure-expression.ts';
-import { createRuntimeModuleResolver } from './runtime-module-resolution.ts';
-import { prepareBundleSources } from './transform/bundle-source-preparation.ts';
 import type { DeadCodeEliminationTrace } from './trace.ts';
 import { prepareLoadedExports } from './exports/loaded-export-preparation.ts';
-import { bypassFunctionForwarding } from './transform/function-forwarding.ts';
+import { prepareRuntimeResources } from './prepare-runtime-resources.ts';
 
 function recordRemovedBindings(entry: LoadedCodeResource, bundleName: string, trace: DeadCodeEliminationTrace): void {
     const remaining = new Set(entry.bindings.map(function (binding) {
@@ -26,10 +22,6 @@ function recordRemovedBindings(entry: LoadedCodeResource, bundleName: string, tr
     }
 }
 
-function isRuntimeCodeResource(entry: LoadedResource): entry is LoadedCodeResource {
-    return entry.sourceFile !== undefined && !isDeclarationCodeFile(entry.sourceFile.getFilePath());
-}
-
 export function prepareLoadedResources(
     loaded: readonly LoadedResource[],
     input: EliminationInput,
@@ -39,18 +31,7 @@ export function prepareLoadedResources(
         return loaded;
     }
     prepareLoadedExports(loaded);
-    const origins = loaded.flatMap(function (entry) {
-        return entry.sourceFile === undefined ? [] : {
-            sourceFile: entry.sourceFile,
-            targetFilePath: entry.resource.fileDescription.targetFilePath,
-            inputFilePath: entry.resource.fileDescription.inputFilePath,
-            moduleReferences: entry.resource.moduleReferences
-        };
-    });
-    const resolveModule = createRuntimeModuleResolver(origins);
-    const isPure = createExpressionPurityChecker(input.deadCodeElimination, resolveModule);
-    prepareBundleSources(loaded.filter(isRuntimeCodeResource), origins, resolveModule, isPure);
-    return bypassFunctionForwarding(loaded).map(function (entry) {
+    return prepareRuntimeResources(loaded, input.deadCodeElimination).map(function (entry) {
         if (entry.sourceFile === undefined) {
             return entry;
         }

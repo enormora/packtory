@@ -7,14 +7,16 @@ import {
     type ParameterDeclaration,
     type SourceFile
 } from 'ts-morph';
+import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import type { SourceTextEdit } from '../../source-transformation/text-edits.ts';
 import { bindingHasOnlyUses } from '../binding-stability.ts';
-import { createCallTargetResolver, runtimeParameters } from '../evaluation/call-target.ts';
-import type { UnusedValueResolver } from '../evaluation/unused-value-effects.ts';
+import { createCallTargetResolver, runtimeParameters, type LocalFunction } from '../evaluation/call-target.ts';
+import { createUnusedValueResolver, type UnusedValueResolver } from '../evaluation/unused-value-effects.ts';
+import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
 
 function parameterIsUnused(parameter: ParameterDeclaration | undefined): boolean {
     return parameter === undefined || parameter.getInitializer() === undefined &&
-            bindingHasOnlyUses(parameter.getNameNode(), parameter, new Set());
+        bindingHasOnlyUses(parameter.getNameNode(), parameter, new Set());
 }
 
 function isPositionalArgument(argument: TypeScriptMorphNode): argument is Expression {
@@ -26,22 +28,26 @@ function trimArguments(call: CallExpression, lastRetained: Expression | undefine
     return { start, end: call.getFirstChildByKindOrThrow(SyntaxKind.CloseParenToken).getStart(), content: '' };
 }
 
-export function createUnusedArgumentReduction(
+function ignoresArgumentList(target: LocalFunction): boolean {
+    if (!TypeScriptMorphNode.isFunctionDeclaration(target) || target.getBody() === undefined) {
+        return false;
+    }
+    return target.getParameters().every(function (parameter) {
+        return !parameter.isRestParameter();
+    }) && target.getDescendantsOfKind(SyntaxKind.Identifier).every(function (identifier) {
+        return identifier.compilerNode.text !== 'arguments';
+    });
+}
+
+function unusedArgumentEdits(
     source: SourceFile,
     resolveUnused: UnusedValueResolver
 ): (call: CallExpression) => readonly SourceTextEdit[] {
-    const strictModule = ts.isExternalModule(source.compilerNode);
-    const resolveTarget = createCallTargetResolver(source, function (target) {
-        return TypeScriptMorphNode.isFunctionDeclaration(target) && target.getBody() !== undefined &&
-            !target.getParameters().some(function (parameter) {
-                return parameter.isRestParameter();
-            }) && !target.getDescendantsOfKind(SyntaxKind.Identifier).some(function (identifier) {
-                return identifier.compilerNode.text === 'arguments';
-            });
-    });
+    const resolveTarget = createCallTargetResolver(source, ignoresArgumentList);
     return function (call) {
-        const argumentsList = call.getArguments();
-        if (!strictModule || argumentsList.length === 0 || !argumentsList.every(isPositionalArgument)) {
+        const supplied = call.getArguments();
+        const argumentsList = supplied.filter(isPositionalArgument);
+        if (argumentsList.length === 0 || argumentsList.length !== supplied.length) {
             return [];
         }
         const target = resolveTarget(call);
@@ -54,4 +60,23 @@ export function createUnusedArgumentReduction(
         });
         return lastRetained === argumentsList.length - 1 ? [] : [ trimArguments(call, argumentsList[lastRetained]) ];
     };
+}
+
+export function removeUnusedArguments(preparation: SourcePreparation, isPure: ExpressionPurityChecker): void {
+    const { sourceFile } = preparation;
+    if (!ts.isExternalModule(sourceFile.compilerNode)) {
+        return;
+    }
+    const editsForCall = unusedArgumentEdits(sourceFile, createUnusedValueResolver(sourceFile, isPure));
+    const edits: SourceTextEdit[] = [];
+    sourceFile.forEachDescendant(function (node, traversal) {
+        if (TypeScriptMorphNode.isCallExpression(node)) {
+            const removed = editsForCall(node);
+            if (removed.length > 0) {
+                edits.push(...removed);
+                traversal.skip();
+            }
+        }
+    });
+    preparation.applyEdits(edits);
 }

@@ -16,8 +16,8 @@ function forwardingDeclaration(source: SourceFile): ExportDeclaration | undefine
     const [ statement, additional ] = source.getStatements().filter(function (candidate) {
         return !TypeScriptMorphNode.isEmptyStatement(candidate);
     });
-    return TypeScriptMorphNode.isExportDeclaration(statement) && additional === undefined &&
-            statement.getAttributes() === undefined && runtimeSourceIsValid(source)
+    return additional === undefined && TypeScriptMorphNode.isExportDeclaration(statement) &&
+        statement.getAttributes() === undefined && runtimeSourceIsValid(source)
         ? statement
         : undefined;
 }
@@ -27,8 +27,8 @@ function forwardedFunctionNames(
     destination: SourceFile
 ): ReadonlySet<string> | undefined {
     if (
-        !destination.getStatements().every(function (node) {
-            return TypeScriptMorphNode.isFunctionDeclaration(node) || TypeScriptMorphNode.isEmptyStatement(node);
+        destination.getStatements().some(function (node) {
+            return !TypeScriptMorphNode.isFunctionDeclaration(node) && !TypeScriptMorphNode.isEmptyStatement(node);
         }) || !runtimeSourceIsValid(destination)
     ) {
         return undefined;
@@ -42,8 +42,8 @@ function forwardedFunctionNames(
     );
     const exports = declaration.getNamedExports();
     if (
-        exports.length === 0 || !exports.every(function (exported) {
-            return exported.getAliasNode() === undefined && functions.has(exported.getNameNode().compilerNode.text);
+        exports.length === 0 || exports.some(function (exported) {
+            return exported.getAliasNode() !== undefined || !functions.has(exported.getNameNode().compilerNode.text);
         })
     ) {
         return undefined;
@@ -80,8 +80,8 @@ function requestsOnlyForwardedNames(request: ModuleRequest, names: ReadonlySet<s
     return request.getAttributes() === undefined &&
         (!TypeScriptMorphNode.isImportDeclaration(request) || request.getDefaultImport() === undefined) &&
         specifiers.length > 0 && specifiers.every(function (specifier) {
-            return names.has(specifier.getNameNode().compilerNode.text);
-        });
+        return names.has(specifier.getNameNode().compilerNode.text);
+    });
 }
 
 function relativeSpecifier(from: string, to: string): string | undefined {
@@ -167,7 +167,7 @@ export function bypassFunctionForwarding(loaded: readonly LoadedResource[]): rea
     );
     return forwarding.size === 0 ? loaded : loaded.map(function (entry) {
         return entry.sourceFile === undefined || !modules.has(entry.resource.fileDescription.targetFilePath) ||
-                !runtimeSourceIsValid(entry.sourceFile)
+            !runtimeSourceIsValid(entry.sourceFile)
             ? entry
             : redirectRequests(entry, forwarding);
     });

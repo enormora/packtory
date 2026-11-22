@@ -55,7 +55,9 @@ suite('function forwarding', function () {
                     .map(function (resource) {
                         return resource.fileDescription.targetFilePath;
                     })
-                    .sort(),
+                    .toSorted(function (left, right) {
+                        return left.localeCompare(right);
+                    }),
                 retained
             );
             const entry = result.contents.find(function (resource) {
