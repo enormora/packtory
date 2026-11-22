@@ -111,9 +111,7 @@
         "node": "^24.15.0 || ^26.0.0"
     },
     "overrides": {
-        "@ts-morph/common": {
-            "minimatch": "11.0.4"
-        },
+        "@ts-morph/common": "$@ts-morph/common",
         "@tufjs/models": {
             "minimatch": "11.0.4"
         },
