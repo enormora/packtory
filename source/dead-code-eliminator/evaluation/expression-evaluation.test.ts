@@ -6,7 +6,39 @@ import { createBoundedEvaluationContext } from '../../test-libraries/bounded-eva
 import { createBindingReference } from './evaluation-context.ts';
 import { evaluateExpression } from './expression-evaluation.ts';
 
-suite('expression evaluation writes', function () {
+suite('bounded expression evaluation', function () {
+    suite('array reads', function () {
+        for (const [ content, value ] of [ [ '[21,42].length', 2 ], [ '[21,42][1]', 42 ] ] as const) {
+            test(`evaluates the array read ${content}`, function () {
+                const source = createProject().createSourceFile('input.ts', `const value=${content};`);
+                assert.deepStrictEqual(
+                    evaluateExpression(
+                        source.getVariableDeclarationOrThrow('value').getInitializerOrThrow(),
+                        createBoundedEvaluationContext(0, 100)
+                    ),
+                    { value }
+                );
+            });
+        }
+    });
+
+    for (
+        const { fuel, result, value } of [
+            { fuel: 1, result: undefined, value: 1 },
+            { fuel: 2, result: { value: 1 }, value: 2 }
+        ]
+    ) {
+        test(`respects a reference evaluation budget of ${fuel}`, function () {
+            const source = createProject().createSourceFile('input.ts', 'let value=1;value++;');
+            const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.PostfixUnaryExpression);
+            const reference = createBindingReference({ value: 1 }, true);
+            const context = createBoundedEvaluationContext(0, fuel);
+            context.locals.set(source.getVariableDeclarationOrThrow('value'), reference);
+            assert.deepStrictEqual(evaluateExpression(expression, context), result);
+            assert.deepStrictEqual(reference.value, { value });
+        });
+    }
+
     test('preserves a binding when the assigned value cannot be evaluated', function () {
         const source = createProject().createSourceFile('input.ts', 'let value=1;value=missing;');
         const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.BinaryExpression);

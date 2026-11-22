@@ -7,6 +7,7 @@ import {
     type Expression,
     type FunctionDeclaration,
     type FunctionExpression,
+    type MethodDeclaration,
     type NewExpression,
     type SourceFile,
     type ParameterDeclaration,
@@ -18,7 +19,17 @@ import { hasDynamicScope } from '../dynamic-scope.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
 import { declarationOf } from './evaluation-context.ts';
 
-export type LocalFunction = ArrowFunction | FunctionDeclaration | FunctionExpression;
+export function localFunction(node: TypeScriptMorphNode | undefined): LocalFunction | undefined {
+    if (
+        TypeScriptMorphNode.isFunctionDeclaration(node) || TypeScriptMorphNode.isFunctionExpression(node) ||
+        TypeScriptMorphNode.isArrowFunction(node) || TypeScriptMorphNode.isMethodDeclaration(node)
+    ) {
+        return node;
+    }
+    return undefined;
+}
+
+export type LocalFunction = ArrowFunction | FunctionDeclaration | FunctionExpression | MethodDeclaration;
 export type CallTargetResolver = (call: CallExpression | NewExpression) => LocalFunction | undefined;
 type LocalFunctionPredicate = (target: LocalFunction) => boolean;
 

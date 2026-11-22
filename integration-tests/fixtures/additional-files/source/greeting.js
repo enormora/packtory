@@ -1,3 +1,3 @@
-export function greeting() {
-    return 'hello from src';
+export function greeting(value) {
+    return value ?? 'hello from src';
 }

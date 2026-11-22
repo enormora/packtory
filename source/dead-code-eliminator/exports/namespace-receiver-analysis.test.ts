@@ -4,16 +4,19 @@ import { SyntaxKind } from 'ts-morph';
 import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { bindingValueIsStable } from '../binding-stability.ts';
 import { createModuleExportIndex } from './module-export-index.ts';
-import { bindingIgnoresReceiver, createNamespaceReceiverAnalysis } from './namespace-receiver-analysis.ts';
+import { bindingIgnoresReceiver } from './namespace-receiver-analysis.ts';
+import { createNamespaceReceiverDemand } from './namespace-receiver-demand.ts';
+import { allNamespaceProperties } from './namespace-demand.ts';
 
 function ignoresReceiver(files: Readonly<Record<string, string>>): boolean {
     const fixture = createExportModuleFixture(files, []);
     const index = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
     const access = fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.PropertyAccessExpression);
-    return createNamespaceReceiverAnalysis(index, fixture.resolveModule, bindingValueIsStable)(
+    const demand = createNamespaceReceiverDemand(index, fixture.resolveModule, bindingValueIsStable)(
         access.getExpression(),
         access.getName()
     );
+    return demand !== allNamespaceProperties && demand.size === 0;
 }
 
 const entry = 'import * as ns from "./library.js";export function probe(){return ns.used();}';
@@ -55,12 +58,13 @@ suite('namespace receiver analysis', function () {
                 SyntaxKind.PropertyAccessExpression
             );
             let observations = 0;
-            const receiverIsUnobserved = createNamespaceReceiverAnalysis(index, fixture.resolveModule, function () {
+            const receiverDemand = createNamespaceReceiverDemand(index, fixture.resolveModule, function () {
                 observations += 1;
                 return stable;
             });
-            assert.strictEqual(receiverIsUnobserved(access.getExpression(), access.getName()), stable);
-            assert.strictEqual(receiverIsUnobserved(access.getExpression(), access.getName()), stable);
+            const expected = stable ? new Map() : allNamespaceProperties;
+            assert.deepStrictEqual(receiverDemand(access.getExpression(), access.getName()), expected);
+            assert.deepStrictEqual(receiverDemand(access.getExpression(), access.getName()), expected);
             assert.strictEqual(observations, 1);
         });
     }

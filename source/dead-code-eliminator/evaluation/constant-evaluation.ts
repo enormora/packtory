@@ -1,5 +1,6 @@
 import {
     SyntaxKind,
+    type Node as TypeScriptMorphNode,
     type Expression,
     type SourceFile
 } from 'ts-morph';
@@ -12,15 +13,15 @@ import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 
 export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
-    readonly knownValue: (expression: Expression) => AbstractValue | undefined;
-    readonly primitiveValue: PrimitiveEvaluator;
+    readonly knownValue: (expression: TypeScriptMorphNode) => AbstractValue | undefined;
+    readonly primitiveValue: (node: TypeScriptMorphNode) => EvaluatedValue | undefined;
     readonly canDiscard: (expression: Expression) => boolean;
 };
 
-export function createSourceEvaluations(
-    evaluateSource: (source: SourceFile) => SourceEvaluation
-): (source: SourceFile) => SourceEvaluation {
-    const evaluations = new WeakMap<SourceFile, SourceEvaluation>();
+export function createSourceEvaluations<Value>(
+    evaluateSource: (source: SourceFile) => Value
+): (source: SourceFile) => Value {
+    const evaluations = new WeakMap<SourceFile, Value>();
     return function (source) {
         const evaluation = evaluations.get(source) ?? evaluateSource(source);
         evaluations.set(source, evaluation);
@@ -46,7 +47,7 @@ function evaluateSourceConstants(
         }
     };
     const { evaluate } = evaluation;
-    const primitiveValue: PrimitiveEvaluator = function (expression) {
+    const primitiveValue: SourceEvaluation['primitiveValue'] = function (expression) {
         return primitiveResult(evaluate(expression));
     };
     return {

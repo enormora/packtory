@@ -239,7 +239,7 @@ function modelRuntime(input: SourceTargetSkewInput, paths: SourceTargetSkewPaths
         paths.modelTargetPath,
         [
             eventPush(input.eventName),
-            `export const modelValue = ${input.expression.source};`,
+            `export let modelValue = ${input.expression.source};`,
             'export const unusedModelValue = "unused-model";'
         ],
         []
@@ -292,7 +292,7 @@ function declarationFiles(paths: SourceTargetSkewPaths): readonly DeadCodeElimin
             paths.modelDeclarationInputPath,
             paths.modelDeclarationTargetPath,
             [
-                'export declare const modelValue: unknown;',
+                'export declare let modelValue: unknown;',
                 'export declare const unusedModelValue: string;'
             ]
         )

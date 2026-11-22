@@ -1,4 +1,4 @@
-import type { SourceFile } from 'ts-morph';
+import { Node as TypeScriptMorphNode, SyntaxKind, type SourceFile } from 'ts-morph';
 import {
     createPreparedModuleGraph,
     type PreparedModule,
@@ -9,7 +9,7 @@ import type { RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { ModuleExportModel } from '../exports/module-export-model.ts';
 import { createRuntimeSourceEvaluation, createSourceEvaluations } from './constant-evaluation.ts';
 import { createModuleBindingEvaluator, type ModuleBindingEvaluator } from './module-binding-evaluation.ts';
-import { createModuleInitialization } from './module-initialization.ts';
+import { createModuleInitialization, createModuleCompletionOrder } from './module-initialization.ts';
 import { exportedModuleValue, type ModuleValue } from './module-export-value.ts';
 
 type ModuleConstants = {
@@ -48,9 +48,20 @@ export function createModuleConstantSnapshot(
     };
     const evaluateSource = createSourceEvaluations(createRuntimeSourceEvaluation);
     const initialization = createModuleInitialization(resolveModule, evaluateSource);
+    const completesBeforeConsumers = createModuleCompletionOrder(resolveModule, function (source) {
+        return graph.index.models.get(source)?.closed === true && !hasDynamicScope(source) &&
+            source.getDescendants().every(function (node) {
+                return !((TypeScriptMorphNode.isAwaitExpression(node) ||
+                    node.getKind() === SyntaxKind.AwaitKeyword) &&
+                    node.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration) === undefined);
+            });
+    });
     const evaluate = createModuleBindingEvaluator({
         evaluateSource,
-        initializesBinding: initialization.initializesBinding
+        initializesBinding(declaration) {
+            return initialization.initializesBinding(declaration) ||
+                completesBeforeConsumers(declaration.getSourceFile());
+        }
     });
     return {
         resolveModule,
@@ -58,7 +69,7 @@ export function createModuleConstantSnapshot(
             const { source } = model;
             return [ source, {
                 initialized: model.closed &&
-                    initialization.dependenciesInitialize(source),
+                    (initialization.dependenciesInitialize(source) || completesBeforeConsumers(source)),
                 exports: exportValues(model, graph, evaluate)
             } ];
         }))

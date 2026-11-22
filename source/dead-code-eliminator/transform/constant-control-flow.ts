@@ -10,7 +10,6 @@ import {
     type SourceFile,
     type Statement
 } from 'ts-morph';
-import { isTruthy } from 'remeda';
 import type { SourcePreparation } from '../../source-transformation/source-preparation.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { createSourceEvaluation, type SourceEvaluation } from '../evaluation/constant-evaluation.ts';
@@ -18,6 +17,7 @@ import { conditionOutcome, isShortCircuitOperator, selectsLeft } from '../evalua
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import { rewriteRetainedSource, type SourcePart } from './source-replacement.ts';
 import { primitiveSource } from './primitive-source.ts';
+import { constantSwitchSource } from './switch-reduction.ts';
 import { removeUnreachableStatements } from './unreachable-statements.ts';
 
 function declarationIsHoisted(node: TypeScriptMorphNodeType): boolean {
@@ -113,8 +113,10 @@ function emptyDoSource(node: TypeScriptMorphNodeType, evaluate: SourceEvaluation
     if (!TypeScriptMorphNode.isDoStatement(node) || !emptyStatement(node.getStatement())) {
         return undefined;
     }
-    const condition = evaluate.knownValue(node.getExpression());
-    return condition === undefined || isTruthy(condition.value) ? undefined : [ ';' ];
+    const expression = node.getExpression();
+    return evaluate.canDiscard(expression) && conditionOutcome(expression, evaluate, 0).truthy === false
+        ? [ ';' ]
+        : undefined;
 }
 
 function pureStatementSource(
@@ -144,7 +146,9 @@ function replacementSource(
     if (TypeScriptMorphNode.isExpressionStatement(node)) {
         return pureStatementSource(node, evaluate);
     }
-    return emptyDoSource(node, evaluate);
+    return TypeScriptMorphNode.isSwitchStatement(node)
+        ? constantSwitchSource(node, evaluate)
+        : emptyDoSource(node, evaluate);
 }
 
 function controlFlowEdits(sourceFile: SourceFile): ReturnType<typeof rewriteRetainedSource> {

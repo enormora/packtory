@@ -1,4 +1,4 @@
-import type { SourceFile, Statement } from 'ts-morph';
+import type { Identifier, SourceFile, Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import { localBindingIdentifiers, type FileBindings } from '../reachability/binding-identifier.ts';
@@ -7,7 +7,7 @@ import { readModuleExportModel, type ModuleExportModel } from './module-export-m
 import { createModuleExportIndex, type ModuleExportIndex } from './module-export-index.ts';
 import type { ExportTargetResolver } from './module-export-resolver.ts';
 import { createNamespaceDemandAnalysis, type NamespaceDemandAnalysis } from './namespace-demand-analysis.ts';
-import { createNamespaceReceiverAnalysis, type BindingStability } from './namespace-receiver-analysis.ts';
+import { createNamespaceReceiverDemand } from './namespace-receiver-demand.ts';
 
 export type ExportGraphInput = {
     readonly files: readonly FileBindings[];
@@ -31,7 +31,7 @@ export type ModuleGraphAnalysis = {
 
 export function createModuleGraphAnalysis(
     input: ExportGraphInput,
-    bindingIsStable: BindingStability
+    bindingIsStable: (name: Identifier) => boolean
 ): ModuleGraphAnalysis {
     const records = new Map(input.files.map(function (file) {
         const source = file.sourceFile.getSourceFile();
@@ -73,7 +73,7 @@ export function createModuleGraphAnalysis(
         index,
         get demand() {
             demand = demand ?? createNamespaceDemandAnalysis(Array.from(records.keys()), publicFiles, resolveModule, {
-                receiverIsUnobserved: createNamespaceReceiverAnalysis(index, resolveModule, bindingIsStable),
+                receiverDemand: createNamespaceReceiverDemand(index, resolveModule, bindingIsStable),
                 isObserved: observeReachableBindings(input.files, input.observedBindings)
             });
             return demand;

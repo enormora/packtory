@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
+import { createExportModuleFixture } from '../../test-libraries/export-module-fixture.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
 
 const ordinaryModule = 'export const used=42;export const unused=9;';
@@ -40,7 +41,7 @@ const ordinaryCases: readonly (readonly [string, string, readonly string[] | und
     [ 'computed keys', 'const ns=await import("./lazy.js");return ns[key];', undefined ],
     [ 'namespace escape', 'const ns=await import("./lazy.js");return ns;', undefined ],
     [ 'enumeration', 'const ns=await import("./lazy.js");return Object.keys(ns);', undefined ],
-    [ 'destructuring', 'const ns=await import("./lazy.js");const {used}=ns;return used;', undefined ],
+    [ 'destructuring', 'const ns=await import("./lazy.js");const {used}=ns;return used;', [ 'used' ] ],
     [ 'mutable bindings', 'let ns=await import("./lazy.js");ns={used:1};return ns.used;', undefined ],
     [ 'method receivers', 'const ns=await import("./lazy.js");return ns.used();', undefined ],
     [ 'optional method receivers', 'const ns=await import("./lazy.js");return ns.used?.();', undefined ],
@@ -128,4 +129,34 @@ suite('dynamic import namespace properties', function () {
             );
         });
     }
+
+    suite('receiver demand', function () {
+        for (
+            const [ content, names ] of [
+                [ 'export const value=42;export function read(){return this.value;}', [ 'read', 'value' ] ],
+                [
+                    'export const value=42;export function answer(){return this.value;}export function read(){return this.answer();}',
+                    [ 'read', 'answer', 'value' ]
+                ],
+                [ 'export const value=42;export function read(){return this.missing();}', undefined ],
+                [ 'export const value=42;function local(){return this.value;}export{local as read};', [
+                    'read',
+                    'value'
+                ] ]
+            ] as const
+        ) {
+            test(`follows receiver observations in ${content}`, function () {
+                const fixture = createExportModuleFixture({
+                    'index.js':
+                        'export async function probe(){const ns=await import("./library.js");return ns.read();}',
+                    'library.js': content
+                }, []);
+                const call = fixture.source('index.js').getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
+                assert.deepStrictEqual(
+                    dynamicImportProperties(call, fixture.source('library.js')),
+                    names === undefined ? undefined : new Set(names)
+                );
+            });
+        }
+    });
 });

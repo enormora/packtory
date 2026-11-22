@@ -29,6 +29,13 @@ suite('shared source evaluations', function () {
         }
     });
 
+    test('rejects syntax nodes that do not produce expression values', function () {
+        const source = createProject().createSourceFile('/index.js', 'const value=42;');
+        assert.strictEqual(
+            createSourceEvaluation(source).primitiveValue(source.getVariableDeclarationOrThrow('value')),
+            undefined
+        );
+    });
     for (
         const [ content, expected ] of [ [ '{}', true ], [ '({value:1})', true ], [ 'effect()', false ], [
             '({value:effect()})',

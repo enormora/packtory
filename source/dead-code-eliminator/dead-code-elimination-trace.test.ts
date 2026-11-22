@@ -48,7 +48,7 @@ function traceTestBundle(): LinkedBundle {
             ),
             resource(
                 '/source/dep.js',
-                'export const used = 1;\nexport const deadImport = 2;\n',
+                'export const used = globalThis.traceInput;\nexport const deadImport = 2;\n',
                 'dep.js',
                 new Set<string>()
             ),

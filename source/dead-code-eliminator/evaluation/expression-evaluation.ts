@@ -26,6 +26,7 @@ import {
     type AbstractValue,
     type EvaluationReference
 } from './abstract-value.ts';
+import { evaluateArray } from './array-evaluation.ts';
 import { evaluateRecordExpression, recordPropertyReference } from './record-evaluation.ts';
 
 function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
@@ -220,6 +221,9 @@ function expressionValue(node: Expression, context: EvaluationContext): Abstract
         })
         .when(TypeScriptMorphNode.isTypeOfExpression, function (unary) {
             return keywordUnaryValue(unary, context);
+        })
+        .when(TypeScriptMorphNode.isArrayLiteralExpression, function (array) {
+            return evaluateArray(array, context);
         })
         .otherwise(function () {
             return literalValue(node) ?? evaluateRecordExpression(node, context);

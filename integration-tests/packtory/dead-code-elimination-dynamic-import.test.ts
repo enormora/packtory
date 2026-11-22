@@ -12,8 +12,9 @@ import { runEmittedPackageApplicationProgrammingInterface } from './emitted-pack
 const expected = {
     before: [ 'entry' ],
     value: 42,
+    answer: 43,
     keys: [ 'extra', 'value' ],
-    events: [ 'entry', 'start-import', 'lazy' ]
+    events: [ 'entry', 'start-import', 'lazy', 'destructured' ]
 };
 
 suite('dead-code-elimination dynamic import', function () {

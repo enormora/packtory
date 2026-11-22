@@ -31,25 +31,31 @@ function bindingFunction(declaration: TypeScriptMorphNode | undefined): Receiver
         : undefined;
 }
 
-export function bindingIgnoresReceiver(
+export function stableReceiverFunction(
     declaration: TypeScriptMorphNode | undefined,
     bindingIsStable: BindingStability
-): boolean {
+): ReceiverFunction | undefined {
     const target = bindingFunction(declaration);
     if (target === undefined) {
-        return false;
+        return undefined;
     }
     const name = TypeScriptMorphNode.isFunctionDeclaration(target)
         ? target.getNameNode()
         : target.getFirstAncestorByKindOrThrow(SyntaxKind.VariableDeclaration).getNameNode();
-    if (!TypeScriptMorphNode.isIdentifier(name)) {
-        return false;
-    }
-    return bindingIsStable(name) && target.getBody() !== undefined &&
-        target.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
+    return TypeScriptMorphNode.isIdentifier(name) && bindingIsStable(name) && target.getBody() !== undefined
+        ? target
+        : undefined;
 }
 
-function receiverBinding(
+export function bindingIgnoresReceiver(
+    declaration: TypeScriptMorphNode | undefined,
+    bindingIsStable: BindingStability
+): boolean {
+    const target = stableReceiverFunction(declaration, bindingIsStable);
+    return target?.getDescendantsOfKind(SyntaxKind.ThisKeyword).length === 0;
+}
+
+export function receiverBinding(
     receiver: Expression,
     name: string,
     index: ModuleExportIndex,
@@ -59,24 +65,4 @@ function receiverBinding(
     const declaration = TypeScriptMorphNode.isIdentifier(expression) ? declarationOf(expression) : undefined;
     const namespace = resolveNamespaceImport(declaration, index.models, resolveModule);
     return index.binding(namespace, name);
-}
-
-export function createNamespaceReceiverAnalysis(
-    index: ModuleExportIndex,
-    resolveModule: ExportTargetResolver,
-    bindingIsStable: BindingStability
-): (receiver: Expression, name: string) => boolean {
-    const proven = new Map<TypeScriptMorphNode, boolean>();
-    return function (receiver, name) {
-        const binding = receiverBinding(receiver, name, index, resolveModule);
-        if (binding === undefined) {
-            return false;
-        }
-        let unused = proven.get(binding.declarationNode);
-        if (unused === undefined) {
-            unused = bindingIgnoresReceiver(binding.declarationNode, bindingIsStable);
-            proven.set(binding.declarationNode, unused);
-        }
-        return unused;
-    };
 }

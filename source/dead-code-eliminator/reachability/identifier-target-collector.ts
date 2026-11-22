@@ -320,7 +320,7 @@ export function collectIdentifierTargets(
     exportGraph: ExportGraph | undefined
 ): Set<string> {
     const index = { ...declarationIndex, exportGraph };
-    return new Set([
+    const targets = new Set([
         ...TypeScriptMorphNode.isExportDeclaration(rootNode)
             ? reExportTargets(rootNode, index)
             : [],
@@ -333,6 +333,9 @@ export function collectIdentifierTargets(
             return [ ...dynamicTargets, ...directEvalTargets(call, index) ];
         })
     ]);
+    return rootNode.getSourceFile().isDeclarationFile()
+        ? targets.difference(declarationIndex.runtimeCompanionIdentifiers)
+        : targets;
 }
 
 export function survivingDeclarationExports(

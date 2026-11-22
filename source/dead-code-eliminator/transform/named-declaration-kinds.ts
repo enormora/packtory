@@ -11,6 +11,6 @@ const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
 
 export type NamedStatement = Statement & { readonly getName: () => string | undefined; };
 
-export function isNamedDeclaration(node: TypeScriptMorphNode | undefined): node is NamedStatement {
-    return node !== undefined && namedDeclarationKinds.has(node.getKind());
+export function isNamedDeclaration(node: TypeScriptMorphNode): node is NamedStatement {
+    return namedDeclarationKinds.has(node.getKind());
 }

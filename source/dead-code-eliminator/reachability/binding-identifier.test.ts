@@ -107,6 +107,7 @@ suite('binding-id', function () {
             '/source/shared.d.ts::configuration',
             '/source/shared.js::configuration'
         ]);
+        assert.deepStrictEqual(index.runtimeCompanionIdentifiers, new Set([ '/source/shared.js::configuration' ]));
     });
 
     test('buildDeclarationNodeIndex ignores declaration companions without a same-named runtime binding', function () {
@@ -119,6 +120,7 @@ suite('binding-id', function () {
         assert.deepStrictEqual(index.identifiersByNode.get(declarationNode), [
             '/source/shared.d.ts::configuration'
         ]);
+        assert.deepStrictEqual(index.runtimeCompanionIdentifiers, new Set());
     });
 
     suite('ambiguous declaration companions', function () {
