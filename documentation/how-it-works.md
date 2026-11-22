@@ -192,11 +192,6 @@ When a rewritten cross-package import targets a sibling JavaScript file, packtor
 Each link pass indexes sibling source paths and public exports once. Requests still
 check their required symbols independently, including aliases and namespace imports.
 Requests for public roots use their declared specifiers directly.
-`npx just benchmark-module-analysis` checks repeated peer substitutions, runtime
-preparation, namespace budget sizing, binding reference queries, type ancestry,
-binding syntax, and publication dependency lookups. It limits source reads,
-transformation passes, descendant queries, and filesystem checks as well as elapsed time. The full benchmark
-suite includes these checks too.
 
 ```mermaid
 flowchart LR
@@ -456,11 +451,6 @@ Linking and dead-code elimination share the `source-transformation` module. Impo
 `@jridgewell/trace-mapping` re-encodes the translated mappings. Only surviving mappings from the input map are retained, including their original source and name indices. Source paths, `sourceRoot`, and embedded source content are preserved without requiring authored files on disk.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
-
-Consumer canaries compile separate baseline and candidate clones, run configured
-verification commands, then compare their packed APIs. The Overkill canary also
-runs a publish dry run. Publish and pack durations are reported separately, with
-the baseline measured before the candidate.
 
 ## 7. Stage: Checks
 
