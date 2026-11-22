@@ -13,7 +13,7 @@ import {
 import type { ArtifactModuleReference } from '../../resource-resolver/resolved-bundle.ts';
 import type { ExportGraph } from '../exports/export-graph.ts';
 import { visitBindingDependencies } from '../exports/binding-dependencies.ts';
-import { unwrapExpression } from '../expression-unwrapping.ts';
+import { callsEvalIdentifier } from '../dynamic-scope.ts';
 import { hasTypeAncestor } from '../../source-transformation/type-ancestors.composition.ts';
 import { readBindingSyntax } from './binding-syntax.ts';
 import { dynamicImportProperties } from './dynamic-import-properties.ts';
@@ -254,10 +254,7 @@ function directEvalTargets(
     call: CallExpression,
     declarationIndex: IdentifierTargetIndex
 ): readonly string[] {
-    const expression = unwrapExpression(call.getExpression());
-    if (
-        !TypeScriptMorphNode.isIdentifier(expression) || expression.getText() !== 'eval' || call.hasQuestionDotToken()
-    ) {
+    if (!callsEvalIdentifier(call) || call.hasQuestionDotToken()) {
         return [];
     }
     const sourceFile = call.getSourceFile();

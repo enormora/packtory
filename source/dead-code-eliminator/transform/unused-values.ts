@@ -19,6 +19,7 @@ import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
 import { bindingHasOnlyUses } from '../binding-stability.ts';
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import { sourceReplacement, type SourcePart } from './source-replacement.ts';
+import { createUnusedArgumentReduction } from './unused-arguments.ts';
 
 function discardedValueSource(
     expression: Expression,
@@ -140,9 +141,12 @@ function unusedStatementEdits(
 
 function unusedValueEdits(sourceFile: SourceFile, isPure: ExpressionPurityChecker): readonly SourceTextEdit[] {
     const resolveUnused = createUnusedValueResolver(sourceFile, isPure);
+    const reduceArguments = createUnusedArgumentReduction(sourceFile, resolveUnused);
     const changes: SourceTextEdit[] = [];
     sourceFile.forEachDescendant(function (node, traversal) {
-        const edits = unusedStatementEdits(node, resolveUnused, isPure);
+        const edits = TypeScriptMorphNode.isCallExpression(node)
+            ? reduceArguments(node)
+            : unusedStatementEdits(node, resolveUnused, isPure);
         if (edits.length === 0) {
             return;
         }
