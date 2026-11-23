@@ -70,4 +70,20 @@ suite('canary-manifest', function () {
         const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '[{}]' } ] });
         await assert.rejects(readCanaryManifest('canaries.json', fileManager), /name/u);
     });
+
+    for (const [ description, commands ] of [
+        [ 'without a build or publish command', {} ],
+        [ 'with both build and publish commands', { buildCommand: 'compile', publishCommand: 'publish' } ]
+    ] as const) {
+        test(`rejects a manifest entry ${description}`, async function () {
+            const { publishCommand, ...entry } = validManifest[0];
+            const fileManager = createFakeFileManager({
+                simulatedReadFileResponses: [ { value: JSON.stringify([ { ...entry, ...commands } ]) } ]
+            });
+            await assert.rejects(
+                readCanaryManifest('canaries.json', fileManager),
+                /exactly one of buildCommand and publishCommand/u
+            );
+        });
+    }
 });

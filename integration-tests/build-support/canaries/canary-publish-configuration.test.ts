@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import fileSystem from 'node:fs';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
@@ -81,12 +81,13 @@ async function writeDownstreamFixture(fileManager: Pick<FileManager, 'writeFile'
 }
 
 suite('canary-publish-config', function () {
-    test('runSelectedCanary preserves publish artifacts and applies the overlay only when packing', async function () {
+    test('shares build artifacts while keeping each CLI and its publish configuration isolated', async function () {
         const root = await mkdtemp(path.join(temporaryDirectory(), 'packtory-canary-publish-config-'));
         const fileManager = createFileManager({
             hostFileSystem: fileSystem.promises
         });
         const observations: ConfigurationObservation[] = [];
+        const preparationCommands: string[] = [];
         const manifestPath = path.join(root, 'canaries.json');
         try {
             await fileManager.writeFile(
@@ -96,8 +97,8 @@ suite('canary-publish-config', function () {
                     installCommand: 'npm clean-install --ignore-scripts',
                     name: 'sample',
                     packBudgetMilliseconds: 1000,
-                    publishCommand: 'publish-dry-run',
-                    verificationCommands: [],
+                    buildCommand: 'build',
+                    verificationCommands: [ 'publish-dry-run' ],
                     reference: 'main',
                     repository: 'https://github.com/enormora/sample.git'
                 } ])
@@ -123,7 +124,18 @@ suite('canary-publish-config', function () {
                 repositoryFolder: root,
                 async runCommand(command, cwd) {
                     if (command.startsWith('git clone ')) {
+                        preparationCommands.push('clone');
                         await writeDownstreamFixture(fileManager, cwd);
+                    }
+                    if (command === 'npm clean-install --ignore-scripts') {
+                        preparationCommands.push('install');
+                        await fileManager.writeFile(path.join(cwd, 'node_modules', 'cli.js'), 'npm baseline');
+                        await mkdir(path.join(cwd, 'node_modules', '.bin'));
+                        await symlink('../cli.js', path.join(cwd, 'node_modules', '.bin', 'packtory'));
+                    }
+                    if (command === 'build') {
+                        preparationCommands.push('build');
+                        await fileManager.writeFile(path.join(cwd, 'build', 'package.js'), 'shared build');
                     }
                     if (command === 'git rev-parse HEAD') {
                         return {
@@ -132,6 +144,15 @@ suite('canary-publish-config', function () {
                         };
                     }
                     if (command === 'publish-dry-run') {
+                        const builtArtifact = await fileManager.readFile(path.join(cwd, 'build', 'package.js'));
+                        assert.strictEqual(builtArtifact, 'shared build');
+                        const packtory = path.join(cwd, 'node_modules', '.bin', 'packtory');
+                        const executable = await fileManager.readFile(packtory);
+                        if (cwd.includes('-baseline-')) {
+                            assert.strictEqual(executable, 'npm baseline');
+                        } else {
+                            assert.match(executable, /command-line-interface\.entry-point\.ts/u);
+                        }
                         observations.push(await artifactSettingsForPhase(cwd, 'publish'));
                     }
                     if (command.startsWith('packtory pack --all ')) {
@@ -152,6 +173,7 @@ suite('canary-publish-config', function () {
                 issues: [],
                 name: 'sample'
             });
+            assert.deepStrictEqual(preparationCommands, [ 'clone', 'install', 'build' ]);
             assert.deepStrictEqual(observations, [ {
                 mode: 'baseline',
                 phase: 'publish',
