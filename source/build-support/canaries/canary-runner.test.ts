@@ -15,28 +15,24 @@ function commandIndex(commandCalls: readonly CommandCall[], cwd: string, command
     });
 }
 function assertTagsFetchedBeforeReference(commandCalls: readonly CommandCall[]): void {
-    for (
-        const folderPath of [
-            '/workspace/packtory-canary-sample-baseline-clone',
-            '/workspace/packtory-canary-sample-candidate-clone'
-        ]
-    ) {
-        const fetchIndex = commandIndex(commandCalls, folderPath, 'git fetch --tags --force');
-        const referenceIndex = commandIndex(commandCalls, folderPath, 'git rev-parse HEAD');
-        assert.ok(fetchIndex >= 0);
-        assert.ok(referenceIndex >= 0);
-        assert.ok(fetchIndex < referenceIndex);
-    }
+    const folderPath = '/workspace/packtory-canary-sample-baseline-clone';
+    const fetchIndex = commandIndex(commandCalls, folderPath, 'git fetch --tags --force');
+    const referenceIndex = commandIndex(commandCalls, folderPath, 'git rev-parse HEAD');
+    assert.ok(fetchIndex >= 0);
+    assert.ok(referenceIndex >= 0);
+    assert.ok(fetchIndex < referenceIndex);
 }
 
-function manifestContent(publishCommand: string, verificationCommands: readonly string[]): string {
+type CanaryCommand = { readonly buildCommand: string; } | { readonly publishCommand: string; };
+
+function manifestContent(canaryCommand: CanaryCommand, verificationCommands: readonly string[]): string {
     return JSON.stringify([
         {
             failureMode: 'non-blocking',
             installCommand: 'npm clean-install --ignore-scripts',
             name: 'sample',
             packBudgetMilliseconds: 1000,
-            publishCommand,
+            ...canaryCommand,
             verificationCommands,
             reference: 'main',
             repository: 'https://github.com/enormora/sample.git'
@@ -47,7 +43,7 @@ function cloneMode(cwd: string): 'baseline' | 'candidate' {
     return cwd.includes('baseline') ? 'baseline' : 'candidate';
 }
 function createRunnerDependencies(
-    publishCommand: string,
+    canaryCommand: CanaryCommand,
     failingModes: ReadonlySet<'baseline' | 'candidate'>,
     verificationCommands: readonly string[]
 ): CanaryRunnerDependencies & {
@@ -58,8 +54,9 @@ function createRunnerDependencies(
     const commandCalls: CommandCall[] = [];
     const removedFolders: string[] = [];
     const fileManager = createFakeFileManager({
-        simulatedReadFileResponses: [ { value: manifestContent(publishCommand, verificationCommands) } ]
+        simulatedReadFileResponses: [ { value: manifestContent(canaryCommand, verificationCommands) } ]
     });
+    const [ canaryBuildCommand ] = Object.values<string>(canaryCommand);
     return {
         createProject() {
             throw new Error('Unexpected type inspection');
@@ -94,7 +91,7 @@ function createRunnerDependencies(
                     standardOutput: `${cloneMode(cwd)}-ref\n`
                 };
             }
-            if (command === publishCommand && failingModes.has(cloneMode(cwd))) {
+            if (command === canaryBuildCommand && failingModes.has(cloneMode(cwd))) {
                 throw new Error(`${cloneMode(cwd)} failed`);
             }
             return {
@@ -106,9 +103,29 @@ function createRunnerDependencies(
 }
 
 suite('canary-runner', function () {
+    test('reports a shared build failure once and skips both packaging runs', async function () {
+        const dependencies = createRunnerDependencies({ buildCommand: 'compile' }, new Set([ 'baseline' ]), []);
+        const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
+
+        assert.deepStrictEqual(result.issues, [ {
+            kind: 'baseline-rot',
+            message: 'Shared downstream build failed while running "compile":\nbaseline failed'
+        } ]);
+        assert.deepStrictEqual(dependencies.removedFolders, [ '/workspace/packtory-canary-sample-baseline-clone' ]);
+        assert.strictEqual(
+            dependencies.commandCalls.some(function ({ command }) {
+                return command.startsWith('packtory pack --all ');
+            }),
+            false
+        );
+    });
+
     suite('verification commands', function () {
         test('runs verification commands after preparation and before packing each clone', async function () {
-            const dependencies = createRunnerDependencies('compile', new Set(), [ 'verify-first', 'verify-second' ]);
+            const dependencies = createRunnerDependencies({ buildCommand: 'compile' }, new Set(), [
+                'verify-first',
+                'verify-second'
+            ]);
 
             await runSelectedCanary('canaries.json', 'sample', dependencies);
 
@@ -126,7 +143,6 @@ suite('canary-runner', function () {
                 'verify-first',
                 'verify-second',
                 'pack',
-                'compile',
                 'verify-first',
                 'verify-second',
                 'pack'
@@ -135,7 +151,7 @@ suite('canary-runner', function () {
 
         for (const failedMode of [ 'baseline', 'candidate' ] as const) {
             test(`reports verification failures in the ${failedMode} clone`, async function () {
-                const dependencies = createRunnerDependencies('compile', new Set(), [ 'verify' ]);
+                const dependencies = createRunnerDependencies({ publishCommand: 'compile' }, new Set(), [ 'verify' ]);
                 const result = await runSelectedCanary('canaries.json', 'sample', {
                     ...dependencies,
                     async runCommand(command, cwd) {
@@ -156,12 +172,16 @@ suite('canary-runner', function () {
     });
 
     test('runSelectedCanary reports source failures as regressions', async function () {
-        const dependencies = createRunnerDependencies('npx just publish-dry-run', new Set([ 'candidate' ]), []);
+        const dependencies = createRunnerDependencies(
+            { publishCommand: 'npx just publish-dry-run' },
+            new Set([ 'candidate' ]),
+            []
+        );
 
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
         assert.deepStrictEqual(result, {
             baselineResolvedReference: 'baseline-ref',
-            candidateResolvedReference: 'candidate-ref',
+            candidateResolvedReference: 'baseline-ref',
             issues: [ {
                 kind: 'regression',
                 message: [
@@ -179,6 +199,20 @@ suite('canary-runner', function () {
             true
         );
         assertTagsFetchedBeforeReference(dependencies.commandCalls);
+        assert.deepStrictEqual(
+            dependencies
+                .commandCalls
+                .filter(function ({ command }) {
+                    return command === 'npm clean-install --ignore-scripts';
+                })
+                .map(function ({ cwd }) {
+                    return cwd;
+                })
+                .toSorted(function (left, right) {
+                    return left.localeCompare(right);
+                }),
+            [ '/workspace/packtory-canary-sample-baseline-clone', '/workspace/packtory-canary-sample-candidate-clone' ]
+        );
         assert.deepStrictEqual(
             dependencies.removedFolders.toSorted(function (left, right) {
                 return left.localeCompare(right);
@@ -210,7 +244,7 @@ suite('canary-runner', function () {
     });
 
     test('cleans up both clones when preparing one fails', async function () {
-        const dependencies = createRunnerDependencies('publish-dry-run', new Set(), []);
+        const dependencies = createRunnerDependencies({ publishCommand: 'publish-dry-run' }, new Set(), []);
         await assert.rejects(async function () {
             await runSelectedCanary('canaries.json', 'sample', {
                 ...dependencies,
@@ -232,7 +266,7 @@ suite('canary-runner', function () {
 
     test('runSelectedCanary reports shared downstream failures as baseline rot', async function () {
         const dependencies = createRunnerDependencies(
-            'npx just publish-dry-run',
+            { publishCommand: 'npx just publish-dry-run' },
             new Set([ 'baseline', 'candidate' ]),
             []
         );
@@ -250,7 +284,11 @@ suite('canary-runner', function () {
     });
 
     test('runSelectedCanary reports a broken npm baseline without hiding source success', async function () {
-        const dependencies = createRunnerDependencies('npx just publish-dry-run', new Set([ 'baseline' ]), []);
+        const dependencies = createRunnerDependencies(
+            { publishCommand: 'npx just publish-dry-run' },
+            new Set([ 'baseline' ]),
+            []
+        );
 
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
         assert.deepStrictEqual(result.issues, [ {
@@ -263,7 +301,7 @@ suite('canary-runner', function () {
     });
 
     test('reports non-Error failures from downstream commands', async function () {
-        const dependencies = createRunnerDependencies('publish-dry-run', new Set(), []);
+        const dependencies = createRunnerDependencies({ publishCommand: 'publish-dry-run' }, new Set(), []);
         const result = await runSelectedCanary('canaries.json', 'sample', {
             ...dependencies,
             async runCommand(command, cwd) {
@@ -285,7 +323,7 @@ suite('canary-runner', function () {
     });
 
     test('records the candidate pack duration before inspecting the packages', async function () {
-        const dependencies = createRunnerDependencies('compile', new Set(), []);
+        const dependencies = createRunnerDependencies({ publishCommand: 'compile' }, new Set(), []);
         const durations: number[] = [];
         let time = 0;
         const result = await runSelectedCanary('canaries.json', 'sample', {
@@ -318,7 +356,7 @@ suite('canary-runner', function () {
     });
 
     test('does not record a duration when candidate packing times out', async function () {
-        const dependencies = createRunnerDependencies('compile', new Set(), []);
+        const dependencies = createRunnerDependencies({ publishCommand: 'compile' }, new Set(), []);
         const measuredModes: string[] = [];
         const result = await runSelectedCanary('canaries.json', 'sample', {
             ...dependencies,
@@ -338,12 +376,12 @@ suite('canary-runner', function () {
     });
 
     test('compares successful baseline and source package surfaces', async function () {
-        const dependencies = createRunnerDependencies('pack', new Set(), []);
+        const dependencies = createRunnerDependencies({ publishCommand: 'pack' }, new Set(), []);
         const result = await runSelectedCanary('canaries.json', 'sample', dependencies);
         assert.deepStrictEqual(result, {
             name: 'sample',
             baselineResolvedReference: 'baseline-ref',
-            candidateResolvedReference: 'candidate-ref',
+            candidateResolvedReference: 'baseline-ref',
             issues: []
         });
     });

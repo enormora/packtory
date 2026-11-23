@@ -35,6 +35,7 @@ export type FileManager = {
     setExecutable: (filePath: string, executable: boolean) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
     copyFileBytes: (from: string, to: string) => Promise<void>;
+    copyDirectory: (from: string, to: string) => Promise<void>;
     listDirectoryEntries: (directoryPath: string) => Promise<readonly DirectoryEntry[]>;
     getRealPath: (filePath: string) => Promise<string>;
     getTransferableFileDescriptionFromPath: (
@@ -156,6 +157,15 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         async copyFileBytes(from, to) {
             await ensureContainingFolder(to);
             await hostFileSystem.copyFile(from, to);
+        },
+
+        async copyDirectory(from, to) {
+            await hostFileSystem.cp(from, to, {
+                mode: fileSystem.constants.COPYFILE_FICLONE,
+                preserveTimestamps: true,
+                recursive: true,
+                verbatimSymlinks: true
+            });
         },
 
         async listDirectoryEntries(directoryPath) {

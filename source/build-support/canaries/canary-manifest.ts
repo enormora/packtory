@@ -2,20 +2,44 @@ import { z } from 'zod/mini';
 import { safeParse } from '../../common/schema-validation.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 
-const canarySchema = z.readonly(z.strictObject({
+const commandSchema = z.string().check(z.minLength(1));
+const canaryFields = z.strictObject({
     failureMode: z.literal('non-blocking'),
-    installCommand: z.string().check(z.minLength(1)),
+    installCommand: commandSchema,
     name: z.string().check(z.minLength(1)),
     packBudgetMilliseconds: z.int().check(z.positive()),
-    publishCommand: z.string().check(z.minLength(1)),
-    verificationCommands: z.readonly(z.array(z.string().check(z.minLength(1)))),
     reference: z.string().check(z.minLength(1)),
-    repository: z.string().check(z.minLength(1))
-}));
+    repository: z.string().check(z.minLength(1)),
+    verificationCommands: z.readonly(z.array(commandSchema))
+});
+
+type CanaryFields = z.infer<z.ZodMiniReadonly<typeof canaryFields>>;
+type CanaryCommand = { readonly buildCommand: string; } | { readonly publishCommand: string; };
+
+export type Canary = CanaryCommand & CanaryFields;
+
+const canarySchema = z.readonly(z.pipe(
+    z.extend(canaryFields, {
+        buildCommand: z.optional(commandSchema),
+        publishCommand: z.optional(commandSchema)
+    }),
+    z.transform(function ({ buildCommand, publishCommand, ...canary }, context): Canary {
+        if (buildCommand !== undefined && publishCommand === undefined) {
+            return { ...canary, buildCommand };
+        }
+        if (publishCommand !== undefined && buildCommand === undefined) {
+            return { ...canary, publishCommand };
+        }
+        context.issues.push({
+            code: 'custom',
+            input: canary,
+            message: 'Specify exactly one of buildCommand and publishCommand'
+        });
+        return z.NEVER;
+    })
+));
 
 const manifestSchema = z.readonly(z.array(canarySchema));
-
-export type Canary = Readonly<z.infer<typeof canarySchema>>;
 export type CanaryManifest = readonly Canary[];
 
 function duplicateNames(manifest: CanaryManifest): readonly string[] {

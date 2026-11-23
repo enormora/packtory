@@ -27,13 +27,13 @@ type ShellCommandFailure = {
     readonly timeoutMilliseconds: number;
 };
 
+type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
+type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'setExecutable' | 'writeFile'>;
+
 export type CanaryRunnerDependencies = {
     readonly createProject: InspectPackagesInput['createProject'];
     readonly createTemporaryFolder: TemporaryFolderCreator;
-    readonly fileManager: Pick<
-        FileManager,
-        'checkReadability' | 'copyFile' | 'listDirectoryEntries' | 'readFile' | 'setExecutable' | 'writeFile'
-    >;
+    readonly fileManager: CanaryFileReader & CanaryFileWriter;
     readonly now: () => number;
     readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;
@@ -109,39 +109,37 @@ async function writeCandidatePacktoryShim(
     await dependencies.fileManager.setExecutable(shimPath, true);
 }
 
-async function installPacktoryCommandLineInterface(
+function hasPublishCommand(canary: Canary): canary is Extract<Canary, { readonly publishCommand: string; }> {
+    return Object.hasOwn(canary, 'publishCommand');
+}
+
+async function installCanaryVariant(
     dependencies: CanaryRunnerDependencies,
-    cloneFolder: string,
-    mode: PacktoryMode
+    canary: Canary,
+    clone: PreparedClone
 ): Promise<void> {
-    if (mode === 'baseline') {
-        await installBaselinePacktoryCommandLineInterface(dependencies, cloneFolder);
+    if (hasPublishCommand(canary)) {
+        await dependencies.runCommand(canary.installCommand, clone.cloneFolder);
+    }
+    if (clone.mode === 'baseline') {
+        await installBaselinePacktoryCommandLineInterface(dependencies, clone.cloneFolder);
     } else {
-        await writeCandidatePacktoryShim(dependencies, cloneFolder);
+        await writeCandidatePacktoryShim(dependencies, clone.cloneFolder);
     }
 }
 
-async function prepareCanaryClone(
+async function prepareCanaryRepository(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
-    mode: PacktoryMode,
     cloneFolder: string
-): Promise<PreparedClone> {
+): Promise<string> {
     await dependencies.runCommand(
-        `git clone --depth 1 --branch ${JSON.stringify(canary.reference)} ${JSON.stringify(canary.repository)} .`,
+        `git clone --depth 1 --branch ${shellQuote(canary.reference)} ${shellQuote(canary.repository)} .`,
         cloneFolder
     );
     await dependencies.runCommand('git fetch --tags --force', cloneFolder);
-    const revisionParseResult = await dependencies.runCommand('git rev-parse HEAD', cloneFolder);
-    const resolvedReference = revisionParseResult.standardOutput.trim();
-    await dependencies.runCommand(canary.installCommand, cloneFolder);
-    await installPacktoryCommandLineInterface(dependencies, cloneFolder, mode);
-    return {
-        cloneFolder,
-        mode,
-        nodeModulesFolder: path.join(cloneFolder, packOutputFolderName, 'node_modules'),
-        resolvedReference
-    };
+    const revision = await dependencies.runCommand('git rev-parse HEAD', cloneFolder);
+    return revision.standardOutput.trim();
 }
 
 function canaryPreparationFailures(results: readonly PromiseSettledResult<unknown>[]): readonly unknown[] {
@@ -150,39 +148,29 @@ function canaryPreparationFailures(results: readonly PromiseSettledResult<unknow
     });
 }
 
-async function cloneRepository(
+async function withCanaryClone<Result>(
     dependencies: CanaryRunnerDependencies,
-    canary: Canary,
-    mode: PacktoryMode
-): Promise<PreparedClone> {
-    const cloneFolder = await dependencies.createTemporaryFolder(`packtory-canary-${canary.name}-${mode}-`);
-    const [ preparation ] = await Promise.allSettled([
-        prepareCanaryClone(dependencies, canary, mode, cloneFolder)
-    ]);
-    if (preparation.status === 'fulfilled') {
-        return preparation.value;
-    }
+    name: string,
+    mode: PacktoryMode,
+    run: (cloneFolder: string) => Promise<Result>
+): Promise<Result> {
+    const cloneFolder = await dependencies.createTemporaryFolder(`packtory-canary-${name}-${mode}-`);
+    const [ runResult ] = await Promise.allSettled([ run(cloneFolder) ]);
     const cleanup = await Promise.allSettled([ dependencies.removeFolder(cloneFolder) ]);
-    const errors = [ ...canaryPreparationFailures([ preparation ]), ...canaryPreparationFailures(cleanup) ];
+    const errors = [ ...canaryPreparationFailures([ runResult ]), ...canaryPreparationFailures(cleanup) ];
+    if (runResult.status === 'fulfilled' && errors.length === 0) {
+        return runResult.value;
+    }
     throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
 }
 
-async function prepareCanaryClones(
-    dependencies: CanaryRunnerDependencies,
-    canary: Canary
-): Promise<readonly [PreparedClone, PreparedClone]> {
-    const [ baseline, candidate ] = await Promise.allSettled([
-        cloneRepository(dependencies, canary, 'baseline'),
-        cloneRepository(dependencies, canary, 'candidate')
-    ]);
-    if (baseline.status === 'fulfilled' && candidate.status === 'fulfilled') {
-        return [ baseline.value, candidate.value ];
-    }
-    const cleanup = await Promise.allSettled([ baseline, candidate ].flatMap(function (result) {
-        return result.status === 'fulfilled' ? [ dependencies.removeFolder(result.value.cloneFolder) ] : [];
-    }));
-    const errors = [ ...canaryPreparationFailures([ baseline, candidate ]), ...canaryPreparationFailures(cleanup) ];
-    throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
+function preparedClone(cloneFolder: string, mode: PacktoryMode, resolvedReference: string): PreparedClone {
+    return {
+        cloneFolder,
+        mode,
+        nodeModulesFolder: path.join(cloneFolder, packOutputFolderName, 'node_modules'),
+        resolvedReference
+    };
 }
 
 async function packGeneratedPackages(
@@ -196,7 +184,7 @@ async function packGeneratedPackages(
             '--format folder',
             '--version 0.0.0',
             '--vendor-dependencies',
-            `--out ${JSON.stringify(path.join(clone.cloneFolder, packOutputFolderName, 'node_modules'))}`
+            `--out ${JSON.stringify(clone.nodeModulesFolder)}`
         ]
             .join(' '),
         clone.cloneFolder
@@ -209,7 +197,9 @@ async function prepareCanaryPackages(
     canary: Canary,
     clone: PreparedClone
 ): Promise<void> {
-    await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
+    if (hasPublishCommand(canary)) {
+        await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
+    }
     for (const command of canary.verificationCommands) {
         await dependencies.runCommand(command, clone.cloneFolder);
     }
@@ -247,32 +237,20 @@ async function inspectCanaryClone(
     }
 }
 
-async function runPacktoryInClone(
-    dependencies: CanaryRunnerDependencies,
-    canary: Canary,
-    clone: PreparedClone
-): Promise<PacktoryRunResult> {
-    try {
-        return await inspectCanaryClone(dependencies, canary, clone);
-    } finally {
-        await dependencies.removeFolder(clone.cloneFolder);
-    }
-}
-
 function compareRuns(
     baseline: PacktoryRunResult,
     candidate: PacktoryRunResult,
-    publishCommand: string
+    failureContext: string
 ): readonly CanaryIssue[] {
     if (baseline.failed && candidate.failed) {
         return [
             {
                 kind: 'baseline-rot',
-                message: `npm baseline failed while running "${publishCommand}":\n${baseline.error}`
+                message: `npm baseline failed ${failureContext}:\n${baseline.error}`
             },
             {
                 kind: 'baseline-rot',
-                message: `source run also failed while running "${publishCommand}":\n${candidate.error}`
+                message: `source run also failed ${failureContext}:\n${candidate.error}`
             }
         ];
     }
@@ -280,7 +258,7 @@ function compareRuns(
         return [
             {
                 kind: 'baseline-rot',
-                message: `npm baseline failed while running "${publishCommand}":\n${baseline.error}`
+                message: `npm baseline failed ${failureContext}:\n${baseline.error}`
             },
             { kind: 'warning', message: 'source run passed while the npm baseline failed' }
         ];
@@ -289,7 +267,7 @@ function compareRuns(
         return [ {
             kind: 'regression',
             message: [
-                `source run failed while running "${publishCommand}" after the npm baseline passed:`,
+                `source run failed ${failureContext} after the npm baseline passed:`,
                 candidate.error
             ]
                 .join('\n')
@@ -298,19 +276,69 @@ function compareRuns(
     return compareCanaryApplicationProgrammingInterfaces(baseline.inspection, candidate.inspection).issues;
 }
 
+async function compareCanaryClones(
+    dependencies: CanaryRunnerDependencies,
+    canary: Canary,
+    baselineClone: PreparedClone,
+    candidateClone: PreparedClone
+): Promise<CanaryRunResult> {
+    const installations = await Promise.allSettled([
+        installCanaryVariant(dependencies, canary, baselineClone),
+        installCanaryVariant(dependencies, canary, candidateClone)
+    ]);
+    const errors = canaryPreparationFailures(installations);
+    if (errors.length > 0) {
+        throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
+    }
+    const baseline = await inspectCanaryClone(dependencies, canary, baselineClone);
+    const candidate = await inspectCanaryClone(dependencies, canary, candidateClone);
+    const failureContext = hasPublishCommand(canary)
+        ? `while running "${canary.publishCommand}"`
+        : 'during package verification';
+    return {
+        baselineResolvedReference: baseline.resolvedReference,
+        candidateResolvedReference: candidate.resolvedReference,
+        issues: compareRuns(baseline, candidate, failureContext),
+        name: canary.name
+    };
+}
+
 async function runCanary(
     canary: Canary,
     dependencies: CanaryRunnerDependencies
 ): Promise<CanaryRunResult> {
-    const [ baselineClone, candidateClone ] = await prepareCanaryClones(dependencies, canary);
-    const baseline = await runPacktoryInClone(dependencies, canary, baselineClone);
-    const candidate = await runPacktoryInClone(dependencies, canary, candidateClone);
-    return {
-        baselineResolvedReference: baseline.resolvedReference,
-        candidateResolvedReference: candidate.resolvedReference,
-        issues: compareRuns(baseline, candidate, canary.publishCommand),
-        name: canary.name
-    };
+    return await withCanaryClone(dependencies, canary.name, 'baseline', async function (baselineFolder) {
+        const reference = await prepareCanaryRepository(dependencies, canary, baselineFolder);
+        if (!hasPublishCommand(canary)) {
+            await dependencies.runCommand(canary.installCommand, baselineFolder);
+            try {
+                await dependencies.runCommand(canary.buildCommand, baselineFolder);
+            } catch (error: unknown) {
+                return {
+                    baselineResolvedReference: reference,
+                    candidateResolvedReference: reference,
+                    issues: [ {
+                        kind: 'baseline-rot',
+                        message: [
+                            `Shared downstream build failed while running "${canary.buildCommand}":`,
+                            errorMessage(error)
+                        ]
+                            .join('\n')
+                    } ],
+                    name: canary.name
+                };
+            }
+        }
+        return await withCanaryClone(dependencies, canary.name, 'candidate', async function (candidateFolder) {
+            await dependencies.fileManager.copyDirectory(baselineFolder, candidateFolder);
+            return await compareCanaryClones(
+                dependencies,
+                canary,
+                preparedClone(baselineFolder, 'baseline', reference),
+                preparedClone(candidateFolder, 'candidate', reference)
+            );
+        });
+    });
 }
 
 export async function runSelectedCanary(

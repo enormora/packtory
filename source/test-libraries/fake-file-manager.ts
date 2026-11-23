@@ -289,6 +289,10 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             resolveVoidResponse(response);
         },
 
+        async copyDirectory() {
+            return undefined;
+        },
+
         async listDirectoryEntries(directoryPath) {
             const response = resolvedOptions.simulatedListDirectoryResponses[calls.listDirectory.length] ??
                 { value: [] };
