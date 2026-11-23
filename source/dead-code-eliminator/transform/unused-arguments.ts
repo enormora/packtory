@@ -15,8 +15,11 @@ import { createUnusedValueResolver, type UnusedValueResolver } from '../evaluati
 import type { ExpressionPurityChecker } from '../imported-expression-origin.ts';
 
 function parameterIsUnused(parameter: ParameterDeclaration | undefined): boolean {
-    return parameter === undefined || parameter.getInitializer() === undefined &&
-        bindingHasOnlyUses(parameter.getNameNode(), parameter, new Set());
+    if (parameter === undefined) {
+        return true;
+    }
+    const name = parameter.getNameNode();
+    return parameter.getInitializer() === undefined && bindingHasOnlyUses(name, parameter, new Set());
 }
 
 function isPositionalArgument(argument: TypeScriptMorphNode): argument is Expression {
@@ -78,5 +81,7 @@ export function removeUnusedArguments(preparation: SourcePreparation, isPure: Ex
             }
         }
     });
-    preparation.applyEdits(edits);
+    if (edits.length > 0) {
+        preparation.applyEdits(edits);
+    }
 }

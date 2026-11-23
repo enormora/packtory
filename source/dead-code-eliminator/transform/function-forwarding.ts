@@ -16,10 +16,13 @@ function forwardingDeclaration(source: SourceFile): ExportDeclaration | undefine
     const [ statement, additional ] = source.getStatements().filter(function (candidate) {
         return !TypeScriptMorphNode.isEmptyStatement(candidate);
     });
-    return additional === undefined && TypeScriptMorphNode.isExportDeclaration(statement) &&
-        statement.getAttributes() === undefined && runtimeSourceIsValid(source)
-        ? statement
-        : undefined;
+    if (
+        additional !== undefined || !TypeScriptMorphNode.isExportDeclaration(statement) ||
+        statement.getAttributes() !== undefined || !runtimeSourceIsValid(source)
+    ) {
+        return undefined;
+    }
+    return statement;
 }
 
 function forwardedFunctionNames(
@@ -77,9 +80,13 @@ function requestsOnlyForwardedNames(request: ModuleRequest, names: ReadonlySet<s
     const specifiers = TypeScriptMorphNode.isImportDeclaration(request)
         ? request.getNamedImports()
         : request.getNamedExports();
-    return request.getAttributes() === undefined &&
-        (!TypeScriptMorphNode.isImportDeclaration(request) || request.getDefaultImport() === undefined) &&
-        specifiers.length > 0 && specifiers.every(function (specifier) {
+    if (
+        request.getAttributes() !== undefined ||
+        (TypeScriptMorphNode.isImportDeclaration(request) && request.getDefaultImport() !== undefined)
+    ) {
+        return false;
+    }
+    return specifiers.length > 0 && specifiers.every(function (specifier) {
         return names.has(specifier.getNameNode().compilerNode.text);
     });
 }
@@ -165,10 +172,16 @@ export function bypassFunctionForwarding(loaded: readonly LoadedResource[]): rea
             return target === undefined ? [] : [ [ targetFilePath, target ] as const ];
         })
     );
-    return forwarding.size === 0 ? loaded : loaded.map(function (entry) {
-        return entry.sourceFile === undefined || !modules.has(entry.resource.fileDescription.targetFilePath) ||
+    if (forwarding.size === 0) {
+        return loaded;
+    }
+    return loaded.map(function (entry) {
+        if (
+            entry.sourceFile === undefined || !modules.has(entry.resource.fileDescription.targetFilePath) ||
             !runtimeSourceIsValid(entry.sourceFile)
-            ? entry
-            : redirectRequests(entry, forwarding);
+        ) {
+            return entry;
+        }
+        return redirectRequests(entry, forwarding);
     });
 }

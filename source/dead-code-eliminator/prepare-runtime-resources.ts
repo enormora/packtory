@@ -1,9 +1,9 @@
 import { isDeclarationCodeFile } from '../common/code-files.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { createExpressionPurityChecker } from './pure-expression.ts';
 import { createRuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { prepareBundleSources } from './transform/bundle-source-preparation.ts';
 import { bypassFunctionForwarding } from './transform/function-forwarding.ts';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { LoadedResource, LoadedCodeResource } from './load-resource.ts';
 
 function isRuntimeCodeResource(entry: LoadedResource): entry is LoadedCodeResource {
