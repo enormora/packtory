@@ -118,7 +118,7 @@
         "eslint-plugin-functional": {
             "deepmerge-ts": "8.0.2"
         },
-        "get-uri": {
+        "get-uri@<8.0.2": {
             "basic-ftp": "6.2.6"
         },
         "glob": "14.0.6",
