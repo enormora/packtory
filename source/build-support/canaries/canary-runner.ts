@@ -34,6 +34,8 @@ export type CanaryRunnerDependencies = {
         FileManager,
         'checkReadability' | 'copyFile' | 'listDirectoryEntries' | 'readFile' | 'setExecutable' | 'writeFile'
     >;
+    readonly now: () => number;
+    readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;
     readonly runCommand: CommandRunner;
     readonly runImportProbe: InspectPackagesInput['runImportProbe'];
@@ -51,6 +53,7 @@ type PacktoryMode = 'baseline' | 'candidate';
 
 type PreparedClone = {
     readonly cloneFolder: string;
+    readonly mode: PacktoryMode;
     readonly nodeModulesFolder: string;
     readonly resolvedReference: string;
 };
@@ -135,6 +138,7 @@ async function prepareCanaryClone(
     await installPacktoryCommandLineInterface(dependencies, cloneFolder, mode);
     return {
         cloneFolder,
+        mode,
         nodeModulesFolder: path.join(cloneFolder, packOutputFolderName, 'node_modules'),
         resolvedReference
     };
@@ -185,6 +189,7 @@ async function packGeneratedPackages(
     dependencies: CanaryRunnerDependencies,
     clone: PreparedClone
 ): Promise<void> {
+    const started = dependencies.now();
     await dependencies.runCommand(
         [
             'packtory pack --all',
@@ -196,6 +201,7 @@ async function packGeneratedPackages(
             .join(' '),
         clone.cloneFolder
     );
+    dependencies.recordPackDuration(clone.mode, dependencies.now() - started);
 }
 
 async function prepareCanaryPackages(

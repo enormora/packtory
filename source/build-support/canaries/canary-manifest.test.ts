@@ -8,6 +8,7 @@ const validManifest = [
         failureMode: 'non-blocking',
         installCommand: 'npm clean-install --ignore-scripts',
         name: 'sample',
+        packBudgetMilliseconds: 1000,
         publishCommand: 'npx just packtory-dry-run',
         verificationCommands: [],
         reference: 'main',

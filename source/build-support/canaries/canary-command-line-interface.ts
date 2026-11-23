@@ -16,7 +16,7 @@ type CanaryCommandLineInterfaceDependencies = {
     readonly standardOutputWrite: (message: string) => void;
 };
 
-function argumentValue(argumentValues: readonly string[], name: string): string | undefined {
+export function argumentValue(argumentValues: readonly string[], name: string): string | undefined {
     const index = argumentValues.indexOf(name);
     return index === -1 ? undefined : argumentValues[index + 1];
 }

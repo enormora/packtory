@@ -6,6 +6,7 @@ const canarySchema = z.readonly(z.strictObject({
     failureMode: z.literal('non-blocking'),
     installCommand: z.string().check(z.minLength(1)),
     name: z.string().check(z.minLength(1)),
+    packBudgetMilliseconds: z.int().check(z.positive()),
     publishCommand: z.string().check(z.minLength(1)),
     verificationCommands: z.readonly(z.array(z.string().check(z.minLength(1)))),
     reference: z.string().check(z.minLength(1)),
