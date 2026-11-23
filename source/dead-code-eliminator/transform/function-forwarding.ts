@@ -82,7 +82,7 @@ function requestsOnlyForwardedNames(request: ModuleRequest, names: ReadonlySet<s
         : request.getNamedExports();
     if (
         request.getAttributes() !== undefined ||
-        (TypeScriptMorphNode.isImportDeclaration(request) && request.getDefaultImport() !== undefined)
+        TypeScriptMorphNode.isImportDeclaration(request) && request.getDefaultImport() !== undefined
     ) {
         return false;
     }
