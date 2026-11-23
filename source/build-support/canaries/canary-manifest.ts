@@ -13,9 +13,10 @@ const canaryFields = z.strictObject({
     verificationCommands: z.readonly(z.array(commandSchema))
 });
 
-export type Canary = Readonly<z.infer<typeof canaryFields> & (
-    { readonly buildCommand: string } | { readonly publishCommand: string }
-)>;
+type CanaryFields = z.infer<z.ZodMiniReadonly<typeof canaryFields>>;
+type CanaryCommand = { readonly buildCommand: string; } | { readonly publishCommand: string; };
+
+export type Canary = CanaryCommand & CanaryFields;
 
 const canarySchema = z.readonly(z.pipe(
     z.extend(canaryFields, {

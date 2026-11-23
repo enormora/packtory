@@ -23,7 +23,7 @@ function assertTagsFetchedBeforeReference(commandCalls: readonly CommandCall[]):
     assert.ok(fetchIndex < referenceIndex);
 }
 
-type CanaryCommand = { readonly publishCommand: string } | { readonly buildCommand: string };
+type CanaryCommand = { readonly buildCommand: string; } | { readonly publishCommand: string; };
 
 function manifestContent(canaryCommand: CanaryCommand, verificationCommands: readonly string[]): string {
     return JSON.stringify([
@@ -56,9 +56,7 @@ function createRunnerDependencies(
     const fileManager = createFakeFileManager({
         simulatedReadFileResponses: [ { value: manifestContent(canaryCommand, verificationCommands) } ]
     });
-    const canaryBuildCommand = 'buildCommand' in canaryCommand
-        ? canaryCommand.buildCommand
-        : canaryCommand.publishCommand;
+    const [ canaryBuildCommand ] = Object.values<string>(canaryCommand);
     return {
         createProject() {
             throw new Error('Unexpected type inspection');
@@ -114,9 +112,12 @@ suite('canary-runner', function () {
             message: 'Shared downstream build failed while running "compile":\nbaseline failed'
         } ]);
         assert.deepStrictEqual(dependencies.removedFolders, [ '/workspace/packtory-canary-sample-baseline-clone' ]);
-        assert.strictEqual(dependencies.commandCalls.some(function ({ command }) {
-            return command.startsWith('packtory pack --all ');
-        }), false);
+        assert.strictEqual(
+            dependencies.commandCalls.some(function ({ command }) {
+                return command.startsWith('packtory pack --all ');
+            }),
+            false
+        );
     });
 
     suite('verification commands', function () {
@@ -199,14 +200,17 @@ suite('canary-runner', function () {
         );
         assertTagsFetchedBeforeReference(dependencies.commandCalls);
         assert.deepStrictEqual(
-            dependencies.commandCalls
+            dependencies
+                .commandCalls
                 .filter(function ({ command }) {
                     return command === 'npm clean-install --ignore-scripts';
                 })
                 .map(function ({ cwd }) {
                     return cwd;
                 })
-                .toSorted(),
+                .toSorted(function (left, right) {
+                    return left.localeCompare(right);
+                }),
             [ '/workspace/packtory-canary-sample-baseline-clone', '/workspace/packtory-canary-sample-candidate-clone' ]
         );
         assert.deepStrictEqual(

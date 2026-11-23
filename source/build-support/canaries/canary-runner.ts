@@ -27,14 +27,13 @@ type ShellCommandFailure = {
     readonly timeoutMilliseconds: number;
 };
 
+type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
+type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'setExecutable' | 'writeFile'>;
+
 export type CanaryRunnerDependencies = {
     readonly createProject: InspectPackagesInput['createProject'];
     readonly createTemporaryFolder: TemporaryFolderCreator;
-    readonly fileManager: Pick<
-        FileManager,
-        'checkReadability' | 'copyDirectory' | 'copyFile' | 'listDirectoryEntries' | 'readFile' | 'setExecutable' |
-            'writeFile'
-    >;
+    readonly fileManager: CanaryFileReader & CanaryFileWriter;
     readonly now: () => number;
     readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;
@@ -110,12 +109,16 @@ async function writeCandidatePacktoryShim(
     await dependencies.fileManager.setExecutable(shimPath, true);
 }
 
+function hasPublishCommand(canary: Canary): canary is Extract<Canary, { readonly publishCommand: string; }> {
+    return Object.hasOwn(canary, 'publishCommand');
+}
+
 async function installCanaryVariant(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
     clone: PreparedClone
 ): Promise<void> {
-    if ('publishCommand' in canary) {
+    if (hasPublishCommand(canary)) {
         await dependencies.runCommand(canary.installCommand, clone.cloneFolder);
     }
     if (clone.mode === 'baseline') {
@@ -194,7 +197,7 @@ async function prepareCanaryPackages(
     canary: Canary,
     clone: PreparedClone
 ): Promise<void> {
-    if ('publishCommand' in canary) {
+    if (hasPublishCommand(canary)) {
         await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
     }
     for (const command of canary.verificationCommands) {
@@ -289,7 +292,7 @@ async function compareCanaryClones(
     }
     const baseline = await inspectCanaryClone(dependencies, canary, baselineClone);
     const candidate = await inspectCanaryClone(dependencies, canary, candidateClone);
-    const failureContext = 'publishCommand' in canary
+    const failureContext = hasPublishCommand(canary)
         ? `while running "${canary.publishCommand}"`
         : 'during package verification';
     return {
@@ -306,7 +309,7 @@ async function runCanary(
 ): Promise<CanaryRunResult> {
     return await withCanaryClone(dependencies, canary.name, 'baseline', async function (baselineFolder) {
         const reference = await prepareCanaryRepository(dependencies, canary, baselineFolder);
-        if ('buildCommand' in canary) {
+        if (!hasPublishCommand(canary)) {
             await dependencies.runCommand(canary.installCommand, baselineFolder);
             try {
                 await dependencies.runCommand(canary.buildCommand, baselineFolder);
@@ -319,7 +322,8 @@ async function runCanary(
                         message: [
                             `Shared downstream build failed while running "${canary.buildCommand}":`,
                             errorMessage(error)
-                        ].join('\n')
+                        ]
+                            .join('\n')
                     } ],
                     name: canary.name
                 };
