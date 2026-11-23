@@ -50,7 +50,7 @@ function unusedArgumentEdits(
     return function (call) {
         const supplied = call.getArguments();
         const argumentsList = supplied.filter(isPositionalArgument);
-        if (argumentsList.length === 0 || argumentsList.length !== supplied.length) {
+        if (argumentsList.length !== supplied.length) {
             return [];
         }
         const target = resolveTarget(call);

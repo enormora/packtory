@@ -37,15 +37,18 @@ function forwardedFunctionNames(
         return undefined;
     }
     const functions = new Set(
-        destination.getFunctions().flatMap(function (candidate) {
-            return candidate.hasExportKeyword() && !candidate.isDefaultExport()
-                ? candidate.getNameNodeOrThrow().compilerNode.text
-                : [];
-        })
+        destination
+            .getFunctions()
+            .filter(function (candidate) {
+                return candidate.hasExportKeyword() && !candidate.isDefaultExport();
+            })
+            .map(function (candidate) {
+                return candidate.getNameNodeOrThrow().compilerNode.text;
+            })
     );
     const exports = declaration.getNamedExports();
     if (
-        exports.length === 0 || exports.some(function (exported) {
+        exports.some(function (exported) {
             return exported.getAliasNode() !== undefined || !functions.has(exported.getNameNode().compilerNode.text);
         })
     ) {
@@ -101,10 +104,10 @@ function relativeSpecifier(from: string, to: string): string | undefined {
 
 function redirectedReference(
     request: ModuleRequest,
+    specifier: string,
     resource: LoadedCodeResource['resource'],
-    forwarding: ReadonlyMap<string, FunctionForwarding>
+    forwarding: ReadonlyMap<string, FunctionForwarding | undefined>
 ): LocalReference | undefined {
-    const specifier = request.getModuleSpecifierValue();
     const reference = resource.moduleReferences.find(function (candidate) {
         return candidate.emittedSpecifier === specifier;
     });
@@ -122,7 +125,7 @@ function redirectedReference(
 
 function redirectRequests(
     entry: LoadedCodeResource,
-    forwarding: ReadonlyMap<string, FunctionForwarding>
+    forwarding: ReadonlyMap<string, FunctionForwarding | undefined>
 ): LoadedCodeResource {
     const { resource, sourceFile } = entry;
     const addedReferences = new Map<string, LocalReference>();
@@ -130,8 +133,11 @@ function redirectRequests(
     const requests = [ ...sourceFile.getImportDeclarations(), ...sourceFile.getExportDeclarations() ];
     const edits = requests.flatMap(function (request) {
         const literal = request.getModuleSpecifier();
-        const redirect = redirectedReference(request, resource, forwarding);
-        if (literal === undefined || redirect === undefined) {
+        if (literal === undefined) {
+            return [];
+        }
+        const redirect = redirectedReference(request, literal.getLiteralValue(), resource, forwarding);
+        if (redirect === undefined) {
             return [];
         }
         const existing = resource.moduleReferences.find(function (candidate) {
@@ -167,21 +173,15 @@ export function bypassFunctionForwarding(loaded: readonly LoadedResource[]): rea
             : [];
     }));
     const forwarding = new Map(
-        Array.from(modules).flatMap(function ([ targetFilePath, entry ]) {
-            const target = forwardedFunctions(entry, modules);
-            return target === undefined ? [] : [ [ targetFilePath, target ] as const ];
+        Array.from(modules, function ([ targetFilePath, entry ]) {
+            return [ targetFilePath, forwardedFunctions(entry, modules) ] as const;
         })
     );
-    if (forwarding.size === 0) {
-        return loaded;
-    }
     return loaded.map(function (entry) {
-        if (
-            entry.sourceFile === undefined || !modules.has(entry.resource.fileDescription.targetFilePath) ||
-            !runtimeSourceIsValid(entry.sourceFile)
-        ) {
+        const module = modules.get(entry.resource.fileDescription.targetFilePath);
+        if (module === undefined || !runtimeSourceIsValid(module.sourceFile)) {
             return entry;
         }
-        return redirectRequests(entry, forwarding);
+        return redirectRequests(module, forwarding);
     });
 }
