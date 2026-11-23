@@ -13,6 +13,7 @@ type Overrides = {
     readonly fileStatus?: SinonSpy;
     readonly chmod?: SinonSpy;
     readonly copyFile?: SinonSpy;
+    readonly cp?: SinonSpy;
     readonly readdir?: SinonSpy;
     readonly realpath?: SinonSpy;
 };
@@ -27,6 +28,7 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
         stat: fake(),
         chmod: fake(),
         copyFile: fake(),
+        cp: fake(),
         readdir: fake(),
         realpath: fake()
     };
@@ -209,6 +211,20 @@ suite('file-manager', function () {
     });
 
     suite('directories and real paths', function () {
+        test('copies a directory with its timestamps and symlink targets intact', async function () {
+            const cp = fake.resolves(undefined);
+            const fileManager = fileManagerFactory({ cp });
+
+            await fileManager.copyDirectory('/prepared', '/candidate');
+
+            assert.deepStrictEqual(cp.args, [ [ '/prepared', '/candidate', {
+                mode: fileSystem.constants.COPYFILE_FICLONE,
+                preserveTimestamps: true,
+                recursive: true,
+                verbatimSymlinks: true
+            } ] ]);
+        });
+
         test('listDirectoryEntries() returns the entries from host readdir tagged with type information', async function () {
             const readdir = fake.resolves([
                 {
