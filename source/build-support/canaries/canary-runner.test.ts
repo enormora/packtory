@@ -35,6 +35,7 @@ function manifestContent(publishCommand: string, verificationCommands: readonly 
             failureMode: 'non-blocking',
             installCommand: 'npm clean-install --ignore-scripts',
             name: 'sample',
+            packBudgetMilliseconds: 1000,
             publishCommand,
             verificationCommands,
             reference: 'main',
@@ -71,6 +72,12 @@ function createRunnerDependencies(
             return `/workspace/${prefix}clone`;
         },
         fileManager,
+        now() {
+            return 0;
+        },
+        recordPackDuration() {
+            return undefined;
+        },
         async removeFolder(folderPath) {
             removedFolders.push(folderPath);
         },
@@ -275,6 +282,59 @@ suite('canary-runner', function () {
                 'source run also failed while running "publish-dry-run":\ndownstream failed'
             ]
         );
+    });
+
+    test('records the candidate pack duration before inspecting the packages', async function () {
+        const dependencies = createRunnerDependencies('compile', new Set(), []);
+        const durations: number[] = [];
+        let time = 0;
+        const result = await runSelectedCanary('canaries.json', 'sample', {
+            ...dependencies,
+            fileManager: {
+                ...dependencies.fileManager,
+                async listDirectoryEntries(folderPath) {
+                    if (cloneMode(folderPath) === 'candidate') {
+                        throw new Error('candidate inspection failed');
+                    }
+                    return dependencies.fileManager.listDirectoryEntries(folderPath);
+                }
+            },
+            now() {
+                return time;
+            },
+            recordPackDuration(mode, duration) {
+                if (mode === 'candidate') {
+                    durations.push(duration);
+                }
+            },
+            async runCommand(command, cwd) {
+                time += command.startsWith('packtory pack --all ') ? 125 : 1000;
+                return dependencies.runCommand(command, cwd);
+            }
+        });
+
+        assert.deepStrictEqual(durations, [ 125 ]);
+        assert.match(result.issues[0]?.message ?? '', /candidate inspection failed/u);
+    });
+
+    test('does not record a duration when candidate packing times out', async function () {
+        const dependencies = createRunnerDependencies('compile', new Set(), []);
+        const measuredModes: string[] = [];
+        const result = await runSelectedCanary('canaries.json', 'sample', {
+            ...dependencies,
+            recordPackDuration(mode) {
+                measuredModes.push(mode);
+            },
+            async runCommand(command, cwd) {
+                if (command.startsWith('packtory pack --all ') && cloneMode(cwd) === 'candidate') {
+                    throw new Error('Pack command timed out');
+                }
+                return dependencies.runCommand(command, cwd);
+            }
+        });
+
+        assert.deepStrictEqual(measuredModes, [ 'baseline' ]);
+        assert.match(result.issues[0]?.message ?? '', /Pack command timed out/u);
     });
 
     test('compares successful baseline and source package surfaces', async function () {

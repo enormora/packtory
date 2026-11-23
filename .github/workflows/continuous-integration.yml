@@ -96,6 +96,13 @@ jobs:
         runs-on: ubuntu-latest
         name: Canary ${{ matrix.canary }}
         continue-on-error: true
+        outputs:
+            packtory: ${{ matrix.canary == 'packtory' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
+            objectory: ${{ matrix.canary == 'objectory' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
+            eslint-config: ${{ matrix.canary == 'eslint-config' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
+            pr-log: ${{ matrix.canary == 'pr-log' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
+            overkill: ${{ matrix.canary == 'overkill' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
+            eslint-plugin-mocha: ${{ matrix.canary == 'eslint-plugin-mocha' && (steps.canary.outputs.pack_benchmark || steps.changes.outputs.benchmark_skip) || '' }}
         permissions:
             contents: read # required for actions/checkout to read the workflow source
         strategy:
@@ -119,21 +126,25 @@ jobs:
                   BEFORE_SHA: ${{ github.event.before }}
                   BASE_REF: ${{ github.base_ref }}
                   CANARY_NAME: ${{ matrix.canary }}
+                  MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
                   EVENT_NAME: ${{ github.event_name }}
               run: |
                   if [ "$EVENT_NAME" = "pull_request" ]; then
                     git fetch --no-tags origin "$BASE_REF"
                     changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+                  elif [ "$EVENT_NAME" = "merge_group" ]; then
+                    changed_files="$(git diff --name-only "$MERGE_GROUP_BASE_SHA" HEAD)"
                   elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
                     changed_files="$(git diff --name-only "${BEFORE_SHA}...HEAD")"
                   else
                     changed_files="$(git diff --name-only "HEAD^...HEAD")"
                   fi
 
-                  if printf '%s\n' "$changed_files" | grep -Eq '^(source/|package\.json$|package-lock\.json$|packtory\.config\.js$|tsconfig|justfile$|canary-tests/|\.github/workflows/continuous-integration\.yml$)'; then
+                  if printf '%s\n' "$changed_files" | grep -Eq '^(source/|package\.json$|package-lock\.json$|packtory\.config\.js$|tsconfig|justfile$|canary-tests/(canaries\.json|check-pack-budgets\.jq)$|\.github/workflows/continuous-integration\.yml$)'; then
                     echo "should_run=true" >> "$GITHUB_OUTPUT"
                   else
                     echo "should_run=false" >> "$GITHUB_OUTPUT"
+                    echo "benchmark_skip=skipped" >> "$GITHUB_OUTPUT"
                     {
                       echo "## Packtory canary: $CANARY_NAME"
                       echo
@@ -150,6 +161,7 @@ jobs:
               if: steps.changes.outputs.should_run == 'true'
               run: npm clean-install --ignore-scripts
             - name: Run canary
+              id: canary
               if: steps.changes.outputs.should_run == 'true'
               env:
                   CANARY_NAME: ${{ matrix.canary }}
@@ -159,6 +171,25 @@ jobs:
                   --manifest canary-tests/canaries.json
                   --name "$CANARY_NAME"
                   --summary "$GITHUB_STEP_SUMMARY"
+                  --benchmark-output "$GITHUB_OUTPUT"
+
+    canary-benchmarks:
+        runs-on: ubuntu-latest
+        name: Canary benchmarks
+        needs: canaries
+        if: always()
+        permissions:
+            contents: read # required for actions/checkout to read the manifest and benchmark check
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Check canary pack budgets
+              env:
+                  CANARY_RESULTS: ${{ toJSON(needs.canaries.outputs) }}
+              run: |
+                  jq -r --argjson results "$CANARY_RESULTS" \
+                    -f canary-tests/check-pack-budgets.jq canary-tests/canaries.json >> "$GITHUB_STEP_SUMMARY"
 
     workflow-security:
         runs-on: ubuntu-latest

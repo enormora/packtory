@@ -95,6 +95,7 @@ suite('canary-publish-config', function () {
                     failureMode: 'non-blocking',
                     installCommand: 'npm clean-install --ignore-scripts',
                     name: 'sample',
+                    packBudgetMilliseconds: 1000,
                     publishCommand: 'publish-dry-run',
                     verificationCommands: [],
                     reference: 'main',
@@ -107,6 +108,12 @@ suite('canary-publish-config', function () {
                     return await mkdtemp(path.join(root, prefix));
                 },
                 fileManager,
+                now() {
+                    return 0;
+                },
+                recordPackDuration() {
+                    return undefined;
+                },
                 async removeFolder(folderPath) {
                     await rm(folderPath, {
                         recursive: true,
