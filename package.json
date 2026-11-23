@@ -54,7 +54,7 @@
         "npm-registry-fetch": "20.0.1",
         "open": "11.0.4",
         "p-map": "7.1.1",
-        "proxy-agent": "8.0.2",
+        "proxy-agent": "8.0.3",
         "proxy-from-env": "2.1.0",
         "remeda": "2.58.0",
         "semver": "7.8.6",
@@ -118,7 +118,7 @@
         "eslint-plugin-functional": {
             "deepmerge-ts": "8.0.2"
         },
-        "get-uri": {
+        "get-uri@<8.0.2": {
             "basic-ftp": "6.2.6"
         },
         "glob": "14.0.6",
