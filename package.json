@@ -112,9 +112,6 @@
     },
     "overrides": {
         "@ts-morph/common": "$@ts-morph/common",
-        "@tufjs/models": {
-            "minimatch": "11.0.8"
-        },
         "eslint-plugin-functional": {
             "deepmerge-ts": "8.0.2"
         },
