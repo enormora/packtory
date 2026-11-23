@@ -119,7 +119,7 @@ suite('function forwarding proofs', function () {
             [ 'lib/read.js', true, null ]
         ] as const
     ) {
-        test(`preserves the existing specifier for ${targetFilePath} with linked status ${String(linked)}`, function () {
+        test(`preserves the existing specifier for ${targetFilePath} (linked: ${String(linked)})`, function () {
             const entrySource = `import "./lib/read.js";${request}`;
             const loaded = loadModules({ 'index.js': entrySource, ...forwardingFiles }).map(function (entry) {
                 if (entry.resource.fileDescription.targetFilePath !== 'index.js') {

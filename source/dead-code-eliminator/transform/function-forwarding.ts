@@ -123,6 +123,21 @@ function redirectedReference(
     return emittedSpecifier === undefined ? undefined : { ...reference, emittedSpecifier, targetFilePath };
 }
 
+function recordCompatibleReference(
+    redirect: LocalReference,
+    references: readonly ArtifactModuleReference[],
+    added: Map<string, LocalReference>
+): boolean {
+    const existing = references.find(function (candidate) {
+        return candidate.emittedSpecifier === redirect.emittedSpecifier;
+    });
+    if (existing === undefined) {
+        added.set(redirect.emittedSpecifier, redirect);
+        return true;
+    }
+    return existing.type === 'local-code' && existing.targetFilePath === redirect.targetFilePath;
+}
+
 function redirectRequests(
     entry: LoadedCodeResource,
     forwarding: ReadonlyMap<string, FunctionForwarding | undefined>
@@ -137,15 +152,9 @@ function redirectRequests(
             return [];
         }
         const redirect = redirectedReference(request, literal.getLiteralValue(), resource, forwarding);
-        if (redirect === undefined) {
-            return [];
-        }
-        const existing = resource.moduleReferences.find(function (candidate) {
-            return candidate.emittedSpecifier === redirect.emittedSpecifier;
-        });
-        if (existing === undefined) {
-            addedReferences.set(redirect.emittedSpecifier, redirect);
-        } else if (existing.type !== 'local-code' || existing.targetFilePath !== redirect.targetFilePath) {
+        if (
+            redirect === undefined || !recordCompatibleReference(redirect, resource.moduleReferences, addedReferences)
+        ) {
             return [];
         }
         dependencies.add(redirect.targetFilePath);
