@@ -192,31 +192,60 @@ async function packGeneratedPackages(
     dependencies.recordPackDuration(clone.mode, dependencies.now() - started);
 }
 
-async function prepareCanaryPackages(
+async function captureCanaryFailure(work: () => Promise<void>): Promise<string | undefined> {
+    try {
+        await work();
+        return undefined;
+    } catch (error: unknown) {
+        return errorMessage(error);
+    }
+}
+
+async function verifyCanaryClone(
     dependencies: CanaryRunnerDependencies,
     canary: Canary,
     clone: PreparedClone
-): Promise<void> {
-    if (hasPublishCommand(canary)) {
-        await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
-    }
-    for (const command of canary.verificationCommands) {
-        await dependencies.runCommand(command, clone.cloneFolder);
-    }
-    await writeCanaryConfigurationOverlay({
-        cloneFolder: clone.cloneFolder,
-        fileManager: dependencies.fileManager
+): Promise<string | undefined> {
+    return await captureCanaryFailure(async function () {
+        if (hasPublishCommand(canary)) {
+            await dependencies.runCommand(canary.publishCommand, clone.cloneFolder);
+        }
+        for (const command of canary.verificationCommands) {
+            await dependencies.runCommand(command, clone.cloneFolder);
+        }
     });
-    await packGeneratedPackages(dependencies, clone);
+}
+
+async function packCanaryClone(
+    dependencies: CanaryRunnerDependencies,
+    clone: PreparedClone,
+    verificationFailure: string | undefined
+): Promise<string | undefined> {
+    if (verificationFailure !== undefined) {
+        return verificationFailure;
+    }
+    return await captureCanaryFailure(async function () {
+        await writeCanaryConfigurationOverlay({
+            cloneFolder: clone.cloneFolder,
+            fileManager: dependencies.fileManager
+        });
+        await packGeneratedPackages(dependencies, clone);
+    });
+}
+
+function failedCanaryRun(clone: PreparedClone, error: string): PacktoryRunResult {
+    return { error, failed: true, resolvedReference: clone.resolvedReference };
 }
 
 async function inspectCanaryClone(
     dependencies: CanaryRunnerDependencies,
-    canary: Canary,
-    clone: PreparedClone
+    clone: PreparedClone,
+    packagingFailure: string | undefined
 ): Promise<PacktoryRunResult> {
+    if (packagingFailure !== undefined) {
+        return failedCanaryRun(clone, packagingFailure);
+    }
     try {
-        await prepareCanaryPackages(dependencies, canary, clone);
         return {
             failed: false,
             inspection: await inspectPackageApplicationProgrammingInterfaces({
@@ -229,12 +258,17 @@ async function inspectCanaryClone(
             resolvedReference: clone.resolvedReference
         };
     } catch (error: unknown) {
-        return {
-            error: errorMessage(error),
-            failed: true,
-            resolvedReference: clone.resolvedReference
-        };
+        return failedCanaryRun(clone, errorMessage(error));
     }
+}
+
+async function packAndInspectBaseline(
+    dependencies: CanaryRunnerDependencies,
+    clone: PreparedClone,
+    verificationFailure: string | undefined
+): Promise<PacktoryRunResult> {
+    const packagingFailure = await packCanaryClone(dependencies, clone, verificationFailure);
+    return await inspectCanaryClone(dependencies, clone, packagingFailure);
 }
 
 function compareRuns(
@@ -290,8 +324,15 @@ async function compareCanaryClones(
     if (errors.length > 0) {
         throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
     }
-    const baseline = await inspectCanaryClone(dependencies, canary, baselineClone);
-    const candidate = await inspectCanaryClone(dependencies, canary, candidateClone);
+    const [ baselineVerificationFailure, candidateVerificationFailure ] = await Promise.all([
+        verifyCanaryClone(dependencies, canary, baselineClone),
+        verifyCanaryClone(dependencies, canary, candidateClone)
+    ]);
+    const candidatePackagingFailure = await packCanaryClone(dependencies, candidateClone, candidateVerificationFailure);
+    const [ baseline, candidate ] = await Promise.all([
+        packAndInspectBaseline(dependencies, baselineClone, baselineVerificationFailure),
+        inspectCanaryClone(dependencies, candidateClone, candidatePackagingFailure)
+    ]);
     const failureContext = hasPublishCommand(canary)
         ? `while running "${canary.publishCommand}"`
         : 'during package verification';

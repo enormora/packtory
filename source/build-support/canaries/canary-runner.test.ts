@@ -121,13 +121,26 @@ suite('canary-runner', function () {
     });
 
     suite('verification commands', function () {
-        test('runs verification commands after preparation and before packing each clone', async function () {
+        test('overlaps verification sequences and finishes both before packing', async function () {
             const dependencies = createRunnerDependencies({ buildCommand: 'compile' }, new Set(), [
                 'verify-first',
                 'verify-second'
             ]);
+            const candidateStarted = Promise.withResolvers<undefined>();
 
-            await runSelectedCanary('canaries.json', 'sample', dependencies);
+            await runSelectedCanary('canaries.json', 'sample', {
+                ...dependencies,
+                async runCommand(command, cwd) {
+                    const result = await dependencies.runCommand(command, cwd);
+                    if (command === 'verify-first') {
+                        if (cloneMode(cwd) === 'candidate') {
+                            candidateStarted.resolve(undefined);
+                        }
+                        await candidateStarted.promise;
+                    }
+                    return result;
+                }
+            });
 
             const phases = dependencies
                 .commandCalls
@@ -135,17 +148,18 @@ suite('canary-runner', function () {
                     return command === 'compile' || command.startsWith('verify-') ||
                         command.startsWith('packtory pack --all ');
                 })
-                .map(function ({ command }) {
-                    return command.startsWith('packtory pack --all ') ? 'pack' : command;
+                .map(function ({ command, cwd }) {
+                    const phase = command.startsWith('packtory pack --all ') ? 'pack' : command;
+                    return `${cloneMode(cwd)} ${phase}`;
                 });
             assert.deepStrictEqual(phases, [
-                'compile',
-                'verify-first',
-                'verify-second',
-                'pack',
-                'verify-first',
-                'verify-second',
-                'pack'
+                'baseline compile',
+                'baseline verify-first',
+                'candidate verify-first',
+                'baseline verify-second',
+                'candidate verify-second',
+                'candidate pack',
+                'baseline pack'
             ]);
         });
 
@@ -322,9 +336,10 @@ suite('canary-runner', function () {
         );
     });
 
-    test('records the candidate pack duration before inspecting the packages', async function () {
+    test('overlaps baseline packing with candidate inspection after timing the candidate pack', async function () {
         const dependencies = createRunnerDependencies({ publishCommand: 'compile' }, new Set(), []);
         const durations: number[] = [];
+        const candidateInspection = Promise.withResolvers<undefined>();
         let time = 0;
         const result = await runSelectedCanary('canaries.json', 'sample', {
             ...dependencies,
@@ -332,6 +347,7 @@ suite('canary-runner', function () {
                 ...dependencies.fileManager,
                 async listDirectoryEntries(folderPath) {
                     if (cloneMode(folderPath) === 'candidate') {
+                        candidateInspection.resolve(undefined);
                         throw new Error('candidate inspection failed');
                     }
                     return dependencies.fileManager.listDirectoryEntries(folderPath);
@@ -346,6 +362,9 @@ suite('canary-runner', function () {
                 }
             },
             async runCommand(command, cwd) {
+                if (command.startsWith('packtory pack --all ') && cloneMode(cwd) === 'baseline') {
+                    await candidateInspection.promise;
+                }
                 time += command.startsWith('packtory pack --all ') ? 125 : 1000;
                 return dependencies.runCommand(command, cwd);
             }

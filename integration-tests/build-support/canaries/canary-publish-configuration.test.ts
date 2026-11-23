@@ -197,7 +197,10 @@ suite('canary-publish-config', function () {
                 name: 'sample'
             });
             assert.deepStrictEqual(preparationCommands, [ 'clone', 'install', 'build' ]);
-            assert.deepStrictEqual(observations, [ {
+            const observationsByMode = observations.toSorted(function (left, right) {
+                return left.mode.localeCompare(right.mode);
+            });
+            assert.deepStrictEqual(observationsByMode, [ {
                 mode: 'baseline',
                 phase: 'publish',
                 configuration: originalConfiguration
