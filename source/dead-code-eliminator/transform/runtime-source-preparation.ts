@@ -5,6 +5,7 @@ import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
 import { specializeImportedValues } from './imported-value-specialization.ts';
 import { reduceObjectBindings } from './object-binding-reduction.ts';
 import { removeUnusedValues } from './unused-values.ts';
+import { removeUnusedArguments } from './unused-arguments.ts';
 import { prepareLocalRuntimeSource } from './local-source-preparation.ts';
 
 export function prepareResolvedRuntimeSource(
@@ -21,4 +22,5 @@ export function prepareResolvedRuntimeSource(
     prepareLocalRuntimeSource(preparation);
     reduceObjectBindings(preparation);
     removeUnusedValues(preparation, isPure);
+    removeUnusedArguments(preparation, isPure);
 }

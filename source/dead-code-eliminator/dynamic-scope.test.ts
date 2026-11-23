@@ -10,6 +10,7 @@ suite('dynamic scope detection', function () {
             [ 'with(object){value;}', true ],
             [ 'eval("value");', true ],
             [ '(eval)("value");', true ],
+            [ 'e\\u0076al("value");', true ],
             [ 'globalThis.eval("value");', false ]
         ] as const
     ) {

@@ -2,12 +2,23 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     assertDeadCodeEliminationOutput,
+    eliminateDeadCodeAndAssertAllOutputValid,
     eliminateDeadCodeAndAssertExpectedOutput
 } from '../test-libraries/dead-code-elimination-output-assertions.ts';
 import { singleFileOracleCase } from '../test-libraries/dead-code-elimination-single-file-case.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 
 suite('condition effects', function () {
+    for (const statement of [ 'if(console.log(1)){}else{{;}}', 'if(missing){}' ]) {
+        test(`keeps the evaluation of an empty conditional in ${statement}`, async function () {
+            const fixture = singleFileOracleCase(`export function probe(){${statement}return 42;}`, 'index.js');
+            const result = await eliminateDeadCodeAndAssertAllOutputValid(fixture);
+            const output = result[0]?.contents[0]?.fileDescription.content;
+            assertDefined(output);
+            assert.doesNotMatch(output, /\bif\s*\(/u);
+        });
+    }
+
     for (
         const body of [
             'if(!void console.log("condition"))return 42;console.log("unreachable");return 0;',

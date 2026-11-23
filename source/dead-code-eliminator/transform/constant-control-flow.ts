@@ -49,7 +49,25 @@ function selectedStatementSource(selected: Statement | undefined): readonly Sour
     return TypeScriptMorphNode.isBlock(selected) ? [ selected ] : [ '{ ', selected, ' }' ];
 }
 
+function emptyStatement(statement: Statement): boolean {
+    return TypeScriptMorphNode.isEmptyStatement(statement) ||
+        TypeScriptMorphNode.isBlock(statement) && statement.getStatements().every(emptyStatement);
+}
+
+function emptyBranchSource(statement: IfStatement, evaluate: SourceEvaluation): readonly SourcePart[] | undefined {
+    const alternative = statement.getElseStatement();
+    if (!emptyStatement(statement.getThenStatement()) || alternative !== undefined && !emptyStatement(alternative)) {
+        return undefined;
+    }
+    const expression = statement.getExpression();
+    return evaluate.canDiscard(expression) ? [ ';' ] : [ 'void (', expression, ');' ];
+}
+
 function constantBranchSource(statement: IfStatement, evaluate: SourceEvaluation): readonly SourcePart[] | undefined {
+    const empty = emptyBranchSource(statement, evaluate);
+    if (empty !== undefined) {
+        return empty;
+    }
     const expression = statement.getExpression();
     const condition = conditionOutcome(expression, evaluate, 0).truthy;
     if (
@@ -102,11 +120,6 @@ function shortCircuitSource(
     return selected
         ? selectedValueSource(left, evaluate)
         : afterCondition(left, expression.getRight(), evaluate);
-}
-
-function emptyStatement(statement: Statement): boolean {
-    return TypeScriptMorphNode.isEmptyStatement(statement) ||
-        TypeScriptMorphNode.isBlock(statement) && statement.getStatements().every(emptyStatement);
 }
 
 function emptyDoSource(node: TypeScriptMorphNodeType, evaluate: SourceEvaluation): readonly SourcePart[] | undefined {

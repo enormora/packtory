@@ -19548,7 +19548,7 @@
                         "contents": [
                             {
                                 "path": "index.js",
-                                "content": "function Symbol() { console.log(\"effect\"); } (Symbol((1)));\nexport function probe() { return 42; }"
+                                "content": "function Symbol() { console.log(\"effect\"); } (Symbol());\nexport function probe() { return 42; }"
                             }
                         ]
                     }
