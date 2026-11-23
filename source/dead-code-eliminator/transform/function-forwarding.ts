@@ -126,13 +126,13 @@ function redirectedReference(
 function recordCompatibleReference(
     redirect: LocalReference,
     references: readonly ArtifactModuleReference[],
-    added: Map<string, LocalReference>
+    record: (reference: LocalReference) => void
 ): boolean {
     const existing = references.find(function (candidate) {
         return candidate.emittedSpecifier === redirect.emittedSpecifier;
     });
     if (existing === undefined) {
-        added.set(redirect.emittedSpecifier, redirect);
+        record(redirect);
         return true;
     }
     return existing.type === 'local-code' && existing.targetFilePath === redirect.targetFilePath;
@@ -145,6 +145,9 @@ function redirectRequests(
     const { resource, sourceFile } = entry;
     const addedReferences = new Map<string, LocalReference>();
     const dependencies = new Set(resource.directDependencies);
+    const addReference = function (reference: LocalReference): void {
+        addedReferences.set(reference.emittedSpecifier, reference);
+    };
     const requests = [ ...sourceFile.getImportDeclarations(), ...sourceFile.getExportDeclarations() ];
     const edits = requests.flatMap(function (request) {
         const literal = request.getModuleSpecifier();
@@ -153,7 +156,7 @@ function redirectRequests(
         }
         const redirect = redirectedReference(request, literal.getLiteralValue(), resource, forwarding);
         if (
-            redirect === undefined || !recordCompatibleReference(redirect, resource.moduleReferences, addedReferences)
+            redirect === undefined || !recordCompatibleReference(redirect, resource.moduleReferences, addReference)
         ) {
             return [];
         }
