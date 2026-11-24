@@ -10,7 +10,6 @@ import {
 } from 'ts-morph';
 import { match } from 'ts-pattern';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { returnCreationIsPure } from '../liveness/builder-return.ts';
 import { hasClassImpurity, type ClassPropertyKeyResolver } from '../class-purity.ts';
 import { arePureCallArguments, type ExpressionPurityChecker } from '../imported-expression-origin.ts';
 import { shortCircuitOperators } from '../syntax-kind-sets.ts';
@@ -156,7 +155,7 @@ export function createUnusedValueResolver(
         return value === undefined ? undefined : String(value.value);
     };
     function canDiscard(expression: Expression): boolean {
-        return evaluation.canDiscard(expression) || returnCreationIsPure(expression, new Set()) ||
+        return evaluation.canDiscard(expression) ||
             callCanDisappear(unwrapExpression(expression), isPure, canDiscard);
     }
     return function resolveUnused(expression) {
