@@ -3,9 +3,7 @@ import { isAssignmentOperator } from '../assignment-operator.ts';
 import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../../source-transformation/syntax-analysis.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 
-type MutationRecord = { readonly name: string; readonly start: number; };
-
-function rootMutationIdentifier(expression: Expression): Identifier | undefined {
+function rootMutationIdentifier(expression: Expression | undefined): Identifier | undefined {
     const unwrapped = unwrapExpression(expression);
     if (TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return unwrapped;
@@ -31,24 +29,16 @@ function mutatedTarget(node: TypeScriptMorphNode): Expression | undefined {
     return updatedOperand(node);
 }
 
-function collectMutationRecords(source: SourceFile): readonly MutationRecord[] {
-    return source.getDescendants().flatMap(function (node) {
-        const target = mutatedTarget(node);
-        const identifier = target === undefined ? undefined : rootMutationIdentifier(target);
-        return identifier === undefined ? [] : { name: identifier.getText(), start: node.getStart() };
-    });
+function collectMutatedNames(source: SourceFile): ReadonlySet<string | undefined> {
+    return new Set(
+        source.getDescendants().map(function (node) {
+            return rootMutationIdentifier(mutatedTarget(node))?.getText();
+        })
+    );
 }
 
-const mutationRecordResults: SyntaxAnalysisResults<readonly MutationRecord[]> = new WeakMap();
+const mutatedNameResults: SyntaxAnalysisResults<ReadonlySet<string | undefined>> = new WeakMap();
 
-export function bindingIsMutatedBeforeRead(
-    declarationName: Identifier,
-    declarationEnd: number,
-    read: Identifier
-): boolean {
-    const records = createSyntaxAnalysis(collectMutationRecords, mutationRecordResults)(read.getSourceFile());
-    return records.some(function (record) {
-        return record.name === declarationName.getText() && record.start > declarationEnd &&
-            read.getStart() > record.start;
-    });
+export function bindingIsMutated(name: Identifier): boolean {
+    return createSyntaxAnalysis(collectMutatedNames, mutatedNameResults)(name.getSourceFile()).has(name.getText());
 }

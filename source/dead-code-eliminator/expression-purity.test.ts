@@ -22,7 +22,7 @@ suite('expression purity', function () {
                     [ 'const first={};const second=first;const third={...second};', [ true, true, true ] ],
                     [
                         'const object={};const before={...object};object.value=1;const after={...object};',
-                        [ true, true, false ]
+                        [ true, false, false ]
                     ],
                     [ 'const first=second;const second=first;', [ false, true ] ],
                     [ 'const value=effect();const nested={value};', [ false, true ] ],

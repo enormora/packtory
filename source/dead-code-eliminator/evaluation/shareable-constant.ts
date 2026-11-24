@@ -1,6 +1,7 @@
 import { Node as TypeScriptMorphNode, type Expression, type VariableDeclaration } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { isRecordResult, opaqueResult, type AbstractValue } from './abstract-value.ts';
+import { bindingIsMutated } from './binding-mutation.ts';
 import { constantArrayStaysIterable } from './iterable-array-binding.ts';
 
 export function objectLiteralIsSpreadSafe(initializer: Expression): boolean {
@@ -22,9 +23,14 @@ export function shareableConstantValue(
     declaration: VariableDeclaration,
     value: AbstractValue | undefined
 ): AbstractValue | undefined {
-    const initializer = unwrapExpression(declaration.getInitializer());
-    if (value === undefined || initializer === undefined || !isRecordResult(value)) {
+    const name = declaration.getNameNode();
+    if (value === undefined || !TypeScriptMorphNode.isIdentifier(name)) {
         return value;
     }
-    return recordShape(declaration, initializer);
+    if (bindingIsMutated(name)) {
+        return opaqueResult('value');
+    }
+    return isRecordResult(value)
+        ? recordShape(declaration, unwrapExpression(declaration.getInitializerOrThrow()))
+        : value;
 }

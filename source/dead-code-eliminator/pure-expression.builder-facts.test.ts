@@ -138,25 +138,9 @@ suite('pure-expression builder facts', function () {
             );
         });
 
-        test('keeps local builder facts when mutation happens after the read', function () {
+        test('keeps local builder facts through writes to other bindings', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };
 
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            'const schema = builder.string();',
-                            'builder.string = compute;'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                true
-            );
             assert.strictEqual(
                 isPureExpression(
                     variableInitializer(
@@ -166,22 +150,6 @@ suite('pure-expression builder facts', function () {
                             '({ value } = source);',
                             '++make().value;',
                             '!builder;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                true
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'builder.string = compute;',
-                            'const builder = z;',
                             'const schema = builder.string();'
                         ]
                             .join('\n'),
@@ -339,6 +307,29 @@ suite('pure-expression builder facts', function () {
 
             assert.strictEqual(isPureExpression(expression, undefined), false);
         });
+
+        for (
+            const mutation of [
+                [ 'const builder = z;', 'const schema = builder.string();', 'builder.string = compute;' ],
+                [ 'builder.string = compute;', 'const builder = z;', 'const schema = builder.string();' ],
+                [
+                    'const builder = z;',
+                    'replaceString();',
+                    'const schema = builder.string();',
+                    'function replaceString() { builder.string = compute; }'
+                ]
+            ]
+        ) {
+            test(`rejects builder aliases mutated anywhere in the module: ${mutation.join(' ')}`, function () {
+                const settings: DeadCodeEliminationSettings = {
+                    enabled: true,
+                    pureImports: [ { from: 'schema-lib' } ]
+                };
+                const content = [ 'import { z } from "schema-lib";', ...mutation ].join('\n');
+
+                assert.strictEqual(isPureExpression(variableInitializer(content, 'schema'), settings), false);
+            });
+        }
 
         test('rejects mutated local builder aliases', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };

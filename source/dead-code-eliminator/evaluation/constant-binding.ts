@@ -12,8 +12,7 @@ import { isIncludedIn } from 'remeda';
 import { declarationOf } from './evaluation-context.ts';
 import { intrinsicUndefined } from './global-reference.ts';
 import { evaluated } from './primitive-value.ts';
-import { withoutStableShape, type AbstractValue } from './abstract-value.ts';
-import { bindingIsMutatedBeforeRead } from './binding-mutation.ts';
+import type { AbstractValue } from './abstract-value.ts';
 
 export type KnownConstants = Pick<ReadonlyMap<VariableDeclaration, AbstractValue>, 'get'>;
 
@@ -121,18 +120,6 @@ function constantIsAvailable(
         constantDominatesRead(declaration, evaluationRoot);
 }
 
-function readValue(
-    declaration: VariableDeclaration,
-    read: Identifier,
-    value: AbstractValue | undefined
-): AbstractValue | undefined {
-    const name = declaration.getNameNode();
-    if (value === undefined || !TypeScriptMorphNode.isIdentifier(name)) {
-        return value;
-    }
-    return bindingIsMutatedBeforeRead(name, declaration.getEnd(), read) ? withoutStableShape(value) : value;
-}
-
 export function constantValueFor(
     read: Identifier,
     values: KnownConstants,
@@ -145,5 +132,5 @@ export function constantValueFor(
     if (declaration === undefined || !constantIsAvailable(declaration, read, evaluationRoot)) {
         return undefined;
     }
-    return readValue(declaration, read, values.get(declaration));
+    return values.get(declaration);
 }

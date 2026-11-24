@@ -50,12 +50,6 @@ export function originOf(result: AbstractValue): ImportedExpressionOrigin | unde
     return isOpaqueResult(result) ? result.value.origin : undefined;
 }
 
-export function withoutStableShape(result: AbstractValue): AbstractValue {
-    const hasStableShape = isOpaqueResult(result) &&
-        (result.value.opaque === 'object' || result.value.opaque === 'callable');
-    return hasStableShape ? opaqueResult('value') : result;
-}
-
 export function isSpreadSafeObjectResult(result: AbstractValue): boolean {
     return isOpaqueResult(result) && result.value.opaque === 'object';
 }
