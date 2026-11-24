@@ -21,6 +21,12 @@ function assertOpaqueEvaluation(input: OpaqueCase): void {
 }
 
 const leafCases: readonly OpaqueCase[] = [
+    {
+        content: 'const base = { value: 1 };\nconst value = { ...base, get size() { return 1; } };',
+        discardable: true,
+        result: undefined
+    },
+    { content: 'const value = { ...{ get size() { return 1; } } };', discardable: false, result: undefined },
     { content: 'const value = function () {};', discardable: true, result: undefined },
     { content: 'const value = () => 1;', discardable: true, result: undefined },
     { content: 'const value = /x/;', discardable: true, result: undefined },

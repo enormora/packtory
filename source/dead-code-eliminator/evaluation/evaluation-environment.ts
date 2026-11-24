@@ -1,7 +1,8 @@
-import type { Project, SourceFile } from 'ts-morph';
+import type { Expression, Project, SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import { resolveRuntimeModule, type RuntimeModuleResolver } from '../runtime-module-resolution.ts';
 import type { GlobalPath } from './global-path.ts';
+import type { EvaluatedValue } from './primitive-value.ts';
 
 export type IntrinsicIntegrity = {
     readonly isIntact: (path: GlobalPath) => boolean;
@@ -11,6 +12,7 @@ export type EvaluationEnvironment = {
     readonly intrinsics: IntrinsicIntegrity;
     readonly settings: DeadCodeEliminationSettings | undefined;
     readonly resolveRuntimeModule: RuntimeModuleResolver;
+    readonly readImportedConstant: (expression: Expression) => EvaluatedValue | undefined;
 };
 
 const unregisteredEnvironment: EvaluationEnvironment = {
@@ -20,7 +22,10 @@ const unregisteredEnvironment: EvaluationEnvironment = {
         }
     },
     settings: undefined,
-    resolveRuntimeModule
+    resolveRuntimeModule,
+    readImportedConstant() {
+        return undefined;
+    }
 };
 
 const environmentByProject = new WeakMap<Project, EvaluationEnvironment>();

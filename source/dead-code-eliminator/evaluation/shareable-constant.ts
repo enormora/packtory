@@ -3,7 +3,7 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import { isRecordResult, opaqueResult, type AbstractValue } from './abstract-value.ts';
 import { constantArrayStaysIterable } from './iterable-array-binding.ts';
 
-function objectLiteralIsSpreadSafe(initializer: Expression): boolean {
+export function objectLiteralIsSpreadSafe(initializer: Expression): boolean {
     return TypeScriptMorphNode.isObjectLiteralExpression(initializer) &&
         initializer.getProperties().every(function (property) {
             return !TypeScriptMorphNode.isGetAccessorDeclaration(property) &&

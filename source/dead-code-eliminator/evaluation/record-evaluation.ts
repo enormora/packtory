@@ -5,6 +5,7 @@ import {
     type ObjectLiteralExpression,
     type PropertyAssignment,
     type ShorthandPropertyAssignment,
+    type SpreadAssignment,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
 import { objectMember, staticPropertyName, type ObjectMember } from '../liveness/builder-return.ts';
@@ -12,6 +13,8 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import { evaluated } from './primitive-value.ts';
 import {
     isRecordResult,
+    isSpreadSafeObjectResult,
+    opaqueResult,
     type AbstractValue,
     type AllocatedRecord,
     type EvaluationReference
@@ -19,8 +22,8 @@ import {
 import { maximumEvaluationDepth, type EvaluationContext } from './evaluation-context.ts';
 import { evaluateComputedKey, evaluatePropertyKey } from './property-key-evaluation.ts';
 import { evaluateConstructionEffects } from './construction-evaluation.ts';
-import { intrinsicConstructionIsEffectFree } from './intrinsic-construction.ts';
-import { trustedConstructionIsEffectFree } from './trusted-construction.ts';
+import { nonLocalConstructionIsEffectFree } from './intrinsic-construction.ts';
+import { objectLiteralIsSpreadSafe } from './shareable-constant.ts';
 
 type RecordDataField = {
     readonly type: 'data';
@@ -120,6 +123,31 @@ function createRecordAllocation(): RecordAllocation {
     };
 }
 
+function spreadSourceIsSafe(property: SpreadAssignment, context: EvaluationContext): boolean {
+    const source = unwrapExpression(property.getExpression());
+    const value = context.evaluate(source, context);
+    if (value === undefined) {
+        return false;
+    }
+    return isSpreadSafeObjectResult(value) || isRecordResult(value) && objectLiteralIsSpreadSafe(source);
+}
+
+function spreadObjectShape(object: ObjectLiteralExpression, context: EvaluationContext): AbstractValue | undefined {
+    const complete = object.getProperties().every(function (property) {
+        return TypeScriptMorphNode.isSpreadAssignment(property)
+            ? spreadSourceIsSafe(property, context)
+            : recordField(property, context) !== undefined;
+    });
+    const hasAccessors = object.getProperties().some(function (property) {
+        return TypeScriptMorphNode.isGetAccessorDeclaration(property) ||
+            TypeScriptMorphNode.isSetAccessorDeclaration(property);
+    });
+    if (!complete) {
+        return undefined;
+    }
+    return opaqueResult(hasAccessors ? 'value' : 'object');
+}
+
 function allocateRecord(object: ObjectLiteralExpression, context: EvaluationContext): AbstractValue | undefined {
     if (context.depth >= maximumEvaluationDepth) {
         return undefined;
@@ -129,7 +157,12 @@ function allocateRecord(object: ObjectLiteralExpression, context: EvaluationCont
     const complete = object.getProperties().every(function (property) {
         return allocation.addField(recordField(property, local));
     });
-    return complete ? { value: allocation.value } : undefined;
+    if (complete) {
+        return { value: allocation.value };
+    }
+    return object.getProperties().some(TypeScriptMorphNode.isSpreadAssignment)
+        ? spreadObjectShape(object, local)
+        : undefined;
 }
 
 function propertyReference(
@@ -164,7 +197,7 @@ export function recordPropertyReference(
 
 function constructionValue(expression: NewExpression, context: EvaluationContext): AbstractValue | undefined {
     const effectFree = evaluateConstructionEffects(expression, context) ||
-        intrinsicConstructionIsEffectFree(expression, context) || trustedConstructionIsEffectFree(expression, context);
+        nonLocalConstructionIsEffectFree(expression, context);
     return effectFree ? { value: createRecordAllocation().value } : undefined;
 }
 

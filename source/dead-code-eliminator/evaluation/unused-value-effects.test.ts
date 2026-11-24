@@ -10,6 +10,14 @@ suite('unused value effects', function () {
         return undefined;
     });
 
+    test('trusts the purity checker for static class initializers the evaluator cannot prove', function () {
+        const source = createProject().createSourceFile('input.ts', 'const unused=(class{static value=load();});');
+        const resolve = createUnusedValueResolver(source, function trustsEveryExpression() {
+            return true;
+        });
+        assert.deepStrictEqual(resolve(source.getVariableDeclarationOrThrow('unused').getInitializerOrThrow()), []);
+    });
+
     test('distinguishes empty class effects from an unknown class initializer', function () {
         const source = createProject().createSourceFile('input.ts', 'class Empty{}class Required{static{effect();}}');
         const resolve = createUnusedValueResolver(source, isPure);

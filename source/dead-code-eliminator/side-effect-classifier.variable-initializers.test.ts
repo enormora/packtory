@@ -209,6 +209,13 @@ suite('side-effect-classifier variable initializers', function () {
             ]);
         });
 
+        test('treats an object spreading a known object next to an accessor as pure', function () {
+            assert.deepStrictEqual(
+                classify('const base = { value: 1 };\nconst x = { ...base, get size() { return 1; } };'),
+                []
+            );
+        });
+
         test('treats a const with an object spread of a pure literal as pure', function () {
             assert.deepStrictEqual(classify('const x = { ...{ a: 1 } };'), []);
         });

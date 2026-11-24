@@ -56,6 +56,10 @@ export function withoutStableShape(result: AbstractValue): AbstractValue {
     return hasStableShape ? opaqueResult('value') : result;
 }
 
+export function isSpreadSafeObjectResult(result: AbstractValue): boolean {
+    return isOpaqueResult(result) && result.value.opaque === 'object';
+}
+
 export function isOpaqueArrayResult(result: AbstractValue): boolean {
     return isOpaqueResult(result) && result.value.opaque === 'array';
 }

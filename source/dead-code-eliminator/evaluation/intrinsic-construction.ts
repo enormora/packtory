@@ -10,6 +10,7 @@ import type { EvaluationContext } from './evaluation-context.ts';
 import { globalPathOf, type GlobalPath } from './global-path.ts';
 import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './evaluation-environment.ts';
 import { evaluateComputedKey } from './property-key-evaluation.ts';
+import { trustedConstructionIsEffectFree } from './trusted-construction.ts';
 
 type ConstructionArgument = {
     readonly expression: Expression;
@@ -90,7 +91,7 @@ function intrinsicConstructionFor(
     return path?.length === 1 ? intrinsicConstructions.get(path.join('.')) : undefined;
 }
 
-export function intrinsicConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {
+function intrinsicConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {
     const construction = intrinsicConstructionFor(expression, context);
     const intrinsics = intrinsicIntegrityOf(expression.getSourceFile());
     if (construction?.intactPaths.every(intrinsics.isIntact) !== true) {
@@ -102,4 +103,9 @@ export function intrinsicConstructionIsEffectFree(expression: NewExpression, con
     }
     const [ firstArgument ] = evaluatedArguments;
     return firstArgument === undefined || construction.acceptsArgument(firstArgument, intrinsics);
+}
+
+export function nonLocalConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {
+    return intrinsicConstructionIsEffectFree(expression, context) ||
+        trustedConstructionIsEffectFree(expression, context);
 }
