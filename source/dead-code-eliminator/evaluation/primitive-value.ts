@@ -85,11 +85,44 @@ function relationalComparison<Value>(
 
 const bigintBase = 2n;
 const maximumBigIntBits = 4096n;
+const engineSafeBigIntBits = 1_048_576n;
 const bigintZero = 0n;
 const maximumBigIntMagnitude = bigintBase ** maximumBigIntBits;
 
+const binaryRadix = 2;
+
+function bigintBitLength(value: bigint): bigint {
+    const magnitude = value < bigintZero ? -value : value;
+    return magnitude === bigintZero ? bigintZero : BigInt(magnitude.toString(binaryRadix).length);
+}
+
+function exponentiationBits(base: bigint, exponent: bigint): bigint {
+    return bigintBitLength(base) * exponent;
+}
+
 function boundedBigInt(value: bigint): EvaluatedValue | undefined {
     return value > -maximumBigIntMagnitude && value < maximumBigIntMagnitude ? evaluated(value) : undefined;
+}
+
+function guardedBigIntOperations(left: bigint, right: bigint): readonly (readonly [SyntaxKind, () => bigint])[] {
+    const exponentiation = right >= bigintZero && exponentiationBits(left, right) <= maximumBigIntBits
+        ? [
+            [ SyntaxKind.AsteriskAsteriskToken, function () {
+                return left ** right;
+            } ] as const
+        ]
+        : [];
+    const division = right === bigintZero
+        ? []
+        : [
+            [ SyntaxKind.SlashToken, function () {
+                return left / right;
+            } ] as const,
+            [ SyntaxKind.PercentToken, function () {
+                return left % right;
+            } ] as const
+        ];
+    return [ ...exponentiation, ...division ];
 }
 
 function bigintArithmetic(operator: SyntaxKind, left: bigint, right: bigint): EvaluatedValue | undefined {
@@ -105,16 +138,9 @@ function bigintArithmetic(operator: SyntaxKind, left: bigint, right: bigint): Ev
         } ],
         [ SyntaxKind.AsteriskToken, function () {
             return left * right;
-        } ]
+        } ],
+        ...guardedBigIntOperations(left, right)
     ]);
-    if (right !== bigintZero) {
-        operations.set(SyntaxKind.SlashToken, function () {
-            return left / right;
-        });
-        operations.set(SyntaxKind.PercentToken, function () {
-            return left % right;
-        });
-    }
     const operation = operations.get(operator);
     return operation === undefined ? undefined : boundedBigInt(operation());
 }
@@ -200,6 +226,26 @@ export function evaluatePrimitiveBinary(
         return undefined;
     }
     return knownPrimitiveBinary(operator, first.value, second.value);
+}
+
+function isOverflowingBigIntOperator(operator: SyntaxKind): boolean {
+    return [ SyntaxKind.PlusToken, SyntaxKind.MinusToken, SyntaxKind.AsteriskToken ].includes(operator);
+}
+
+function exponentiationOverflowIsEffectFree(base: bigint, exponent: bigint): boolean {
+    return base !== bigintZero && exponent >= bigintZero && exponentiationBits(base, exponent) <= engineSafeBigIntBits;
+}
+
+export function bigintOverflowIsNonzeroAndEffectFree(operator: SyntaxKind, left: unknown, right: unknown): boolean {
+    if (
+        typeof left !== 'bigint' || typeof right !== 'bigint' ||
+        boundedBigInt(left) === undefined || boundedBigInt(right) === undefined
+    ) {
+        return false;
+    }
+    return operator === SyntaxKind.AsteriskAsteriskToken
+        ? exponentiationOverflowIsEffectFree(left, right)
+        : isOverflowingBigIntOperator(operator);
 }
 
 export function shortCircuitValue(operator: SyntaxKind | undefined, left: unknown): boolean | undefined {

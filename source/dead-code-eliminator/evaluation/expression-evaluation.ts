@@ -23,6 +23,7 @@ import {
 import {
     evaluateAbstractBinary,
     evaluateAbstractUnary,
+    typeOfResult,
     type AbstractValue,
     type EvaluationReference
 } from './abstract-value.ts';
@@ -193,7 +194,7 @@ function keywordUnaryValue(
     if (operand === undefined) {
         return undefined;
     }
-    return evaluated(TypeScriptMorphNode.isTypeOfExpression(expression) ? typeof operand.value : undefined);
+    return evaluated(TypeScriptMorphNode.isTypeOfExpression(expression) ? typeOfResult(operand) : undefined);
 }
 
 function expressionValue(node: Expression, context: EvaluationContext): AbstractValue | undefined {

@@ -4,6 +4,7 @@ import {
     evaluated,
     evaluatePrimitiveBinary,
     evaluatePrimitiveUnary,
+    bigintOverflowIsNonzeroAndEffectFree,
     type EvaluatedValue
 } from './primitive-value.ts';
 
@@ -15,7 +16,11 @@ type RecordResult = { readonly value: AllocatedRecord; };
 
 type SymbolResult = { readonly value: symbol; };
 
-export type AbstractValue = EvaluatedValue | RecordResult | SymbolResult;
+type OversizedBigInt = { readonly oversizedBigInt: true; };
+
+type OversizedBigIntResult = { readonly value: OversizedBigInt; };
+
+export type AbstractValue = EvaluatedValue | OversizedBigIntResult | RecordResult | SymbolResult;
 
 export type EvaluationReference = {
     readonly value: AbstractValue;
@@ -26,8 +31,34 @@ export function isPrimitiveResult(result: AbstractValue): result is EvaluatedVal
     return result.value === null || typeof result.value !== 'object' && typeof result.value !== 'symbol';
 }
 
+function isOversizedBigIntResult(result: AbstractValue): result is OversizedBigIntResult {
+    return result.value !== null && typeof result.value === 'object' && Object.hasOwn(result.value, 'oversizedBigInt');
+}
+
 export function isRecordResult(result: AbstractValue): result is RecordResult {
-    return result.value !== null && typeof result.value === 'object';
+    return result.value !== null && typeof result.value === 'object' &&
+        Object.hasOwn(result.value, 'propertyReference');
+}
+
+export function typeOfResult(result: AbstractValue): string {
+    return isOversizedBigIntResult(result) ? 'bigint' : typeof result.value;
+}
+
+export function strictlyEqualResults(left: AbstractValue, right: AbstractValue): boolean | undefined {
+    if (isOversizedBigIntResult(left) || isOversizedBigIntResult(right)) {
+        return undefined;
+    }
+    return left.value === right.value;
+}
+
+function oversizedBigIntResult(
+    operator: SyntaxKind,
+    left: AbstractValue,
+    right: AbstractValue
+): OversizedBigIntResult | undefined {
+    return bigintOverflowIsNonzeroAndEffectFree(operator, left.value, right.value)
+        ? { value: { oversizedBigInt: true } }
+        : undefined;
 }
 
 export function primitiveResult(result: AbstractValue | undefined): EvaluatedValue | undefined {
@@ -41,6 +72,18 @@ export function evaluateAbstractUnary(operator: SyntaxKind, operand: AbstractVal
     return isPrimitiveResult(operand) ? evaluatePrimitiveUnary(operator, operand.value) : undefined;
 }
 
+function strictEqualityResult(
+    operator: SyntaxKind,
+    left: AbstractValue,
+    right: AbstractValue
+): EvaluatedValue | undefined {
+    const equal = strictlyEqualResults(left, right);
+    if (equal === undefined) {
+        return undefined;
+    }
+    return evaluated(operator === SyntaxKind.EqualsEqualsEqualsToken ? equal : !equal);
+}
+
 export function evaluateAbstractBinary(
     operator: SyntaxKind,
     left: AbstractValue,
@@ -49,11 +92,8 @@ export function evaluateAbstractBinary(
     if (operator === SyntaxKind.CommaToken) {
         return right;
     }
-    if (operator === SyntaxKind.EqualsEqualsEqualsToken) {
-        return evaluated(left.value === right.value);
+    if (operator === SyntaxKind.EqualsEqualsEqualsToken || operator === SyntaxKind.ExclamationEqualsEqualsToken) {
+        return strictEqualityResult(operator, left, right);
     }
-    if (operator === SyntaxKind.ExclamationEqualsEqualsToken) {
-        return evaluated(left.value !== right.value);
-    }
-    return evaluatePrimitiveBinary(operator, left.value, right.value);
+    return evaluatePrimitiveBinary(operator, left.value, right.value) ?? oversizedBigIntResult(operator, left, right);
 }
