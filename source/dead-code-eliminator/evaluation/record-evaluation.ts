@@ -1,6 +1,7 @@
 import {
     Node as TypeScriptMorphNode,
     type Expression,
+    type NewExpression,
     type ObjectLiteralExpression,
     type PropertyAssignment,
     type ShorthandPropertyAssignment,
@@ -19,6 +20,7 @@ import { maximumEvaluationDepth, type EvaluationContext } from './evaluation-con
 import { evaluateComputedKey, evaluatePropertyKey } from './property-key-evaluation.ts';
 import { evaluateConstructionEffects } from './construction-evaluation.ts';
 import { intrinsicConstructionIsEffectFree } from './intrinsic-construction.ts';
+import { trustedConstructionIsEffectFree } from './trusted-construction.ts';
 
 type RecordDataField = {
     readonly type: 'data';
@@ -160,14 +162,18 @@ export function recordPropertyReference(
     return undefined;
 }
 
+function constructionValue(expression: NewExpression, context: EvaluationContext): AbstractValue | undefined {
+    const effectFree = evaluateConstructionEffects(expression, context) ||
+        intrinsicConstructionIsEffectFree(expression, context) || trustedConstructionIsEffectFree(expression, context);
+    return effectFree ? { value: createRecordAllocation().value } : undefined;
+}
+
 export function evaluateRecordExpression(
     expression: Expression,
     context: EvaluationContext
 ): AbstractValue | undefined {
     if (TypeScriptMorphNode.isNewExpression(expression)) {
-        const effectFree = evaluateConstructionEffects(expression, context) ||
-            intrinsicConstructionIsEffectFree(expression, context);
-        return effectFree ? { value: createRecordAllocation().value } : undefined;
+        return constructionValue(expression, context);
     }
     return TypeScriptMorphNode.isObjectLiteralExpression(expression)
         ? allocateRecord(expression, context)

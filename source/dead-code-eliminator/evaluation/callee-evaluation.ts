@@ -17,7 +17,7 @@ import {
 } from './evaluation-context.ts';
 import { evaluated, type EvaluatedValue, type PrimitiveValue } from './primitive-value.ts';
 import { initializeHoistedLocals } from './hoisted-locals.ts';
-import { evaluateIntrinsicCall } from './intrinsic-call.ts';
+import { annotatedCallValue, nonLocalCallValue } from './opaque-call.ts';
 
 type CalleeEvaluation = (
     target: LocalFunction,
@@ -172,8 +172,8 @@ function evaluateCall(
     }
     const target = resolveTarget(call);
     return target === undefined
-        ? evaluateIntrinsicCall(call, values, context)
-        : evaluateResult(target, values, context);
+        ? nonLocalCallValue(call, values, context)
+        : evaluateResult(target, values, context) ?? annotatedCallValue(call);
 }
 
 export function createCallEvaluator(sourceFile: SourceFile): () => EvaluationContext['call'] {

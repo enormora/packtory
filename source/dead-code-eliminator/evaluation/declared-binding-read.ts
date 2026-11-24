@@ -2,6 +2,7 @@ import { Node as TypeScriptMorphNode, type Identifier, type Node as TypeScriptMo
 import { opaqueResult, type AbstractValue } from './abstract-value.ts';
 import { localReadHasNoEffects } from './constant-binding.ts';
 import { bindingDeclarationsOf } from './global-reference.ts';
+import { importedBindingValue } from './imported-value.ts';
 
 function isRuntimeLocal(declaration: TypeScriptMorphNodeType, read: Identifier): boolean {
     const ambient = [ declaration, ...declaration.getAncestors() ].some(function (candidate) {
@@ -26,6 +27,10 @@ function declarationIsReadable(declaration: TypeScriptMorphNodeType, read: Ident
 export function declaredBindingValue(read: Identifier): AbstractValue | undefined {
     if (localReadHasNoEffects(read)) {
         return opaqueResult('value');
+    }
+    const imported = enclosingActivation(read) === undefined ? importedBindingValue(read) : undefined;
+    if (imported !== undefined) {
+        return imported;
     }
     const readable = bindingDeclarationsOf(read).some(function (declaration) {
         return isRuntimeLocal(declaration, read) && declarationIsReadable(declaration, read);

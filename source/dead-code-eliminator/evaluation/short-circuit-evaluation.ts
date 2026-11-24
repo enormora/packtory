@@ -1,7 +1,7 @@
 import type { BinaryExpression } from 'ts-morph';
 import { eitherResult, shortCircuitSelection, type AbstractValue } from './abstract-value.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
-import { evaluateIntrinsicCallSite } from './intrinsic-call.ts';
+import { evaluateCallWithoutLocalTargets } from './opaque-call.ts';
 import { expressionIsWriteFree } from './write-free-expression.ts';
 
 function speculativeRightValue(
@@ -13,7 +13,7 @@ function speculativeRightValue(
     if (!expressionIsWriteFree(right)) {
         return undefined;
     }
-    const speculative = { ...context, call: evaluateIntrinsicCallSite };
+    const speculative = { ...context, call: evaluateCallWithoutLocalTargets };
     const value = speculative.evaluate(right, speculative);
     return value === undefined ? undefined : eitherResult(left, value);
 }

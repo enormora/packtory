@@ -4,7 +4,7 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
 import type { AbstractValue } from './abstract-value.ts';
 import { evaluateArray } from './array-evaluation.ts';
-import { evaluateIdentifier } from './identifier-evaluation.ts';
+import { evaluateIdentifier, evaluateMember } from './reference-evaluation.ts';
 import { evaluateRecordExpression } from './record-evaluation.ts';
 import { evaluateLiteral } from './literal-evaluation.ts';
 import { evaluateBinary, evaluateConditional, evaluateKeywordUnary, evaluateUnary } from './operator-evaluation.ts';
@@ -13,6 +13,9 @@ function expressionValue(node: Expression, context: EvaluationContext): Abstract
     return match(node)
         .when(TypeScriptMorphNode.isIdentifier, function (identifier) {
             return evaluateIdentifier(identifier, context);
+        })
+        .when(TypeScriptMorphNode.isPropertyAccessExpression, function (access) {
+            return evaluateMember(access, context);
         })
         .when(TypeScriptMorphNode.isBinaryExpression, function (binary) {
             return evaluateBinary(binary, context);

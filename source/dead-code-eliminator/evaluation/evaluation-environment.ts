@@ -29,7 +29,7 @@ export function registerEvaluationEnvironment(project: Project, environment: Eva
     environmentByProject.set(project, environment);
 }
 
-function evaluationEnvironmentOf(source: SourceFile): EvaluationEnvironment {
+export function evaluationEnvironmentOf(source: SourceFile): EvaluationEnvironment {
     return environmentByProject.get(source.getProject()) ?? unregisteredEnvironment;
 }
 

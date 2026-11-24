@@ -1,5 +1,6 @@
 import { isTruthy } from 'remeda';
 import { SyntaxKind } from 'ts-morph';
+import type { ImportedExpressionOrigin } from '../imported-expression-origin.ts';
 import {
     evaluated,
     evaluatePrimitiveBinary,
@@ -16,9 +17,11 @@ type RecordResult = { readonly value: AllocatedRecord; };
 
 type SymbolResult = { readonly value: symbol; };
 
-type OpaqueKind = 'array' | 'object' | 'oversized-bigint' | 'primitive' | 'value';
+type OpaqueKind = 'array' | 'callable' | 'object' | 'oversized-bigint' | 'primitive' | 'value';
 
-type OpaqueResult = { readonly value: { readonly opaque: OpaqueKind; }; };
+type OpaqueResult = {
+    readonly value: { readonly opaque: OpaqueKind; readonly origin: ImportedExpressionOrigin | undefined; };
+};
 
 export type AbstractValue = EvaluatedValue | OpaqueResult | RecordResult | SymbolResult;
 
@@ -36,11 +39,21 @@ function isOpaqueResult(result: AbstractValue): result is OpaqueResult {
 }
 
 export function opaqueResult(kind: OpaqueKind): OpaqueResult {
-    return { value: { opaque: kind } };
+    return { value: { opaque: kind, origin: undefined } };
+}
+
+export function importedResult(kind: 'callable' | 'object', origin: ImportedExpressionOrigin): OpaqueResult {
+    return { value: { opaque: kind, origin } };
+}
+
+export function originOf(result: AbstractValue): ImportedExpressionOrigin | undefined {
+    return isOpaqueResult(result) ? result.value.origin : undefined;
 }
 
 export function withoutStableShape(result: AbstractValue): AbstractValue {
-    return isOpaqueResult(result) && result.value.opaque === 'object' ? opaqueResult('value') : result;
+    const hasStableShape = isOpaqueResult(result) &&
+        (result.value.opaque === 'object' || result.value.opaque === 'callable');
+    return hasStableShape ? opaqueResult('value') : result;
 }
 
 export function isOpaqueArrayResult(result: AbstractValue): boolean {
@@ -118,6 +131,9 @@ export function typeOfResult(result: AbstractValue): string | undefined {
     }
     if (hasUnknownPrimitiveShape(result)) {
         return undefined;
+    }
+    if (result.value.opaque === 'callable') {
+        return 'function';
     }
     return result.value.opaque === 'oversized-bigint' ? 'bigint' : 'object';
 }
