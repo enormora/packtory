@@ -16,7 +16,7 @@ type RecordResult = { readonly value: AllocatedRecord; };
 
 type SymbolResult = { readonly value: symbol; };
 
-type OpaqueKind = 'array' | 'oversized-bigint' | 'primitive' | 'value';
+type OpaqueKind = 'array' | 'object' | 'oversized-bigint' | 'primitive' | 'value';
 
 type OpaqueResult = { readonly value: { readonly opaque: OpaqueKind; }; };
 
@@ -37,6 +37,10 @@ function isOpaqueResult(result: AbstractValue): result is OpaqueResult {
 
 export function opaqueResult(kind: OpaqueKind): OpaqueResult {
     return { value: { opaque: kind } };
+}
+
+export function withoutStableShape(result: AbstractValue): AbstractValue {
+    return isOpaqueResult(result) && result.value.opaque === 'object' ? opaqueResult('value') : result;
 }
 
 export function isOpaqueArrayResult(result: AbstractValue): boolean {

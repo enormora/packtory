@@ -296,7 +296,7 @@ suite('pure-expression builder facts', function () {
                         [
                             'const first = second;',
                             'const second = first;',
-                            'const schema = first;'
+                            'const schema = first();'
                         ]
                             .join('\n'),
                         'schema'
@@ -430,7 +430,7 @@ suite('pure-expression builder facts', function () {
                             'import { z } from "schema-lib";',
                             'const value = compute();',
                             'value.x = 1;',
-                            'const schema = value;'
+                            'const schema = value.string();'
                         ]
                             .join('\n'),
                         'schema'

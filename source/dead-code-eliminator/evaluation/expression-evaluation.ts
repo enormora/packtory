@@ -1,10 +1,10 @@
 import { match } from 'ts-pattern';
 import { Node as TypeScriptMorphNode, type Expression, type Node as TypeScriptMorphNodeType } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
-import { bindingReference, type EvaluationContext } from './evaluation-context.ts';
+import type { EvaluationContext } from './evaluation-context.ts';
 import type { AbstractValue } from './abstract-value.ts';
 import { evaluateArray } from './array-evaluation.ts';
-import { iterableArrayBindingValue } from './iterable-array-binding.ts';
+import { evaluateIdentifier } from './identifier-evaluation.ts';
 import { evaluateRecordExpression } from './record-evaluation.ts';
 import { evaluateLiteral } from './literal-evaluation.ts';
 import { evaluateBinary, evaluateConditional, evaluateKeywordUnary, evaluateUnary } from './operator-evaluation.ts';
@@ -12,8 +12,7 @@ import { evaluateBinary, evaluateConditional, evaluateKeywordUnary, evaluateUnar
 function expressionValue(node: Expression, context: EvaluationContext): AbstractValue | undefined {
     return match(node)
         .when(TypeScriptMorphNode.isIdentifier, function (identifier) {
-            return bindingReference(identifier, context)?.value ?? context.readConstant(identifier) ??
-                iterableArrayBindingValue(identifier);
+            return evaluateIdentifier(identifier, context);
         })
         .when(TypeScriptMorphNode.isBinaryExpression, function (binary) {
             return evaluateBinary(binary, context);

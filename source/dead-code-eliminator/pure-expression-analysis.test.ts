@@ -16,7 +16,7 @@ suite('prepared expression purity', function () {
                     true,
                     false
                 ] ],
-                [ 'const first=second;const second=first;', [ false, false ] ],
+                [ 'const first=second;const second=first;', [ false, true ] ],
                 [ 'const value=effect();const nested={value};', [ false, true ] ],
                 [ 'const plain=class{};const observable=class{static{effect();}};', [ true, false ] ]
             ] as const

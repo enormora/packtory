@@ -70,11 +70,12 @@ function referenceKeepsArrayIterable(reference: TypeScriptMorphNodeType): boolea
     return iterates(outer, parent) || readsProperty(outer, parent) || passesToIterableConstructor(outer, parent);
 }
 
+export function constantArrayStaysIterable(declaration: VariableDeclaration): boolean {
+    const name = declaration.getNameNode().asKindOrThrow(SyntaxKind.Identifier);
+    return bindingReferenceTargets(name).every(referenceKeepsArrayIterable);
+}
+
 export function iterableArrayBindingValue(identifier: Identifier): AbstractValue | undefined {
     const declaration = constantArrayDeclaration(identifier);
-    if (declaration === undefined) {
-        return undefined;
-    }
-    const name = declaration.getNameNode().asKindOrThrow(SyntaxKind.Identifier);
-    return bindingReferenceTargets(name).every(referenceKeepsArrayIterable) ? opaqueResult('array') : undefined;
+    return declaration !== undefined && constantArrayStaysIterable(declaration) ? opaqueResult('array') : undefined;
 }
