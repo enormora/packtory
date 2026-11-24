@@ -11,9 +11,7 @@ function appendText(text: AbstractValue | undefined, addition: AbstractValue | u
 
 export function evaluateTemplate(template: TemplateExpression, context: EvaluationContext): AbstractValue | undefined {
     return template.getTemplateSpans().reduce<AbstractValue | undefined>(function (text, span) {
-        const substituted = text === undefined
-            ? undefined
-            : appendText(text, context.evaluate(span.getExpression(), context));
+        const substituted = appendText(text, context.evaluate(span.getExpression(), context));
         return appendText(substituted, evaluated(span.getLiteral().getLiteralText()));
     }, evaluated(template.getHead().getLiteralText()));
 }

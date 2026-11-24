@@ -1,3 +1,4 @@
+import { constant } from 'remeda';
 import type { Expression, Project, SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import { resolveRuntimeModule, type RuntimeModuleResolver } from '../runtime-module-resolution.ts';
@@ -23,9 +24,7 @@ const unregisteredEnvironment: EvaluationEnvironment = {
     },
     settings: undefined,
     resolveRuntimeModule,
-    readImportedConstant() {
-        return undefined;
-    }
+    readImportedConstant: constant(undefined)
 };
 
 const environmentByProject = new WeakMap<Project, EvaluationEnvironment>();

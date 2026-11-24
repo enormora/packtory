@@ -88,18 +88,10 @@ function compoundAssignmentValue(
     );
 }
 
-function logicalAssignmentSelection(
-    operator: SyntaxKind,
-    reference: EvaluationReference
-): ShortCircuitSelection | undefined {
-    const logicalOperator = logicalAssignmentOperator(operator);
-    return logicalOperator === undefined ? undefined : shortCircuitSelection(logicalOperator, reference.value);
-}
-
 function logicalAssignmentValue(
     expression: BinaryExpression,
     reference: EvaluationReference,
-    selection: ShortCircuitSelection,
+    selection: ShortCircuitSelection | undefined,
     context: EvaluationContext
 ): AbstractValue | undefined {
     if (selection === 'right') {
@@ -117,8 +109,9 @@ export function evaluateAssignment(
         return undefined;
     }
     const operator = expression.getOperatorToken().getKind();
-    const selection = logicalAssignmentSelection(operator, reference);
-    if (selection !== undefined) {
+    const logicalOperator = logicalAssignmentOperator(operator);
+    if (logicalOperator !== undefined) {
+        const selection = shortCircuitSelection(logicalOperator, reference.value);
         return logicalAssignmentValue(expression, reference, selection, context);
     }
     return operator === SyntaxKind.EqualsToken

@@ -96,9 +96,9 @@ export function conditionOutcome(
         return unknownOutcome;
     }
     const value = evaluation.knownValue(expression);
-    const truthy = value === undefined ? undefined : truthinessOf(value);
-    if (value !== undefined && truthy !== undefined) {
-        return { truthy, nullish: nullishOf(value) };
+    const outcome = value === undefined ? unknownOutcome : { truthy: truthinessOf(value), nullish: nullishOf(value) };
+    if (outcome.truthy !== undefined) {
+        return outcome;
     }
     return syntaxOutcome(unwrapExpression(expression), function (operand) {
         return conditionOutcome(operand, evaluation, depth + 1);
