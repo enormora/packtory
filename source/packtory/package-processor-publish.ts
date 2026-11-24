@@ -54,8 +54,6 @@ type ConfirmedPublishInput = PublishRecoveryInput & {
     readonly candidate: Exclude<CurrentHeadPublishedVersion, undefined>;
     readonly published: PublishedCheckResult;
 };
-const unconfirmedPublishRecovery = Symbol('unconfirmedPublishRecovery');
-type PublishRecoveryAttempt = BuildAndPublishResult | typeof unconfirmedPublishRecovery;
 function assertEcmaScriptModuleMainPackageManifest(mainPackageManifest: MainPackageTypeField): void {
     if (mainPackageManifest.type !== 'module') {
         throw new Error('mainPackageManifest.type must be "module"');
@@ -227,14 +225,6 @@ async function recoverPublishedPackageAfterFailure(
     return confirmPublishedPackageAfterFailure(input);
 }
 
-function publishRecoveryAttempt(result: BuildAndPublishResult | undefined): PublishRecoveryAttempt {
-    return result ?? unconfirmedPublishRecovery;
-}
-
-async function attemptPublishRecovery(input: PublishRecoveryInput): Promise<PublishRecoveryAttempt> {
-    return publishRecoveryAttempt(await recoverPublishedPackageAfterFailure(input));
-}
-
 async function verifyPublishedArtifactSmokeGate(input: PublishRecoveryInput): Promise<void> {
     if (wasAlreadyPublished(input.result)) {
         return;
@@ -270,8 +260,8 @@ async function publishPreparedResultOrRecover(
     try {
         return await publishPreparedResult(dependencies, options, result);
     } catch (publishError: unknown) {
-        const recovery = await attemptPublishRecovery({ dependencies, options, result });
-        if (recovery !== unconfirmedPublishRecovery) {
+        const recovery = await recoverPublishedPackageAfterFailure({ dependencies, options, result });
+        if (recovery !== undefined) {
             return recovery;
         }
         throw publishError;
