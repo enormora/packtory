@@ -15,7 +15,7 @@ import { hasDynamicScope } from '../dynamic-scope.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { globalPathOf, globalPropertyKeyOf, type GlobalPath } from './global-path.ts';
 import { createRuntimeSourceEvaluation, type SourceEvaluation } from './constant-evaluation.ts';
-import { registerIntrinsicIntegrity, type IntrinsicIntegrity } from './intrinsic-registry.ts';
+import type { IntrinsicIntegrity } from './evaluation-environment.ts';
 
 type CallArguments = readonly (Expression | undefined)[];
 
@@ -220,7 +220,7 @@ function isPrefixOf(prefix: GlobalPath, path: GlobalPath): boolean {
     });
 }
 
-function scanIntrinsicIntegrity(sources: readonly SourceFile[]): IntrinsicIntegrity {
+export function scanIntrinsicIntegrity(sources: readonly SourceFile[]): IntrinsicIntegrity {
     const patched = sources.flatMap(patchedPathsIn);
     return {
         isIntact(path) {
@@ -229,11 +229,4 @@ function scanIntrinsicIntegrity(sources: readonly SourceFile[]): IntrinsicIntegr
             });
         }
     };
-}
-
-export function establishIntrinsicIntegrity(sources: readonly SourceFile[]): void {
-    const integrity = scanIntrinsicIntegrity(sources);
-    for (const source of sources) {
-        registerIntrinsicIntegrity(source.getProject(), integrity);
-    }
 }

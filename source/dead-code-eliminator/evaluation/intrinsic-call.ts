@@ -2,7 +2,7 @@ import type { CallExpression } from 'ts-morph';
 import { isPrimitiveResult, type AbstractValue } from './abstract-value.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
 import { globalPathOf } from './global-path.ts';
-import { intrinsicIntegrityOf } from './intrinsic-registry.ts';
+import { intrinsicIntegrityOf } from './evaluation-environment.ts';
 import { evaluateComputedKey } from './property-key-evaluation.ts';
 
 type IntrinsicCall = (argumentValues: readonly AbstractValue[]) => AbstractValue | undefined;

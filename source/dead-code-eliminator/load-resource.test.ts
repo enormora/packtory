@@ -27,10 +27,14 @@ suite('resource preparation boundaries', function () {
                 };
             });
             let creations = 0;
-            const loaded = loadResources(function () {
-                creations += 1;
-                return createProject();
-            }, resources);
+            const loaded = loadResources(
+                function () {
+                    creations += 1;
+                    return createProject();
+                },
+                resources,
+                undefined
+            );
             assert.strictEqual(loaded.length, resources.length);
             assert.strictEqual(creations, scenario.projects);
         });
@@ -54,10 +58,14 @@ suite('resource preparation boundaries', function () {
                 }
             ];
             let creations = 0;
-            const loaded = loadResources(function () {
-                creations += 1;
-                return createProject();
-            }, declarationsFirst ? resources.toReversed() : resources);
+            const loaded = loadResources(
+                function () {
+                    creations += 1;
+                    return createProject();
+                },
+                declarationsFirst ? resources.toReversed() : resources,
+                undefined
+            );
             const source = loaded
                 .find(function (entry) {
                     return entry.resource.fileDescription.targetFilePath === 'index.js';
@@ -81,7 +89,7 @@ suite('resource preparation boundaries', function () {
                 ...bundleResource(`/source/${targetFilePath}`, { targetFilePath, content }),
                 isSubstituted: false
             };
-            const [ loaded ] = loadResources(createProject, [ resource ]);
+            const [ loaded ] = loadResources(createProject, [ resource ], undefined);
             assertDefined(loaded);
             assertDefined(loaded.sourceFile);
             assert.strictEqual(loaded.sourceFile.getFullText(), content);

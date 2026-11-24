@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { establishIntrinsicIntegrity } from './intrinsic-integrity.ts';
-import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './intrinsic-registry.ts';
+import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
+import { establishEvaluationEnvironment } from './evaluation-environment-establishment.ts';
+import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './evaluation-environment.ts';
 import type { GlobalPath } from './global-path.ts';
 
 const symbolConstructor: GlobalPath = [ 'Symbol' ];
@@ -13,7 +14,7 @@ function integrityOf(...contents: readonly string[]): IntrinsicIntegrity {
     const sources = contents.map(function (content, index) {
         return project.createSourceFile(`/module-${index}.js`, content);
     });
-    establishIntrinsicIntegrity(sources);
+    establishEvaluationEnvironment(sources, undefined, resolveRuntimeModule);
     return intrinsicIntegrityOf(sources[0] ?? project.createSourceFile('/empty.js', ''));
 }
 
@@ -142,7 +143,7 @@ suite('intrinsic-integrity', function () {
         test('keeps the established bundle integrity instead of scanning files added later', function () {
             const project = createProject();
             const reader = project.createSourceFile('/reader.js', 'export const key = Symbol("x");');
-            establishIntrinsicIntegrity([ reader ]);
+            establishEvaluationEnvironment([ reader ], undefined, resolveRuntimeModule);
             project.createSourceFile('/external.js', 'globalThis.Symbol = replacement; export {};');
 
             assert.strictEqual(intrinsicIntegrityOf(reader).isIntact(symbolConstructor), true);

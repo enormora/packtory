@@ -8,7 +8,7 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import { createBindingReference, maximumEvaluationDepth, type EvaluationContext } from './evaluation-context.ts';
 import { evaluated } from './primitive-value.ts';
 import { isOpaqueArrayResult, opaqueResult, type AbstractValue, type EvaluationReference } from './abstract-value.ts';
-import { intrinsicIntegrityOf } from './intrinsic-registry.ts';
+import { intrinsicIntegrityOf } from './evaluation-environment.ts';
 
 type ArrayEntry = AbstractValue | 'hole';
 

@@ -8,7 +8,7 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import { isOpaqueArrayResult, isPrimitiveResult, isRecordResult, type AbstractValue } from './abstract-value.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
 import { globalPathOf, type GlobalPath } from './global-path.ts';
-import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './intrinsic-registry.ts';
+import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './evaluation-environment.ts';
 import { evaluateComputedKey } from './property-key-evaluation.ts';
 
 type ConstructionArgument = {

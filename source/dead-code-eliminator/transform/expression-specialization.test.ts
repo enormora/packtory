@@ -13,7 +13,7 @@ function preparedResource(content: string): LoadedCodeResource {
     const [ loaded ] = loadResources(createProject, [ {
         ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
-    } ]);
+    } ], undefined);
     if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a runtime source');
     }

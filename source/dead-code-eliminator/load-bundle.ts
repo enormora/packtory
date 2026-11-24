@@ -85,7 +85,7 @@ export function loadBundle(
     trace: DeadCodeEliminationTrace
 ): LoadedBundle {
     const loaded = prepareLoadedResources(
-        loadResources(createProject, input.bundle.contents),
+        loadResources(createProject, input.bundle.contents, input.deadCodeElimination),
         input,
         trace
     );

@@ -19,7 +19,7 @@ function loadedCodeResource(content: string): LoadedCodeResource {
         moduleReferences: [],
         isExplicitlyIncluded: true,
         isSubstituted: false
-    } ]);
+    } ], undefined);
     if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a code resource');
     }

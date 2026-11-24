@@ -2,7 +2,9 @@ import type { Project } from 'ts-morph';
 import { createSourcePreparation, type SourcePreparation } from '../source-transformation/source-preparation.ts';
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { establishIntrinsicIntegrity } from './evaluation/intrinsic-integrity.ts';
+import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
+import { establishEvaluationEnvironment } from './evaluation/evaluation-environment-establishment.ts';
+import { createRuntimeModuleResolver } from './runtime-module-resolution.ts';
 import {
     captureBindingLocations,
     extractTopLevelBindings,
@@ -59,17 +61,36 @@ function loadResource(
     return { resource, ...createSourcePreparation(sourceFile) };
 }
 
+function establishBundleEnvironment(
+    loaded: readonly (CodeResourceSource | LoadedNonCodeResource)[],
+    deadCodeElimination: DeadCodeEliminationSettings | undefined
+): void {
+    const origins = loaded.flatMap(function (entry) {
+        return entry.sourceFile === undefined ? [] : {
+            sourceFile: entry.sourceFile,
+            inputFilePath: entry.resource.fileDescription.inputFilePath,
+            moduleReferences: entry.resource.moduleReferences
+        };
+    });
+    establishEvaluationEnvironment(
+        origins.map(function (origin) {
+            return origin.sourceFile;
+        }),
+        deadCodeElimination,
+        createRuntimeModuleResolver(origins)
+    );
+}
+
 export function loadResources(
     createProject: () => Project,
-    resources: readonly LinkedBundleResource[]
+    resources: readonly LinkedBundleResource[],
+    deadCodeElimination: DeadCodeEliminationSettings | undefined
 ): readonly LoadedResource[] {
     const projectForResource = projectsForResources(createProject);
     const loaded = resources.map(function (resource) {
         return loadResource(projectForResource, resource);
     });
-    establishIntrinsicIntegrity(loaded.flatMap(function (entry) {
-        return entry.sourceFile ?? [];
-    }));
+    establishBundleEnvironment(loaded, deadCodeElimination);
     return loaded.map(function (entry) {
         if (entry.sourceFile === undefined) {
             return entry;

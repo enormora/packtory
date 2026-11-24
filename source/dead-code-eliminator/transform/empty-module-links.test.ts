@@ -9,7 +9,7 @@ function emittedModules(files: Readonly<Record<string, string>>): ReadonlyMap<st
     const resources = Object.entries(files).map(function ([ name, content ]) {
         return analyzedBundleResource(`/source/${name}`, { content });
     });
-    const loaded = loadResources(createProject, resources);
+    const loaded = loadResources(createProject, resources, undefined);
     const outputs = resources.map(function (resource) {
         return { resource, transforms: [] };
     });
@@ -79,7 +79,7 @@ suite('empty module link proofs', function () {
             }),
             analyzedBundleResource('/source/empty.js', { content: ';export {};;' })
         ];
-        const loaded = loadResources(createProject, resources);
+        const loaded = loadResources(createProject, resources, undefined);
         const outputs = resources.map(function (resource) {
             return { resource, transforms: [] };
         });

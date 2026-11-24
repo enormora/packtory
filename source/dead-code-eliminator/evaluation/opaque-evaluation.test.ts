@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
-import { establishIntrinsicIntegrity } from './intrinsic-integrity.ts';
+import { establishEvaluationEnvironment } from './evaluation-environment-establishment.ts';
 import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 
 type OpaqueCase = {
@@ -100,7 +101,7 @@ suite('opaque evaluation', function () {
                 'input.js',
                 'const value = /x/ || Symbol("a");\nexport {};'
             );
-            establishIntrinsicIntegrity([ source ]);
+            establishEvaluationEnvironment([ source ], undefined, resolveRuntimeModule);
             const expression = source.getVariableDeclarationOrThrow('value').getInitializerOrThrow();
 
             assert.strictEqual(createSourceEvaluation(source).canDiscard(expression), true);
