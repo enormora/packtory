@@ -3,7 +3,7 @@ import type { AbstractValue } from './abstract-value.ts';
 import { declaredBindingValue } from './declared-binding-read.ts';
 import { bindingReference, type EvaluationContext } from './evaluation-context.ts';
 import { importedMemberValue } from './imported-value.ts';
-import { iterableArrayBindingValue } from './iterable-array-binding.ts';
+import { iterableArrayBindingValue } from './constant-shape.ts';
 import { recordPropertyReference } from './record-evaluation.ts';
 
 export function evaluateIdentifier(identifier: Identifier, context: EvaluationContext): AbstractValue | undefined {

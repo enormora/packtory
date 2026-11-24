@@ -10,7 +10,8 @@ suite('side-effect-classifier variable initializers', function () {
                 'export const first = base[0];',
                 'export const size = base.length;',
                 'for (const value of base) {}',
-                'export const nested = [ ...[ ...base ] ];'
+                'export const nested = [ ...[ ...base ] ];',
+                'const alias = base;\nexport const copy = [ ...alias ];'
             ]
         ) {
             test(`keeps a const array iterable when it is used by: ${use}`, function () {
@@ -33,7 +34,9 @@ suite('side-effect-classifier variable initializers', function () {
                 'delete base[0];',
                 'new Holder(base);',
                 'new globalThis["Set"](base);',
-                'const alias = base;'
+                'table[base];',
+                'const alias = base;\nconsume(alias);',
+                'const [ head ] = base;'
             ]
         ) {
             test(`treats a const array as escaping when it is used by: ${use}`, function () {
@@ -53,6 +56,54 @@ suite('side-effect-classifier variable initializers', function () {
                 { line: 1, kind: 'variable initializer' }
             ]);
         });
+    });
+
+    suite('side-effect-classifier const object bindings', function () {
+        for (
+            const use of [
+                'export const copy = { ...base };',
+                'export const first = base.value;',
+                'export const key = base["value"];',
+                'consume(base.value);',
+                'const alias = base;\nexport const copy = { ...alias };'
+            ]
+        ) {
+            test(`keeps a const object spreadable when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = { value: 1 };\nconst x = { ...base };\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    []
+                );
+            });
+        }
+
+        for (
+            const use of [
+                'base.value = 2;',
+                'delete base.value;',
+                '({ value: base.value } = source);',
+                'base.method();',
+                '(base.method)();',
+                'Object.defineProperty(base, "extra", { get() { return 1; }, enumerable: true });',
+                'consume(base);',
+                'table[base];',
+                'const alias = base;\nconsume(alias);'
+            ]
+        ) {
+            test(`treats a const object as escaping when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = { value: 1 };\nconst x = { ...base };\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    [ { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
     });
 
     suite('side-effect-classifier array spread initializers', function () {

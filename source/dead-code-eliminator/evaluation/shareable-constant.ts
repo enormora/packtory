@@ -2,7 +2,7 @@ import { Node as TypeScriptMorphNode, type Expression, type VariableDeclaration 
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { isRecordResult, opaqueResult, type AbstractValue } from './abstract-value.ts';
 import { bindingIsMutated } from './binding-mutation.ts';
-import { constantArrayStaysIterable } from './iterable-array-binding.ts';
+import { constantArrayStaysIterable, constantObjectStaysSpreadSafe } from './constant-shape.ts';
 
 export function objectLiteralIsSpreadSafe(initializer: Expression): boolean {
     return TypeScriptMorphNode.isObjectLiteralExpression(initializer) &&
@@ -16,7 +16,8 @@ function recordShape(declaration: VariableDeclaration, initializer: Expression):
     if (TypeScriptMorphNode.isArrayLiteralExpression(initializer) && constantArrayStaysIterable(declaration)) {
         return opaqueResult('array');
     }
-    return opaqueResult(objectLiteralIsSpreadSafe(initializer) ? 'object' : 'value');
+    const spreadSafe = objectLiteralIsSpreadSafe(initializer) && constantObjectStaysSpreadSafe(declaration);
+    return opaqueResult(spreadSafe ? 'object' : 'value');
 }
 
 export function shareableConstantValue(

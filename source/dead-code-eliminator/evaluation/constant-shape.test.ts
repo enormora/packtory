@@ -4,7 +4,7 @@ import { SyntaxKind } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { opaqueResult } from './abstract-value.ts';
-import { iterableArrayBindingValue } from './iterable-array-binding.ts';
+import { iterableArrayBindingValue } from './constant-shape.ts';
 
 function lastBaseRead(content: string): ReturnType<typeof iterableArrayBindingValue> {
     const source = createProject().createSourceFile('input.js', `${content}\nexport {};`);
