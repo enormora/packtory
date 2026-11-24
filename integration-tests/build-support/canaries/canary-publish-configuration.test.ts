@@ -5,9 +5,14 @@ import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
-import { runSelectedCanary } from '../../../source/build-support/canaries/canary-runner.ts';
+import {
+    createShellCommandRunner,
+    runSelectedCanary
+} from '../../../source/build-support/canaries/canary-runner.ts';
 import { createFileManager, type FileManager } from '../../../source/file-manager/file-manager.ts';
-import { createNativeCanaryRuntime } from './native-runtime.ts';
+import { createNativeCanaryRuntime, executeNativeCanaryProcess } from './native-runtime.ts';
+
+const runShellCommand = createShellCommandRunner(10_000, executeNativeCanaryProcess);
 
 const originalConfiguration = {
     commonPackageSettings: {
@@ -81,7 +86,7 @@ async function writeDownstreamFixture(fileManager: Pick<FileManager, 'writeFile'
 }
 
 async function installFixtureExecutable(fileManager: Pick<FileManager, 'writeFile'>, cwd: string): Promise<void> {
-    await fileManager.writeFile(path.join(cwd, 'node_modules', 'cli.js'), 'npm baseline');
+    await fileManager.writeFile(path.join(cwd, 'node_modules', 'cli.js'), 'downstream CLI');
     await mkdir(path.join(cwd, 'node_modules', '.bin'));
     await symlink('../cli.js', path.join(cwd, 'node_modules', '.bin', 'packtory'));
 }
@@ -105,15 +110,18 @@ async function prepareDownstreamFixture(
 }
 
 async function observePublish(
-    fileManager: Pick<FileManager, 'readFile'>,
+    fileManager: Pick<FileManager, 'getRealPath' | 'readFile'>,
     cwd: string
 ): Promise<ConfigurationObservation> {
     const builtArtifact = await fileManager.readFile(path.join(cwd, 'build', 'package.js'));
     assert.strictEqual(builtArtifact, 'shared build');
-    const executable = await fileManager.readFile(path.join(cwd, 'node_modules', '.bin', 'packtory'));
+    const downstreamCli = await fileManager.readFile(path.join(cwd, 'node_modules', 'cli.js'));
+    assert.strictEqual(downstreamCli, 'downstream CLI');
     if (cwd.includes('-baseline-')) {
-        assert.strictEqual(executable, 'npm baseline');
+        const result = await runShellCommand("packtory 'publish argument'", cwd);
+        assert.strictEqual(result.standardOutput, `${await fileManager.getRealPath(cwd)}\npublish argument\n`);
     } else {
+        const executable = await fileManager.readFile(path.join(cwd, 'node_modules', '.bin', 'packtory'));
         assert.match(executable, /command-line-interface\.entry-point\.ts/u);
     }
     return await artifactSettingsForPhase(cwd, 'publish');
@@ -129,6 +137,9 @@ async function runFixtureCanary(
     observations: CanaryFixtureObservations
 ): ReturnType<typeof runSelectedCanary> {
     const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
+    const executable = path.join(root, 'node_modules', '.bin', 'packtory');
+    await fileManager.writeFile(executable, '#!/usr/bin/env sh\npwd -P\nprintf \'%s\\n\' "$@"\n');
+    await fileManager.setExecutable(executable, true);
     const manifestPath = path.join(root, 'canaries.json');
     await fileManager.writeFile(
         manifestPath,

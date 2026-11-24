@@ -235,18 +235,16 @@ suite('canary-runner', function () {
         );
         assert.deepStrictEqual(
             dependencies.commandCalls.filter(function (call) {
-                return call.command === 'npm install --no-save --ignore-scripts @packtory/cli@latest';
+                return call.command.startsWith('npm install ');
             }),
-            [ {
-                command: 'npm install --no-save --ignore-scripts @packtory/cli@latest',
-                cwd: '/workspace/packtory-canary-sample-baseline-clone'
-            } ]
+            []
         );
         assert.strictEqual(
             dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
-                return call.filePath === '/workspace/packtory-canary-sample-baseline-clone/node_modules/.bin/packtory';
+                const executable = '/workspace/packtory-canary-sample-baseline-clone/node_modules/.bin/packtory';
+                return call.filePath === executable && call.content.includes('/repo/node_modules/.bin/packtory');
             }),
-            false
+            true
         );
         assert.strictEqual(
             dependencies.fileManager.getAllWriteFileCalls().some(function (call) {
@@ -257,19 +255,22 @@ suite('canary-runner', function () {
         );
     });
 
-    test('cleans up both clones when preparing one fails', async function () {
+    test('cleans up both clones when the pinned baseline CLI is missing', async function () {
         const dependencies = createRunnerDependencies({ publishCommand: 'publish-dry-run' }, new Set(), []);
         await assert.rejects(async function () {
             await runSelectedCanary('canaries.json', 'sample', {
                 ...dependencies,
-                async runCommand(command, cwd) {
-                    if (command.startsWith('npm install ') && cloneMode(cwd) === 'baseline') {
-                        throw new Error('baseline install failed');
+                fileManager: {
+                    ...dependencies.fileManager,
+                    async checkReadability(filePath) {
+                        if (filePath === '/repo/node_modules/.bin/packtory') {
+                            return { isReadable: false };
+                        }
+                        return dependencies.fileManager.checkReadability(filePath);
                     }
-                    return await dependencies.runCommand(command, cwd);
                 }
             });
-        }, /baseline install failed/u);
+        }, /Installed baseline CLI is missing/u);
         assert.deepStrictEqual(
             dependencies.removedFolders.toSorted(function (left, right) {
                 return left.localeCompare(right);

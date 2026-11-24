@@ -28,7 +28,7 @@ type ShellCommandFailure = {
 };
 
 type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
-type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'setExecutable' | 'writeFile'>;
+type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'removeFile' | 'setExecutable' | 'writeFile'>;
 
 export type CanaryRunnerDependencies = {
     readonly createProject: InspectPackagesInput['createProject'];
@@ -79,32 +79,38 @@ function shellQuote(value: string): string {
     return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-function packtoryExecutablePath(cloneFolder: string): string {
-    return path.join(cloneFolder, 'node_modules', '.bin', 'packtory');
+function packtoryExecutablePath(folder: string): string {
+    return path.join(folder, 'node_modules', '.bin', 'packtory');
 }
 
 function canarySourcePacktoryCommand(repositoryFolder: string): string {
-    return `${JSON.stringify(process.execPath)} --experimental-strip-types --enable-source-maps ${
-        JSON.stringify(path.join(
+    return `${shellQuote(process.execPath)} --experimental-strip-types --enable-source-maps ${
+        shellQuote(path.join(
             repositoryFolder,
             'source/packages/command-line-interface/command-line-interface.entry-point.ts'
         ))
     }`;
 }
 
-async function installBaselinePacktoryCommandLineInterface(
-    dependencies: CanaryRunnerDependencies,
-    cloneFolder: string
-): Promise<void> {
-    await dependencies.runCommand('npm install --no-save --ignore-scripts @packtory/cli@latest', cloneFolder);
+async function baselinePacktoryCommand(dependencies: CanaryRunnerDependencies): Promise<string> {
+    const executable = packtoryExecutablePath(dependencies.repositoryFolder);
+    const { isReadable } = await dependencies.fileManager.checkReadability(executable);
+    if (!isReadable) {
+        throw new Error(
+            `Installed baseline CLI is missing at "${executable}". Install Packtory's locked dependencies first.`
+        );
+    }
+    return shellQuote(executable);
 }
 
-async function writeCandidatePacktoryShim(
+async function writePacktoryShim(
     dependencies: CanaryRunnerDependencies,
-    cloneFolder: string
+    cloneFolder: string,
+    command: string
 ): Promise<void> {
     const shimPath = packtoryExecutablePath(cloneFolder);
-    const content = shellScript(`exec ${canarySourcePacktoryCommand(dependencies.repositoryFolder)} "$@"`);
+    const content = shellScript(`exec ${command} "$@"`);
+    await dependencies.fileManager.removeFile(shimPath);
     await dependencies.fileManager.writeFile(shimPath, content);
     await dependencies.fileManager.setExecutable(shimPath, true);
 }
@@ -121,11 +127,10 @@ async function installCanaryVariant(
     if (hasPublishCommand(canary)) {
         await dependencies.runCommand(canary.installCommand, clone.cloneFolder);
     }
-    if (clone.mode === 'baseline') {
-        await installBaselinePacktoryCommandLineInterface(dependencies, clone.cloneFolder);
-    } else {
-        await writeCandidatePacktoryShim(dependencies, clone.cloneFolder);
-    }
+    const command = clone.mode === 'baseline'
+        ? await baselinePacktoryCommand(dependencies)
+        : canarySourcePacktoryCommand(dependencies.repositoryFolder);
+    await writePacktoryShim(dependencies, clone.cloneFolder, command);
 }
 
 async function prepareCanaryRepository(
