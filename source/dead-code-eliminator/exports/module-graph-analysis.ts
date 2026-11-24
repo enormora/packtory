@@ -1,5 +1,4 @@
 import type { Identifier, SourceFile, Statement } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
 import { localBindingIdentifiers, type FileBindings } from '../reachability/binding-identifier.ts';
 import { observeReachableBindings } from '../reachability/binding-observation.ts';
@@ -13,7 +12,6 @@ export type ExportGraphInput = {
     readonly files: readonly FileBindings[];
     readonly publicPaths: ReadonlySet<string>;
     readonly classifySideEffects: SideEffectClassifier;
-    readonly settings: DeadCodeEliminationSettings | undefined;
     readonly observedBindings: ReadonlySet<string> | undefined;
 };
 export type ModuleGraphRecord = {
@@ -83,7 +81,7 @@ export function createModuleGraphAnalysis(
             let statements = effects.get(source);
             if (statements === undefined) {
                 statements = new Set(
-                    input.classifySideEffects(source, input.settings).map(function (effect) {
+                    input.classifySideEffects(source).map(function (effect) {
                         return effect.statement;
                     })
                 );

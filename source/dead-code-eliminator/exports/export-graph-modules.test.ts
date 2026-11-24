@@ -21,7 +21,6 @@ function moduleAnalysis(): ModuleGraphAnalysis {
         ]),
         publicPaths: new Set([ 'index.js' ]),
         classifySideEffects,
-        settings: undefined,
         observedBindings: undefined
     }, bindingValueIsStable);
 }

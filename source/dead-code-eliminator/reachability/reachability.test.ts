@@ -21,7 +21,6 @@ function reachabilityInput(
         bundleName: 'package',
         files,
         entryPointFilePaths,
-        deadCodeElimination: undefined,
         classifySideEffects,
         trace: undefined
     };
@@ -33,9 +32,9 @@ suite('reachability', function () {
         let classifications = 0;
         const index = buildReachabilityIndex({
             ...reachabilityInput(files, new Set([ 'entry.ts' ])),
-            classifySideEffects(source, settings) {
+            classifySideEffects(source) {
                 classifications += 1;
-                return classifySideEffects(source, settings);
+                return classifySideEffects(source);
             }
         });
         assert.deepStrictEqual(index.localReachable, new Set([ 'entry.ts::publicValue' ]));

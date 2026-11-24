@@ -49,7 +49,6 @@ const baseContext: AnalysisContext = {
     reachable: new Set<string>(),
     survivingExports: new Map<string, ReadonlySet<string>>(),
     transformationsEnabled: false,
-    deadCodeElimination: undefined,
     classifySideEffects,
     trace: undefined
 };

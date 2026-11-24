@@ -49,7 +49,6 @@ function createBindingGraph(input: ReachabilityInput, observedBindings: Readonly
         files: input.files,
         publicPaths: input.entryPointFilePaths,
         classifySideEffects: input.classifySideEffects,
-        settings: input.deadCodeElimination,
         observedBindings
     });
     const nodeByIdentifier = buildNodeByIdentifier(input.files);
@@ -96,7 +95,6 @@ function traverseBindings(
         files: input.files,
         entryPointFilePaths: input.entryPointFilePaths,
         declarationIndex: graph.declarationIndex,
-        deadCodeElimination: input.deadCodeElimination,
         classifySideEffects: input.classifySideEffects,
         bundleName: input.bundleName,
         trace: input.trace
@@ -146,7 +144,7 @@ function refineReachability(
 function classifyReachabilitySources(input: ReachabilityInput): ReachabilityInput {
     const effects = new Map(input.files.map(function (file) {
         const source = file.sourceFile.getSourceFile();
-        return [ source, input.classifySideEffects(source, input.deadCodeElimination) ] as const;
+        return [ source, input.classifySideEffects(source) ] as const;
     }));
     return {
         ...input,

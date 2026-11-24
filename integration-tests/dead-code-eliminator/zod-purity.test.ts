@@ -60,12 +60,6 @@ suite('Zod purity integration', function () {
             { enabled: true, pureImports: [ { from: 'zod/mini' } ] }
         );
 
-        assert.deepStrictEqual(
-            classifySideEffects(sourceFile, {
-                enabled: true,
-                pureImports: [ { from: 'zod/mini' } ]
-            }),
-            []
-        );
+        assert.deepStrictEqual(classifySideEffects(sourceFile), []);
     });
 });

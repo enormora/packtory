@@ -128,7 +128,6 @@ function inputFor(
         entryPointFilePaths: new Set(bundle.contents.map(function (resource) {
             return resource.fileDescription.targetFilePath;
         })),
-        deadCodeElimination: undefined,
         classifySideEffects,
         trace: disabledTrace
     });

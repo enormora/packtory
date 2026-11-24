@@ -19,7 +19,6 @@ suite('local retention seeds', function () {
             entryPointFilePaths: new Set(),
             declarationIndex: buildDeclarationNodeIndex(files),
             classifySideEffects,
-            deadCodeElimination: undefined,
             bundleName: 'example',
             trace: { collector: trace.collector }
         }, undefined);
@@ -55,7 +54,6 @@ suite('local retention seeds', function () {
                 files,
                 publicPaths,
                 classifySideEffects,
-                settings: undefined,
                 observedBindings: undefined
             });
             const seeds = gatherLocalSeeds({
@@ -63,7 +61,6 @@ suite('local retention seeds', function () {
                 entryPointFilePaths: publicPaths,
                 declarationIndex: buildDeclarationNodeIndex(files),
                 classifySideEffects,
-                deadCodeElimination: undefined,
                 bundleName: 'example',
                 trace: { collector: trace.collector }
             }, graph);

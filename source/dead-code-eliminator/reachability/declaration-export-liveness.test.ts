@@ -85,7 +85,6 @@ suite('declaration export liveness', function () {
                 files,
                 entryPointFilePaths: new Set([ 'index.d.ts' ]),
                 classifySideEffects,
-                deadCodeElimination: undefined,
                 trace: undefined
             });
 

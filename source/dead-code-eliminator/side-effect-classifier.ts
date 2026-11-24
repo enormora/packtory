@@ -1,5 +1,4 @@
 import { Node as TypeScriptMorphNode, type SourceFile, type Statement } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { ExpressionPurityChecker } from './imported-expression-origin.ts';
 import { createExpressionPurityChecker } from './expression-purity.ts';
 import type { ClassPropertyKeyResolver } from './class-purity.ts';
@@ -64,10 +63,7 @@ function createSourceClassification(sourceFile: SourceFile): SourceClassificatio
     };
 }
 
-export type SideEffectClassifier = (
-    sourceFile: Readonly<SourceFile>,
-    settings: DeadCodeEliminationSettings | undefined
-) => readonly ClassifiedSideEffect[];
+export type SideEffectClassifier = (sourceFile: Readonly<SourceFile>) => readonly ClassifiedSideEffect[];
 
 export function createSideEffectClassifier(): SideEffectClassifier {
     return function (sourceFile) {

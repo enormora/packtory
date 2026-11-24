@@ -95,7 +95,6 @@ export function loadBundle(
         bundleName: input.bundle.name,
         files: fileBindings,
         entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleInputFilePaths),
-        deadCodeElimination: input.deadCodeElimination,
         classifySideEffects,
         trace
     });

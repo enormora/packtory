@@ -14,7 +14,6 @@ suite('module graph analysis', function () {
         const graph = createModuleGraphAnalysis({
             files: [ file ],
             publicPaths: new Set(),
-            settings: undefined,
             observedBindings: undefined,
             classifySideEffects() {
                 classifications += 1;
@@ -41,7 +40,6 @@ suite('module graph analysis', function () {
                 const graph = createModuleGraphAnalysis({
                     files: [ entry, library ],
                     publicPaths: new Set(publicEntry ? [ 'index.js' ] : []),
-                    settings: undefined,
                     observedBindings: undefined,
                     classifySideEffects
                 }, bindingValueIsStable);

@@ -85,7 +85,6 @@ export function reachabilityForReExportTarget(entryPointExportDeclaration: strin
         bundleName: 'package',
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
-        deadCodeElimination: undefined,
         classifySideEffects,
         trace: undefined
     });
@@ -108,7 +107,6 @@ export function reachabilityForLocalValueExport(entryPointExportDeclaration: str
         bundleName: 'package',
         files,
         entryPointFilePaths: new Set([ 'entry.ts' ]),
-        deadCodeElimination: undefined,
         classifySideEffects,
         trace: undefined
     });

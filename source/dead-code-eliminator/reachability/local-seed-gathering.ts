@@ -1,7 +1,6 @@
 import { Node as TypeScriptMorphNode, type Statement } from 'ts-morph';
 import type { ExportGraph } from '../exports/export-graph.ts';
 import type { SideEffectClassifier } from '../side-effect-classifier.ts';
-import type { DeadCodeEliminationSettings } from '../../configuration/dead-code-elimination-settings.ts';
 import type { DeadCodeEliminationTrace, LocalSeedReason } from '../trace.ts';
 import { bindingIdentifier, type FileBindings, type DeclarationNodeIndex } from './binding-identifier.ts';
 import { collectIdentifierTargets } from './identifier-target-collector.ts';
@@ -18,7 +17,6 @@ type SeedCollectionContext = {
     readonly exportGraph: ExportGraph | undefined;
     readonly declarationIndex: DeclarationNodeIndex;
     readonly classifySideEffects: SideEffectClassifier;
-    readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };
 
@@ -27,7 +25,6 @@ export type LocalSeedGatheringInput = {
     readonly entryPointFilePaths: ReadonlySet<string>;
     readonly declarationIndex: DeclarationNodeIndex;
     readonly classifySideEffects: SideEffectClassifier;
-    readonly deadCodeElimination: DeadCodeEliminationSettings | undefined;
     readonly bundleName: string;
     readonly trace: DeadCodeEliminationTrace;
 };
@@ -106,11 +103,7 @@ function seedsForFile(
     isEntry: boolean,
     context: SeedCollectionContext
 ): readonly LocalSeed[] {
-    const impureStatements = collectImpureStatements(
-        file.sourceFile,
-        context.deadCodeElimination,
-        context.classifySideEffects
-    );
+    const impureStatements = collectImpureStatements(file.sourceFile, context.classifySideEffects);
     return [
         ...exportedBindingSeeds(file, isEntry, context.trace),
         ...isEntry ? entryPointExportDeclarationSeeds(file, context) : [],
@@ -171,7 +164,6 @@ export function gatherLocalSeeds(
         const fileSeeds = seedsForFile(file, isEntry, {
             exportGraph,
             declarationIndex: input.declarationIndex,
-            deadCodeElimination: input.deadCodeElimination,
             classifySideEffects: input.classifySideEffects,
             trace: input.trace
         });

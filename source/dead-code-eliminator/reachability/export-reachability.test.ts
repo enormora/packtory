@@ -16,7 +16,6 @@ function reachabilityFor(
             })
         ),
         entryPointFilePaths: new Set(publicPaths),
-        deadCodeElimination: undefined,
         classifySideEffects,
         trace: undefined
     });
