@@ -4,11 +4,11 @@ import {
     type Expression,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 
 function writesState(node: TypeScriptMorphNodeType): boolean {
     if (TypeScriptMorphNode.isBinaryExpression(node)) {
-        const operator = node.getOperatorToken().getKind();
-        return operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment;
+        return isAssignmentOperator(node.getOperatorToken().getKind());
     }
     if (TypeScriptMorphNode.isPrefixUnaryExpression(node) || TypeScriptMorphNode.isPostfixUnaryExpression(node)) {
         return [ SyntaxKind.PlusPlusToken, SyntaxKind.MinusMinusToken ].includes(node.getOperatorToken());

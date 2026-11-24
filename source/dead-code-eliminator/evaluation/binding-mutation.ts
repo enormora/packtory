@@ -1,4 +1,5 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier, type SourceFile } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../../source-transformation/syntax-analysis.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 
@@ -25,10 +26,7 @@ function updatedOperand(node: TypeScriptMorphNode): Expression | undefined {
 
 function mutatedTarget(node: TypeScriptMorphNode): Expression | undefined {
     if (TypeScriptMorphNode.isBinaryExpression(node)) {
-        const operator = node.getOperatorToken().getKind();
-        return operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment
-            ? node.getLeft()
-            : undefined;
+        return isAssignmentOperator(node.getOperatorToken().getKind()) ? node.getLeft() : undefined;
     }
     return updatedOperand(node);
 }

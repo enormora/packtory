@@ -8,6 +8,7 @@ import {
     type TypeOfExpression,
     type VoidExpression
 } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
 import { evaluated } from './primitive-value.ts';
 import {
@@ -50,7 +51,7 @@ function binaryOperandsValue(expression: BinaryExpression, context: EvaluationCo
 
 export function evaluateBinary(expression: BinaryExpression, context: EvaluationContext): AbstractValue | undefined {
     const operator = expression.getOperatorToken().getKind();
-    return operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment
+    return isAssignmentOperator(operator)
         ? evaluateAssignment(expression, context)
         : binaryOperandsValue(expression, context);
 }

@@ -1,4 +1,5 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Node as TypeScriptMorphNodeType } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 
 function containsWriteTarget(parent: TypeScriptMorphNodeType): boolean {
     return [
@@ -30,9 +31,7 @@ function enclosingWriteTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNod
 function assignmentWritesNode(node: TypeScriptMorphNodeType): boolean | undefined {
     const parent = node.getParent();
     if (TypeScriptMorphNode.isBinaryExpression(parent)) {
-        const operator = parent.getOperatorToken().getKind();
-        return parent.getLeft() === node && operator >= SyntaxKind.FirstAssignment &&
-            operator <= SyntaxKind.LastAssignment;
+        return parent.getLeft() === node && isAssignmentOperator(parent.getOperatorToken().getKind());
     }
     if (TypeScriptMorphNode.isForInStatement(parent) || TypeScriptMorphNode.isForOfStatement(parent)) {
         return parent.getInitializer() === node;

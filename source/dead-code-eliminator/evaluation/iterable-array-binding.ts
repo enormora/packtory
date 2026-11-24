@@ -5,6 +5,7 @@ import {
     type Node as TypeScriptMorphNodeType,
     type VariableDeclaration
 } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 import { expressionWithWrappers, unwrapExpression } from '../expression-unwrapping.ts';
 import { bindingReferenceTargets, referenceDeclaresBinding } from '../reference-target.ts';
 import { opaqueResult, type AbstractValue } from './abstract-value.ts';
@@ -28,9 +29,7 @@ function constantArrayDeclaration(identifier: Identifier): VariableDeclaration |
 function isWriteTarget(expression: TypeScriptMorphNodeType): boolean {
     const parent = expression.getParent();
     if (TypeScriptMorphNode.isBinaryExpression(parent)) {
-        const operator = parent.getOperatorToken().getKind();
-        return parent.getLeft() === expression &&
-            operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment;
+        return parent.getLeft() === expression && isAssignmentOperator(parent.getOperatorToken().getKind());
     }
     return TypeScriptMorphNode.isPrefixUnaryExpression(parent) ||
         TypeScriptMorphNode.isPostfixUnaryExpression(parent) ||

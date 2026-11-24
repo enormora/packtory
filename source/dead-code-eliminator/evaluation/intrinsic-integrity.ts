@@ -10,6 +10,7 @@ import {
     type ObjectLiteralElementLike,
     type SourceFile
 } from 'ts-morph';
+import { isAssignmentOperator } from '../assignment-operator.ts';
 import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../../source-transformation/syntax-analysis.ts';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
@@ -37,10 +38,6 @@ function pathOf(expression: Expression): GlobalPath | undefined {
 
 function keyOf(expression: Expression): string | undefined {
     return globalPropertyKeyOf(expression, evaluateKey);
-}
-
-function isAssignmentOperator(kind: SyntaxKind): boolean {
-    return kind >= SyntaxKind.FirstAssignment && kind <= SyntaxKind.LastAssignment;
 }
 
 function withoutPrototypeLink(path: GlobalPath): GlobalPath {
