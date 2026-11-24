@@ -8,6 +8,7 @@ import { unwrapExpression } from './expression-unwrapping.ts';
 import { constantDominatesRead } from './evaluation/constant-binding.ts';
 import { createRuntimeConstantEvaluator } from './evaluation/runtime-evaluation.ts';
 import { evaluateImportedConstant } from './evaluation/imported-constant.ts';
+import { intrinsicUndefined } from './evaluation/global-reference.ts';
 
 function constantKeyInitializer(expression: Identifier): Expression | undefined {
     const declaration = expression.getSymbol()?.getValueDeclaration();
@@ -30,7 +31,7 @@ function localPropertyKey(expression: Expression | undefined): string | undefine
     if (!TypeScriptMorphNode.isIdentifier(unwrapped)) {
         return primitiveExpressionKey(unwrapped);
     }
-    if (unwrapped.getText() === 'undefined' && unwrapped.getSymbolOrThrow().getDeclarations().length === 0) {
+    if (intrinsicUndefined(unwrapped)) {
         return 'undefined';
     }
     return localPropertyKey(constantKeyInitializer(unwrapped));

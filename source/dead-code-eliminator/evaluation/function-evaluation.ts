@@ -1,7 +1,7 @@
 import type { SourceFile } from 'ts-morph';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 import { runtimeSourceIsValid } from '../runtime-source-validity.ts';
-import { intrinsicUndefined } from './constant-binding.ts';
+import { intrinsicUndefined } from './global-reference.ts';
 import {
     createCallEvaluator,
     evaluateFunctionBody,

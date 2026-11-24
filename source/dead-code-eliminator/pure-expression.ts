@@ -23,12 +23,8 @@ import {
 } from './expression-facts.ts';
 import { computedPropertyNameIsPure } from './computed-property-key-purity.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import {
-    arePureCallArguments,
-    type PurityContext,
-    type ExpressionPurityChecker
-} from './imported-expression-origin.ts';
-import { hasPureCallAnnotation } from './call-annotation.ts';
+import type { PurityContext, ExpressionPurityChecker } from './imported-expression-origin.ts';
+import { annotationTrustsCall, settingsTrustConstruction } from './trusted-calls.ts';
 import {
     importedCallResultFact,
     originForCallTarget,
@@ -117,21 +113,13 @@ function createdObjectPropertyIsSafeToSpread(
         spreadAssignmentSourceIsSafe(property, factFor);
 }
 
-function pureAnnotationMakesCallPure(
-    expression: CallExpression | NewExpression,
-    factFor: ExpressionFactResolver
-): boolean {
-    return hasPureCallAnnotation(expression) &&
-        arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
-}
-
 function callExpressionFact(
     expression: CallExpression,
     factFor: ExpressionFactResolver,
     context: PurityContext
 ): ExpressionFact {
     const callTarget = unwrapExpression(expression.getExpression());
-    if (pureAnnotationMakesCallPure(expression, factFor)) {
+    if (annotationTrustsCall(expression, purityCheckerFor(factFor))) {
         return pureValueFact;
     }
     const localFact = localCallFact(expression);
@@ -147,23 +135,13 @@ function callExpressionFact(
     return importedCallFact;
 }
 
-function constructorNameIsTrusted(
-    constructorExpression: Expression,
-    context: PurityContext
-): boolean {
-    return TypeScriptMorphNode.isIdentifier(constructorExpression) &&
-        context.settings?.pureConstructors?.includes(constructorExpression.getText()) === true;
-}
-
 function isPureNewExpression(
     expression: NewExpression,
     factFor: ExpressionFactResolver,
     context: PurityContext
 ): boolean {
-    const constructorExpression = unwrapExpression(expression.getExpression());
-    const trustedConstructorCall = constructorNameIsTrusted(constructorExpression, context) &&
-        arePureCallArguments(expression.getArguments(), purityCheckerFor(factFor));
-    return pureAnnotationMakesCallPure(expression, factFor) || trustedConstructorCall ||
+    const isPure = purityCheckerFor(factFor);
+    return annotationTrustsCall(expression, isPure) || settingsTrustConstruction(expression, context, isPure) ||
         expressionFactIsPure(localConstructionFact(expression));
 }
 

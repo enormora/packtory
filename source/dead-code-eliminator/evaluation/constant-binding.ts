@@ -10,6 +10,7 @@ import {
 } from 'ts-morph';
 import { isIncludedIn } from 'remeda';
 import { declarationOf } from './evaluation-context.ts';
+import { intrinsicUndefined } from './global-reference.ts';
 import { evaluated, type EvaluatedValue } from './primitive-value.ts';
 
 export type KnownConstants = Pick<ReadonlyMap<VariableDeclaration, EvaluatedValue>, 'get'>;
@@ -104,10 +105,6 @@ export function localReadHasNoEffects(expression: Expression): boolean {
     }
     return TypeScriptMorphNode.isVariableDeclaration(declaration) &&
         lexicalBindingDominatesRead(declaration, expression);
-}
-
-export function intrinsicUndefined(read: Identifier): boolean {
-    return read.getText() === 'undefined' && read.getSymbolOrThrow().getDeclarations().length === 0;
 }
 
 function constantIsAvailable(

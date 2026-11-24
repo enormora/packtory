@@ -24,6 +24,7 @@ import { createRuntimeConstantEvaluator, createRuntimeBoundedEvaluator } from '.
 import { expressionBindingShapeIsStable } from './binding-stability.ts';
 import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
 import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
+import { intrinsicUndefined } from './evaluation/global-reference.ts';
 
 type PureCallableFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-callable'; };
 type PureObjectFact = { readonly origin: ImportedExpressionOrigin | undefined; readonly type: 'pure-object'; };
@@ -335,7 +336,7 @@ export function identifierReadFact(
     context: PurityContext
 ): ExpressionFact {
     const declarations = identifierDeclarations(expression);
-    if (expression.getText() === 'undefined' && declarations.length === 0) {
+    if (intrinsicUndefined(expression)) {
         return purePrimitiveFact;
     }
     for (const declaration of declarations) {

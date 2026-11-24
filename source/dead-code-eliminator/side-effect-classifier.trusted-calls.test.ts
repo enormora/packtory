@@ -199,6 +199,32 @@ suite('side-effect-classifier trusted calls', function () {
             );
         });
 
+        for (
+            const shadowing of [
+                'class Set { constructor() { console.log("created"); } }',
+                'import { Set } from "./effects.js";',
+                'const Set = Map;',
+                'function Set() { console.log("created"); }'
+            ]
+        ) {
+            test(`treats a trusted constructor name as impure when shadowed by: ${shadowing}`, function () {
+                assert.deepStrictEqual(
+                    classify(`${shadowing}\nconst x = new Set();`, { enabled: true, pureConstructors: [ 'Set' ] })
+                        .filter(function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }),
+                    [ { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+
+        test('treats a trusted constructor name as impure when direct eval can declare it', function () {
+            assert.deepStrictEqual(
+                classify('eval(code);\nconst x = new Set();', { enabled: true, pureConstructors: [ 'Set' ] }),
+                [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+            );
+        });
+
         test('treats a constructor call as impure when constructor trust settings are omitted', function () {
             assert.deepStrictEqual(classify('const x = new Set([1, 2, 3]);', { enabled: true }), [
                 { line: 1, kind: 'variable initializer' }
