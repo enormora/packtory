@@ -4,6 +4,8 @@ Each advisory canary measures the candidate’s successful `packtory pack --all`
 
 Each canary checks out and installs the downstream project once. The `buildCommand` runs against its lockfile before the runner copies the prepared tree, so its outputs must work in both workspaces. Keep CLI-specific checks in `verificationCommands`, which run independently with the npm baseline and the source candidate.
 
+The two CLI verification sequences can run concurrently on the same runner. The timed candidate pack runs on its own. Candidate API inspection can overlap the baseline pack.
+
 The benchmark check requires a result from every canary job. Jobs skipped by the path filter publish `skipped`. A missing result indicates a CI failure before the canary could report its outcome.
 
 Calibrate each budget from three successful candidate packs on the Ubuntu CI runner. Add 50% or two seconds to the slowest sample, whichever is greater, and round up to the next second.

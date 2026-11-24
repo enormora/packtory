@@ -49,7 +49,8 @@ async function runCanaries(argumentValues: readonly string[]): Promise<number> {
                     } finally {
                         if (command === 'packtory publish') {
                             const seconds = (performance.now() - started) / millisecondsPerSecond;
-                            process.stdout.write(`Canary publish dry run: ${seconds.toFixed(1)}s\n`);
+                            const clone = path.basename(cwd);
+                            process.stdout.write(`Canary publish dry run (${clone}): ${seconds.toFixed(1)}s\n`);
                         }
                     }
                 }
