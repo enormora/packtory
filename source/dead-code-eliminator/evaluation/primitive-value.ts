@@ -83,13 +83,13 @@ function relationalComparison<Value>(
         .otherwise(constant(undefined));
 }
 
-const bigintBase = 2n;
-const maximumBigIntBits = 4096n;
+const maximumBigIntBits = 4096;
 const bigintZero = 0n;
-const maximumBigIntMagnitude = bigintBase ** maximumBigIntBits;
 
 function boundedBigInt(value: bigint): EvaluatedValue | undefined {
-    return value > -maximumBigIntMagnitude && value < maximumBigIntMagnitude ? evaluated(value) : undefined;
+    return BigInt.asUintN(maximumBigIntBits, value) === value || BigInt.asUintN(maximumBigIntBits, -value) === -value
+        ? evaluated(value)
+        : undefined;
 }
 
 function bigintArithmetic(operator: SyntaxKind, left: bigint, right: bigint): EvaluatedValue | undefined {

@@ -115,6 +115,8 @@ suite('primitive values', function () {
                 [ SyntaxKind.GreaterThanToken, 42n, 42n, false ],
                 [ SyntaxKind.GreaterThanEqualsToken, 21n, 42n, false ],
                 [ SyntaxKind.PlusToken, 42n, 0n, 42n ],
+                [ SyntaxKind.PlusToken, 2n ** 4096n - 1n, 0n, 2n ** 4096n - 1n ],
+                [ SyntaxKind.PlusToken, -(2n ** 4096n) + 1n, 0n, -(2n ** 4096n) + 1n ],
                 [ SyntaxKind.AsteriskToken, 42n, 0n, 0n ]
             ] as const
         ) {
