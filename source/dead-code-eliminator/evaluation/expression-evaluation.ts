@@ -28,6 +28,7 @@ import {
     type EvaluationReference
 } from './abstract-value.ts';
 import { evaluateArray } from './array-evaluation.ts';
+import { iterableArrayBindingValue } from './iterable-array-binding.ts';
 import { evaluateRecordExpression, recordPropertyReference } from './record-evaluation.ts';
 
 function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
@@ -200,7 +201,8 @@ function keywordUnaryValue(
 function expressionValue(node: Expression, context: EvaluationContext): AbstractValue | undefined {
     return match(node)
         .when(TypeScriptMorphNode.isIdentifier, function (identifier) {
-            return bindingReference(identifier, context)?.value ?? context.readConstant(identifier);
+            return bindingReference(identifier, context)?.value ?? context.readConstant(identifier) ??
+                iterableArrayBindingValue(identifier);
         })
         .when(TypeScriptMorphNode.isBinaryExpression, function (binary) {
             return binaryValue(binary, context);

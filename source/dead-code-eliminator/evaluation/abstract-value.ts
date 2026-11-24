@@ -16,11 +16,11 @@ type RecordResult = { readonly value: AllocatedRecord; };
 
 type SymbolResult = { readonly value: symbol; };
 
-type OversizedBigInt = { readonly oversizedBigInt: true; };
+type OpaqueKind = 'array' | 'oversized-bigint';
 
-type OversizedBigIntResult = { readonly value: OversizedBigInt; };
+type OpaqueResult = { readonly value: { readonly opaque: OpaqueKind; }; };
 
-export type AbstractValue = EvaluatedValue | OversizedBigIntResult | RecordResult | SymbolResult;
+export type AbstractValue = EvaluatedValue | OpaqueResult | RecordResult | SymbolResult;
 
 export type EvaluationReference = {
     readonly value: AbstractValue;
@@ -31,8 +31,16 @@ export function isPrimitiveResult(result: AbstractValue): result is EvaluatedVal
     return result.value === null || typeof result.value !== 'object' && typeof result.value !== 'symbol';
 }
 
-function isOversizedBigIntResult(result: AbstractValue): result is OversizedBigIntResult {
-    return result.value !== null && typeof result.value === 'object' && Object.hasOwn(result.value, 'oversizedBigInt');
+function isOpaqueResult(result: AbstractValue): result is OpaqueResult {
+    return result.value !== null && typeof result.value === 'object' && Object.hasOwn(result.value, 'opaque');
+}
+
+export function opaqueResult(kind: OpaqueKind): OpaqueResult {
+    return { value: { opaque: kind } };
+}
+
+export function isOpaqueArrayResult(result: AbstractValue): boolean {
+    return isOpaqueResult(result) && result.value.opaque === 'array';
 }
 
 export function isRecordResult(result: AbstractValue): result is RecordResult {
@@ -41,11 +49,14 @@ export function isRecordResult(result: AbstractValue): result is RecordResult {
 }
 
 export function typeOfResult(result: AbstractValue): string {
-    return isOversizedBigIntResult(result) ? 'bigint' : typeof result.value;
+    if (!isOpaqueResult(result)) {
+        return typeof result.value;
+    }
+    return result.value.opaque === 'oversized-bigint' ? 'bigint' : 'object';
 }
 
 export function strictlyEqualResults(left: AbstractValue, right: AbstractValue): boolean | undefined {
-    if (isOversizedBigIntResult(left) || isOversizedBigIntResult(right)) {
+    if (isOpaqueResult(left) || isOpaqueResult(right)) {
         return undefined;
     }
     return left.value === right.value;
@@ -55,9 +66,9 @@ function oversizedBigIntResult(
     operator: SyntaxKind,
     left: AbstractValue,
     right: AbstractValue
-): OversizedBigIntResult | undefined {
+): OpaqueResult | undefined {
     return bigintOverflowIsNonzeroAndEffectFree(operator, left.value, right.value)
-        ? { value: { oversizedBigInt: true } }
+        ? opaqueResult('oversized-bigint')
         : undefined;
 }
 

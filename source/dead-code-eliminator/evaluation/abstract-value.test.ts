@@ -6,6 +6,7 @@ import {
     evaluateAbstractBinary,
     isPrimitiveResult,
     isRecordResult,
+    opaqueResult,
     typeOfResult,
     type AbstractValue
 } from './abstract-value.ts';
@@ -27,6 +28,17 @@ suite('abstract values', function () {
                 assert.strictEqual(evaluateAbstractBinary(operator, primitive, record), undefined);
             });
         }
+    });
+
+    suite('opaque array values', function () {
+        test('reports an array of unknown contents as an object that is neither primitive nor record', function () {
+            const array = opaqueResult('array');
+
+            assert.strictEqual(typeOfResult(array), 'object');
+            assert.strictEqual(isPrimitiveResult(array), false);
+            assert.strictEqual(isRecordResult(array), false);
+            assert.strictEqual(evaluateAbstractBinary(SyntaxKind.EqualsEqualsEqualsToken, array, array), undefined);
+        });
     });
 
     suite('oversized bigint values', function () {
