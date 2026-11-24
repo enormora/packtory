@@ -1,4 +1,3 @@
-import { isTruthy } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
@@ -10,14 +9,17 @@ import {
     type VoidExpression
 } from 'ts-morph';
 import type { EvaluationContext } from './evaluation-context.ts';
-import { evaluated, shortCircuitValue, type EvaluatedValue } from './primitive-value.ts';
+import { evaluated } from './primitive-value.ts';
 import {
     evaluateAbstractBinary,
     evaluateAbstractUnary,
+    opaqueResult,
+    truthinessOf,
     typeOfResult,
     type AbstractValue
 } from './abstract-value.ts';
 import { evaluateAssignment, evaluateUpdate } from './assignment-evaluation.ts';
+import { evaluateLogicalOperands } from './short-circuit-evaluation.ts';
 
 export function evaluateUnary(
     expression: PostfixUnaryExpression | PrefixUnaryExpression,
@@ -36,15 +38,14 @@ function binaryOperandsValue(expression: BinaryExpression, context: EvaluationCo
     if (left === undefined) {
         return undefined;
     }
-    const shortCircuit = shortCircuitValue(expression.getOperatorToken().getKind(), left.value);
-    if (shortCircuit === true) {
-        return left;
+    const logical = evaluateLogicalOperands(expression, left, context);
+    if (logical !== 'not-logical') {
+        return logical;
     }
     const right = context.evaluate(expression.getRight(), context);
-    if (shortCircuit === false || right === undefined) {
-        return right;
-    }
-    return evaluateAbstractBinary(expression.getOperatorToken().getKind(), left, right);
+    return right === undefined
+        ? undefined
+        : evaluateAbstractBinary(expression.getOperatorToken().getKind(), left, right);
 }
 
 export function evaluateBinary(expression: BinaryExpression, context: EvaluationContext): AbstractValue | undefined {
@@ -62,16 +63,24 @@ export function evaluateConditional(
     if (condition === undefined) {
         return undefined;
     }
-    return context.evaluate(isTruthy(condition.value) ? expression.getWhenTrue() : expression.getWhenFalse(), context);
+    const truthy = truthinessOf(condition);
+    if (truthy === undefined) {
+        return undefined;
+    }
+    return context.evaluate(truthy ? expression.getWhenTrue() : expression.getWhenFalse(), context);
 }
 
 export function evaluateKeywordUnary(
     expression: TypeOfExpression | VoidExpression,
     context: EvaluationContext
-): EvaluatedValue | undefined {
+): AbstractValue | undefined {
     const operand = context.evaluate(expression.getExpression(), context);
     if (operand === undefined) {
         return undefined;
     }
-    return evaluated(TypeScriptMorphNode.isTypeOfExpression(expression) ? typeOfResult(operand) : undefined);
+    if (!TypeScriptMorphNode.isTypeOfExpression(expression)) {
+        return evaluated(undefined);
+    }
+    const type = typeOfResult(operand);
+    return type === undefined ? opaqueResult('primitive') : evaluated(type);
 }

@@ -10,8 +10,14 @@ import {
 } from 'ts-morph';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { bindingReference, type EvaluationContext } from './evaluation-context.ts';
-import { evaluated, shortCircuitValue } from './primitive-value.ts';
-import { evaluateAbstractBinary, type AbstractValue, type EvaluationReference } from './abstract-value.ts';
+import { evaluated } from './primitive-value.ts';
+import {
+    evaluateAbstractBinary,
+    shortCircuitSelection,
+    type AbstractValue,
+    type EvaluationReference,
+    type ShortCircuitSelection
+} from './abstract-value.ts';
 import { recordPropertyReference } from './record-evaluation.ts';
 
 function compoundAssignmentOperator(operator: SyntaxKind): SyntaxKind | undefined {
@@ -82,9 +88,24 @@ function compoundAssignmentValue(
     );
 }
 
-function assignmentSelectsLeft(operator: SyntaxKind, reference: EvaluationReference): boolean {
+function logicalAssignmentSelection(
+    operator: SyntaxKind,
+    reference: EvaluationReference
+): ShortCircuitSelection | undefined {
     const logicalOperator = logicalAssignmentOperator(operator);
-    return shortCircuitValue(logicalOperator, reference.value.value) === true;
+    return logicalOperator === undefined ? undefined : shortCircuitSelection(logicalOperator, reference.value);
+}
+
+function logicalAssignmentValue(
+    expression: BinaryExpression,
+    reference: EvaluationReference,
+    selection: ShortCircuitSelection,
+    context: EvaluationContext
+): AbstractValue | undefined {
+    if (selection === 'right') {
+        return writeReference(reference, context.evaluate(expression.getRight(), context));
+    }
+    return selection === 'left' ? reference.value : undefined;
 }
 
 export function evaluateAssignment(
@@ -96,10 +117,11 @@ export function evaluateAssignment(
         return undefined;
     }
     const operator = expression.getOperatorToken().getKind();
-    if (assignmentSelectsLeft(operator, reference)) {
-        return reference.value;
+    const selection = logicalAssignmentSelection(operator, reference);
+    if (selection !== undefined) {
+        return logicalAssignmentValue(expression, reference, selection, context);
     }
-    return operator === SyntaxKind.EqualsToken || logicalAssignmentOperator(operator) !== undefined
+    return operator === SyntaxKind.EqualsToken
         ? writeReference(reference, context.evaluate(expression.getRight(), context))
         : compoundAssignmentValue(expression, reference, context);
 }

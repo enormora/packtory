@@ -33,3 +33,15 @@ export function evaluateIntrinsicCall(
     }
     return intrinsicIntegrityOf(call.getSourceFile()).isIntact(calleePath) ? intrinsic(argumentValues) : undefined;
 }
+
+export function evaluateIntrinsicCallSite(call: CallExpression, context: EvaluationContext): AbstractValue | undefined {
+    const argumentValues: AbstractValue[] = [];
+    for (const argument of call.getArguments()) {
+        const value = context.evaluate(argument, context);
+        if (value === undefined) {
+            return undefined;
+        }
+        argumentValues.push(value);
+    }
+    return evaluateIntrinsicCall(call, argumentValues, context);
+}

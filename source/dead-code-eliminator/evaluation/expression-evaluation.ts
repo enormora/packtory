@@ -40,7 +40,7 @@ function expressionValue(node: Expression, context: EvaluationContext): Abstract
             return evaluateArray(array, context);
         })
         .otherwise(function () {
-            return evaluateLiteral(node) ?? evaluateRecordExpression(node, context);
+            return evaluateLiteral(node, context) ?? evaluateRecordExpression(node, context);
         });
 }
 

@@ -7,6 +7,7 @@ import {
     isPrimitiveResult,
     isRecordResult,
     opaqueResult,
+    shortCircuitSelection,
     typeOfResult,
     type AbstractValue
 } from './abstract-value.ts';
@@ -30,6 +31,25 @@ suite('abstract values', function () {
         }
     });
 
+    suite('short-circuit selection', function () {
+        for (
+            const [ operator, value, expected ] of [
+                [ SyntaxKind.QuestionQuestionToken, evaluated(undefined), 'right' ],
+                [ SyntaxKind.QuestionQuestionToken, evaluated(null), 'right' ],
+                [ SyntaxKind.QuestionQuestionToken, evaluated(0), 'left' ],
+                [ SyntaxKind.QuestionQuestionToken, opaqueResult('value'), 'either' ],
+                [ SyntaxKind.QuestionQuestionToken, opaqueResult('array'), 'left' ],
+                [ SyntaxKind.AmpersandAmpersandToken, opaqueResult('primitive'), 'either' ],
+                [ SyntaxKind.BarBarToken, opaqueResult('array'), 'left' ],
+                [ SyntaxKind.QuestionToken, evaluated(0), undefined ]
+            ] as const
+        ) {
+            test(`selects the ${String(expected)} operand for ${SyntaxKind[operator]}`, function () {
+                assert.strictEqual(shortCircuitSelection(operator, value), expected);
+            });
+        }
+    });
+
     suite('opaque array values', function () {
         test('reports an array of unknown contents as an object that is neither primitive nor record', function () {
             const array = opaqueResult('array');
@@ -37,7 +57,10 @@ suite('abstract values', function () {
             assert.strictEqual(typeOfResult(array), 'object');
             assert.strictEqual(isPrimitiveResult(array), false);
             assert.strictEqual(isRecordResult(array), false);
-            assert.strictEqual(evaluateAbstractBinary(SyntaxKind.EqualsEqualsEqualsToken, array, array), undefined);
+            assert.deepStrictEqual(
+                evaluateAbstractBinary(SyntaxKind.EqualsEqualsEqualsToken, array, array),
+                opaqueResult('primitive')
+            );
         });
     });
 
@@ -74,12 +97,18 @@ suite('abstract values', function () {
         }
 
         for (const operator of [ SyntaxKind.EqualsEqualsEqualsToken, SyntaxKind.ExclamationEqualsEqualsToken ]) {
-            test(`does not decide ${SyntaxKind[operator]} for oversized bigints`, function () {
+            test(`keeps ${SyntaxKind[operator]} of oversized bigints as an unknown boolean`, function () {
                 const oversized = exponentiation(2n, 4096n);
                 assertDefined(oversized);
 
-                assert.strictEqual(evaluateAbstractBinary(operator, oversized, oversized), undefined);
-                assert.strictEqual(evaluateAbstractBinary(operator, evaluated(1n), oversized), undefined);
+                assert.deepStrictEqual(
+                    evaluateAbstractBinary(operator, oversized, oversized),
+                    opaqueResult('primitive')
+                );
+                assert.deepStrictEqual(
+                    evaluateAbstractBinary(operator, evaluated(1n), oversized),
+                    opaqueResult('primitive')
+                );
             });
         }
 

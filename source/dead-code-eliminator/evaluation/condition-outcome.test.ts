@@ -9,6 +9,8 @@ suite('condition outcome proofs', function () {
     for (
         const [ content, truthy, nullish ] of [
             [ '42', true, false ],
+            [ '/x/', undefined, undefined ],
+            [ 'typeof /x/ === "object"', undefined, undefined ],
             [ '0', false, false ],
             [ 'null', false, true ],
             [ 'undefined', false, true ],

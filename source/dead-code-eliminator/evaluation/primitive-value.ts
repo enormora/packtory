@@ -1,5 +1,5 @@
 import { match, P } from 'ts-pattern';
-import { constant, isString, isTruthy } from 'remeda';
+import { constant, isString } from 'remeda';
 import { SyntaxKind, type NumericLiteral } from 'ts-morph';
 
 export type PrimitiveValue = bigint | boolean | number | string | null | undefined;
@@ -246,16 +246,6 @@ export function bigintOverflowIsNonzeroAndEffectFree(operator: SyntaxKind, left:
     return operator === SyntaxKind.AsteriskAsteriskToken
         ? exponentiationOverflowIsEffectFree(left, right)
         : isOverflowingBigIntOperator(operator);
-}
-
-export function shortCircuitValue(operator: SyntaxKind | undefined, left: unknown): boolean | undefined {
-    if (operator === SyntaxKind.AmpersandAmpersandToken) {
-        return !isTruthy(left);
-    }
-    if (operator === SyntaxKind.BarBarToken) {
-        return Boolean(left);
-    }
-    return operator === SyntaxKind.QuestionQuestionToken ? left !== null && left !== undefined : undefined;
 }
 
 export function evaluatePrimitiveUnary(operator: SyntaxKind, operand: PrimitiveValue): EvaluatedValue | undefined {
