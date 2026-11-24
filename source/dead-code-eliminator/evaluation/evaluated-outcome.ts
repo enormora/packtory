@@ -1,13 +1,21 @@
-import type { CallExpression, NewExpression } from 'ts-morph';
+import type { Expression, SourceFile } from 'ts-morph';
 import { isPrimitiveResult } from './abstract-value.ts';
-import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
+import { createRuntimeSourceEvaluation, type SourceEvaluation } from './constant-evaluation.ts';
 
-export type EvaluatedOutcome = 'coercion-safe-primitive' | 'value';
+type EvaluatedOutcome = 'coercion-safe-primitive' | 'value';
 
-export function evaluatedOutcomeOf(expression: CallExpression | NewExpression): EvaluatedOutcome | undefined {
-    const value = createRuntimeBoundedEvaluator(expression.getSourceFile(), new Map())(expression);
-    if (value === undefined) {
-        return undefined;
-    }
-    return isPrimitiveResult(value) && typeof value.value !== 'bigint' ? 'coercion-safe-primitive' : 'value';
+export type EvaluatedOutcomes = (expression: Expression) => EvaluatedOutcome | undefined;
+
+export function createEvaluatedOutcomes(): EvaluatedOutcomes {
+    const evaluations = new WeakMap<SourceFile, SourceEvaluation>();
+    return function (expression) {
+        const source = expression.getSourceFile();
+        const evaluation = evaluations.get(source) ?? createRuntimeSourceEvaluation(source);
+        evaluations.set(source, evaluation);
+        const value = evaluation.knownValue(expression);
+        if (value === undefined) {
+            return undefined;
+        }
+        return isPrimitiveResult(value) && typeof value.value !== 'bigint' ? 'coercion-safe-primitive' : 'value';
+    };
 }

@@ -79,7 +79,7 @@ suite('class-purity', function () {
     });
 
     test('hasClassImpurity returns true when a static field has an impure initializer', function () {
-        const declaration = classDeclaration('class Foo { static items = [].length; }');
+        const declaration = classDeclaration('class Foo { static items = load(); }');
 
         assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
     });

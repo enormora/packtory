@@ -3,8 +3,6 @@ import {
     SyntaxKind,
     VariableDeclarationKind,
     type Expression,
-    type CallExpression,
-    type NewExpression,
     type Identifier,
     type Node as TypeScriptMorphNodeType,
     type SourceFile,
@@ -20,7 +18,7 @@ import {
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { evaluatedOutcomeOf } from './evaluation/evaluated-outcome.ts';
+import { createEvaluatedOutcomes } from './evaluation/evaluated-outcome.ts';
 import { expressionBindingShapeIsStable } from './binding-stability.ts';
 import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
 import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
@@ -43,16 +41,15 @@ export const purePrimitiveFact: ExpressionFact = { origin: undefined, type: 'pur
 export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin: undefined };
 export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
-export function localCallFact(expression: CallExpression): ExpressionFact {
-    const outcome = evaluatedOutcomeOf(expression);
-    if (outcome === undefined) {
-        return unknownFact;
-    }
-    return outcome === 'coercion-safe-primitive' ? purePrimitiveFact : pureValueFact;
-}
-
-export function localConstructionFact(expression: NewExpression): ExpressionFact {
-    return evaluatedOutcomeOf(expression) === undefined ? unknownFact : pureValueFact;
+export function createEvaluatedFacts(): ExpressionFactResolver {
+    const outcomes = createEvaluatedOutcomes();
+    return function (expression) {
+        const outcome = outcomes(expression);
+        if (outcome === undefined) {
+            return unknownFact;
+        }
+        return outcome === 'coercion-safe-primitive' ? purePrimitiveFact : pureValueFact;
+    };
 }
 
 export function expressionFactIsPure(fact: ExpressionFact): boolean {

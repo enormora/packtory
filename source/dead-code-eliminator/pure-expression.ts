@@ -11,8 +11,7 @@ import {
     classExpressionFact,
     expressionFactIsPure,
     identifierReadFact,
-    localCallFact,
-    localConstructionFact,
+    createEvaluatedFacts,
     pureLocalObjectFact,
     pureValueFact,
     purePrimitiveFact,
@@ -49,6 +48,7 @@ type PurityRule = (
 type ExpressionFactContext = {
     readonly cache: WeakMap<Expression, ExpressionFact>;
     readonly purity: PurityContext;
+    readonly evaluatedFact: ExpressionFactResolver;
 };
 
 function isPureArrayElement(element: Expression, factFor: ExpressionFactResolver): boolean {
@@ -122,10 +122,6 @@ function callExpressionFact(
     if (annotationTrustsCall(expression, purityCheckerFor(factFor))) {
         return pureValueFact;
     }
-    const localFact = localCallFact(expression);
-    if (expressionFactIsPure(localFact)) {
-        return localFact;
-    }
     const importedCallFact = importedCallResultFact(
         originForCallTarget(callTarget, factFor, context),
         expression,
@@ -141,8 +137,7 @@ function isPureNewExpression(
     context: PurityContext
 ): boolean {
     const isPure = purityCheckerFor(factFor);
-    return annotationTrustsCall(expression, isPure) || settingsTrustConstruction(expression, context, isPure) ||
-        expressionFactIsPure(localConstructionFact(expression));
+    return annotationTrustsCall(expression, isPure) || settingsTrustConstruction(expression, context, isPure);
 }
 
 function templateExpressionFact(expression: Expression, factFor: ExpressionFactResolver): ExpressionFact {
@@ -292,7 +287,10 @@ function cacheCalculatedExpressionFact(
     factFor: ExpressionFactResolver
 ): ExpressionFact {
     context.cache.set(expression, unknownFact);
-    const fact = calculateExpressionFact(expression, context, factFor);
+    const syntacticFact = calculateExpressionFact(expression, context, factFor);
+    const fact = expressionFactIsPure(syntacticFact)
+        ? syntacticFact
+        : context.evaluatedFact(unwrapExpression(expression));
     context.cache.set(expression, fact);
     return fact;
 }
@@ -310,7 +308,8 @@ export function createPreparedExpressionPurityChecker(
 ): ExpressionPurityChecker {
     const context: ExpressionFactContext = {
         cache: new WeakMap(),
-        purity: { settings, resolveRuntimeModule: resolveModule }
+        purity: { settings, resolveRuntimeModule: resolveModule },
+        evaluatedFact: createEvaluatedFacts()
     };
     return function (expression) {
         return expressionFactIsPure(expressionFactFor(expression, context));

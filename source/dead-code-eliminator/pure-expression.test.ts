@@ -181,7 +181,7 @@ suite('pure-expression', function () {
 
         test('isPureExpression returns false for a binary expression with a disallowed operator', function () {
             assert.strictEqual(
-                isPureExpression(firstVariableInitializerExpression('const a = 1 == 2;'), undefined),
+                isPureExpression(firstVariableInitializerExpression('const a = {} == 2;'), undefined),
                 false
             );
         });

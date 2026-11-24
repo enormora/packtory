@@ -3,6 +3,26 @@ import { suite, test } from 'mocha';
 import { classify } from '../test-libraries/side-effect-classifier-test-support.ts';
 
 suite('side-effect-classifier variable initializers', function () {
+    suite('side-effect-classifier bigint initializers', function () {
+        for (const initializer of [ '2n * 3n', '2n ** 4096n', 'base ** bits' ]) {
+            test(`treats a const with bigint arithmetic ${initializer} as pure`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = 2n;\nconst bits = 4096n;\nconst x = ${initializer};`),
+                    []
+                );
+            });
+        }
+
+        for (const initializer of [ '2n ** -1n', '1n / 0n', '0n ** -1n', '1n + 1', '2n ** 2000000n' ]) {
+            test(`treats a const with throwing bigint arithmetic ${initializer} as impure`, function () {
+                assert.deepStrictEqual(classify(`const x = ${initializer};`), [ {
+                    line: 1,
+                    kind: 'variable initializer'
+                } ]);
+            });
+        }
+    });
+
     suite('side-effect-classifier literal initializers', function () {
         test('treats a const with a literal initializer as pure', function () {
             assert.deepStrictEqual(classify('const x = 1;'), []);
@@ -171,8 +191,12 @@ suite('side-effect-classifier variable initializers', function () {
             assert.deepStrictEqual(classify('const x = 1 === 1;'), []);
         });
 
-        test('treats a const with a loose equality binary as impure', function () {
-            assert.deepStrictEqual(classify('const x = 1 == 1;'), [ { line: 1, kind: 'variable initializer' } ]);
+        test('treats a const with a coercing loose equality binary as impure', function () {
+            assert.deepStrictEqual(classify('const x = {} == 1;'), [ { line: 1, kind: 'variable initializer' } ]);
+        });
+
+        test('treats a const with a loose equality of primitives as pure', function () {
+            assert.deepStrictEqual(classify('const x = 1 == 1;'), []);
         });
 
         test('treats a const with a binary expression containing a call as impure', function () {

@@ -7,7 +7,8 @@ import {
     classExpressionFact,
     expressionFactIsPure,
     identifierReadFact,
-    localConstructionFact,
+    createEvaluatedFacts,
+    purePrimitiveFact,
     pureCallableWithOrigin,
     pureValueFact,
     unknownFact
@@ -86,8 +87,27 @@ suite('expression facts', function () {
     test('recognizes bounded local construction as a pure value', function () {
         const source = createProject().createSourceFile('input.ts', 'class Box{}const observed=new Box();export{};');
         const expression = source.getFirstDescendantByKindOrThrow(SyntaxKind.NewExpression);
-        assert.deepStrictEqual(localConstructionFact(expression), pureValueFact);
+        assert.deepStrictEqual(createEvaluatedFacts()(expression), pureValueFact);
     });
+
+    for (
+        const [ initializer, fact ] of [
+            [ '1 + 2', purePrimitiveFact ],
+            [ 'base + 1', purePrimitiveFact ],
+            [ '2n ** 3n', pureValueFact ],
+            [ '2n ** 4096n', pureValueFact ],
+            [ 'compute()', unknownFact ]
+        ] as const
+    ) {
+        test(`evaluates ${initializer} with the module constants`, function () {
+            const source = createProject().createSourceFile(
+                'input.ts',
+                `const base=1;const observed=${initializer};export{};`
+            );
+            const expression = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow();
+            assert.deepStrictEqual(createEvaluatedFacts()(expression), fact);
+        });
+    }
 
     test('resolves primitive computed class keys', function () {
         const source = createProject().createSourceFile(
