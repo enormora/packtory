@@ -1,22 +1,21 @@
 import { Project } from 'ts-morph';
 import { createPacktoryAnalysisIdentityResolver } from '../software-bill-of-materials/tool-version.ts';
-import { createPacktory } from '../packtory/packtory.ts';
-import type { Packtory } from '../packtory/packtory-results.ts';
+import { createPacktory, type Packtory } from '../packtory/packtory.ts';
 import { createScheduler } from '../packtory/scheduler.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { buildCheckRunner } from './check-runner.composition.ts';
 import {
     buildPackageProcessorComposition,
-    importPackageManifest
+    importPackageManifest,
+    type PackageProcessorCompositionOptions
 } from './package-processor.composition.ts';
-import type { PacktoryCompositionOptions } from './packtory-options.composition.ts';
 
 export type PacktoryComposition = {
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcaster;
 };
 
-export function buildPacktoryComposition(options: PacktoryCompositionOptions): PacktoryComposition {
+export function buildPacktoryComposition(options: PackageProcessorCompositionOptions): PacktoryComposition {
     const parts = buildPackageProcessorComposition(options);
     const scheduler = createScheduler({
         progressBroadcastProvider: parts.progressBroadcaster.provider

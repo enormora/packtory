@@ -21,7 +21,10 @@ import {
 } from '../bundle-emitter/registry/registry-transport.ts';
 import { createPackEmitter, type PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import { createVendorMaterializer, type VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
-import { getContinuousIntegrationRepositoryAddress } from '../bundle-emitter/repository-coherence.ts';
+import {
+    getContinuousIntegrationRepositoryAddress,
+    type ContinuousIntegrationEnvironment
+} from '../bundle-emitter/repository-coherence.ts';
 import { createDeadCodeEliminator, type InspectableDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedModules } from '../dependency-scanner/source-file-references.ts';
@@ -37,6 +40,7 @@ import { createPackageProcessor, type PackageProcessor } from '../packtory/packa
 import {
     createPublishedArtifactSmokeGate
 } from '../packtory/published-artifact-smoke-gate.ts';
+import type { VersionSourceResolver } from '../packtory/map-configuration.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
@@ -58,7 +62,6 @@ import {
 } from '../software-bill-of-materials/software-bill-of-materials-file.ts';
 import * as inventory from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../software-bill-of-materials/tool-version.ts';
-import type { PacktoryCompositionOptions } from './packtory-options.composition.ts';
 
 export async function importPackageManifest(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
@@ -154,7 +157,12 @@ export type PackageProcessorComposition = {
     readonly repositoryFolder: string;
 };
 
-export type PackageProcessorCompositionOptions = PacktoryCompositionOptions;
+export type PackageProcessorCompositionOptions = {
+    readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
+    readonly continuousIntegrationEnvironment: ContinuousIntegrationEnvironment;
+    readonly repositoryFolder?: string | undefined;
+    readonly resolveVersionSource?: VersionSourceResolver | undefined;
+};
 
 function getEnvironmentVariable(variableName: string): string | undefined {
     const environment = process.env[variableName];

@@ -1,9 +1,9 @@
 import type { JsonValue as JavaScriptObjectNotationValue } from 'type-fest';
 
-const forbiddenAdditionalPackageManifestAttributeNames = new Set<string>([
-    'dependencies',
-    'devDependencies',
-    'peerDependencies',
+const packageManifestDependencyFieldNames = [ 'dependencies', 'devDependencies', 'peerDependencies' ] as const;
+
+const forbiddenAdditionalPackageManifestAttributeNames = [
+    ...packageManifestDependencyFieldNames,
     'bin',
     'exports',
     'imports',
@@ -12,10 +12,14 @@ const forbiddenAdditionalPackageManifestAttributeNames = new Set<string>([
     'types',
     'type',
     'version'
-]);
+] as const;
+
+const forbiddenAdditionalPackageManifestAttributeNameSet = new Set<string>(
+    forbiddenAdditionalPackageManifestAttributeNames
+);
 
 export function isForbiddenAdditionalPackageManifestAttributeName(value: string): boolean {
-    return forbiddenAdditionalPackageManifestAttributeNames.has(value);
+    return forbiddenAdditionalPackageManifestAttributeNameSet.has(value);
 }
 
 export type MainPackageManifest = {

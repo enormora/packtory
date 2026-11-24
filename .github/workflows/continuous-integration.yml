@@ -43,16 +43,7 @@ jobs:
             - name: Run tests
               run: npx just test
             - name: Publish dry run
-              id: publish
-              run: |
-                  npx just compile
-                  npx --no-install packtory publish --report-json
-            - name: Save publish failure report
-              if: failure() && steps.publish.outcome == 'failure'
-              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              with:
-                  name: publish-report-node-${{ matrix.node-version }}
-                  path: packtory-report.json
+              run: npx just publish-dry-run
 
     mutation-testing:
         runs-on: ubuntu-latest
