@@ -21,12 +21,15 @@ export function unwrapExpression(expression: Expression | undefined): Expression
     return nextExpression === undefined ? expression : unwrapExpression(nextExpression);
 }
 
-function wrapsExpression(parent: TypeScriptMorphNode, expression: Expression): parent is Expression {
-    return nextUnwrappedExpression(parent) === expression;
+function wrapsExpression(parent: TypeScriptMorphNode, expression: TypeScriptMorphNode): parent is Expression {
+    const unwrapped: TypeScriptMorphNode | undefined = nextUnwrappedExpression(parent);
+    return unwrapped === expression;
 }
 
-export function expressionWithWrappers(expression: Expression): Expression {
-    return expression.getAncestors().reduce<Expression>(function (current, parent) {
+export function expressionWithWrappers(expression: Expression): Expression;
+export function expressionWithWrappers(node: TypeScriptMorphNode): TypeScriptMorphNode;
+export function expressionWithWrappers(expression: TypeScriptMorphNode): TypeScriptMorphNode {
+    return expression.getAncestors().reduce<TypeScriptMorphNode>(function (current, parent) {
         return wrapsExpression(parent, current)
             ? parent
             : current;

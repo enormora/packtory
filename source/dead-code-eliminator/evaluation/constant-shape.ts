@@ -8,14 +8,14 @@ import {
     type VariableDeclaration
 } from 'ts-morph';
 import { expressionWithWrappers, unwrapExpression } from '../expression-unwrapping.ts';
-import { bindingReferenceTargets, referenceDeclaresBinding } from '../reference-target.ts';
+import { bindingReferenceTargets, referenceAliasName, referenceDeclaresBinding } from '../reference-target.ts';
 import { expressionIsWriteTarget } from '../transform/expression-write.ts';
 import { opaqueResult, type AbstractValue } from './abstract-value.ts';
 import { constantDominatesRead, constantInitializer } from './constant-binding.ts';
 import { globalPathOf } from './global-path.ts';
 import { bindingDeclarationsOf } from './global-reference.ts';
 
-type ShapeKeepingUse = (reference: Expression, parent: TypeScriptMorphNodeType | undefined) => boolean;
+type ShapeKeepingUse = (reference: TypeScriptMorphNodeType, parent: TypeScriptMorphNodeType | undefined) => boolean;
 
 const iterableConsumingConstructors: ReadonlySet<string> = new Set([ 'Set', 'Map', 'WeakSet', 'WeakMap' ]);
 
@@ -35,17 +35,23 @@ function memberIsWritten(member: Expression): boolean {
         TypeScriptMorphNode.isDeleteExpression(expressionWithWrappers(member).getParent());
 }
 
-function memberRead(reference: Expression, parent: TypeScriptMorphNodeType | undefined): Expression | undefined {
+function memberRead(
+    reference: TypeScriptMorphNodeType,
+    parent: TypeScriptMorphNodeType | undefined
+): Expression | undefined {
     const isMember = TypeScriptMorphNode.isPropertyAccessExpression(parent) ||
         TypeScriptMorphNode.isElementAccessExpression(parent);
     return isMember && parent.getExpression() === reference && !memberIsWritten(parent) ? parent : undefined;
 }
 
-function readsProperty(reference: Expression, parent: TypeScriptMorphNodeType | undefined): boolean {
+function readsProperty(reference: TypeScriptMorphNodeType, parent: TypeScriptMorphNodeType | undefined): boolean {
     return memberRead(reference, parent) !== undefined;
 }
 
-function readsUncalledProperty(reference: Expression, parent: TypeScriptMorphNodeType | undefined): boolean {
+function readsUncalledProperty(
+    reference: TypeScriptMorphNodeType,
+    parent: TypeScriptMorphNodeType | undefined
+): boolean {
     const member = memberRead(reference, parent);
     if (member === undefined) {
         return false;
@@ -59,7 +65,10 @@ function iterates(parent: TypeScriptMorphNodeType | undefined): boolean {
     return TypeScriptMorphNode.isSpreadElement(parent) || TypeScriptMorphNode.isForOfStatement(parent);
 }
 
-function passesToIterableConstructor(reference: Expression, parent: TypeScriptMorphNodeType | undefined): boolean {
+function passesToIterableConstructor(
+    reference: TypeScriptMorphNodeType,
+    parent: TypeScriptMorphNodeType | undefined
+): boolean {
     if (!TypeScriptMorphNode.isNewExpression(parent) || !parent.getArguments().includes(reference)) {
         return false;
     }
@@ -67,34 +76,26 @@ function passesToIterableConstructor(reference: Expression, parent: TypeScriptMo
     return path !== undefined && iterableConsumingConstructors.has(path.join('.'));
 }
 
-function referencesOf(declaration: VariableDeclaration): readonly TypeScriptMorphNodeType[] {
-    return bindingReferenceTargets(declaration.getNameNode().asKindOrThrow(SyntaxKind.Identifier));
-}
-
-function aliasDeclaration(reference: Expression): VariableDeclaration | undefined {
-    const parent = reference.getParent();
-    return TypeScriptMorphNode.isVariableDeclaration(parent) && TypeScriptMorphNode.isIdentifier(parent.getNameNode())
-        ? parent
-        : undefined;
-}
-
 function referenceKeepsShape(
     reference: TypeScriptMorphNodeType,
     keepsShape: ShapeKeepingUse,
-    followAlias: (alias: VariableDeclaration) => boolean
+    followAlias: (alias: Identifier) => boolean
 ): boolean {
-    if (referenceDeclaresBinding(reference) || !TypeScriptMorphNode.isExpression(reference)) {
-        return referenceDeclaresBinding(reference);
+    if (referenceDeclaresBinding(reference)) {
+        return true;
+    }
+    const alias = referenceAliasName(reference);
+    if (alias !== undefined) {
+        return followAlias(alias);
     }
     const outer = expressionWithWrappers(reference);
-    const alias = aliasDeclaration(outer);
-    return alias === undefined ? keepsShape(outer, outer.getParent()) : followAlias(alias);
+    return keepsShape(outer, outer.getParent());
 }
 
 function constantKeepsShape(declaration: VariableDeclaration, keepsShape: ShapeKeepingUse): boolean {
-    const pending = new Set(referencesOf(declaration));
-    function followAlias(alias: VariableDeclaration): boolean {
-        for (const reference of referencesOf(alias)) {
+    const pending = new Set(bindingReferenceTargets(declaration.getNameNode().asKindOrThrow(SyntaxKind.Identifier)));
+    function followAlias(alias: Identifier): boolean {
+        for (const reference of bindingReferenceTargets(alias)) {
             pending.add(reference);
         }
         return true;
