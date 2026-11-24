@@ -18,53 +18,10 @@ export const pureLeafKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
     SyntaxKind.ArrowFunction
 );
 
-export const purePrimitiveLeafKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
-    SyntaxKind.StringLiteral,
-    SyntaxKind.NumericLiteral,
-    SyntaxKind.TrueKeyword,
-    SyntaxKind.FalseKeyword,
-    SyntaxKind.NullKeyword,
-    SyntaxKind.NoSubstitutionTemplateLiteral
-);
-
-export const strictEqualityOperators: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
-    SyntaxKind.EqualsEqualsEqualsToken,
-    SyntaxKind.ExclamationEqualsEqualsToken
-);
-
 export const shortCircuitOperators: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
     SyntaxKind.AmpersandAmpersandToken,
     SyntaxKind.BarBarToken,
     SyntaxKind.QuestionQuestionToken
-);
-
-export const allowedPrefixUnaryOperators: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
-    SyntaxKind.MinusToken,
-    SyntaxKind.PlusToken,
-    SyntaxKind.ExclamationToken,
-    SyntaxKind.TildeToken
-);
-
-export const allowedBinaryOperators: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
-    SyntaxKind.PlusToken,
-    SyntaxKind.MinusToken,
-    SyntaxKind.AsteriskToken,
-    SyntaxKind.SlashToken,
-    SyntaxKind.PercentToken,
-    SyntaxKind.AsteriskAsteriskToken,
-    ...shortCircuitOperators,
-    SyntaxKind.LessThanToken,
-    SyntaxKind.GreaterThanToken,
-    SyntaxKind.LessThanEqualsToken,
-    SyntaxKind.GreaterThanEqualsToken,
-    ...strictEqualityOperators
-);
-
-export const inherentlyPurePropertyKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
-    SyntaxKind.ShorthandPropertyAssignment,
-    SyntaxKind.MethodDeclaration,
-    SyntaxKind.GetAccessor,
-    SyntaxKind.SetAccessor
 );
 
 export const pureDeclarationKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(

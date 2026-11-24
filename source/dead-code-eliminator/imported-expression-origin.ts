@@ -1,8 +1,8 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type Expression, type Identifier, type SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import { createSyntaxAnalysis, type SyntaxAnalysisResults } from '../source-transformation/syntax-analysis.ts';
-import type { RuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
+import { referencedSymbol } from './evaluation/global-reference.ts';
 
 export type ImportedExpressionOrigin = {
     readonly from: string;
@@ -18,11 +18,6 @@ export function callResultOrigin(origin: ImportedExpressionOrigin): ImportedExpr
 }
 
 export type ExpressionPurityChecker = (expression: Expression) => boolean;
-
-export type PurityContext = {
-    readonly settings: DeadCodeEliminationSettings | undefined;
-    readonly resolveRuntimeModule: RuntimeModuleResolver;
-};
 
 type TrustedImport = {
     readonly from: string;
@@ -80,7 +75,7 @@ function importedOriginForIdentifier(identifier: Identifier): ImportedExpression
     if (!importedBindingNames(identifier.getSourceFile()).has(identifier.compilerNode.text)) {
         return undefined;
     }
-    const symbol = identifier.getSymbol();
+    const symbol = referencedSymbol(identifier);
     if (symbol === undefined) {
         return undefined;
     }

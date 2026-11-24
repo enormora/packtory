@@ -31,7 +31,7 @@ export function prepareLoadedResources(
         return loaded;
     }
     prepareLoadedExports(loaded);
-    return prepareRuntimeResources(loaded, input.deadCodeElimination).map(function (entry) {
+    return prepareRuntimeResources(loaded).map(function (entry) {
         if (entry.sourceFile === undefined) {
             return entry;
         }

@@ -1,6 +1,6 @@
 import type { Expression } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import { createExpressionPurityChecker } from '../dead-code-eliminator/pure-expression.ts';
+import { createExpressionPurityChecker } from '../dead-code-eliminator/expression-purity.ts';
 import { resolveRuntimeModule } from '../dead-code-eliminator/runtime-module-resolution.ts';
 import { establishEvaluationEnvironment } from '../dead-code-eliminator/evaluation/evaluation-environment-establishment.ts';
 
@@ -10,5 +10,5 @@ export function isPureExpression(expression: Expression, settings: DeadCodeElimi
         settings,
         resolveRuntimeModule
     );
-    return createExpressionPurityChecker(settings, resolveRuntimeModule)(expression);
+    return createExpressionPurityChecker()(expression);
 }

@@ -8,7 +8,7 @@ import { establishEvaluationEnvironment } from '../dead-code-eliminator/evaluati
 import { createProject } from './typescript-project.ts';
 
 export const classifySideEffects: SideEffectClassifier = function (sourceFile, settings) {
-    return createSideEffectClassifier([])(sourceFile, settings);
+    return createSideEffectClassifier()(sourceFile, settings);
 };
 
 export function classify(

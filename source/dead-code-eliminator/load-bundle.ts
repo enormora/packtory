@@ -90,7 +90,7 @@ export function loadBundle(
         trace
     );
     const fileBindings = buildFileBindings(loaded);
-    const classifySideEffects = createSideEffectClassifier(fileBindings);
+    const classifySideEffects = createSideEffectClassifier();
     const reachability = buildReachabilityIndex({
         bundleName: input.bundle.name,
         files: fileBindings,

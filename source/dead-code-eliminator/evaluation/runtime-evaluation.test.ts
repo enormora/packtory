@@ -2,13 +2,12 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createRuntimeSourceEvaluation } from './constant-evaluation.ts';
-import { createRuntimeBoundedEvaluator, createRuntimeConstantEvaluator } from './runtime-evaluation.ts';
+import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 
 suite('runtime evaluation', function () {
     for (
         const { name, createEvaluator } of [
-            { name: 'allocated and primitive values', createEvaluator: createRuntimeBoundedEvaluator },
-            { name: 'primitive values', createEvaluator: createRuntimeConstantEvaluator }
+            { name: 'allocated and primitive values', createEvaluator: createRuntimeBoundedEvaluator }
         ]
     ) {
         suite(name, function () {

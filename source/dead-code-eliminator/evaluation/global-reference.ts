@@ -1,7 +1,7 @@
 import { Node as TypeScriptMorphNode, type Identifier, type Node as TypeScriptMorphNodeType } from 'ts-morph';
 import { hasDynamicScope } from '../dynamic-scope.ts';
 
-function referencedSymbol(reference: Identifier): ReturnType<Identifier['getSymbol']> {
+export function referencedSymbol(reference: Identifier): ReturnType<Identifier['getSymbol']> {
     const parent = reference.getParent();
     return TypeScriptMorphNode.isShorthandPropertyAssignment(parent) ? parent.getValueSymbol() : reference.getSymbol();
 }

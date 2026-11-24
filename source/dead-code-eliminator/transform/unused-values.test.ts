@@ -2,7 +2,9 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createSourcePreparation } from '../../source-transformation/source-preparation.ts';
-import { createExpressionPurityChecker } from '../pure-expression.ts';
+import { createExpressionPurityChecker } from '../expression-purity.ts';
+import { establishEvaluationEnvironment } from '../evaluation/evaluation-environment-establishment.ts';
+import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { removeUnusedValues } from './unused-values.ts';
 
 suite('unused values', function () {
@@ -18,9 +20,7 @@ suite('unused values', function () {
                 const source = createProject().createSourceFile('input.ts', declaration + statement);
                 removeUnusedValues(
                     createSourcePreparation(source),
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), declaration + expected);
             });
@@ -36,9 +36,7 @@ suite('unused values', function () {
                 const source = createProject().createSourceFile('input.ts', content);
                 removeUnusedValues(
                     createSourcePreparation(source),
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), content);
             });
@@ -51,9 +49,7 @@ suite('unused values', function () {
             );
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker(undefined, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.doesNotMatch(source.getFullText(), /unused/u);
             assert.match(source.getFullText(), /return 42/u);
@@ -65,9 +61,7 @@ suite('unused values', function () {
             const source = createProject().createSourceFile('input.js', 'const unused=unknown();export{};');
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker(undefined, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.strictEqual(source.getFullText(), '(unknown());export{};');
         });
@@ -76,9 +70,7 @@ suite('unused values', function () {
             const source = createProject().createSourceFile('input.js', 'const unused=class{};export{};');
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker(undefined, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.strictEqual(source.getFullText(), ';export{};');
         });
@@ -86,14 +78,14 @@ suite('unused values', function () {
         test('removes unused trusted pure construction', function () {
             const content = 'const unused=new Trusted();export{};';
             const source = createProject().createSourceFile('input.js', content);
+            establishEvaluationEnvironment(
+                [ source ],
+                { enabled: true, pureConstructors: [ 'Trusted' ] },
+                resolveRuntimeModule
+            );
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker({
-                    enabled: true,
-                    pureConstructors: [ 'Trusted' ]
-                }, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.strictEqual(source.getFullText(), ';export{};');
         });
@@ -110,9 +102,7 @@ suite('unused values', function () {
                 const preparation = createSourcePreparation(source);
                 removeUnusedValues(
                     preparation,
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), content);
                 assert.deepStrictEqual(preparation.transformations, []);
@@ -126,9 +116,7 @@ suite('unused values', function () {
             );
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker(undefined, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.strictEqual(source.getFullText(), '(effect());export const value=42;');
         });
@@ -140,9 +128,7 @@ suite('unused values', function () {
             );
             removeUnusedValues(
                 createSourcePreparation(source),
-                createExpressionPurityChecker(undefined, function () {
-                    return undefined;
-                })
+                createExpressionPurityChecker()
             );
             assert.strictEqual(source.getFullText(), ';const kept=unknown();consume(kept);');
         });
@@ -152,9 +138,7 @@ suite('unused values', function () {
                 const source = createProject().createSourceFile('input.ts', `${kind} unused;export const value=42;`);
                 removeUnusedValues(
                     createSourcePreparation(source),
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), ';export const value=42;');
             });
@@ -165,9 +149,7 @@ suite('unused values', function () {
                 const preparation = createSourcePreparation(source);
                 removeUnusedValues(
                     preparation,
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), content);
                 assert.deepStrictEqual(preparation.transformations, []);
@@ -210,9 +192,7 @@ suite('unused values', function () {
                 const source = createProject().createSourceFile('input.ts', content);
                 removeUnusedValues(
                     createSourcePreparation(source),
-                    createExpressionPurityChecker(undefined, function () {
-                        return undefined;
-                    })
+                    createExpressionPurityChecker()
                 );
                 assert.strictEqual(source.getFullText(), expected);
             });
@@ -227,9 +207,7 @@ suite('unused values', function () {
                     await source.save();
                     removeUnusedValues(
                         createSourcePreparation(source),
-                        createExpressionPurityChecker(undefined, function () {
-                            return undefined;
-                        })
+                        createExpressionPurityChecker()
                     );
                     assert.strictEqual(
                         source.getFullText(),

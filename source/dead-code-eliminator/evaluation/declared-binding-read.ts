@@ -15,8 +15,25 @@ function enclosingActivation(node: TypeScriptMorphNodeType): TypeScriptMorphNode
     return node.getFirstAncestor(TypeScriptMorphNode.isFunctionLikeDeclaration);
 }
 
+function initializedScopeOf(declaration: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
+    const parent = declaration.getParent();
+    if (TypeScriptMorphNode.isCatchClause(parent)) {
+        return parent.getBlock();
+    }
+    const owner = parent?.getParent();
+    const isLoop = TypeScriptMorphNode.isForOfStatement(owner) || TypeScriptMorphNode.isForInStatement(owner) ||
+        TypeScriptMorphNode.isForStatement(owner);
+    return isLoop ? owner.getStatement() : undefined;
+}
+
+function loopOrCatchBindingIsInitialized(declaration: TypeScriptMorphNodeType, read: Identifier): boolean {
+    const scope = initializedScopeOf(declaration);
+    return scope !== undefined && read.getAncestors().includes(scope) &&
+        enclosingActivation(declaration) === enclosingActivation(read);
+}
+
 function declarationIsReadable(declaration: TypeScriptMorphNodeType, read: Identifier): boolean {
-    if (TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
+    if (loopOrCatchBindingIsInitialized(declaration, read) || TypeScriptMorphNode.isFunctionDeclaration(declaration)) {
         return true;
     }
     return (TypeScriptMorphNode.isClassDeclaration(declaration) ||

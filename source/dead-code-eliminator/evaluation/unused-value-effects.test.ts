@@ -1,14 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { variableInitializer } from '../pure-expression-test-support.ts';
-import { createExpressionPurityChecker } from '../pure-expression.ts';
+import { createExpressionPurityChecker } from '../expression-purity.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { createUnusedValueResolver } from './unused-value-effects.ts';
 
 suite('unused value effects', function () {
-    const isPure = createExpressionPurityChecker(undefined, function () {
-        return undefined;
-    });
+    const isPure = createExpressionPurityChecker();
 
     test('trusts the purity checker for static class initializers the evaluator cannot prove', function () {
         const source = createProject().createSourceFile('input.ts', 'const unused=(class{static value=load();});');

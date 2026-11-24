@@ -72,7 +72,9 @@ export function declarationOf(node: TypeScriptMorphNodeType): TypeScriptMorphNod
     const symbol = TypeScriptMorphNode.isShorthandPropertyAssignment(parent)
         ? parent.getValueSymbol()
         : node.getSymbol();
-    const declarations = symbol?.getDeclarations() ?? [];
+    const declarations = (symbol?.getDeclarations() ?? []).filter(function isBindingDeclaration(declaration) {
+        return !TypeScriptMorphNode.isExpression(declaration);
+    });
     return declarations.length === 1 ? declarations[0] : undefined;
 }
 

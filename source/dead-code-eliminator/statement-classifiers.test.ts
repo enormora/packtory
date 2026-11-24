@@ -2,10 +2,9 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, type SourceFile, type Statement, type Expression } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { resolveRuntimeModule } from './runtime-module-resolution.ts';
-import { createExpressionPurityChecker } from './pure-expression.ts';
+import { createExpressionPurityChecker } from './expression-purity.ts';
 import { statementClassifierFor } from './statement-classifiers.ts';
-import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
+import { createRuntimeSourceEvaluation } from './evaluation/constant-evaluation.ts';
 
 function firstStatementOfKind(content: string, kind: SyntaxKind): Statement {
     const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
@@ -14,9 +13,10 @@ function firstStatementOfKind(content: string, kind: SyntaxKind): Statement {
     return sourceFile.getFirstChildByKindOrThrow(kind) as Statement;
 }
 
-const isPure = createExpressionPurityChecker(undefined, resolveRuntimeModule);
+const isPure = createExpressionPurityChecker();
 const propertyKeyFor = function (expression: Expression): string | undefined {
-    return resolveComputedPropertyKey(expression, resolveRuntimeModule);
+    const value = createRuntimeSourceEvaluation(expression.getSourceFile()).primitiveValue(expression);
+    return value === undefined ? undefined : String(value.value);
 };
 
 suite('statement-classifiers', function () {
