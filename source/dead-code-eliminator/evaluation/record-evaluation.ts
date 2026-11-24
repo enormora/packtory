@@ -18,6 +18,7 @@ import {
 import { maximumEvaluationDepth, type EvaluationContext } from './evaluation-context.ts';
 import { evaluateComputedKey, evaluatePropertyKey } from './property-key-evaluation.ts';
 import { evaluateConstructionEffects } from './construction-evaluation.ts';
+import { intrinsicConstructionIsEffectFree } from './intrinsic-construction.ts';
 
 type RecordDataField = {
     readonly type: 'data';
@@ -164,7 +165,9 @@ export function evaluateRecordExpression(
     context: EvaluationContext
 ): AbstractValue | undefined {
     if (TypeScriptMorphNode.isNewExpression(expression)) {
-        return evaluateConstructionEffects(expression, context) ? { value: createRecordAllocation().value } : undefined;
+        const effectFree = evaluateConstructionEffects(expression, context) ||
+            intrinsicConstructionIsEffectFree(expression, context);
+        return effectFree ? { value: createRecordAllocation().value } : undefined;
     }
     return TypeScriptMorphNode.isObjectLiteralExpression(expression)
         ? allocateRecord(expression, context)

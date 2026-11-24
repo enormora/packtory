@@ -3,6 +3,78 @@ import { suite, test } from 'mocha';
 import { classify } from '../test-libraries/side-effect-classifier-test-support.ts';
 
 suite('side-effect-classifier trusted calls', function () {
+    suite('side-effect-classifier built-in construction arguments', function () {
+        for (
+            const construction of [
+                'new Map()',
+                'new Map(null)',
+                'new Map([ [ 1, 2 ] ])',
+                'new Set(undefined)',
+                'new WeakMap()',
+                'new TextEncoder()',
+                'new globalThis["Set"]()'
+            ]
+        ) {
+            test(`treats a built-in construction with safe arguments as pure: ${construction}`, function () {
+                assert.deepStrictEqual(classify(`const x = ${construction};`), []);
+            });
+        }
+
+        for (
+            const construction of [
+                'new Map([ [ 1, 2 ] ])',
+                'new Set([ 1 ])'
+            ]
+        ) {
+            test(`treats ${construction} as impure when the bundle patches the array iterator`, function () {
+                assert.deepStrictEqual(
+                    classify(`Array.prototype[Symbol.iterator] = replacement;\nconst x = ${construction};`),
+                    [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+
+        for (const construction of [ 'new Intl.Collator()', 'new (factory())()', 'new Set(...values)' ]) {
+            test(`treats a construction without a known built-in as impure: ${construction}`, function () {
+                assert.deepStrictEqual(classify(`const x = ${construction};`), [ {
+                    line: 1,
+                    kind: 'variable initializer'
+                } ]);
+            });
+        }
+    });
+
+    suite('side-effect-classifier built-in constructions', function () {
+        test('treats a built-in Set construction as pure without constructor trust settings', function () {
+            assert.deepStrictEqual(classify('const x = new Set([1, 2, 3]);', { enabled: true }), []);
+        });
+
+        for (
+            const construction of [
+                'new Set(compute())',
+                'new Set({})',
+                'new Map([ 1 ])',
+                'new WeakSet([ {} ])',
+                'new TextDecoder("latin1")',
+                'new Date()'
+            ]
+        ) {
+            test(`treats a construction that may throw or run code as impure: ${construction}`, function () {
+                assert.deepStrictEqual(classify(`const x = ${construction};`), [ {
+                    line: 1,
+                    kind: 'variable initializer'
+                } ]);
+            });
+        }
+
+        test('treats a built-in construction as impure when the bundle patches the method it calls', function () {
+            assert.deepStrictEqual(
+                classify('Set.prototype.add = replacement;\nconst x = new Set([ 1 ]);'),
+                [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+            );
+        });
+    });
+
     suite('side-effect-classifier intrinsic calls', function () {
         for (const creation of [ 'Symbol()', 'Symbol("marker")', 'Symbol(1)', 'globalThis.Symbol("marker")' ]) {
             test(`treats an intact global ${creation} as pure`, function () {
@@ -227,7 +299,7 @@ suite('side-effect-classifier trusted calls', function () {
             const shadowing of [
                 'class Set { constructor() { console.log("created"); } }',
                 'import { Set } from "./effects.js";',
-                'const Set = Map;',
+                'const Set = createSet();',
                 'function Set() { console.log("created"); }'
             ]
         ) {
@@ -247,12 +319,6 @@ suite('side-effect-classifier trusted calls', function () {
                 classify('eval(code);\nconst x = new Set();', { enabled: true, pureConstructors: [ 'Set' ] }),
                 [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
             );
-        });
-
-        test('treats a constructor call as impure when constructor trust settings are omitted', function () {
-            assert.deepStrictEqual(classify('const x = new Set([1, 2, 3]);', { enabled: true }), [
-                { line: 1, kind: 'variable initializer' }
-            ]);
         });
     });
 });
