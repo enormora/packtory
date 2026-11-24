@@ -7,6 +7,9 @@ suite('side-effect-classifier variable initializers', function () {
         for (
             const use of [
                 'export const copy = new Set(base);',
+                'export const entries = new Map(base);',
+                'export const members = new WeakSet(base);',
+                'export const associations = new WeakMap(base);',
                 'export const first = base[0];',
                 'export const size = base.length;',
                 'for (const value of base) {}',
@@ -33,6 +36,7 @@ suite('side-effect-classifier variable initializers', function () {
                 '--base.length;',
                 'delete base[0];',
                 'new Holder(base);',
+                'new S.et(base);',
                 'new globalThis["Set"](base);',
                 'table[base];',
                 'const alias = base;\nconsume(alias);',
