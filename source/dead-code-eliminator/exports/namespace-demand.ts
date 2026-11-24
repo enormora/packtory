@@ -1,6 +1,6 @@
 import { createWorklist } from '../../common/worklist.ts';
 
-export const allNamespaceProperties = Symbol('allNamespaceProperties');
+export const allNamespaceProperties = 'all';
 export type NamespaceDemand = ReadonlyMap<string, NamespaceDemand> | typeof allNamespaceProperties;
 export const noNamespaceProperties: ReadonlyMap<string, NamespaceDemand> = new Map();
 
@@ -52,7 +52,7 @@ function mergeDemandPair(
         complete(right);
         return;
     }
-    if (left === allNamespaceProperties || right === allNamespaceProperties) {
+    if (left === 'all' || right === 'all') {
         complete(allNamespaceProperties);
         return;
     }
@@ -78,7 +78,7 @@ export function mergeNamespaceDemand(left: NamespaceDemand, right: NamespaceDema
 }
 
 export function namespacePropertyDemand(demand: NamespaceDemand, name: string): NamespaceDemand {
-    return demand === allNamespaceProperties ? allNamespaceProperties : demand.get(name) ?? noNamespaceProperties;
+    return demand === 'all' ? allNamespaceProperties : demand.get(name) ?? noNamespaceProperties;
 }
 
 export function namespaceMemberDemand(name: string, demand: NamespaceDemand): NamespaceDemand {
@@ -86,5 +86,5 @@ export function namespaceMemberDemand(name: string, demand: NamespaceDemand): Na
 }
 
 export function namespaceProperties(demand: NamespaceDemand): ReadonlySet<string> | undefined {
-    return demand === allNamespaceProperties ? undefined : new Set(demand.keys());
+    return demand === 'all' ? undefined : new Set(demand.keys());
 }
