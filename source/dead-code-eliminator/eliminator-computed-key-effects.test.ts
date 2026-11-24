@@ -142,6 +142,14 @@ suite('eliminator computed key effects', function () {
     }
 
     suite('Symbol replacement effects', function () {
+        test('removes an unused Symbol creation when Symbol stays intact', function () {
+            assertDiscardProof('const unused=Symbol("x");export const value=42;', true);
+        });
+
+        test('keeps a Symbol creation when the module may rebind Symbol through direct eval', function () {
+            assertDiscardProof('eval(code);const unused=Symbol("x");export const value=42;', false);
+        });
+
         const replacement = '()=>{events.push("call");return {toString(){events.push("coerce");return "x";}};}';
         const changes = [
             { name: 'global alias', code: `const realm=globalThis;realm.Symbol=${replacement};` },

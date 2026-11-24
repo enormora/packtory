@@ -20,7 +20,7 @@ import {
     type ImportedExpressionOrigin
 } from './imported-expression-origin.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
-import { createRuntimeConstantEvaluator, createRuntimeBoundedEvaluator } from './evaluation/runtime-evaluation.ts';
+import { evaluatedOutcomeOf } from './evaluation/evaluated-outcome.ts';
 import { expressionBindingShapeIsStable } from './binding-stability.ts';
 import { createRuntimeCallablePurityProof } from './runtime-call-purity.ts';
 import { exportPurityForOrigin } from './liveness/external-purity-summary.ts';
@@ -44,14 +44,15 @@ export const pureLocalObjectFact: ExpressionFact = { type: 'pure-object', origin
 export const unknownFact: ExpressionFact = { origin: undefined, type: 'unknown' };
 
 export function localCallFact(expression: CallExpression): ExpressionFact {
-    return createRuntimeConstantEvaluator(expression.getSourceFile(), new Map())(expression) === undefined
-        ? unknownFact
-        : purePrimitiveFact;
+    const outcome = evaluatedOutcomeOf(expression);
+    if (outcome === undefined) {
+        return unknownFact;
+    }
+    return outcome === 'coercion-safe-primitive' ? purePrimitiveFact : pureValueFact;
 }
 
 export function localConstructionFact(expression: NewExpression): ExpressionFact {
-    const value = createRuntimeBoundedEvaluator(expression.getSourceFile(), new Map())(expression);
-    return value === undefined ? unknownFact : pureValueFact;
+    return evaluatedOutcomeOf(expression) === undefined ? unknownFact : pureValueFact;
 }
 
 export function expressionFactIsPure(fact: ExpressionFact): boolean {

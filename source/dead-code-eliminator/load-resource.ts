@@ -2,6 +2,7 @@ import type { Project } from 'ts-morph';
 import { createSourcePreparation, type SourcePreparation } from '../source-transformation/source-preparation.ts';
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
+import { establishIntrinsicIntegrity } from './evaluation/intrinsic-integrity.ts';
 import {
     captureBindingLocations,
     extractTopLevelBindings,
@@ -66,6 +67,9 @@ export function loadResources(
     const loaded = resources.map(function (resource) {
         return loadResource(projectForResource, resource);
     });
+    establishIntrinsicIntegrity(loaded.flatMap(function (entry) {
+        return entry.sourceFile ?? [];
+    }));
     return loaded.map(function (entry) {
         if (entry.sourceFile === undefined) {
             return entry;

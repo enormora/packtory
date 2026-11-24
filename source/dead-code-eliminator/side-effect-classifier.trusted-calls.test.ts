@@ -3,16 +3,40 @@ import { suite, test } from 'mocha';
 import { classify } from '../test-libraries/side-effect-classifier-test-support.ts';
 
 suite('side-effect-classifier trusted calls', function () {
+    suite('side-effect-classifier intrinsic calls', function () {
+        for (const creation of [ 'Symbol()', 'Symbol("marker")', 'Symbol(1)', 'globalThis.Symbol("marker")' ]) {
+            test(`treats an intact global ${creation} as pure`, function () {
+                assert.deepStrictEqual(classify(`const x = ${creation};`), []);
+            });
+        }
+
+        for (
+            const creation of [
+                'Symbol({ toString() { return "marker"; } })',
+                'Symbol(compute())',
+                'Symbol(...descriptions)',
+                'Symbol(Symbol())'
+            ]
+        ) {
+            test(`keeps a Symbol call with a coercing or unknown description observable: ${creation}`, function () {
+                assert.deepStrictEqual(classify(`const x = ${creation};`), [ {
+                    line: 1,
+                    kind: 'variable initializer'
+                } ]);
+            });
+        }
+
+        test('keeps a Symbol call observable when the bundle replaces Symbol', function () {
+            assert.deepStrictEqual(classify('globalThis.Symbol = replacement;\nconst x = Symbol("marker");'), [
+                { line: 1, kind: 'expression statement' },
+                { line: 2, kind: 'variable initializer' }
+            ]);
+        });
+    });
+
     suite('side-effect-classifier trusted imports', function () {
         test('treats a const with a call expression as impure', function () {
             assert.deepStrictEqual(classify('const x = compute();'), [ { line: 1, kind: 'variable initializer' } ]);
-        });
-
-        test('keeps an unresolved Symbol call observable', function () {
-            assert.deepStrictEqual(classify('const x = Symbol("marker");'), [ {
-                line: 1,
-                kind: 'variable initializer'
-            } ]);
         });
 
         test('treats a const with a trusted imported call as pure', function () {

@@ -11,7 +11,11 @@ export type AllocatedRecord = {
     readonly propertyReference: (key: string) => EvaluationReference | undefined;
 };
 
-export type AbstractValue = EvaluatedValue | { readonly value: AllocatedRecord; };
+type RecordResult = { readonly value: AllocatedRecord; };
+
+type SymbolResult = { readonly value: symbol; };
+
+export type AbstractValue = EvaluatedValue | RecordResult | SymbolResult;
 
 export type EvaluationReference = {
     readonly value: AbstractValue;
@@ -19,7 +23,11 @@ export type EvaluationReference = {
 };
 
 export function isPrimitiveResult(result: AbstractValue): result is EvaluatedValue {
-    return result.value === null || typeof result.value !== 'object';
+    return result.value === null || typeof result.value !== 'object' && typeof result.value !== 'symbol';
+}
+
+export function isRecordResult(result: AbstractValue): result is RecordResult {
+    return result.value !== null && typeof result.value === 'object';
 }
 
 export function primitiveResult(result: AbstractValue | undefined): EvaluatedValue | undefined {

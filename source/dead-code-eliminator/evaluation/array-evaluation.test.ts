@@ -4,7 +4,7 @@ import { SyntaxKind, type ArrayLiteralExpression } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createBoundedEvaluationContext } from '../../test-libraries/bounded-evaluation-context.ts';
 import { variableInitializer } from '../pure-expression-test-support.ts';
-import { isPrimitiveResult, type AllocatedRecord } from './abstract-value.ts';
+import { isRecordResult, type AllocatedRecord } from './abstract-value.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { evaluateArray } from './array-evaluation.ts';
 
@@ -15,7 +15,7 @@ function arrayExpression(content: string): ArrayLiteralExpression {
 function evaluatedArray(content: string): AllocatedRecord {
     const result = evaluateArray(arrayExpression(content), createBoundedEvaluationContext(0, 100));
     assertDefined(result);
-    if (isPrimitiveResult(result)) {
+    if (!isRecordResult(result)) {
         assert.fail('Expected a private array allocation');
     }
     return result.value;

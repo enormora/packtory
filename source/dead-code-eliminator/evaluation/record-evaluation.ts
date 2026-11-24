@@ -10,7 +10,7 @@ import { objectMember, staticPropertyName, type ObjectMember } from '../liveness
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { evaluated } from './primitive-value.ts';
 import {
-    isPrimitiveResult,
+    isRecordResult,
     type AbstractValue,
     type AllocatedRecord,
     type EvaluationReference
@@ -133,7 +133,7 @@ function propertyReference(
     receiver: AbstractValue | undefined,
     key: string | undefined
 ): EvaluationReference | undefined {
-    if (key === undefined || receiver === undefined || isPrimitiveResult(receiver)) {
+    if (key === undefined || receiver === undefined || !isRecordResult(receiver)) {
         return undefined;
     }
     return receiver.value.propertyReference(key);
