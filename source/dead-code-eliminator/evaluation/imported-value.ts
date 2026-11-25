@@ -40,14 +40,11 @@ function exportedResult(
     return importedResult(purity === 'pure-callable' ? 'callable' : 'object', origin);
 }
 
-function stableImportValue(
+function summarizedImportValue(
     origin: ImportedExpressionOrigin,
     identifier: Expression,
     environment: EvaluationEnvironment
 ): AbstractValue {
-    if (!shapeIsStable(identifier, environment)) {
-        return opaqueResult('value');
-    }
     const purity = exportPurity(origin, identifier, environment);
     return purity === 'unknown' ? opaqueResult('value') : exportedResult(origin, purity);
 }
@@ -60,7 +57,7 @@ export function importedBindingValue(identifier: Expression): AbstractValue | un
     const environment = evaluationEnvironmentOf(identifier.getSourceFile());
     return originIsTrustedPureImport(origin, environment.settings)
         ? importedResult('object', origin)
-        : stableImportValue(origin, identifier, environment);
+        : summarizedImportValue(origin, identifier, environment);
 }
 
 function appendOriginPath(
