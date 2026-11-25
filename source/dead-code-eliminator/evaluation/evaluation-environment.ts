@@ -16,16 +16,18 @@ export type EvaluationEnvironment = {
     readonly readImportedConstant: (expression: Expression) => EvaluatedValue | undefined;
 };
 
-const unregisteredEnvironment: EvaluationEnvironment = {
-    intrinsics: {
-        isIntact() {
-            return false;
-        }
-    },
-    settings: undefined,
-    resolveRuntimeModule,
-    readImportedConstant: constant(undefined)
-};
+function unregisteredEnvironment(): EvaluationEnvironment {
+    return {
+        intrinsics: {
+            isIntact() {
+                return false;
+            }
+        },
+        settings: undefined,
+        resolveRuntimeModule,
+        readImportedConstant: constant(undefined)
+    };
+}
 
 const environmentByProject = new WeakMap<Project, EvaluationEnvironment>();
 
@@ -34,7 +36,7 @@ export function registerEvaluationEnvironment(project: Project, environment: Eva
 }
 
 export function evaluationEnvironmentOf(source: SourceFile): EvaluationEnvironment {
-    return environmentByProject.get(source.getProject()) ?? unregisteredEnvironment;
+    return environmentByProject.get(source.getProject()) ?? unregisteredEnvironment();
 }
 
 export function intrinsicIntegrityOf(source: SourceFile): IntrinsicIntegrity {
