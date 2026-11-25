@@ -204,6 +204,53 @@ suite('pure-expression builder facts', function () {
         });
     });
 
+    suite('constants passed to imported calls', function () {
+        for (
+            const [ name, call, packageContent, expected ] of [
+                [ 'a pure summarized call', 'make(base);', 'export function make(target) { return {}; }', true ],
+                [
+                    'a summarized call that defines a getter',
+                    'make(base);',
+                    'export function make(target) { Object.defineProperty(target, "x", { get() { return 1; } }); }',
+                    false
+                ],
+                [
+                    'a pure summarized call whose binding is mutated',
+                    'make.extra = 1;\nmake(base);',
+                    'export function make(target) { return {}; }',
+                    false
+                ]
+            ] as const
+        ) {
+            test(`keeps a spread constant pure only after ${name}`, function () {
+                const expression = schemaExpression(
+                    [
+                        'import { make } from "schema-lib";',
+                        'const base = { value: 1 };',
+                        call,
+                        'const schema = { ...base };'
+                    ],
+                    schemaPackageFile(packageContent)
+                );
+
+                assert.strictEqual(isPureExpression(expression, undefined), expected);
+            });
+        }
+
+        test('keeps a spread constant pure after a trusted call', function () {
+            const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'trusted-lib' } ] };
+            const content = [
+                'import { make } from "trusted-lib";',
+                'const base = { value: 1 };',
+                'make(base);',
+                'const schema = { ...base };'
+            ];
+
+            assert.strictEqual(isPureExpression(variableInitializer(content.join('\n'), 'schema'), settings), true);
+            assert.strictEqual(isPureExpression(variableInitializer(content.join('\n'), 'schema'), undefined), false);
+        });
+    });
+
     suite('rejected builders', function () {
         test('rejects object spreads of relative imports without trusted object facts', function () {
             const expression = initializerFromProjectFiles([

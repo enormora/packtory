@@ -13,6 +13,7 @@ import { expressionIsWriteTarget } from '../transform/expression-write.ts';
 import { opaqueResult, type AbstractValue } from './abstract-value.ts';
 import { constantDominatesRead, constantInitializer } from './constant-binding.ts';
 import { globalPathOf } from './global-path.ts';
+import { importedCallIsPure } from './imported-value.ts';
 import { bindingDeclarationsOf } from './global-reference.ts';
 
 type ShapeKeepingUse = (reference: TypeScriptMorphNodeType, parent: TypeScriptMorphNodeType | undefined) => boolean;
@@ -92,6 +93,10 @@ function referenceKeepsShape(
     return keepsShape(outer, outer.getParent());
 }
 
+function passesToPureCall(parent: TypeScriptMorphNodeType | undefined): boolean {
+    return TypeScriptMorphNode.isCallExpression(parent) && importedCallIsPure(parent);
+}
+
 function constantKeepsShape(declaration: VariableDeclaration, keepsShape: ShapeKeepingUse): boolean {
     const pending = new Set(bindingReferenceTargets(declaration.getNameNode().asKindOrThrow(SyntaxKind.Identifier)));
     function followAlias(alias: Identifier): boolean {
@@ -110,13 +115,15 @@ function constantKeepsShape(declaration: VariableDeclaration, keepsShape: ShapeK
 
 export function constantArrayStaysIterable(declaration: VariableDeclaration): boolean {
     return constantKeepsShape(declaration, function (reference, parent) {
-        return iterates(parent) || readsProperty(reference, parent) || passesToIterableConstructor(reference, parent);
+        return iterates(parent) || readsProperty(reference, parent) || passesToIterableConstructor(reference, parent) ||
+            passesToPureCall(parent);
     });
 }
 
 export function constantObjectStaysSpreadSafe(declaration: VariableDeclaration): boolean {
     return constantKeepsShape(declaration, function (reference, parent) {
-        return TypeScriptMorphNode.isSpreadAssignment(parent) || readsUncalledProperty(reference, parent);
+        return TypeScriptMorphNode.isSpreadAssignment(parent) || readsUncalledProperty(reference, parent) ||
+            passesToPureCall(parent);
     });
 }
 

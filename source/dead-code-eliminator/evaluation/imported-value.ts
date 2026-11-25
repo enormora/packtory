@@ -121,3 +121,13 @@ export function importedCallValue(call: CallExpression, context: EvaluationConte
     );
     return returnsPureObject ? importedResult('object', callResultOrigin(origin)) : opaqueResult('value');
 }
+
+export function importedCallIsPure(call: CallExpression): boolean {
+    const callee = call.getExpression();
+    const origin = resolveImportedExpressionPropertyPath(callee);
+    const environment = evaluationEnvironmentOf(call.getSourceFile());
+    if (origin === undefined || originIsTrustedPureImport(origin, environment.settings)) {
+        return origin !== undefined;
+    }
+    return exportPurity(origin, call, environment) === 'pure-callable' && shapeIsStable(callee, environment);
+}
