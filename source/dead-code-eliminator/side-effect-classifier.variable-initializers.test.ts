@@ -37,6 +37,7 @@ suite('side-effect-classifier variable initializers', function () {
                 'delete base[0];',
                 'new Holder(base);',
                 'new S.et(base);',
+                'class Holder {}\nnew Holder(base);',
                 'new globalThis["Set"](base);',
                 'table[base];',
                 'const alias = base;\nconsume(alias);',
