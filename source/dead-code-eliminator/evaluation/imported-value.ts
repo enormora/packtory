@@ -1,4 +1,4 @@
-import { Node as TypeScriptMorphNode, type CallExpression, type Expression } from 'ts-morph';
+import { Node as TypeScriptMorphNode, type CallExpression, type Expression, type PropertyAccessExpression } from 'ts-morph';
 import { expressionBindingShapeIsStable } from '../binding-stability.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import {
@@ -72,20 +72,25 @@ function evaluatedOrigin(expression: Expression, context: EvaluationContext): Im
     return value === undefined ? undefined : originOf(value);
 }
 
-function originOfTarget(expression: Expression, context: EvaluationContext): ImportedExpressionOrigin | undefined {
-    const unwrapped = unwrapExpression(expression);
-    if (!TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)) {
-        return resolveImportedExpressionPropertyPath(unwrapped) ?? evaluatedOrigin(unwrapped, context);
-    }
-    const base = unwrapped.getExpression();
-    const baseOrigin = TypeScriptMorphNode.isPropertyAccessExpression(unwrapExpression(base))
-        ? originOfTarget(base, context)
-        : resolveImportedExpressionPropertyPath(base) ?? evaluatedOrigin(base, context);
-    return appendOriginPath(baseOrigin, unwrapped.getName());
+function memberOrigin(
+    member: PropertyAccessExpression,
+    context: EvaluationContext
+): ImportedExpressionOrigin | undefined {
+    return appendOriginPath(originOfTarget(member.getExpression(), context), member.getName());
 }
 
-export function importedMemberValue(expression: Expression, context: EvaluationContext): AbstractValue | undefined {
-    const origin = originOfTarget(expression, context);
+function originOfTarget(expression: Expression, context: EvaluationContext): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    return TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)
+        ? memberOrigin(unwrapped, context)
+        : resolveImportedExpressionPath(unwrapped) ?? evaluatedOrigin(unwrapped, context);
+}
+
+export function importedMemberValue(
+    expression: PropertyAccessExpression,
+    context: EvaluationContext
+): AbstractValue | undefined {
+    const origin = memberOrigin(expression, context);
     if (origin === undefined) {
         return undefined;
     }
