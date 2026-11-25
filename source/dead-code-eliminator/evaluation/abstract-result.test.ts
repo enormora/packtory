@@ -52,12 +52,27 @@ const callCases: readonly (readonly [string, ExpectedResult])[] = [
     [ 'const value = /*#__PURE__*/ new Holder(...[ 1 ]);', undefined ]
 ];
 
+const hugeBigIntLiteral = `0x${'f'.repeat(1025)}n`;
+
+const bigintCases: readonly (readonly [string, ExpectedResult])[] = [
+    [ 'const value = 5n ** 0n;', evaluated(1n) ],
+    [ 'const value = 0n ** 5000n;', evaluated(0n) ],
+    [ 'const value = 2n ** 2048n;', evaluated(2n ** 2048n) ],
+    [ 'const value = (-2n) ** 2048n;', evaluated(2n ** 2048n) ],
+    [ 'const value = 2n ** 2049n;', opaqueResult('oversized-bigint') ],
+    [ 'const value = 2n ** 524288n;', opaqueResult('oversized-bigint') ],
+    [ 'const value = 2n ** 524289n;', undefined ],
+    [ 'const value = 5n ** -1n;', undefined ],
+    [ 'const value = 2n ** 2048n * 2n ** 2048n;', opaqueResult('oversized-bigint') ]
+];
+
 suite('abstract results', function () {
     for (
         const [ name, cases ] of [
             [ 'operators', operatorCases ],
             [ 'literals and constants', literalCases ],
-            [ 'calls and constructions', callCases ]
+            [ 'calls and constructions', callCases ],
+            [ 'bigint arithmetic', bigintCases ]
         ] as const
     ) {
         suite(name, function () {
@@ -68,4 +83,9 @@ suite('abstract results', function () {
             }
         });
     }
+
+    test('does not reason about bigint operands beyond the evaluation bound', function () {
+        assert.strictEqual(knownValueOf(`const value = ${hugeBigIntLiteral} * 2n;`), undefined);
+        assert.strictEqual(knownValueOf(`const value = 2n * ${hugeBigIntLiteral};`), undefined);
+    });
 });

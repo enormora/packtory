@@ -91,13 +91,21 @@ const maximumBigIntMagnitude = bigintBase ** maximumBigIntBits;
 
 const binaryRadix = 2;
 
+type ExponentiationOutcome = 'exact' | 'oversized' | undefined;
+
 function bigintBitLength(value: bigint): bigint {
-    const magnitude = value < bigintZero ? -value : value;
-    return magnitude === bigintZero ? bigintZero : BigInt(magnitude.toString(binaryRadix).length);
+    return value === bigintZero ? bigintZero : BigInt(value.toString(binaryRadix).replace('-', '').length);
 }
 
-function exponentiationBits(base: bigint, exponent: bigint): bigint {
-    return bigintBitLength(base) * exponent;
+function exponentiationOutcome(base: bigint, exponent: bigint): ExponentiationOutcome {
+    if (exponent < bigintZero) {
+        return undefined;
+    }
+    const bits = bigintBitLength(base) * exponent;
+    if (bits <= maximumBigIntBits) {
+        return 'exact';
+    }
+    return bits <= engineSafeBigIntBits ? 'oversized' : undefined;
 }
 
 function boundedBigInt(value: bigint): EvaluatedValue | undefined {
@@ -105,7 +113,7 @@ function boundedBigInt(value: bigint): EvaluatedValue | undefined {
 }
 
 function guardedBigIntOperations(left: bigint, right: bigint): readonly (readonly [SyntaxKind, () => bigint])[] {
-    const exponentiation = right >= bigintZero && exponentiationBits(left, right) <= maximumBigIntBits
+    const exponentiation = exponentiationOutcome(left, right) === 'exact'
         ? [
             [ SyntaxKind.AsteriskAsteriskToken, function () {
                 return left ** right;
@@ -232,10 +240,6 @@ function isOverflowingBigIntOperator(operator: SyntaxKind): boolean {
     return [ SyntaxKind.PlusToken, SyntaxKind.MinusToken, SyntaxKind.AsteriskToken ].includes(operator);
 }
 
-function exponentiationOverflowIsEffectFree(base: bigint, exponent: bigint): boolean {
-    return base !== bigintZero && exponent >= bigintZero && exponentiationBits(base, exponent) <= engineSafeBigIntBits;
-}
-
 export function bigintOverflowIsNonzeroAndEffectFree(operator: SyntaxKind, left: unknown, right: unknown): boolean {
     if (
         typeof left !== 'bigint' || typeof right !== 'bigint' ||
@@ -244,7 +248,7 @@ export function bigintOverflowIsNonzeroAndEffectFree(operator: SyntaxKind, left:
         return false;
     }
     return operator === SyntaxKind.AsteriskAsteriskToken
-        ? exponentiationOverflowIsEffectFree(left, right)
+        ? exponentiationOutcome(left, right) === 'oversized'
         : isOverflowingBigIntOperator(operator);
 }
 
