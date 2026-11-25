@@ -78,12 +78,19 @@ suite('side-effect-classifier trusted calls', function () {
             });
         }
 
-        test('treats a built-in construction as impure when the bundle patches the method it calls', function () {
-            assert.deepStrictEqual(
-                classify('Set.prototype.add = replacement;\nconst x = new Set([ 1 ]);'),
-                [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
-            );
-        });
+        for (
+            const [ patch, construction ] of [
+                [ 'Set.prototype.add', 'new Set([ 1 ])' ],
+                [ 'Map.prototype.set', 'new Map([ [ 1, 2 ] ])' ]
+            ]
+        ) {
+            test(`treats ${construction} as impure when the bundle patches ${patch}`, function () {
+                assert.deepStrictEqual(
+                    classify(`${patch} = replacement;\nconst x = ${construction};`),
+                    [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
     });
 
     suite('side-effect-classifier intrinsic calls', function () {

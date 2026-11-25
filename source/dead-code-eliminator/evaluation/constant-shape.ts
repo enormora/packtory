@@ -18,8 +18,6 @@ import { bindingDeclarationsOf } from './global-reference.ts';
 
 type ShapeKeepingUse = (reference: TypeScriptMorphNodeType, parent: TypeScriptMorphNodeType | undefined) => boolean;
 
-const iterableConsumingConstructors: ReadonlySet<string> = new Set([ 'Set', 'Map', 'WeakSet', 'WeakMap' ]);
-
 function constantArrayDeclaration(identifier: Identifier): VariableDeclaration | undefined {
     const [ declaration ] = bindingDeclarationsOf(identifier);
     if (!TypeScriptMorphNode.isVariableDeclaration(declaration)) {
@@ -74,7 +72,7 @@ function passesToIterableConstructor(
         return false;
     }
     const path = globalPathOf(parent.getExpression(), constant(undefined));
-    return path !== undefined && iterableConsumingConstructors.has(path.join('.'));
+    return path !== undefined && [ 'Set', 'Map', 'WeakSet', 'WeakMap' ].includes(path.join('.'));
 }
 
 function referenceKeepsShape(

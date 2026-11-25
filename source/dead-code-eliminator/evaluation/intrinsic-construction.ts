@@ -17,11 +17,9 @@ type ConstructionArgument = {
 };
 
 type IntrinsicConstruction = {
-    readonly intactPaths: readonly GlobalPath[];
+    readonly intactPath: GlobalPath;
     readonly acceptsArgument: (argument: ConstructionArgument, intrinsics: IntrinsicIntegrity) => boolean;
 };
-
-const arrayIteratorPath: GlobalPath = [ 'Array', 'prototype', '@@iterator' ];
 
 function isNullish(argument: ConstructionArgument): boolean {
     return isPrimitiveResult(argument.value) && (argument.value.value === undefined || argument.value.value === null);
@@ -30,7 +28,7 @@ function isNullish(argument: ConstructionArgument): boolean {
 function isIterableArray(argument: ConstructionArgument, intrinsics: IntrinsicIntegrity): boolean {
     const isArray = isOpaqueArrayResult(argument.value) ||
         isRecordResult(argument.value) && TypeScriptMorphNode.isArrayLiteralExpression(argument.expression);
-    return isArray && intrinsics.isIntact(arrayIteratorPath);
+    return isArray && intrinsics.isIntact([ 'Array', 'prototype', '@@iterator' ]);
 }
 
 function acceptsNullishOrArray(argument: ConstructionArgument, intrinsics: IntrinsicIntegrity): boolean {
@@ -46,17 +44,22 @@ function acceptsNullishOrEntryLiterals(argument: ConstructionArgument, intrinsic
     return isNullish(argument) || entriesAreLiterals && isIterableArray(argument, intrinsics);
 }
 
-const intrinsicConstructions: ReadonlyMap<string, IntrinsicConstruction> = new Map([
-    [ 'Set', { intactPaths: [ [ 'Set' ], [ 'Set', 'prototype', 'add' ] ], acceptsArgument: acceptsNullishOrArray } ],
-    [ 'Map', {
-        intactPaths: [ [ 'Map' ], [ 'Map', 'prototype', 'set' ] ],
-        acceptsArgument: acceptsNullishOrEntryLiterals
-    } ],
-    [ 'WeakSet', { intactPaths: [ [ 'WeakSet' ] ], acceptsArgument: isNullish } ],
-    [ 'WeakMap', { intactPaths: [ [ 'WeakMap' ] ], acceptsArgument: isNullish } ],
-    [ 'TextEncoder', { intactPaths: [ [ 'TextEncoder' ] ], acceptsArgument: isNullish } ],
-    [ 'TextDecoder', { intactPaths: [ [ 'TextDecoder' ] ], acceptsArgument: isNullish } ]
-]);
+function intrinsicConstructionTable(): ReadonlyMap<string, IntrinsicConstruction> {
+    return new Map([
+        [ 'Set', {
+            intactPath: [ 'Set', 'prototype', 'add' ],
+            acceptsArgument: acceptsNullishOrArray
+        } ],
+        [ 'Map', {
+            intactPath: [ 'Map', 'prototype', 'set' ],
+            acceptsArgument: acceptsNullishOrEntryLiterals
+        } ],
+        [ 'WeakSet', { intactPath: [ 'WeakSet' ], acceptsArgument: isNullish } ],
+        [ 'WeakMap', { intactPath: [ 'WeakMap' ], acceptsArgument: isNullish } ],
+        [ 'TextEncoder', { intactPath: [ 'TextEncoder' ], acceptsArgument: isNullish } ],
+        [ 'TextDecoder', { intactPath: [ 'TextDecoder' ], acceptsArgument: isNullish } ]
+    ]);
+}
 
 function constructionArguments(
     expression: NewExpression,
@@ -80,13 +83,13 @@ function intrinsicConstructionFor(
     const path = globalPathOf(expression.getExpression(), function (key) {
         return evaluateComputedKey(key, context);
     });
-    return path === undefined ? undefined : intrinsicConstructions.get(path.join('.'));
+    return path === undefined ? undefined : intrinsicConstructionTable().get(path.join('.'));
 }
 
 function intrinsicConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {
     const construction = intrinsicConstructionFor(expression, context);
     const intrinsics = intrinsicIntegrityOf(expression.getSourceFile());
-    if (construction?.intactPaths.every(intrinsics.isIntact) !== true) {
+    if (construction === undefined || !intrinsics.isIntact(construction.intactPath)) {
         return false;
     }
     const evaluatedArguments = constructionArguments(expression, context);
