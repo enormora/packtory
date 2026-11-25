@@ -1,6 +1,5 @@
 import {
     Node as TypeScriptMorphNode,
-    type Expression,
     type NewExpression,
     type Node as TypeScriptMorphNodeType
 } from 'ts-morph';
@@ -13,7 +12,7 @@ import { evaluateComputedKey } from './property-key-evaluation.ts';
 import { trustedConstructionIsEffectFree } from './trusted-construction.ts';
 
 type ConstructionArgument = {
-    readonly expression: Expression;
+    readonly expression: TypeScriptMorphNodeType;
     readonly value: AbstractValue;
 };
 
@@ -59,19 +58,12 @@ const intrinsicConstructions: ReadonlyMap<string, IntrinsicConstruction> = new M
     [ 'TextDecoder', { intactPaths: [ [ 'TextDecoder' ] ], acceptsArgument: isNullish } ]
 ]);
 
-function isPositionalArgument(argument: TypeScriptMorphNodeType): argument is Expression {
-    return TypeScriptMorphNode.isExpression(argument) && !TypeScriptMorphNode.isSpreadElement(argument);
-}
-
 function constructionArguments(
     expression: NewExpression,
     context: EvaluationContext
 ): readonly ConstructionArgument[] | undefined {
     const evaluatedArguments: ConstructionArgument[] = [];
     for (const argument of expression.getArguments()) {
-        if (!isPositionalArgument(argument)) {
-            return undefined;
-        }
         const value = context.evaluate(argument, context);
         if (value === undefined) {
             return undefined;
@@ -88,7 +80,7 @@ function intrinsicConstructionFor(
     const path = globalPathOf(expression.getExpression(), function (key) {
         return evaluateComputedKey(key, context);
     });
-    return path?.length === 1 ? intrinsicConstructions.get(path.join('.')) : undefined;
+    return path === undefined ? undefined : intrinsicConstructions.get(path.join('.'));
 }
 
 function intrinsicConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {

@@ -47,9 +47,15 @@ const callCases: readonly (readonly [string, ExpectedResult])[] = [
     [ 'const value = /*#__PURE__*/ make();', opaqueResult('value') ],
     [ 'const value = /x/ || Symbol();', opaqueResult('value') ],
     [ 'const value = /x/ || Symbol(compute());', undefined ],
+    [ 'const value = /x/ || Symbol(/y/);', undefined ],
     [ 'const value = /*#__PURE__*/ new Holder(1);', 'record' ],
     [ 'const value = /*#__PURE__*/ new Holder(compute());', undefined ],
-    [ 'const value = /*#__PURE__*/ new Holder(...[ 1 ]);', undefined ]
+    [ 'const value = /*#__PURE__*/ new Holder(...[ 1 ]);', undefined ],
+    [ 'const value = Sym.bol("a");', undefined ],
+    [ 'const value = (other || Symbol)("a");', undefined ],
+    [ 'const value = new S.et();', undefined ],
+    [ 'const value = new Map([ [ 1, 2 ] ]);', 'record' ],
+    [ 'const value = new Map([ [ 1, 2 ], 3 ]);', undefined ]
 ];
 
 const hugeBigIntLiteral = `0x${'f'.repeat(1025)}n`;
@@ -83,6 +89,13 @@ suite('abstract results', function () {
             }
         });
     }
+
+    test('creates a symbol through a computed global key', function () {
+        const value = knownValueOf('const value = globalThis["Symbol"]("a");');
+
+        assert.ok(value !== undefined && value !== 'record');
+        assert.strictEqual(typeof value.value, 'symbol');
+    });
 
     test('does not reason about bigint operands beyond the evaluation bound', function () {
         assert.strictEqual(knownValueOf(`const value = ${hugeBigIntLiteral} * 2n;`), undefined);

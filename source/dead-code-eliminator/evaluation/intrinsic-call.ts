@@ -9,10 +9,9 @@ type IntrinsicCall = (argumentValues: readonly AbstractValue[]) => AbstractValue
 
 function createSymbol(argumentValues: readonly AbstractValue[]): AbstractValue | undefined {
     const [ description ] = argumentValues;
-    if (description !== undefined && !isPrimitiveResult(description)) {
-        return undefined;
-    }
-    return { value: Symbol(description === undefined ? undefined : String(description.value)) };
+    return description === undefined || isPrimitiveResult(description)
+        ? { value: Symbol('evaluated symbol') }
+        : undefined;
 }
 
 const intrinsicCalls: ReadonlyMap<string, IntrinsicCall> = new Map([
@@ -27,9 +26,11 @@ export function evaluateIntrinsicCall(
     const calleePath = globalPathOf(call.getExpression(), function (key) {
         return evaluateComputedKey(key, context);
     });
-    const intrinsic = calleePath === undefined ? undefined : intrinsicCalls.get(calleePath.join('.'));
-    if (calleePath === undefined || intrinsic === undefined) {
+    if (calleePath === undefined) {
         return undefined;
     }
-    return intrinsicIntegrityOf(call.getSourceFile()).isIntact(calleePath) ? intrinsic(argumentValues) : undefined;
+    const intrinsic = intrinsicCalls.get(calleePath.join('.'));
+    return intrinsic !== undefined && intrinsicIntegrityOf(call.getSourceFile()).isIntact(calleePath)
+        ? intrinsic(argumentValues)
+        : undefined;
 }
