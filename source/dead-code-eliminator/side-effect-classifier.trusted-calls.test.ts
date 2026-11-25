@@ -11,7 +11,9 @@ suite('side-effect-classifier trusted calls', function () {
                 'new Map([ [ 1, 2 ] ])',
                 'new Set(undefined)',
                 'new WeakMap()',
+                'new WeakSet()',
                 'new TextEncoder()',
+                'new TextDecoder()',
                 'new globalThis["Set"]()'
             ]
         ) {
@@ -29,6 +31,15 @@ suite('side-effect-classifier trusted calls', function () {
             test(`treats ${construction} as impure when the bundle patches the array iterator`, function () {
                 assert.deepStrictEqual(
                     classify(`Array.prototype[Symbol.iterator] = replacement;\nconst x = ${construction};`),
+                    [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+
+        for (const name of [ 'Set', 'Map', 'WeakSet', 'WeakMap', 'TextEncoder', 'TextDecoder' ]) {
+            test(`treats new ${name}() as impure when the bundle replaces the constructor`, function () {
+                assert.deepStrictEqual(
+                    classify(`globalThis.${name} = replacement;\nconst x = new ${name}();`),
                     [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
                 );
             });
