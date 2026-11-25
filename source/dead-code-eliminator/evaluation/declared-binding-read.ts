@@ -16,20 +16,18 @@ function enclosingActivation(node: TypeScriptMorphNodeType): TypeScriptMorphNode
 }
 
 function initializedScopeOf(declaration: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
-    const parent = declaration.getParent();
+    const parent = declaration.getParentOrThrow();
     if (TypeScriptMorphNode.isCatchClause(parent)) {
         return parent.getBlock();
     }
-    const owner = parent?.getParent();
+    const owner = parent.getParent();
     const isLoop = TypeScriptMorphNode.isForOfStatement(owner) || TypeScriptMorphNode.isForInStatement(owner) ||
         TypeScriptMorphNode.isForStatement(owner);
     return isLoop ? owner.getStatement() : undefined;
 }
 
 function loopOrCatchBindingIsInitialized(declaration: TypeScriptMorphNodeType, read: Identifier): boolean {
-    const scope = initializedScopeOf(declaration);
-    return scope !== undefined && read.getAncestors().includes(scope) &&
-        enclosingActivation(declaration) === enclosingActivation(read);
+    return initializedScopeOf(declaration)?.containsRange(read.getStart(), read.getEnd()) === true;
 }
 
 function declarationIsReadable(declaration: TypeScriptMorphNodeType, read: Identifier): boolean {
@@ -38,7 +36,7 @@ function declarationIsReadable(declaration: TypeScriptMorphNodeType, read: Ident
     }
     return (TypeScriptMorphNode.isClassDeclaration(declaration) ||
         TypeScriptMorphNode.isEnumDeclaration(declaration)) &&
-        enclosingActivation(declaration) === enclosingActivation(read) && read.getStart() > declaration.getEnd();
+        enclosingActivation(declaration) === enclosingActivation(read) && read.getPos() >= declaration.getEnd();
 }
 
 export function declaredBindingValue(read: Identifier): AbstractValue | undefined {
