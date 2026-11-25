@@ -6,7 +6,7 @@ import { constantInitializer } from './constant-binding.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { bindingDeclarationsOf, resolvesToGlobal } from './global-reference.ts';
 
-export type GlobalPath = readonly string[];
+export type GlobalPath = readonly (string | undefined)[];
 
 export type PropertyKeyEvaluator = (expression: Expression) => string | undefined;
 
@@ -17,18 +17,21 @@ type PathResolution = {
 
 type PathRule = (expression: Expression, depth: number, resolution: PathResolution) => GlobalPath | undefined;
 
-const globalObjectNames: ReadonlySet<string> = new Set([ 'globalThis', 'global', 'self', 'window' ]);
+const globalObjectNames: ReadonlySet<string | undefined> = new Set([ 'globalThis', 'global', 'self', 'window' ]);
 
 function memberPath(base: GlobalPath | undefined, key: string | undefined): GlobalPath | undefined {
-    if (base === undefined || key === undefined) {
+    if (base === undefined) {
         return undefined;
     }
     return base.length === 0 && globalObjectNames.has(key) ? base : [ ...base, key ];
 }
 
 function wellKnownSymbolKey(path: GlobalPath | undefined): string | undefined {
-    const [ owner, name, ...rest ] = path ?? [];
-    return owner === 'Symbol' && name !== undefined && rest.length === 0 ? `@@${name}` : undefined;
+    if (path === undefined) {
+        return undefined;
+    }
+    const [ owner, name, ...rest ] = path;
+    return owner === 'Symbol' && rest.length === 0 ? `@@${String(name)}` : undefined;
 }
 
 function propertyKeyAt(expression: Expression, depth: number, resolution: PathResolution): string | undefined {
@@ -37,10 +40,8 @@ function propertyKeyAt(expression: Expression, depth: number, resolution: PathRe
 
 function aliasInitializer(expression: Expression): Expression | undefined {
     const identifier = expression.asKindOrThrow(SyntaxKind.Identifier);
-    const [ declaration, ...otherDeclarations ] = bindingDeclarationsOf(identifier);
-    return TypeScriptMorphNode.isVariableDeclaration(declaration) && otherDeclarations.length === 0
-        ? constantInitializer(declaration)
-        : undefined;
+    const [ declaration ] = bindingDeclarationsOf(identifier);
+    return TypeScriptMorphNode.isVariableDeclaration(declaration) ? constantInitializer(declaration) : undefined;
 }
 
 function identifierPath(expression: Expression, depth: number, resolution: PathResolution): GlobalPath | undefined {

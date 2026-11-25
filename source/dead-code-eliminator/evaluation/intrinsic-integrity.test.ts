@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { resolveRuntimeModule } from '../runtime-module-resolution.ts';
 import { establishEvaluationEnvironment } from './evaluation-environment-establishment.ts';
+import { maximumEvaluationDepth } from './evaluation-context.ts';
 import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './evaluation-environment.ts';
 import type { GlobalPath } from './global-path.ts';
 
@@ -121,7 +122,12 @@ suite('intrinsic-integrity', function () {
                 'Object.assign();',
                 'Object.assign(createTarget(), { Symbol: replacement });',
                 'Object.assign(globalThis, { 1n: replacement });',
-                '({ method() {} } = source);'
+                '({ method() {} } = source);',
+                'Symbol[unknownName] = replacement;',
+                'Symbol.global = replacement;',
+                '!Symbol;',
+                'Array.prototype[Other.iterator] = replacement;',
+                'Array.prototype[Symbol.iterator.description] = replacement;'
             ]
         ) {
             test(`keeps Symbol and the array iterator intact for: ${write}`, function () {
@@ -164,15 +170,22 @@ suite('intrinsic-integrity', function () {
             assert.strictEqual(integrity.isIntact([ 'Set' ]), true);
         });
 
-        test('stops following aliases beyond the evaluation depth', function () {
-            const aliases = Array.from({ length: 40 }, function (_value, index) {
-                return `const alias${index + 1} = alias${index};`;
-            });
-            const integrity = integrityOf(
-                `const alias0 = globalThis;${aliases.join('')}alias40.Symbol = replacement; export {};`
-            );
+        for (
+            const { count, intact } of [
+                { count: maximumEvaluationDepth - 2, intact: false },
+                { count: maximumEvaluationDepth - 1, intact: true }
+            ]
+        ) {
+            test(`follows ${count} aliases only within the evaluation depth`, function () {
+                const aliases = Array.from({ length: count }, function (_value, index) {
+                    return `const alias${index + 1} = alias${index};`;
+                });
+                const integrity = integrityOf(
+                    `const alias0 = globalThis;${aliases.join('')}alias${count}.Symbol = replacement; export {};`
+                );
 
-            assert.strictEqual(integrity.isIntact(symbolConstructor), true);
-        });
+                assert.strictEqual(integrity.isIntact(symbolConstructor), intact);
+            });
+        }
     });
 });

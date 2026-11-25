@@ -18,7 +18,8 @@ import { globalPathOf, globalPropertyKeyOf, type GlobalPath } from './global-pat
 import { createRuntimeSourceEvaluation, type SourceEvaluation } from './constant-evaluation.ts';
 import type { IntrinsicIntegrity } from './evaluation-environment.ts';
 
-type CallArguments = readonly (Expression | undefined)[];
+type CallArguments = readonly TypeScriptMorphNodeType[];
+type WrittenPaths = Iterable<GlobalPath>;
 
 const wholeGlobalScope: GlobalPath = [];
 
@@ -32,63 +33,58 @@ function evaluateKey(expression: Expression): string | undefined {
     return value === undefined ? undefined : String(value.value);
 }
 
-function pathOf(expression: Expression): GlobalPath | undefined {
-    return globalPathOf(expression, evaluateKey);
+function pathOf(node: TypeScriptMorphNodeType | undefined): GlobalPath | undefined {
+    return TypeScriptMorphNode.isExpression(node) ? globalPathOf(node, evaluateKey) : undefined;
 }
 
-function keyOf(expression: Expression): string | undefined {
-    return globalPropertyKeyOf(expression, evaluateKey);
+function keyOf(node: TypeScriptMorphNodeType | undefined): string | undefined {
+    return TypeScriptMorphNode.isExpression(node) ? globalPropertyKeyOf(node, evaluateKey) : undefined;
 }
 
 function withoutPrototypeLink(path: GlobalPath): GlobalPath {
     return path.at(-1) === '__proto__' ? path.slice(0, -1) : path;
 }
 
-function propertyTargetsOf(property: ObjectLiteralElementLike): readonly TypeScriptMorphNodeType[] {
+function propertyTargetOf(property: ObjectLiteralElementLike): TypeScriptMorphNodeType | undefined {
     if (TypeScriptMorphNode.isPropertyAssignment(property)) {
-        return [ property.getInitializerOrThrow() ];
+        return property.getInitializerOrThrow();
     }
     if (TypeScriptMorphNode.isShorthandPropertyAssignment(property)) {
-        return [ property.getNameNode() ];
+        return property.getNameNode();
     }
-    return TypeScriptMorphNode.isSpreadAssignment(property) ? [ property.getExpression() ] : [];
+    return TypeScriptMorphNode.isSpreadAssignment(property) ? property.getExpression() : undefined;
 }
 
-function defaultedTargetOf(expression: Expression): readonly TypeScriptMorphNodeType[] | undefined {
-    const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
-    return binary.getOperatorToken().getKind() === SyntaxKind.EqualsToken ? [ binary.getLeft() ] : undefined;
-}
-
-function patternPartsOf(expression: Expression): readonly TypeScriptMorphNodeType[] | undefined {
-    return match<number>(expression.getKind())
+function patternPartsOf(node: TypeScriptMorphNodeType): readonly (TypeScriptMorphNodeType | undefined)[] | undefined {
+    return match<number>(node.getKind())
         .with(SyntaxKind.ArrayLiteralExpression, function () {
-            return expression.asKindOrThrow(SyntaxKind.ArrayLiteralExpression).getElements();
+            return node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression).getElements();
         })
         .with(SyntaxKind.ObjectLiteralExpression, function () {
-            return expression.asKindOrThrow(SyntaxKind.ObjectLiteralExpression).getProperties().flatMap(
-                propertyTargetsOf
-            );
+            return node.asKindOrThrow(SyntaxKind.ObjectLiteralExpression).getProperties().map(propertyTargetOf);
         })
         .with(SyntaxKind.SpreadElement, function () {
-            return [ expression.asKindOrThrow(SyntaxKind.SpreadElement).getExpression() ];
-        })
-        .with(SyntaxKind.BinaryExpression, function () {
-            return defaultedTargetOf(expression);
+            return [ node.asKindOrThrow(SyntaxKind.SpreadElement).getExpression() ];
         })
         .otherwise(constant(undefined));
 }
 
-function writtenPaths(target: TypeScriptMorphNodeType): readonly GlobalPath[] {
-    if (!TypeScriptMorphNode.isExpression(target)) {
-        return [];
+function* writtenPathOf(target: TypeScriptMorphNodeType): WrittenPaths {
+    const path = pathOf(target);
+    if (path !== undefined) {
+        yield withoutPrototypeLink(path);
+    }
+}
+
+function* writtenPaths(target: TypeScriptMorphNodeType | undefined): WrittenPaths {
+    if (target === undefined) {
+        return;
     }
     const unwrapped = unwrapExpression(target);
     const parts = patternPartsOf(unwrapped);
-    if (parts !== undefined) {
-        return parts.flatMap(writtenPaths);
-    }
-    const path = pathOf(unwrapped);
-    return path === undefined ? [] : [ withoutPrototypeLink(path) ];
+    yield* parts === undefined ? writtenPathOf(unwrapped) : parts.flatMap(function (part) {
+        return Array.from(writtenPaths(part));
+    });
 }
 
 function literalPropertyKey(property: ObjectLiteralElementLike): string | undefined {
@@ -105,42 +101,47 @@ function literalPropertyKey(property: ObjectLiteralElementLike): string | undefi
     return TypeScriptMorphNode.isIdentifier(name) ? name.getText() : undefined;
 }
 
-function keyedTargetWrite(callArguments: CallArguments): readonly GlobalPath[] {
-    const [ target, key ] = callArguments;
-    const targetPath = target === undefined ? undefined : pathOf(target);
-    const propertyKey = key === undefined ? undefined : keyOf(key);
-    return targetPath === undefined || propertyKey === undefined ? [] : [ [ ...targetPath, propertyKey ] ];
-}
-
-function propertySourcesWrite(callArguments: CallArguments): readonly GlobalPath[] {
-    const [ target, ...sources ] = callArguments;
-    const targetPath = target === undefined ? undefined : pathOf(target);
-    if (targetPath === undefined) {
-        return [];
+function* objectLiteralKeys(source: TypeScriptMorphNodeType): Iterable<string | undefined> {
+    const unwrapped = unwrapExpression(source);
+    if (TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)) {
+        yield* unwrapped.getProperties().map(literalPropertyKey);
     }
-    return sources.flatMap(function (source) {
-        const unwrapped = unwrapExpression(source);
-        if (!TypeScriptMorphNode.isObjectLiteralExpression(unwrapped)) {
-            return [];
+}
+
+function* keyedTargetWrite(callArguments: CallArguments): WrittenPaths {
+    const [ target, key ] = callArguments;
+    const targetPath = pathOf(target);
+    if (targetPath !== undefined) {
+        yield [ ...targetPath, keyOf(key) ];
+    }
+}
+
+function* propertySourcesWrite(callArguments: CallArguments): WrittenPaths {
+    const [ target, ...sources ] = callArguments;
+    const targetPath = pathOf(target);
+    if (targetPath === undefined) {
+        return;
+    }
+    for (const source of sources) {
+        for (const key of objectLiteralKeys(source)) {
+            yield [ ...targetPath, key ];
         }
-        return unwrapped.getProperties().flatMap(function (property) {
-            const key = literalPropertyKey(property);
-            return key === undefined ? [] : [ [ ...targetPath, key ] ];
-        });
-    });
+    }
 }
 
-function prototypeChainWrite(callArguments: CallArguments): readonly GlobalPath[] {
+function* prototypeChainWrite(callArguments: CallArguments): WrittenPaths {
     const [ target ] = callArguments;
-    const targetPath = target === undefined ? undefined : pathOf(target);
-    return targetPath === undefined ? [] : [ targetPath ];
+    const targetPath = pathOf(target);
+    if (targetPath !== undefined) {
+        yield targetPath;
+    }
 }
 
-function codeEvaluation(): readonly GlobalPath[] {
-    return [ wholeGlobalScope ];
+function* codeEvaluation(): WrittenPaths {
+    yield wholeGlobalScope;
 }
 
-const callWrites: ReadonlyMap<string, (callArguments: CallArguments) => readonly GlobalPath[]> = new Map([
+const callWrites: ReadonlyMap<string, (callArguments: CallArguments) => WrittenPaths> = new Map([
     [ 'Object.defineProperty', keyedTargetWrite ],
     [ 'Reflect.defineProperty', keyedTargetWrite ],
     [ 'Reflect.set', keyedTargetWrite ],
@@ -153,18 +154,12 @@ const callWrites: ReadonlyMap<string, (callArguments: CallArguments) => readonly
     [ 'Function', codeEvaluation ]
 ]);
 
-function callArgumentsOf(call: CallExpression | NewExpression): CallArguments {
-    return call.getArguments().map(function (argument) {
-        return TypeScriptMorphNode.isExpression(argument) && !TypeScriptMorphNode.isSpreadElement(argument)
-            ? argument
-            : undefined;
-    });
-}
-
-function callWrittenPaths(call: CallExpression | NewExpression): readonly GlobalPath[] {
+function* callWrittenPaths(call: CallExpression | NewExpression): WrittenPaths {
     const calleePath = pathOf(call.getExpression());
     const write = calleePath === undefined ? undefined : callWrites.get(calleePath.join('.'));
-    return write === undefined ? [] : write(callArgumentsOf(call));
+    if (write !== undefined) {
+        yield* write(call.getArguments());
+    }
 }
 
 function updatedOperand(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
@@ -174,10 +169,7 @@ function updatedOperand(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType 
             ? node.getOperand()
             : undefined;
     }
-    if (TypeScriptMorphNode.isDeleteExpression(node)) {
-        return node.getExpression();
-    }
-    return undefined;
+    return TypeScriptMorphNode.isDeleteExpression(node) ? node.getExpression() : undefined;
 }
 
 function assignedTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType | undefined {
@@ -190,19 +182,20 @@ function assignedTarget(node: TypeScriptMorphNodeType): TypeScriptMorphNodeType 
     return updatedOperand(node);
 }
 
-function patchedPathsAt(node: TypeScriptMorphNodeType): readonly GlobalPath[] {
+function patchedPathsAt(node: TypeScriptMorphNodeType): WrittenPaths {
     if (TypeScriptMorphNode.isCallExpression(node) || TypeScriptMorphNode.isNewExpression(node)) {
         return callWrittenPaths(node);
     }
-    const target = assignedTarget(node);
-    return target === undefined ? [] : writtenPaths(target);
+    return writtenPaths(assignedTarget(node));
 }
 
 function scanSource(source: SourceFile): readonly GlobalPath[] {
     if (hasDynamicScope(source)) {
         return [ wholeGlobalScope ];
     }
-    return source.forEachDescendantAsArray().flatMap(patchedPathsAt);
+    return source.forEachDescendantAsArray().flatMap(function (node) {
+        return Array.from(patchedPathsAt(node));
+    });
 }
 
 const patchedPathResults: SyntaxAnalysisResults<readonly GlobalPath[]> = new WeakMap();

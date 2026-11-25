@@ -16,7 +16,8 @@ function nextUnwrappedExpression(expression: TypeScriptMorphNode | undefined): E
 
 export function unwrapExpression(expression: Expression): Expression;
 export function unwrapExpression(expression: Expression | undefined): Expression | undefined;
-export function unwrapExpression(expression: Expression | undefined): Expression | undefined {
+export function unwrapExpression(node: TypeScriptMorphNode): TypeScriptMorphNode;
+export function unwrapExpression(expression: TypeScriptMorphNode | undefined): TypeScriptMorphNode | undefined {
     const nextExpression = nextUnwrappedExpression(expression);
     return nextExpression === undefined ? expression : unwrapExpression(nextExpression);
 }
