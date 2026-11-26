@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
-import { evaluatePrimitiveBinary, evaluatePrimitiveUnary, shortCircuitValue } from './primitive-value.ts';
+import { evaluatePrimitiveBinary, evaluatePrimitiveUnary } from './primitive-value.ts';
 
 suite('primitive values', function () {
     suite('number operator semantics', function () {
@@ -175,19 +175,6 @@ suite('primitive values', function () {
                 ` of length ${String(left).length}`;
             test(name, function () {
                 assert.deepStrictEqual(evaluatePrimitiveBinary(operator, left, right), expected);
-            });
-        }
-
-        for (
-            const [ operator, value, expected ] of [
-                [ SyntaxKind.QuestionQuestionToken, undefined, false ],
-                [ SyntaxKind.QuestionQuestionToken, null, false ],
-                [ SyntaxKind.QuestionQuestionToken, 0, true ],
-                [ SyntaxKind.QuestionToken, 0, undefined ]
-            ] as const
-        ) {
-            test(`selects the correct operand for ${SyntaxKind[operator]} and ${String(value)}`, function () {
-                assert.strictEqual(shortCircuitValue(operator, value), expected);
             });
         }
 

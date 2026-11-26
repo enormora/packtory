@@ -19,7 +19,6 @@ function graphFor(contents: Readonly<Record<string, string>>, publicPaths: reado
             files,
             publicPaths: new Set(publicPaths),
             classifySideEffects,
-            settings: undefined,
             observedBindings: undefined
         }),
         source(path) {

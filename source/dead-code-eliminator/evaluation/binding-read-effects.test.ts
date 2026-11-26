@@ -6,6 +6,13 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createSourceEvaluation } from './constant-evaluation.ts';
 
 suite('binding read effects', function () {
+    test('reads a class binding directly after its declaration', function () {
+        const source = createProject().createSourceFile('input.ts', 'class value{}value;');
+        const read = source.getLastChildByKindOrThrow(SyntaxKind.ExpressionStatement).getExpression();
+
+        assert.strictEqual(createSourceEvaluation(source).canDiscard(read), true);
+    });
+
     for (
         const [ content, expected ] of [
             [ 'let value=opaque();const observed=value;', true ],
@@ -13,6 +20,9 @@ suite('binding read effects', function () {
             [ 'let value;const observed=value;', true ],
             [ 'const observed=value;let value=opaque();', false ],
             [ 'declare const value:number;const observed=value;', false ],
+            [ 'declare class value{}const observed=value;', false ],
+            [ 'class value{}function probe(){const observed=value;}', false ],
+            [ 'for(const value of [1]){()=>{const observed=value;};}', true ],
             [ 'var value=opaque();const observed=value;', false ],
             [ 'function probe(value){const observed=value;}', true ],
             [ 'function probe(value){return()=>{const observed=value;};}', false ],

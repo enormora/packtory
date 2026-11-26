@@ -181,7 +181,7 @@ suite('pure-expression', function () {
 
         test('isPureExpression returns false for a binary expression with a disallowed operator', function () {
             assert.strictEqual(
-                isPureExpression(firstVariableInitializerExpression('const a = 1 == 2;'), undefined),
+                isPureExpression(firstVariableInitializerExpression('const a = {} == 2;'), undefined),
                 false
             );
         });
@@ -443,10 +443,10 @@ suite('pure-expression', function () {
                 assert.strictEqual(isPureExpression(expression, settings), true);
             });
 
-            test('isPureExpression keeps an unresolved Symbol call with pure arguments', function () {
+            test('isPureExpression treats an intact global Symbol call with pure arguments as pure', function () {
                 const expression = firstVariableInitializerExpression('const a = Symbol("x");');
 
-                assert.strictEqual(isPureExpression(expression, undefined), false);
+                assert.strictEqual(isPureExpression(expression, undefined), true);
             });
 
             test('isPureExpression returns false for a Symbol call with an impure argument', function () {
@@ -459,14 +459,21 @@ suite('pure-expression', function () {
 
             test('isPureExpression returns true for a new expression of a trusted pureConstructor name', function () {
                 const settings: DeadCodeEliminationSettings = { enabled: true, pureConstructors: [ 'Foo' ] };
-                const expression = firstVariableInitializerExpression('declare class Foo {}\nconst a = new Foo();');
+                const expression = firstVariableInitializerExpression('const a = new Foo();');
 
                 assert.strictEqual(isPureExpression(expression, settings), true);
             });
 
+            test('isPureExpression returns false for a trusted pureConstructor name with an ambient declaration', function () {
+                const settings: DeadCodeEliminationSettings = { enabled: true, pureConstructors: [ 'Foo' ] };
+                const expression = firstVariableInitializerExpression('declare class Foo {}\nconst a = new Foo();');
+
+                assert.strictEqual(isPureExpression(expression, settings), false);
+            });
+
             test('isPureExpression returns false for a new expression whose constructor name is not on the trusted list', function () {
                 const settings: DeadCodeEliminationSettings = { enabled: true, pureConstructors: [ 'Foo' ] };
-                const expression = firstVariableInitializerExpression('declare class Bar {}\nconst a = new Bar();');
+                const expression = firstVariableInitializerExpression('const a = new Bar();');
 
                 assert.strictEqual(isPureExpression(expression, settings), false);
             });

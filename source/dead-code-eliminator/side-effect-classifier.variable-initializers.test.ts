@@ -3,6 +3,174 @@ import { suite, test } from 'mocha';
 import { classify } from '../test-libraries/side-effect-classifier-test-support.ts';
 
 suite('side-effect-classifier variable initializers', function () {
+    suite('side-effect-classifier const array bindings', function () {
+        for (
+            const use of [
+                'export const copy = new Set(base);',
+                'export const entries = new Map(base);',
+                'export const members = new WeakSet(base);',
+                'export const associations = new WeakMap(base);',
+                'export const first = base[0];',
+                'export const size = base.length;',
+                'for (const value of base) {}',
+                'export const nested = [ ...[ ...base ] ];',
+                'const alias = base;\nexport const copy = [ ...alias ];'
+            ]
+        ) {
+            test(`keeps a const array iterable when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = [ 1 ];\nconst x = [ ...base ];\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    []
+                );
+            });
+        }
+
+        for (
+            const use of [
+                'base[0] = 2;',
+                'base.length++;',
+                '--base.length;',
+                'delete base[0];',
+                'new Holder(base);',
+                'new S.et(base);',
+                'class Holder {}\nnew Holder(base);',
+                'new globalThis["Set"](base);',
+                'table[base];',
+                'const alias = base;\nconsume(alias);',
+                'const [ head ] = base;'
+            ]
+        ) {
+            test(`treats a const array as escaping when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = [ 1 ];\nconst x = [ ...base ];\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    [ { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+
+        test('does not read a const array before its declaration', function () {
+            assert.deepStrictEqual(classify('const x = [ ...base ];\nconst base = [ 1 ];'), [
+                { line: 1, kind: 'variable initializer' }
+            ]);
+        });
+    });
+
+    suite('side-effect-classifier const object bindings', function () {
+        for (
+            const use of [
+                'export const copy = { ...base };',
+                'export const first = base.value;',
+                'export const key = base["value"];',
+                'consume(base.value);',
+                'const alias = base;\nexport const copy = { ...alias };'
+            ]
+        ) {
+            test(`keeps a const object spreadable when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = { value: 1 };\nconst x = { ...base };\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    []
+                );
+            });
+        }
+
+        for (
+            const use of [
+                'base.value = 2;',
+                'delete base.value;',
+                '({ value: base.value } = source);',
+                'base.method();',
+                '(base.method)();',
+                'Object.defineProperty(base, "extra", { get() { return 1; }, enumerable: true });',
+                'consume(base);',
+                'table[base];',
+                'const alias = base;\nconsume(alias);'
+            ]
+        ) {
+            test(`treats a const object as escaping when it is used by: ${use}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = { value: 1 };\nconst x = { ...base };\n${use}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    [ { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+    });
+
+    suite('side-effect-classifier array spread initializers', function () {
+        test('treats spreading an array literal as pure while array iteration stays intact', function () {
+            assert.deepStrictEqual(classify('const x = [...[1, 2]];'), []);
+        });
+
+        test('treats spreading a const array that is only iterated as pure', function () {
+            assert.deepStrictEqual(
+                classify('const base = [1, 2];\nconst x = [...base, 3];\nexport const values = [...x];'),
+                []
+            );
+        });
+
+        test('preserves iteration when the bundle patches the array iterator', function () {
+            assert.deepStrictEqual(
+                classify('Array.prototype[Symbol.iterator] = replacement;\nconst x = [...[1, 2]];'),
+                [ { line: 1, kind: 'expression statement' }, { line: 2, kind: 'variable initializer' } ]
+            );
+        });
+
+        for (
+            const escapingUse of [
+                'base[Symbol.iterator] = replacement;',
+                'Object.setPrototypeOf(base, replacement);',
+                'consume(base);',
+                'export { base };'
+            ]
+        ) {
+            test(`preserves iteration of a const array that escapes through: ${escapingUse}`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = [1, 2];\nconst x = [...base];\n${escapingUse}`).filter(
+                        function isOnSecondLine(effect) {
+                            return effect.line === 2;
+                        }
+                    ),
+                    [ { line: 2, kind: 'variable initializer' } ]
+                );
+            });
+        }
+    });
+
+    suite('side-effect-classifier bigint initializers', function () {
+        for (const initializer of [ '2n * 3n', '2n ** 4096n', 'base ** bits' ]) {
+            test(`treats a const with bigint arithmetic ${initializer} as pure`, function () {
+                assert.deepStrictEqual(
+                    classify(`const base = 2n;\nconst bits = 4096n;\nconst x = ${initializer};`),
+                    []
+                );
+            });
+        }
+
+        for (const initializer of [ '2n ** -1n', '1n / 0n', '0n ** -1n', '1n + 1', '2n ** 2000000n' ]) {
+            test(`treats a const with throwing bigint arithmetic ${initializer} as impure`, function () {
+                assert.deepStrictEqual(classify(`const x = ${initializer};`), [ {
+                    line: 1,
+                    kind: 'variable initializer'
+                } ]);
+            });
+        }
+    });
+
     suite('side-effect-classifier literal initializers', function () {
         test('treats a const with a literal initializer as pure', function () {
             assert.deepStrictEqual(classify('const x = 1;'), []);
@@ -64,13 +232,6 @@ suite('side-effect-classifier variable initializers', function () {
             } ]);
         });
 
-        test('preserves iteration when spreading an array literal', function () {
-            assert.deepStrictEqual(classify('const x = [...[1, 2]];'), [ {
-                line: 1,
-                kind: 'variable initializer'
-            } ]);
-        });
-
         test('treats a const with a spread of a call expression as impure', function () {
             assert.deepStrictEqual(classify('const x = [...compute()];'), [ {
                 line: 1,
@@ -102,6 +263,13 @@ suite('side-effect-classifier variable initializers', function () {
             assert.deepStrictEqual(classify('const x = { a: 1, b: compute() };'), [
                 { line: 1, kind: 'variable initializer' }
             ]);
+        });
+
+        test('treats an object spreading a known object next to an accessor as pure', function () {
+            assert.deepStrictEqual(
+                classify('const base = { value: 1 };\nconst x = { ...base, get size() { return 1; } };'),
+                []
+            );
         });
 
         test('treats a const with an object spread of a pure literal as pure', function () {
@@ -171,8 +339,12 @@ suite('side-effect-classifier variable initializers', function () {
             assert.deepStrictEqual(classify('const x = 1 === 1;'), []);
         });
 
-        test('treats a const with a loose equality binary as impure', function () {
-            assert.deepStrictEqual(classify('const x = 1 == 1;'), [ { line: 1, kind: 'variable initializer' } ]);
+        test('treats a const with a coercing loose equality binary as impure', function () {
+            assert.deepStrictEqual(classify('const x = {} == 1;'), [ { line: 1, kind: 'variable initializer' } ]);
+        });
+
+        test('treats a const with a loose equality of primitives as pure', function () {
+            assert.deepStrictEqual(classify('const x = 1 == 1;'), []);
         });
 
         test('treats a const with a binary expression containing a call as impure', function () {

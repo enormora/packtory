@@ -3,6 +3,7 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 import { shortCircuitOperators } from '../syntax-kind-sets.ts';
 import type { SourceEvaluation } from './constant-evaluation.ts';
 import { maximumEvaluationDepth } from './evaluation-context.ts';
+import { nullishOf, truthinessOf } from './abstract-value.ts';
 
 export type ConditionOutcome = {
     readonly truthy: boolean | undefined;
@@ -95,8 +96,9 @@ export function conditionOutcome(
         return unknownOutcome;
     }
     const value = evaluation.knownValue(expression);
-    if (value !== undefined) {
-        return { truthy: Boolean(value.value), nullish: value.value === null || value.value === undefined };
+    const outcome = value === undefined ? unknownOutcome : { truthy: truthinessOf(value), nullish: nullishOf(value) };
+    if (outcome.truthy !== undefined) {
+        return outcome;
     }
     return syntaxOutcome(unwrapExpression(expression), function (operand) {
         return conditionOutcome(operand, evaluation, depth + 1);

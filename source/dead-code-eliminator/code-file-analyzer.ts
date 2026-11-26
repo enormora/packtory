@@ -1,5 +1,4 @@
 import type { SourceFile } from 'ts-morph';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
 import type { TextTransformMap } from '../source-transformation/text-edits.ts';
 import type { SideEffectClassifier } from './side-effect-classifier.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
@@ -14,7 +13,6 @@ export type AnalysisContext = {
     readonly survivingExports: ReadonlyMap<string, ReadonlySet<string>>;
     readonly transformationsEnabled: boolean;
     readonly classifySideEffects: SideEffectClassifier;
-    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
     readonly trace: DeadCodeEliminationTrace;
 };
 
@@ -77,7 +75,7 @@ type CodeAnalysis = {
 
 function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): CodeAnalysis {
     const sideEffectStatements = context
-        .classifySideEffects(loaded.sourceFile, context.deadCodeElimination)
+        .classifySideEffects(loaded.sourceFile)
         .map(function (effect) {
             return { line: loaded.originalLineFor(effect.statement), kind: effect.kind };
         });

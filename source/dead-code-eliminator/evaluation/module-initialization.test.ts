@@ -214,6 +214,12 @@ const cases: readonly InitializationCase[] = [
         expected: true
     },
     {
+        name: 'type-only edges with a runtime import binding',
+        source: 'import type {X} from "./missing.js";import {y} from "./dep.js";export const resultType={config:y};',
+        modules: { 'dep.js': 'export const y=1;' },
+        expected: true
+    },
+    {
         name: 'later effect',
         source: 'export const resultType={config:"key"};unknown();',
         modules: {},

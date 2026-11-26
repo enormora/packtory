@@ -41,6 +41,20 @@ suite('builder object shapes', function () {
         });
     }
 
+    for (
+        const [ content, expected ] of [
+            [ '{value:1,method(){return 2;}}', true ],
+            [ '{[name]:1}', false ],
+            [ '{value:missing}', false ]
+        ] as const
+    ) {
+        test(`checks return creation purity of ${content}`, function () {
+            const source = createProject().createSourceFile('input.js', `(${content});`);
+            const object = source.getFirstDescendantByKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+            assert.strictEqual(returnCreationIsPure(object, new Set()), expected);
+        });
+    }
+
     test('preserves the source spelling of computed member names', function () {
         const source = createProject().createSourceFile('input.ts', '({[name](){return 42;}});');
         const method = source.getFirstDescendantByKindOrThrow(SyntaxKind.MethodDeclaration);

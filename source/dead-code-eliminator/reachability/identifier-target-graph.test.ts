@@ -13,7 +13,6 @@ function emptyGraph(): ExportGraph {
         files: [],
         publicPaths: new Set(),
         classifySideEffects,
-        settings: undefined,
         observedBindings: undefined
     });
 }

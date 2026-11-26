@@ -1,5 +1,5 @@
 import { Node as TypeScriptMorphNode, SyntaxKind, type CaseOrDefaultClause, type Statement } from 'ts-morph';
-import type { AbstractValue } from './abstract-value.ts';
+import { strictlyEqualResults, type AbstractValue } from './abstract-value.ts';
 import { normalCompletion, type Completion, type EvaluationContext } from './evaluation-context.ts';
 
 function clauseMatches(
@@ -14,7 +14,7 @@ function clauseMatches(
         return false;
     }
     const candidate = context.evaluate(clause.getExpression(), context);
-    return candidate === undefined ? undefined : candidate.value === discriminant.value;
+    return candidate === undefined ? undefined : strictlyEqualResults(candidate, discriminant);
 }
 
 function selectClause(

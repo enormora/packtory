@@ -123,6 +123,20 @@ suite('imported-expression-origin', function () {
         assert.strictEqual(visited, 0);
     });
 
+    test('checks every positional argument with the purity checker', function () {
+        const call = firstVariableInitializerExpression('const value = run(first, second);')
+            .asKindOrThrow(SyntaxKind.CallExpression);
+        const checked: string[] = [];
+        assert.strictEqual(
+            arePureCallArguments(call.getArguments(), function (argument) {
+                checked.push(argument.getText());
+                return argument.getText() === 'first';
+            }),
+            false
+        );
+        assert.deepStrictEqual(checked, [ 'first', 'second' ]);
+    });
+
     suite('trusted import matching', function () {
         const origin: ImportedExpressionOrigin = { from: 'lib', path: [ 'foo', 'bar' ] };
 

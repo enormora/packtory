@@ -1,6 +1,5 @@
 import { isDeclarationCodeFile } from '../common/code-files.ts';
-import type { DeadCodeEliminationSettings } from '../configuration/dead-code-elimination-settings.ts';
-import { createExpressionPurityChecker } from './pure-expression.ts';
+import { createExpressionPurityChecker } from './expression-purity.ts';
 import { createRuntimeModuleResolver } from './runtime-module-resolution.ts';
 import { prepareBundleSources } from './transform/bundle-source-preparation.ts';
 import { bypassFunctionForwarding } from './transform/function-forwarding.ts';
@@ -10,10 +9,7 @@ function isRuntimeCodeResource(entry: LoadedResource): entry is LoadedCodeResour
     return entry.sourceFile !== undefined && !isDeclarationCodeFile(entry.sourceFile.getFilePath());
 }
 
-export function prepareRuntimeResources(
-    loaded: readonly LoadedResource[],
-    deadCodeElimination: DeadCodeEliminationSettings | undefined
-): readonly LoadedResource[] {
+export function prepareRuntimeResources(loaded: readonly LoadedResource[]): readonly LoadedResource[] {
     const origins = loaded.flatMap(function (entry) {
         return entry.sourceFile === undefined ? [] : {
             sourceFile: entry.sourceFile,
@@ -23,7 +19,7 @@ export function prepareRuntimeResources(
         };
     });
     const resolveModule = createRuntimeModuleResolver(origins);
-    const isPure = createExpressionPurityChecker(deadCodeElimination, resolveModule);
+    const isPure = createExpressionPurityChecker();
     prepareBundleSources(loaded.filter(isRuntimeCodeResource), origins, resolveModule, isPure);
     return bypassFunctionForwarding(loaded);
 }

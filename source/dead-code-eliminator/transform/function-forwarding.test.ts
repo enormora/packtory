@@ -22,7 +22,8 @@ function loadModules(files: Readonly<Record<string, string>>): readonly LoadedRe
                 ...bundleResource(`/source/${targetFilePath}`, { content, targetFilePath }),
                 isSubstituted: false
             };
-        })
+        }),
+        undefined
     );
     return loaded.map(function (entry) {
         return entry.sourceFile === undefined ? entry : {

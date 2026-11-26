@@ -4,8 +4,7 @@ import { SyntaxKind, ts } from 'ts-morph';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { variableInitializer } from '../pure-expression-test-support.ts';
 import { evaluateLocalCall } from '../../test-libraries/expression-evaluation-case.ts';
-import { createConstantEvaluator } from './local-call.ts';
-import { createRuntimeConstantEvaluator } from './runtime-evaluation.ts';
+import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
 import type { PrimitiveValue } from './primitive-value.ts';
 import { createPureCallResolver } from './pure-local-call.ts';
 
@@ -14,7 +13,7 @@ suite('bounded local evaluation values', function () {
         const content =
             'function compute(){return 42;}const invalid={__proto__:null,__proto__:null};const result=compute();export{};';
         const call = variableInitializer(content, 'result').asKindOrThrow(SyntaxKind.CallExpression);
-        assert.strictEqual(createRuntimeConstantEvaluator(call.getSourceFile(), new Map())(call), undefined);
+        assert.strictEqual(createRuntimeBoundedEvaluator(call.getSourceFile(), new Map())(call), undefined);
     });
 
     suite('evaluation limits', function () {
@@ -42,10 +41,16 @@ suite('bounded local evaluation values', function () {
             }
             const permitted = variableInitializer(`const result=+${expression};`, 'result');
             const rejected = variableInitializer(`const result=+(+${expression});`, 'result');
-            assert.deepStrictEqual(createConstantEvaluator(permitted.getSourceFile(), new Map())(permitted), {
-                value: 1024
-            });
-            assert.strictEqual(createConstantEvaluator(rejected.getSourceFile(), new Map())(rejected), undefined);
+            assert.deepStrictEqual(
+                createRuntimeBoundedEvaluator(permitted.getSourceFile(), new Map())(permitted),
+                {
+                    value: 1024
+                }
+            );
+            assert.strictEqual(
+                createRuntimeBoundedEvaluator(rejected.getSourceFile(), new Map())(rejected),
+                undefined
+            );
         });
     });
 

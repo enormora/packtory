@@ -85,17 +85,16 @@ export function loadBundle(
     trace: DeadCodeEliminationTrace
 ): LoadedBundle {
     const loaded = prepareLoadedResources(
-        loadResources(createProject, input.bundle.contents),
+        loadResources(createProject, input.bundle.contents, input.deadCodeElimination),
         input,
         trace
     );
     const fileBindings = buildFileBindings(loaded);
-    const classifySideEffects = createSideEffectClassifier(fileBindings);
+    const classifySideEffects = createSideEffectClassifier();
     const reachability = buildReachabilityIndex({
         bundleName: input.bundle.name,
         files: fileBindings,
         entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleInputFilePaths),
-        deadCodeElimination: input.deadCodeElimination,
         classifySideEffects,
         trace
     });

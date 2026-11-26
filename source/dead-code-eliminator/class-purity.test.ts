@@ -2,19 +2,19 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind, type ClassDeclaration, type Expression } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { resolveRuntimeModule } from './runtime-module-resolution.ts';
-import { createExpressionPurityChecker } from './pure-expression.ts';
+import { createExpressionPurityChecker } from './expression-purity.ts';
 import { classConstructionIsPure, hasClassImpurity } from './class-purity.ts';
-import { resolveComputedPropertyKey } from './computed-property-key-purity.ts';
+import { createRuntimeSourceEvaluation } from './evaluation/constant-evaluation.ts';
 
 function classDeclaration(content: string): ClassDeclaration {
     const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     return project.getSourceFileOrThrow('index.ts').getFirstChildByKindOrThrow(SyntaxKind.ClassDeclaration);
 }
 
-const isPure = createExpressionPurityChecker(undefined, resolveRuntimeModule);
+const isPure = createExpressionPurityChecker();
 const propertyKeyFor = function (expression: Expression): string | undefined {
-    return resolveComputedPropertyKey(expression, resolveRuntimeModule);
+    const value = createRuntimeSourceEvaluation(expression.getSourceFile()).primitiveValue(expression);
+    return value === undefined ? undefined : String(value.value);
 };
 
 suite('class-purity', function () {
@@ -79,7 +79,7 @@ suite('class-purity', function () {
     });
 
     test('hasClassImpurity returns true when a static field has an impure initializer', function () {
-        const declaration = classDeclaration('class Foo { static items = [].length; }');
+        const declaration = classDeclaration('class Foo { static items = load(); }');
 
         assert.strictEqual(hasClassImpurity(declaration, isPure, propertyKeyFor), true);
     });

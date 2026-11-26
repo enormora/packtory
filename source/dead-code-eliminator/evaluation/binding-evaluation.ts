@@ -5,7 +5,7 @@ import {
     type VariableDeclaration
 } from 'ts-morph';
 import { evaluatePropertyKey } from './property-key-evaluation.ts';
-import { isPrimitiveResult, type AbstractValue } from './abstract-value.ts';
+import { isRecordResult, type AbstractValue } from './abstract-value.ts';
 import { createBindingReference, maximumEvaluationDepth, type EvaluationContext } from './evaluation-context.ts';
 
 type LocalBinding = BindingElement | VariableDeclaration;
@@ -31,7 +31,7 @@ function initializeObjectBinding(
     context: EvaluationContext,
     initialize: BindingInitializer
 ): boolean {
-    if (isPrimitiveResult(value)) {
+    if (!isRecordResult(value)) {
         return false;
     }
     const local = { ...context, depth: context.depth + 1 };

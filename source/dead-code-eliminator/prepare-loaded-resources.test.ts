@@ -22,7 +22,7 @@ suite('loaded resource preparation', function () {
         });
         const input = inputs(bundle)[0];
         assertDefined(input);
-        const loaded = loadResources(createProject, bundle.contents);
+        const loaded = loadResources(createProject, bundle.contents, undefined);
         const prepared = prepareLoadedResources(loaded, input, undefined);
         const source = prepared[0]?.sourceFile;
         assertDefined(source);

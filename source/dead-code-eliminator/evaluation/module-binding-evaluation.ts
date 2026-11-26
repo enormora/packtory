@@ -1,7 +1,7 @@
 import type { Node as TypeScriptMorphNode, SourceFile, Identifier } from 'ts-morph';
 import { constantBinding, type ConstantBinding } from './imported-constant.ts';
 import { createSourceEvaluations, type SourceEvaluation } from './constant-evaluation.ts';
-import { intrinsicUndefined } from './constant-binding.ts';
+import { intrinsicUndefined } from './global-reference.ts';
 import { declarationOf, type EvaluationContext } from './evaluation-context.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 

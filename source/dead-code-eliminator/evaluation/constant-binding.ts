@@ -10,9 +10,11 @@ import {
 } from 'ts-morph';
 import { isIncludedIn } from 'remeda';
 import { declarationOf } from './evaluation-context.ts';
-import { evaluated, type EvaluatedValue } from './primitive-value.ts';
+import { intrinsicUndefined } from './global-reference.ts';
+import { evaluated } from './primitive-value.ts';
+import type { AbstractValue } from './abstract-value.ts';
 
-export type KnownConstants = Pick<ReadonlyMap<VariableDeclaration, EvaluatedValue>, 'get'>;
+export type KnownConstants = Pick<ReadonlyMap<VariableDeclaration, AbstractValue>, 'get'>;
 
 function lexicalStatement(declaration: VariableDeclaration): VariableStatement | undefined {
     const statement = declaration.getVariableStatement();
@@ -42,15 +44,15 @@ export function constantInitializer(declaration: VariableDeclaration): Expressio
 
 export function createConstantBindingValues(
     declarations: readonly VariableDeclaration[],
-    evaluate: (expression: Expression) => EvaluatedValue | undefined
+    evaluate: (expression: Expression, declaration: VariableDeclaration) => AbstractValue | undefined
 ): KnownConstants {
-    const values = new Map<VariableDeclaration, EvaluatedValue | undefined>();
+    const values = new Map<VariableDeclaration, AbstractValue | undefined>();
     const pending = declarations.values();
     function initializeThrough(declaration: VariableDeclaration): void {
         for (const candidate of pending) {
             values.set(candidate, undefined);
             const initializer = constantInitializer(candidate);
-            values.set(candidate, initializer === undefined ? undefined : evaluate(initializer));
+            values.set(candidate, initializer === undefined ? undefined : evaluate(initializer, candidate));
             if (candidate === declaration) {
                 break;
             }
@@ -106,10 +108,6 @@ export function localReadHasNoEffects(expression: Expression): boolean {
         lexicalBindingDominatesRead(declaration, expression);
 }
 
-export function intrinsicUndefined(read: Identifier): boolean {
-    return read.getText() === 'undefined' && read.getSymbolOrThrow().getDeclarations().length === 0;
-}
-
 function constantIsAvailable(
     declaration: VariableDeclaration,
     read: Identifier,
@@ -126,13 +124,13 @@ export function constantValueFor(
     read: Identifier,
     values: KnownConstants,
     evaluationRoot: TypeScriptMorphNode
-): EvaluatedValue | undefined {
+): AbstractValue | undefined {
     if (intrinsicUndefined(read)) {
         return evaluated(undefined);
     }
     const declaration = declarationOf(read)?.asKind(SyntaxKind.VariableDeclaration);
-    if (declaration === undefined) {
+    if (declaration === undefined || !constantIsAvailable(declaration, read, evaluationRoot)) {
         return undefined;
     }
-    return constantIsAvailable(declaration, read, evaluationRoot) ? values.get(declaration) : undefined;
+    return values.get(declaration);
 }

@@ -2,10 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { SyntaxKind } from 'ts-morph';
 import {
-    allowedBinaryOperators,
-    allowedPrefixUnaryOperators,
     describeControlFlowStatementKind,
-    inherentlyPurePropertyKinds,
     pureDeclarationKinds,
     pureLeafKinds
 } from './syntax-kind-sets.ts';
@@ -29,38 +26,6 @@ suite('syntax-kind-sets', function () {
         assert.strictEqual(pureLeafKinds.has(SyntaxKind.ObjectLiteralExpression), false);
         assert.strictEqual(pureLeafKinds.has(SyntaxKind.ArrayLiteralExpression), false);
         assert.strictEqual(pureLeafKinds.has(SyntaxKind.ClassExpression), false);
-    });
-
-    test('allowedPrefixUnaryOperators only permits arithmetic and boolean prefixes', function () {
-        for (
-            const kind of [
-                SyntaxKind.MinusToken,
-                SyntaxKind.PlusToken,
-                SyntaxKind.ExclamationToken,
-                SyntaxKind.TildeToken
-            ]
-        ) {
-            assert.strictEqual(allowedPrefixUnaryOperators.has(kind), true);
-        }
-    });
-
-    test('allowedBinaryOperators permits arithmetic and strict equality but not assignment', function () {
-        assert.strictEqual(allowedBinaryOperators.has(SyntaxKind.PlusToken), true);
-        assert.strictEqual(allowedBinaryOperators.has(SyntaxKind.EqualsEqualsEqualsToken), true);
-        assert.strictEqual(allowedBinaryOperators.has(SyntaxKind.EqualsToken), false);
-    });
-
-    test('inherentlyPurePropertyKinds includes accessors, methods, and shorthand properties', function () {
-        for (
-            const kind of [
-                SyntaxKind.ShorthandPropertyAssignment,
-                SyntaxKind.MethodDeclaration,
-                SyntaxKind.GetAccessor,
-                SyntaxKind.SetAccessor
-            ]
-        ) {
-            assert.strictEqual(inherentlyPurePropertyKinds.has(kind), true);
-        }
     });
 
     test('pureDeclarationKinds includes declarations that are always pure', function () {

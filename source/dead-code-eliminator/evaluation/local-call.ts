@@ -1,14 +1,13 @@
-import type { Expression, Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
+import type { Node as TypeScriptMorphNode, SourceFile } from 'ts-morph';
 import {
     createLocalScope,
     createEvaluationBudget,
     type EvaluationContext
 } from './evaluation-context.ts';
-import type { EvaluatedValue } from './primitive-value.ts';
 import { evaluateExpression } from './expression-evaluation.ts';
 import { evaluateStatement } from './statement-evaluation.ts';
 import { constantValueFor, type KnownConstants } from './constant-binding.ts';
-import { primitiveResult, type AbstractValue } from './abstract-value.ts';
+import type { AbstractValue } from './abstract-value.ts';
 import { createCallEvaluator } from './callee-evaluation.ts';
 
 const maximumEvaluationSteps = 2048;
@@ -38,15 +37,5 @@ export function createBoundedEvaluator(
             return constantValueFor(identifier, values, expression);
         });
         return context.evaluate(expression, context);
-    };
-}
-
-export function createConstantEvaluator(
-    sourceFile: SourceFile,
-    values: KnownConstants
-): (expression: Expression) => EvaluatedValue | undefined {
-    const evaluate = createBoundedEvaluator(sourceFile, values);
-    return function (expression) {
-        return primitiveResult(evaluate(expression));
     };
 }

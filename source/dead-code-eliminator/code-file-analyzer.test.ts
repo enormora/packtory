@@ -19,7 +19,7 @@ function loadedCodeResource(content: string): LoadedCodeResource {
         moduleReferences: [],
         isExplicitlyIncluded: true,
         isSubstituted: false
-    } ]);
+    } ], undefined);
     if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a code resource');
     }
@@ -49,7 +49,6 @@ const baseContext: AnalysisContext = {
     reachable: new Set<string>(),
     survivingExports: new Map<string, ReadonlySet<string>>(),
     transformationsEnabled: false,
-    deadCodeElimination: undefined,
     classifySideEffects,
     trace: undefined
 };

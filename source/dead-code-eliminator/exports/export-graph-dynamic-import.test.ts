@@ -18,7 +18,6 @@ suite('unknown dynamic import targets', function () {
             files,
             publicPaths: new Set([ 'index.js' ]),
             classifySideEffects,
-            settings: undefined,
             observedBindings: undefined
         });
         const expected = new Set(graph.externalTargets(new Set([ 'index.js::probe', 'library.js::value' ])));

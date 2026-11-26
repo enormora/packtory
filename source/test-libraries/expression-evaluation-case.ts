@@ -7,7 +7,8 @@ import {
     type SourceFile
 } from 'ts-morph';
 import { createSourceEvaluation } from '../dead-code-eliminator/evaluation/constant-evaluation.ts';
-import { createConstantEvaluator } from '../dead-code-eliminator/evaluation/local-call.ts';
+import { createBoundedEvaluator } from '../dead-code-eliminator/evaluation/local-call.ts';
+import { primitiveResult } from '../dead-code-eliminator/evaluation/abstract-value.ts';
 import type { EvaluatedValue } from '../dead-code-eliminator/evaluation/primitive-value.ts';
 import { assertDefined } from './deep-subset-assertion.ts';
 import { createProject } from './typescript-project.ts';
@@ -22,7 +23,7 @@ export type ReturnEvaluationCase = ExpressionEvaluationCase & {
 };
 
 export function evaluateLocalCall(call: CallExpression): EvaluatedValue | undefined {
-    return createConstantEvaluator(call.getSourceFile(), new Map())(call);
+    return primitiveResult(createBoundedEvaluator(call.getSourceFile(), new Map())(call));
 }
 
 export function probeReturnExpression(source: SourceFile): Expression {

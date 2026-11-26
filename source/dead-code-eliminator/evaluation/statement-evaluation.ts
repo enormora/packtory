@@ -1,4 +1,3 @@
-import { isTruthy } from 'remeda';
 import {
     Node as TypeScriptMorphNode,
     SyntaxKind,
@@ -18,6 +17,7 @@ import {
 } from './evaluation-context.ts';
 import { initializeLocalBinding } from './binding-evaluation.ts';
 import { evaluated } from './primitive-value.ts';
+import { truthinessOf } from './abstract-value.ts';
 import { resourceBindingIsHarmless } from './resource-binding.ts';
 import { evaluateSwitch } from './switch-evaluation.ts';
 
@@ -104,7 +104,7 @@ function loopContinues(condition: Expression | undefined, context: EvaluationCon
         return true;
     }
     const value = context.evaluate(condition, context);
-    return value === undefined ? undefined : isTruthy(value.value);
+    return value === undefined ? undefined : truthinessOf(value);
 }
 
 function iterateLoop(
@@ -181,7 +181,11 @@ function executeIf(statement: Statement, context: EvaluationContext): Completion
     if (condition === undefined) {
         return undefined;
     }
-    const selected = isTruthy(condition.value) ? branch.getThenStatement() : branch.getElseStatement();
+    const truthy = truthinessOf(condition);
+    if (truthy === undefined) {
+        return undefined;
+    }
+    const selected = truthy ? branch.getThenStatement() : branch.getElseStatement();
     return selected === undefined ? normalCompletion : context.execute(selected, context);
 }
 

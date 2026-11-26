@@ -13,7 +13,7 @@ function preparedResource(content: string): LoadedCodeResource {
     const [ loaded ] = loadResources(createProject, [ {
         ...bundleResource('/source/index.js', { content, targetFilePath: 'index.js' }),
         isSubstituted: false
-    } ]);
+    } ], undefined);
     if (loaded?.sourceFile === undefined) {
         assert.fail('Expected a runtime source');
     }
@@ -30,7 +30,6 @@ suite('prepared source mappings', function () {
             reachable: new Set([ bindingIdentifier('index.js', 'value') ]),
             survivingExports: new Map<string, ReadonlySet<string>>(),
             transformationsEnabled: true,
-            deadCodeElimination: undefined,
             classifySideEffects,
             trace: undefined
         });
@@ -54,7 +53,6 @@ suite('prepared source mappings', function () {
             reachable: new Set([ bindingIdentifier('index.js', 'value'), bindingIdentifier('index.js', 'tail') ]),
             survivingExports: new Map<string, ReadonlySet<string>>(),
             transformationsEnabled: true,
-            deadCodeElimination: undefined,
             classifySideEffects,
             trace: undefined
         });

@@ -22,7 +22,7 @@ function evaluationFixture(content: string): EvaluationFixture {
             model,
             bindings: Array.from(model.locals.values()),
             effects: new Set(
-                classifySideEffects(source, undefined).map(function (effect) {
+                classifySideEffects(source).map(function (effect) {
                     return effect.statement;
                 })
             )

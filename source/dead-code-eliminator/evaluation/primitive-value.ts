@@ -1,5 +1,5 @@
 import { match, P } from 'ts-pattern';
-import { constant, isString, isTruthy } from 'remeda';
+import { constant, isString } from 'remeda';
 import { SyntaxKind, type NumericLiteral } from 'ts-morph';
 
 export type PrimitiveValue = bigint | boolean | number | string | null | undefined;
@@ -85,11 +85,52 @@ function relationalComparison<Value>(
 
 const bigintBase = 2n;
 const maximumBigIntBits = 4096n;
+const engineSafeBigIntBits = 1_048_576n;
 const bigintZero = 0n;
 const maximumBigIntMagnitude = bigintBase ** maximumBigIntBits;
 
+const binaryRadix = 2;
+
+type ExponentiationOutcome = 'exact' | 'oversized' | undefined;
+
+function bigintBitLength(value: bigint): bigint {
+    return value === bigintZero ? bigintZero : BigInt(value.toString(binaryRadix).replace('-', '').length);
+}
+
+function exponentiationOutcome(base: bigint, exponent: bigint): ExponentiationOutcome {
+    if (exponent < bigintZero) {
+        return undefined;
+    }
+    const bits = bigintBitLength(base) * exponent;
+    if (bits <= maximumBigIntBits) {
+        return 'exact';
+    }
+    return bits <= engineSafeBigIntBits ? 'oversized' : undefined;
+}
+
 function boundedBigInt(value: bigint): EvaluatedValue | undefined {
     return value > -maximumBigIntMagnitude && value < maximumBigIntMagnitude ? evaluated(value) : undefined;
+}
+
+function guardedBigIntOperations(left: bigint, right: bigint): readonly (readonly [SyntaxKind, () => bigint])[] {
+    const exponentiation = exponentiationOutcome(left, right) === 'exact'
+        ? [
+            [ SyntaxKind.AsteriskAsteriskToken, function () {
+                return left ** right;
+            } ] as const
+        ]
+        : [];
+    const division = right === bigintZero
+        ? []
+        : [
+            [ SyntaxKind.SlashToken, function () {
+                return left / right;
+            } ] as const,
+            [ SyntaxKind.PercentToken, function () {
+                return left % right;
+            } ] as const
+        ];
+    return [ ...exponentiation, ...division ];
 }
 
 function bigintArithmetic(operator: SyntaxKind, left: bigint, right: bigint): EvaluatedValue | undefined {
@@ -105,16 +146,9 @@ function bigintArithmetic(operator: SyntaxKind, left: bigint, right: bigint): Ev
         } ],
         [ SyntaxKind.AsteriskToken, function () {
             return left * right;
-        } ]
+        } ],
+        ...guardedBigIntOperations(left, right)
     ]);
-    if (right !== bigintZero) {
-        operations.set(SyntaxKind.SlashToken, function () {
-            return left / right;
-        });
-        operations.set(SyntaxKind.PercentToken, function () {
-            return left % right;
-        });
-    }
     const operation = operations.get(operator);
     return operation === undefined ? undefined : boundedBigInt(operation());
 }
@@ -202,14 +236,20 @@ export function evaluatePrimitiveBinary(
     return knownPrimitiveBinary(operator, first.value, second.value);
 }
 
-export function shortCircuitValue(operator: SyntaxKind | undefined, left: unknown): boolean | undefined {
-    if (operator === SyntaxKind.AmpersandAmpersandToken) {
-        return !isTruthy(left);
+function isOverflowingBigIntOperator(operator: SyntaxKind): boolean {
+    return [ SyntaxKind.PlusToken, SyntaxKind.MinusToken, SyntaxKind.AsteriskToken ].includes(operator);
+}
+
+export function bigintOverflowIsNonzeroAndEffectFree(operator: SyntaxKind, left: unknown, right: unknown): boolean {
+    if (
+        typeof left !== 'bigint' || typeof right !== 'bigint' ||
+        boundedBigInt(left) === undefined || boundedBigInt(right) === undefined
+    ) {
+        return false;
     }
-    if (operator === SyntaxKind.BarBarToken) {
-        return Boolean(left);
-    }
-    return operator === SyntaxKind.QuestionQuestionToken ? left !== null && left !== undefined : undefined;
+    return operator === SyntaxKind.AsteriskAsteriskToken
+        ? exponentiationOutcome(left, right) === 'oversized'
+        : isOverflowingBigIntOperator(operator);
 }
 
 export function evaluatePrimitiveUnary(operator: SyntaxKind, operand: PrimitiveValue): EvaluatedValue | undefined {

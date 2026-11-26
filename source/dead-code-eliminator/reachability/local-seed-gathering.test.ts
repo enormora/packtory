@@ -60,7 +60,6 @@ function gatherSeedsForSingleBinding(
         files: [ file ],
         entryPointFilePaths: entryPoints,
         declarationIndex: buildDeclarationNodeIndex([ file ]),
-        deadCodeElimination: undefined,
         classifySideEffects,
         bundleName: 'package',
         trace: undefined

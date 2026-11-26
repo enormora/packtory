@@ -28,7 +28,6 @@ function analysisContextFor(
         reachable: reachable.bindings,
         survivingExports: reachable.exports,
         transformationsEnabled: loaded.input.transformationsEnabled,
-        deadCodeElimination: loaded.input.deadCodeElimination,
         classifySideEffects: loaded.classifySideEffects,
         trace
     };

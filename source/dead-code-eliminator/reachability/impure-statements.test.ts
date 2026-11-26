@@ -8,7 +8,7 @@ import { collectImpureStatements } from './impure-statements.ts';
 function impureLinesFor(content: string): readonly number[] {
     const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/source.ts');
-    return collectImpureStatements(sourceFile, undefined, classifySideEffects).map(function (statement) {
+    return collectImpureStatements(sourceFile, classifySideEffects).map(function (statement) {
         return statement.getStartLineNumber();
     });
 }
@@ -41,7 +41,7 @@ suite('impure-statements', function () {
         const statements = sourceFile.getStatements();
 
         assert.deepStrictEqual(
-            collectImpureStatements(sourceFile, undefined, classifySideEffects),
+            collectImpureStatements(sourceFile, classifySideEffects),
             [ statements[2], statements[4] ]
         );
     });
@@ -52,7 +52,7 @@ suite('impure-statements', function () {
         });
         const sourceFile = project.getSourceFileOrThrow('/source.ts');
 
-        const impure = collectImpureStatements(sourceFile, undefined, classifySideEffects);
+        const impure = collectImpureStatements(sourceFile, classifySideEffects);
 
         assert.strictEqual(impure.length, 1);
         assert.strictEqual(TypeScriptMorphNode.isImportDeclaration(impure[0]), false);

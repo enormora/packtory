@@ -6,7 +6,6 @@ import {
     type Node as TypeScriptMorphNodeType,
     type Statement
 } from 'ts-morph';
-import type { EvaluatedValue } from './primitive-value.ts';
 import type { AbstractValue, EvaluationReference } from './abstract-value.ts';
 
 export const maximumEvaluationDepth = 32;
@@ -62,7 +61,7 @@ export type EvaluationContext = {
     readonly locals: LocalScope;
     readonly consume: () => boolean;
     readonly depth: number;
-    readonly readConstant: (identifier: Identifier) => EvaluatedValue | undefined;
+    readonly readConstant: (identifier: Identifier) => AbstractValue | undefined;
     readonly evaluate: (expression: TypeScriptMorphNodeType, context: EvaluationContext) => AbstractValue | undefined;
     readonly execute: (statement: Statement, context: EvaluationContext) => Completion | undefined;
     readonly call: (call: CallExpression, context: EvaluationContext) => AbstractValue | undefined;
@@ -73,7 +72,9 @@ export function declarationOf(node: TypeScriptMorphNodeType): TypeScriptMorphNod
     const symbol = TypeScriptMorphNode.isShorthandPropertyAssignment(parent)
         ? parent.getValueSymbol()
         : node.getSymbol();
-    const declarations = symbol?.getDeclarations() ?? [];
+    const declarations = (symbol?.getDeclarations() ?? []).filter(function isBindingDeclaration(declaration) {
+        return !TypeScriptMorphNode.isExpression(declaration);
+    });
     return declarations.length === 1 ? declarations[0] : undefined;
 }
 

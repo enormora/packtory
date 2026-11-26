@@ -10,6 +10,7 @@ import { createBoundedEvaluator } from './local-call.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
 import { primitiveResult, type AbstractValue } from './abstract-value.ts';
 import { createRuntimeBoundedEvaluator } from './runtime-evaluation.ts';
+import { shareableConstantValue } from './shareable-constant.ts';
 
 export type PrimitiveEvaluator = (expression: Expression) => EvaluatedValue | undefined;
 export type SourceEvaluation = {
@@ -37,8 +38,8 @@ function evaluateSourceConstants(
     const evaluation: { readonly values: KnownConstants; readonly evaluate: SourceEvaluation['knownValue']; } = {
         values: createConstantBindingValues(
             sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration),
-            function (expression) {
-                return primitiveResult(evaluation.evaluate(expression));
+            function (expression, declaration) {
+                return shareableConstantValue(declaration, evaluation.evaluate(expression));
             }
         ),
         get evaluate() {
