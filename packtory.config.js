@@ -74,8 +74,7 @@ export async function buildConfiguration() {
                 pureImports: [
                     { from: 'zod/mini' },
                     { from: 'yoctocolors', imports: [ 'bold', 'dim', 'green', 'red', 'yellow' ] }
-                ],
-                pureConstructors: [ 'Set', 'Map', 'WeakSet', 'WeakMap', 'TextEncoder', 'TextDecoder' ]
+                ]
             },
             publishSettings: {
                 access: 'public',
@@ -100,7 +99,7 @@ export async function buildConfiguration() {
             {
                 name: 'packtory',
                 exportPackageManifest: true,
-                checks: { maximumBundleSize: { bytes: 2_330_000 } },
+                checks: { maximumBundleSize: { bytes: 2_326_000 } },
                 roots: {
                     main: {
                         javaScript: 'packages/packtory/packtory.entry-point.js',
