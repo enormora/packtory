@@ -1,4 +1,9 @@
-import { Node as TypeScriptMorphNode, type CallExpression, type Expression, type PropertyAccessExpression } from 'ts-morph';
+import {
+    Node as TypeScriptMorphNode,
+    type CallExpression,
+    type Expression,
+    type PropertyAccessExpression
+} from 'ts-morph';
 import { expressionBindingShapeIsStable } from '../binding-stability.ts';
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import {
@@ -72,18 +77,18 @@ function evaluatedOrigin(expression: Expression, context: EvaluationContext): Im
     return value === undefined ? undefined : originOf(value);
 }
 
+function originOfTarget(expression: Expression, context: EvaluationContext): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    return TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)
+        ? appendOriginPath(originOfTarget(unwrapped.getExpression(), context), unwrapped.getName())
+        : resolveImportedExpressionPath(unwrapped) ?? evaluatedOrigin(unwrapped, context);
+}
+
 function memberOrigin(
     member: PropertyAccessExpression,
     context: EvaluationContext
 ): ImportedExpressionOrigin | undefined {
     return appendOriginPath(originOfTarget(member.getExpression(), context), member.getName());
-}
-
-function originOfTarget(expression: Expression, context: EvaluationContext): ImportedExpressionOrigin | undefined {
-    const unwrapped = unwrapExpression(expression);
-    return TypeScriptMorphNode.isPropertyAccessExpression(unwrapped)
-        ? memberOrigin(unwrapped, context)
-        : resolveImportedExpressionPath(unwrapped) ?? evaluatedOrigin(unwrapped, context);
 }
 
 export function importedMemberValue(
