@@ -541,7 +541,7 @@ Reports any source file in a bundle that has top-level side effects, preventing 
 - **Top-level:** `enabled: boolean`, `allowList?: string[]` - files whose side effects are intentional and should not be flagged. Use this for legitimate setup modules (polyfills, ambient configuration, command line interface entry points).
 - **Per-package:** `allowList?: string[]` - files this package consents to ship with side effects.
 
-A side-effecting file is suppressed iff it appears in the top-level `allowList`, **or** in the per-package `allowList` for its bundle.
+A side-effecting file is suppressed iff it appears in the top-level `allowList`, **or** in the per-package `allowList` for its bundle. An entry that matches no file with top-level side effects is reported as well, so stale entries fail the check: a top-level entry must match a side-effecting file in some bundle, a per-package entry one in its own bundle.
 
 ```javascript
 checks: { noSideEffects: { enabled: true, allowList: ['/source/polyfill.ts'] } }
