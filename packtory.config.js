@@ -74,8 +74,7 @@ export async function buildConfiguration() {
                 pureImports: [
                     { from: 'zod/mini' },
                     { from: 'yoctocolors', imports: [ 'bold', 'dim', 'green', 'red', 'yellow' ] }
-                ],
-                pureConstructors: [ 'Set', 'Map', 'WeakSet', 'WeakMap', 'TextEncoder', 'TextDecoder' ]
+                ]
             },
             publishSettings: {
                 access: 'public',
