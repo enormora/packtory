@@ -78,7 +78,7 @@
         "@enormora/tsconfig": "0.0.3",
         "@jridgewell/gen-mapping": "0.3.13",
         "@ls-lint/ls-lint": "2.3.2",
-        "@packtory/cli": "0.0.125",
+        "@packtory/cli": "0.0.128",
         "@stryker-mutator/api": "9.6.1",
         "@stryker-mutator/core": "9.6.1",
         "@stryker-mutator/mocha-runner": "9.6.1",
