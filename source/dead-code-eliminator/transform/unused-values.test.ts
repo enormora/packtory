@@ -75,12 +75,12 @@ suite('unused values', function () {
             assert.strictEqual(source.getFullText(), ';export{};');
         });
 
-        test('removes unused trusted pure construction', function () {
-            const content = 'const unused=new Trusted();export{};';
+        test('removes unused annotated pure construction', function () {
+            const content = 'const unused=/*#__PURE__*/new Trusted();export{};';
             const source = createProject().createSourceFile('input.js', content);
             establishEvaluationEnvironment(
                 [ source ],
-                { enabled: true, pureConstructors: [ 'Trusted' ] },
+                { enabled: true },
                 resolveRuntimeModule
             );
             removeUnusedValues(

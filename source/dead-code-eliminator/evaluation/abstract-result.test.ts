@@ -50,6 +50,7 @@ const callCases: readonly (readonly [string, ExpectedResult])[] = [
     [ 'const value = /x/ || Symbol(/y/);', undefined ],
     [ 'const value = /*#__PURE__*/ new Holder(1);', 'record' ],
     [ 'const value = /*#__PURE__*/ new Holder(compute());', undefined ],
+    [ 'const value = /*#__PURE__*/ new Holder(1, compute());', undefined ],
     [ 'const value = /*#__PURE__*/ new Holder(...[ 1 ]);', undefined ],
     [ 'const value = Sym.bol("a");', undefined ],
     [ 'const value = (other || Symbol)("a");', undefined ],

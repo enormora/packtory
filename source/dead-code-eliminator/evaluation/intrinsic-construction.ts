@@ -6,10 +6,10 @@ import {
 import { unwrapExpression } from '../expression-unwrapping.ts';
 import { isOpaqueArrayResult, isPrimitiveResult, isRecordResult, type AbstractValue } from './abstract-value.ts';
 import type { EvaluationContext } from './evaluation-context.ts';
+import { annotatedConstructionIsEffectFree } from './annotated-construction.ts';
 import { globalPathOf, type GlobalPath } from './global-path.ts';
 import { intrinsicIntegrityOf, type IntrinsicIntegrity } from './evaluation-environment.ts';
 import { evaluateComputedKey } from './property-key-evaluation.ts';
-import { trustedConstructionIsEffectFree } from './trusted-construction.ts';
 
 type ConstructionArgument = {
     readonly expression: TypeScriptMorphNodeType;
@@ -102,5 +102,5 @@ function intrinsicConstructionIsEffectFree(expression: NewExpression, context: E
 
 export function nonLocalConstructionIsEffectFree(expression: NewExpression, context: EvaluationContext): boolean {
     return intrinsicConstructionIsEffectFree(expression, context) ||
-        trustedConstructionIsEffectFree(expression, context);
+        annotatedConstructionIsEffectFree(expression, context);
 }
