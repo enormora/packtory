@@ -117,7 +117,7 @@ suite('package-processor', function () {
             }
         );
         const { processor } = createProcessor({ eliminate });
-        const deadCodeElimination = { enabled: false, pureConstructors: [ 'Set' ] } as const;
+        const deadCodeElimination = { enabled: false, pureImports: [ { from: 'builder-library' } ] } as const;
 
         await processor.build({
             ...createBuildAndPublishOptions(),

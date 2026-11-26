@@ -48,6 +48,10 @@ function reportResource(bundleName: string, resource: AnalyzedBundleResource): s
     return [ header, ...lines, footer ].join('\n');
 }
 
+function hasSideEffects(resource: AnalyzedBundleResource): boolean {
+    return resource.analysis.sideEffectStatements.length > 0;
+}
+
 function findSideEffectsInBundle(
     bundle: AnalyzedBundle,
     globalAllowList: ReadonlySet<string>,
@@ -55,7 +59,7 @@ function findSideEffectsInBundle(
 ): readonly string[] {
     return bundle.contents.flatMap(function (resource) {
         if (
-            resource.analysis.sideEffectStatements.length === 0 ||
+            !hasSideEffects(resource) ||
             isAllowedFor(resource.fileDescription.inputFilePath, bundle.name, globalAllowList, perPackageSettings)
         ) {
             return [];
@@ -64,15 +68,60 @@ function findSideEffectsInBundle(
     });
 }
 
+function sideEffectingFilePaths(bundles: readonly AnalyzedBundle[]): ReadonlySet<string> {
+    return new Set(
+        bundles.flatMap(function (bundle) {
+            return bundle.contents.filter(hasSideEffects).map(function (resource) {
+                return resource.fileDescription.inputFilePath;
+            });
+        })
+    );
+}
+
+function reportUnusedEntries(
+    allowList: readonly string[],
+    sideEffectingPaths: ReadonlySet<string>,
+    allowListName: string
+): readonly string[] {
+    return allowList
+        .filter(function isUnused(entry) {
+            return !sideEffectingPaths.has(entry);
+        })
+        .map(function (entry) {
+            return `${allowListName} lists "${entry}", but no such file has top-level side effects; remove it.`;
+        });
+}
+
+function findUnusedPackageEntries(
+    bundle: AnalyzedBundle,
+    perPackageSettings: NoSideEffectsRunInput['perPackageSettings']
+): readonly string[] {
+    const packageAllowList = perPackageSettings.get(bundle.name)?.noSideEffects?.allowList ?? [];
+    return reportUnusedEntries(
+        packageAllowList,
+        sideEffectingFilePaths([ bundle ]),
+        `The noSideEffects allowList of package "${bundle.name}"`
+    );
+}
+
 async function run(input: NoSideEffectsRunInput): Promise<readonly string[]> {
     const globalConfiguration = input.settings?.noSideEffects;
     if (globalConfiguration?.enabled !== true) {
         return [];
     }
-    const globalAllowList = new Set(globalConfiguration.allowList);
-    return input.bundles.flatMap(function (bundle) {
-        return findSideEffectsInBundle(bundle, globalAllowList, input.perPackageSettings);
+    const globalAllowList = globalConfiguration.allowList ?? [];
+    const globalAllowListSet = new Set(globalAllowList);
+    const sideEffectIssues = input.bundles.flatMap(function (bundle) {
+        return findSideEffectsInBundle(bundle, globalAllowListSet, input.perPackageSettings);
     });
+    const unusedPackageEntryIssues = input.bundles.flatMap(function (bundle) {
+        return findUnusedPackageEntries(bundle, input.perPackageSettings);
+    });
+    return [
+        ...sideEffectIssues,
+        ...reportUnusedEntries(globalAllowList, sideEffectingFilePaths(input.bundles), 'The noSideEffects allowList'),
+        ...unusedPackageEntryIssues
+    ];
 }
 
 export const noSideEffectsRule: CheckRuleDefinition<typeof ruleName, GlobalConfiguration, PerPackageConfiguration> = {

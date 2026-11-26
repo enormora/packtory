@@ -12,27 +12,24 @@ suite('dead-code-elimination-settings', function () {
 
     test('resolveDeadCodeEliminationSettings() defaults enabled to true when settings exist but do not set it', function () {
         const packageSettings = {
-            pureImports: [ { from: 'builder-library' } ],
-            pureConstructors: [ 'Set' ]
+            pureImports: [ { from: 'builder-library' } ]
         } as unknown as Parameters<typeof resolveDeadCodeEliminationSettings>[0];
 
         assert.deepStrictEqual(resolveDeadCodeEliminationSettings(packageSettings, undefined), {
             enabled: true,
-            pureImports: [ { from: 'builder-library' } ],
-            pureConstructors: [ 'Set' ]
+            pureImports: [ { from: 'builder-library' } ]
         });
     });
 
     test('resolveDeadCodeEliminationSettings() prefers package settings over common settings', function () {
         assert.deepStrictEqual(
             resolveDeadCodeEliminationSettings(
-                { enabled: false, pureConstructors: [ 'Map' ] },
-                { enabled: true, pureImports: [ { from: 'formatting-library' } ], pureConstructors: [ 'Set' ] }
+                { enabled: false, pureImports: [ { from: 'builder-library' } ] },
+                { enabled: true, pureImports: [ { from: 'formatting-library' } ] }
             ),
             {
                 enabled: false,
-                pureImports: [ { from: 'formatting-library' } ],
-                pureConstructors: [ 'Map' ]
+                pureImports: [ { from: 'builder-library' } ]
             }
         );
     });
@@ -41,22 +38,19 @@ suite('dead-code-elimination-settings', function () {
         assert.deepStrictEqual(
             resolveDeadCodeEliminationSettings(undefined, {
                 enabled: false,
-                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ],
-                pureConstructors: [ 'Set' ]
+                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ]
             }),
             {
                 enabled: false,
-                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ],
-                pureConstructors: [ 'Set' ]
+                pureImports: [ { from: 'builder-library', imports: [ 'build' ] } ]
             }
         );
     });
 
-    test('deadCodeEliminationSettingsSchema accepts the documented enabled/pureImports/pureConstructors shape', function () {
+    test('deadCodeEliminationSettingsSchema accepts the documented enabled/pureImports shape', function () {
         const result = deadCodeEliminationSettingsSchema.safeParse({
             enabled: true,
-            pureImports: [ { from: 'builder-library', imports: [ 'builder' ] } ],
-            pureConstructors: [ 'Set' ]
+            pureImports: [ { from: 'builder-library', imports: [ 'builder' ] } ]
         });
         assert.strictEqual(result.success, true);
     });
@@ -68,11 +62,6 @@ suite('dead-code-elimination-settings', function () {
 
     test('deadCodeEliminationSettingsSchema rejects a pureImports entry missing the required from field', function () {
         const result = deadCodeEliminationSettingsSchema.safeParse({ enabled: true, pureImports: [ {} ] });
-        assert.strictEqual(result.success, false);
-    });
-
-    test('deadCodeEliminationSettingsSchema rejects a pureConstructors entry that is an empty string', function () {
-        const result = deadCodeEliminationSettingsSchema.safeParse({ enabled: true, pureConstructors: [ '' ] });
         assert.strictEqual(result.success, false);
     });
 });

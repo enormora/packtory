@@ -236,6 +236,117 @@ suite('no-side-effects', function () {
         });
     });
 
+    suite('unused allow list entries', function () {
+        test('reports a global entry that matches no file in any bundle', async function () {
+            const result = await runWithInitializationSideEffect(
+                { noSideEffects: { enabled: true, allowList: [ '/init.ts', '/deleted.ts' ] } },
+                new Map()
+            );
+
+            assert.deepStrictEqual(result, [
+                'The noSideEffects allowList lists "/deleted.ts", but no such file has top-level side effects; remove it.'
+            ]);
+        });
+
+        test('reports a global entry for a file without side effects', async function () {
+            const result = await noSideEffectsRule.run({
+                bundles: [ bundleWithImpureResources('a', [ analyzedBundleResource('/pure.ts') ]) ],
+                settings: { noSideEffects: { enabled: true, allowList: [ '/pure.ts' ] } },
+                ...emptyCheckContext()
+            });
+
+            assert.deepStrictEqual(result, [
+                'The noSideEffects allowList lists "/pure.ts", but no such file has top-level side effects; remove it.'
+            ]);
+        });
+
+        test('accepts a global entry that matches a file with side effects in any bundle', async function () {
+            const result = await noSideEffectsRule.run({
+                bundles: [
+                    bundleWithImpureResources('a', [ analyzedBundleResource('/shared.ts') ]),
+                    bundleWithImpureResources('b', [
+                        impureResource('/shared.ts', [ { line: 1, kind: 'expression statement' } ])
+                    ])
+                ],
+                settings: { noSideEffects: { enabled: true, allowList: [ '/shared.ts' ] } },
+                ...emptyCheckContext()
+            });
+
+            assert.deepStrictEqual(result, []);
+        });
+
+        test('reports a per-package entry whose file has side effects only in another package', async function () {
+            const result = await noSideEffectsRule.run({
+                bundles: [
+                    bundleWithImpureResources('a', [ analyzedBundleResource('/shared.ts') ]),
+                    bundleWithImpureResources('b', [
+                        impureResource('/shared.ts', [ { line: 1, kind: 'expression statement' } ])
+                    ])
+                ],
+                settings: { noSideEffects: { enabled: true, allowList: [] } },
+                sourceFolders: new Map(),
+                perPackageSettings: consentMap([ [ 'a', [ '/shared.ts' ] ], [ 'b', [ '/shared.ts' ] ] ])
+            });
+
+            assert.deepStrictEqual(result, [
+                'The noSideEffects allowList of package "a" lists "/shared.ts", but no such file has top-level side' +
+                ' effects; remove it.'
+            ]);
+        });
+
+        test('ignores per-package entries of a package without a bundle', async function () {
+            const result = await runWithInitializationSideEffect(
+                { noSideEffects: { enabled: true, allowList: [ '/init.ts' ] } },
+                consentMap([ [ 'unbundled', [ '/deleted.ts' ] ] ])
+            );
+
+            assert.deepStrictEqual(result, []);
+        });
+
+        test('lists side effects before unused global entries and unused per-package entries', async function () {
+            const result = await runWithInitializationSideEffect(
+                { noSideEffects: { enabled: true, allowList: [ '/deleted.ts' ] } },
+                consentMap([ [ 'a', [ '/other.ts' ] ] ])
+            );
+
+            assert.deepStrictEqual(result, [
+                [
+                    'File "/init.ts" in package "a" has top-level side effects:',
+                    '  - line 1: expression statement',
+                    'Side effects prevent downstream tree-shaking.'
+                ]
+                    .join('\n'),
+                'The noSideEffects allowList lists "/deleted.ts", but no such file has top-level side effects; remove it.',
+                'The noSideEffects allowList of package "a" lists "/other.ts", but no such file has top-level side' +
+                ' effects; remove it.'
+            ]);
+        });
+
+        test('reports only side effects when the rule has no global allowList', async function () {
+            const result = await noSideEffectsRule.run({
+                bundles: [
+                    bundleWithImpureResources('a', [
+                        impureResource('/init.ts', [ { line: 1, kind: 'expression statement' } ])
+                    ])
+                ],
+                settings: { noSideEffects: { enabled: true } },
+                ...emptyCheckContext()
+            });
+
+            assert.strictEqual(result.length, 1);
+            assert.strictEqual(result[0]?.startsWith('File "/init.ts"'), true);
+        });
+
+        test('reports no unused entries when the rule is disabled', async function () {
+            const result = await runWithInitializationSideEffect(
+                { noSideEffects: { enabled: false, allowList: [ '/deleted.ts' ] } },
+                consentMap([ [ 'a', [ '/other.ts' ] ] ])
+            );
+
+            assert.deepStrictEqual(result, []);
+        });
+    });
+
     suite('schemas', function () {
         test('global schema accepts a configuration with enabled and an allowList', function () {
             const result = safeParse(noSideEffectsRule.globalSchema, { enabled: true, allowList: [ '/init.ts' ] });

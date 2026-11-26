@@ -70,7 +70,7 @@ function registerValidationTests(): void {
     test('merges deadCodeElimination settings into the prepared shared options', function () {
         const packageConfiguration = {
             ...fooPackageConfigurationFactory.build(),
-            deadCodeElimination: { enabled: false, pureConstructors: [ 'Map' ] }
+            deadCodeElimination: { enabled: false, pureImports: [ { from: 'formatting-library' } ] }
         } as unknown as PackageConfiguration;
 
         const result = runMapConfiguration(packageConfiguration, {
@@ -78,16 +78,14 @@ function registerValidationTests(): void {
                 publishSettings: { access: 'public' },
                 deadCodeElimination: {
                     enabled: true,
-                    pureImports: [ { from: 'builder-library' } ],
-                    pureConstructors: [ 'Set' ]
+                    pureImports: [ { from: 'builder-library' } ]
                 }
             }
         });
 
         assert.deepStrictEqual(result.deadCodeElimination, {
             enabled: false,
-            pureImports: [ { from: 'builder-library' } ],
-            pureConstructors: [ 'Map' ]
+            pureImports: [ { from: 'formatting-library' } ]
         });
     });
 
