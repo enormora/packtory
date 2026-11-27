@@ -289,6 +289,10 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             resolveVoidResponse(response);
         },
 
+        async removeFile() {
+            return undefined;
+        },
+
         async copyDirectory() {
             return undefined;
         },

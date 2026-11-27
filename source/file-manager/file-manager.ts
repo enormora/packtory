@@ -31,6 +31,7 @@ export type FileManager = {
     readFile: (filePath: string) => Promise<string>;
     readFileBytes: (filePath: string) => Promise<Buffer>;
     writeFile: (filePath: string, content: string) => Promise<void>;
+    removeFile: (filePath: string) => Promise<void>;
     writeBinaryFile: (filePath: string, content: Buffer) => Promise<void>;
     setExecutable: (filePath: string, executable: boolean) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
@@ -125,6 +126,10 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         },
 
         writeFile,
+
+        async removeFile(filePath) {
+            await hostFileSystem.rm(filePath, { force: true });
+        },
 
         writeBinaryFile,
 

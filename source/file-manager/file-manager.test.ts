@@ -16,6 +16,7 @@ type Overrides = {
     readonly cp?: SinonSpy;
     readonly readdir?: SinonSpy;
     readonly realpath?: SinonSpy;
+    readonly rm?: SinonSpy;
 };
 
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
@@ -30,7 +31,8 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
         copyFile: fake(),
         cp: fake(),
         readdir: fake(),
-        realpath: fake()
+        realpath: fake(),
+        rm: fake()
     };
     const hostFileSystem: FileManagerDependencies['hostFileSystem'] = {
         ...fallbackHostFileSystem,
@@ -57,6 +59,15 @@ async function expectCheckReadability(access: SinonSpy, expectedReadable: boolea
 }
 
 suite('file-manager', function () {
+    test('removes a file even when it is already absent', async function () {
+        const rm = fake.resolves(undefined);
+        const fileManager = fileManagerFactory({ rm });
+
+        await fileManager.removeFile('/workspace/executable');
+
+        assert.deepStrictEqual(rm.args, [ [ '/workspace/executable', { force: true } ] ]);
+    });
+
     suite('readability', function () {
         test('checkReadability() returns isReadable true when access() resolves', async function () {
             await expectCheckReadability(fake.resolves(undefined), true);

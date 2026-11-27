@@ -6,6 +6,8 @@ Each canary checks out and installs the downstream project once. The `buildComma
 
 The two CLI verification sequences can run concurrently on the same runner. The timed candidate pack runs on its own. Candidate API inspection can overlap the baseline pack.
 
+The npm baseline uses the CLI installed from Packtory's own lockfile. Each variant gets a local `packtory` shim that runs its CLI from the downstream workspace.
+
 The benchmark check requires a result from every canary job. Jobs skipped by the path filter publish `skipped`. A missing result indicates a CI failure before the canary could report its outcome.
 
 Calibrate each budget from three successful candidate packs on the Ubuntu CI runner. Add 50% or two seconds to the slowest sample, whichever is greater, and round up to the next second.
