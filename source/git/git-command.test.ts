@@ -104,7 +104,7 @@ suite('git-command', function () {
     });
 
     test('propagates a process callback failure without waiting for close', async function () {
-        const failure = new Error('git failed');
+        const failure = Object.assign(new Error('git failed'), { cmd: 'git' });
         const execute = createChildProcessGitCommandExecutor(function (_command, _args, callback) {
             callback(failure, '', '');
             return createFakeGitCommandChildProcess(function () {
