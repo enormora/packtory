@@ -1,5 +1,7 @@
 import type { PacktoryConfiguration as PublicPacktoryConfiguration } from '../../configuration/configuration.ts';
-import type { VersionProviderInput as PublicVersionProviderInput } from '../../configuration/manual-versioning-settings.ts';
+import type {
+    VersionProviderInput as PublicVersionProviderInput
+} from '../../configuration/manual-versioning-settings.ts';
 import type {
     BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     BuildReport as PublicBuildReport,

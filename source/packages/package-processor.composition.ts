@@ -54,13 +54,17 @@ import {
     createGitCommandRunner,
     spawnChildProcessGitCommand
 } from '../git/git-command.ts';
-import { createNpmOpenIdentityConnectIdentifierTokenResolver } from '../npm-open-identity-connect-identifier-token-resolver.ts';
+import {
+    createNpmOpenIdentityConnectIdentifierTokenResolver
+} from '../npm-open-identity-connect-identifier-token-resolver.ts';
 import { createLicenseResolver } from '../software-bill-of-materials/license-resolver.ts';
 import {
     createSoftwareBillOfMaterialsFileBuilder,
     type SoftwareBillOfMaterialsFileBuilder
 } from '../software-bill-of-materials/software-bill-of-materials-file.ts';
-import { createSoftwareBillOfMaterialsSerializer } from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
+import {
+    createSoftwareBillOfMaterialsSerializer
+} from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../software-bill-of-materials/tool-version.ts';
 
 export async function importPackageManifest(specifier: string): Promise<unknown> {

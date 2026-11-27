@@ -1,4 +1,6 @@
-import { assertGitHubApplicationProgrammingInterfaceBaseAddress } from './validate-application-programming-interface-base-address.ts';
+import {
+    assertGitHubApplicationProgrammingInterfaceBaseAddress
+} from './validate-application-programming-interface-base-address.ts';
 
 export type GitHubReleaseGateRunnerConfiguration = {
     readonly continuousIntegrationWorkflowFile: string;

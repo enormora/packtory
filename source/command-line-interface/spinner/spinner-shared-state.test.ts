@@ -76,7 +76,7 @@ const realAdd: SpinnerSharedAtomics['add'] = function (typedArray, index, value)
     return Atomics.add(typedArray, index, value);
 };
 
-const realLoad: SpinnerSharedAtomics['load'] = function (typedArray, index) {
+const loadSharedValue: SpinnerSharedAtomics['load'] = function (typedArray, index) {
     return Atomics.load(typedArray, index);
 };
 
@@ -110,7 +110,7 @@ function createControlledAtomics(overrides: ControlledAtomicsOverrides = {}): Co
         add: realAdd,
         load(typedArray, index) {
             loadCallCount += 1;
-            return overrides.load?.(typedArray, index, realLoad) ?? realLoad(typedArray, index);
+            return overrides.load?.(typedArray, index, loadSharedValue) ?? loadSharedValue(typedArray, index);
         },
         notify: realNotify,
         store: realStore,

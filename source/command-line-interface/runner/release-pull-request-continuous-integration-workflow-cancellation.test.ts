@@ -213,12 +213,9 @@ suite('release-pull-request-ci workflow cancellation', function () {
     });
 
     test('waits for delayed action-required pull request runs to clear before dispatch', async function () {
-        const deletedRunIdentifiersByRead: readonly (readonly number[])[] = [ [ 10 ], [], [] ];
-        let deletionReadIndex = 0;
+        const pendingDeletedRuns: (readonly number[])[] = [ [ 10 ], [], [] ];
         const deleteActionRequiredPullRequestRuns = fake(async function () {
-            const runIdentifiers = deletedRunIdentifiersByRead[deletionReadIndex] ?? [];
-            deletionReadIndex += 1;
-            return runIdentifiers;
+            return pendingDeletedRuns.shift() ?? [];
         });
         const dispatchWorkflow = fake.resolves(undefined);
         const sleep = fake.resolves(undefined);

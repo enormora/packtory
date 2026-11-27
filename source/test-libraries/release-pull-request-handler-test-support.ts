@@ -6,7 +6,9 @@ import {
     runReleasePullRequestHandler,
     type ReleasePullRequestHandlerDependencies
 } from '../command-line-interface/runner/release-pull-request-handler.ts';
-import type { ReleasePullRequestGitHubClient } from '../command-line-interface/runner/release-pull-request-github-client.ts';
+import type {
+    ReleasePullRequestGitHubClient
+} from '../command-line-interface/runner/release-pull-request-github-client.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 import {

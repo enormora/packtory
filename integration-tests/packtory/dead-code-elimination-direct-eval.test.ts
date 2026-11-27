@@ -3,16 +3,24 @@ import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
+import {
+    assertValidDeadCodeEliminationOutput
+} from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { runNodeProbe } from '../../source/test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../source/test-libraries/deep-subset-assertion.ts';
 import { loadPackageManifest } from '../load-package-manifest.ts';
 import { runEmittedPackageApplicationProgrammingInterface } from './emitted-package-probe.ts';
 
+const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-direct-eval');
+const entryPath = path.join(fixturePath, 'source/index.js');
+
+const originalProbeScript = `
+                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
+                    console.log(JSON.stringify(module.api()));
+                `;
+
 suite('dead-code-elimination direct eval', function () {
     test('preserves eval lexical bindings and imported values through the production pipeline', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-direct-eval');
-        const entryPath = path.join(fixturePath, 'source/index.js');
         const outcome = await resolveAndLinkAll({
             commonPackageSettings: {
                 sourcesFolder: path.join(fixturePath, 'source'),
@@ -40,16 +48,12 @@ suite('dead-code-elimination direct eval', function () {
         };
 
         assertValidDeadCodeEliminationOutput('direct eval', [ resolvedPackage.analyzedBundle ]);
-        const probeResult = runNodeProbe(`
-                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
-                    console.log(JSON.stringify(module.api()));
-                `);
-        const probeResults = Promise.all([
-            probeResult,
-            runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
-        ]);
+
         assert.deepStrictEqual(
-            await probeResults,
+            await Promise.all([
+                runNodeProbe(originalProbeScript),
+                runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
+            ]),
             [ expected, expected ]
         );
     });

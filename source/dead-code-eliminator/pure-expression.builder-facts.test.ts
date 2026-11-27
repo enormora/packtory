@@ -251,11 +251,11 @@ suite('pure-expression builder facts', function () {
 
             const pure = isPureExpression(variableInitializer(content.join('\n'), 'schema'), settings);
             assert.strictEqual(pure, true);
-            const unconfiguredExpressionIsPure = isPureExpression(
+            const expressionWithoutSettingsIsPure = isPureExpression(
                 variableInitializer(content.join('\n'), 'schema'),
                 undefined
             );
-            assert.strictEqual(unconfiguredExpressionIsPure, false);
+            assert.strictEqual(expressionWithoutSettingsIsPure, false);
         });
     });
 

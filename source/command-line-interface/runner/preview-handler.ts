@@ -2,7 +2,9 @@ import { validateConfiguration } from '../../configuration/validation.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument, type PreviewDocument } from '../../report/preview/preview-document.ts';
-import { renderHypertextMarkupLanguageReport } from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
+import {
+    renderHypertextMarkupLanguageReport
+} from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 import {
     renderFailureOnlyTerminalPreview,
     renderTerminalPreview

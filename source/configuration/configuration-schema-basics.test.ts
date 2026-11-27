@@ -69,6 +69,7 @@ suite('config schema basics', function () {
                 'invalid value doesn’t match expected union'
             ]
         );
+
         test(
             'validation fails when a package supplies entryPoints instead of roots',
             rejectLegacyEntryPoints
@@ -92,6 +93,7 @@ suite('config schema basics', function () {
             checks: { noDuplicatedFiles: { enabled: true } },
             packages: [ packageConfiguration({ checks: { noDuplicatedFiles: { allowList: [ 'foo/bar.ts' ] } } }) ]
         }));
+
         test(
             'validation succeeds when a package declares a per-package noDuplicatedFiles allowList',
             acceptPackageDuplicationAllowList

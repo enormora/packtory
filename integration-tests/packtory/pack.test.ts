@@ -45,7 +45,7 @@ suite('pack', function () {
         });
 
         assert.strictEqual(outcome.result.isOk, true);
-        const packageManifest = JSON.parse(await readFile(path.join(outputPath, 'package.json'), 'utf8'));
+        const packageManifest: unknown = JSON.parse(await readFile(path.join(outputPath, 'package.json'), 'utf8'));
         assert.partialDeepStrictEqual(
             packageManifest,
             {
@@ -75,12 +75,16 @@ suite('pack', function () {
             outcome.result.isOk ? outcome.result.value : 'errored',
             { packageNames: [ 'second', 'third' ] }
         );
-        const packageManifest = JSON.parse(await readFile(path.join(outputPath, 'second', 'package.json'), 'utf8'));
+        const packageManifest: unknown = JSON.parse(
+            await readFile(path.join(outputPath, 'second', 'package.json'), 'utf8')
+        );
         assert.partialDeepStrictEqual(
             packageManifest,
             { name: 'second', version: '2.3.4' }
         );
-        const thirdPackageManifest = JSON.parse(await readFile(path.join(outputPath, 'third', 'package.json'), 'utf8'));
+        const thirdPackageManifest: unknown = JSON.parse(
+            await readFile(path.join(outputPath, 'third', 'package.json'), 'utf8')
+        );
         assert.partialDeepStrictEqual(
             thirdPackageManifest,
             { name: 'third', version: '2.3.4' }

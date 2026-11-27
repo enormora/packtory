@@ -3,7 +3,9 @@ import { tryOr } from 'true-myth/result';
 import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
 import { serializeStableJavaScriptObjectNotation } from '../common/stable-structured-data.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import { canonicalizeSoftwareBillOfMaterialsInFileSet } from '../software-bill-of-materials/software-bill-of-materials-canonicalizer.ts';
+import {
+    canonicalizeSoftwareBillOfMaterialsInFileSet
+} from '../software-bill-of-materials/software-bill-of-materials-canonicalizer.ts';
 
 function canonicalizeManifestContent(content: string): string {
     const parsedResult = tryOr(undefined, function () {

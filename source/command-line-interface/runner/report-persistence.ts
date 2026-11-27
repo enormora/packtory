@@ -1,7 +1,9 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { BuildReport, Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument } from '../../report/preview/preview-document.ts';
-import { renderHypertextMarkupLanguageReport } from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
+import {
+    renderHypertextMarkupLanguageReport
+} from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 
 const javaScriptObjectNotationIndentSpaces = 2;
 

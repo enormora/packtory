@@ -9,7 +9,9 @@ import type { VersionProvider } from '../../configuration/manual-versioning-sett
 import type { PacktoryConfiguration } from '../../configuration/configuration.ts';
 import type { VersionSourceResolver } from '../../packtory/map-configuration.ts';
 import { formatGitHubRepositoryName } from '../../command-line-interface/runner/github-repository.ts';
-import { createPullRequestLogConfiguration } from '../../command-line-interface/runner/changelog-pull-request-log-configuration.ts';
+import {
+    createPullRequestLogConfiguration
+} from '../../command-line-interface/runner/changelog-pull-request-log-configuration.ts';
 
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 

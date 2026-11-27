@@ -4,7 +4,9 @@ import { safeParse } from '../../common/schema-validation.ts';
 import type { ChangelogOutput, ChangelogSettings } from '../../configuration/changelog-settings.ts';
 import { packtoryConfigurationSchema } from '../../configuration/packtory-configuration-schema.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
-import { collectGeneratedAttributionPaths as collectRepositoryAttributionPaths } from '../../packtory/generated-attribution-paths.ts';
+import {
+    collectGeneratedAttributionPaths as collectRepositoryAttributionPaths
+} from '../../packtory/generated-attribution-paths.ts';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import { createPullRequestLogConfiguration } from './changelog-pull-request-log-configuration.ts';
 
