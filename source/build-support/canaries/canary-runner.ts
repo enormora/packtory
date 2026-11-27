@@ -265,11 +265,12 @@ async function inspectCanaryClone(
     }
 }
 
-async function packAndInspectBaseline(
+async function runPreparedCanaryClone(
     dependencies: CanaryRunnerDependencies,
-    clone: PreparedClone,
-    verificationFailure: string | undefined
+    canary: Canary,
+    clone: PreparedClone
 ): Promise<PacktoryRunResult> {
+    const verificationFailure = await verifyCanaryClone(dependencies, canary, clone);
     const packagingFailure = await packCanaryClone(dependencies, clone, verificationFailure);
     return await inspectCanaryClone(dependencies, clone, packagingFailure);
 }
@@ -327,14 +328,9 @@ async function compareCanaryClones(
     if (errors.length > 0) {
         throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
     }
-    const [ baselineVerificationFailure, candidateVerificationFailure ] = await Promise.all([
-        verifyCanaryClone(dependencies, canary, baselineClone),
-        verifyCanaryClone(dependencies, canary, candidateClone)
-    ]);
-    const candidatePackagingFailure = await packCanaryClone(dependencies, candidateClone, candidateVerificationFailure);
     const [ baseline, candidate ] = await Promise.all([
-        packAndInspectBaseline(dependencies, baselineClone, baselineVerificationFailure),
-        inspectCanaryClone(dependencies, candidateClone, candidatePackagingFailure)
+        runPreparedCanaryClone(dependencies, canary, baselineClone),
+        runPreparedCanaryClone(dependencies, canary, candidateClone)
     ]);
     const failureContext = hasPublishCommand(canary)
         ? `while running "${canary.publishCommand}"`
