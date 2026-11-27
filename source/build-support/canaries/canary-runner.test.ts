@@ -58,11 +58,8 @@ function createRunnerDependencies(
     });
     const [ canaryBuildCommand ] = Object.values<string>(canaryCommand);
     return {
-        createProject() {
-            throw new Error('Unexpected type inspection');
-        },
-        async runImportProbe() {
-            throw new Error('Unexpected runtime import');
+        async inspectPackages() {
+            return { packages: [] };
         },
         commandCalls,
         async createTemporaryFolder(prefix) {
@@ -344,15 +341,12 @@ suite('canary-runner', function () {
         let time = 0;
         const result = await runSelectedCanary('canaries.json', 'sample', {
             ...dependencies,
-            fileManager: {
-                ...dependencies.fileManager,
-                async listDirectoryEntries(folderPath) {
-                    if (cloneMode(folderPath) === 'candidate') {
-                        candidateInspection.resolve(undefined);
-                        throw new Error('candidate inspection failed');
-                    }
-                    return dependencies.fileManager.listDirectoryEntries(folderPath);
+            async inspectPackages(output) {
+                if (cloneMode(output.nodeModulesFolder) === 'candidate') {
+                    candidateInspection.resolve(undefined);
+                    throw new Error('candidate inspection failed');
                 }
+                return await dependencies.inspectPackages(output);
             },
             now() {
                 return time;

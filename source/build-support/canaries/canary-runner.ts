@@ -6,9 +6,9 @@ import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from 
 import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
 import {
-    inspectPackageApplicationProgrammingInterfaces,
+    type CanaryPackageOutput,
     type CanaryProcessExecutor,
-    type InspectPackagesInput
+    type PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
@@ -27,18 +27,17 @@ type ShellCommandFailure = {
     readonly timeoutMilliseconds: number;
 };
 
-type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
+type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'readFile'>;
 type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'removeFile' | 'setExecutable' | 'writeFile'>;
 
 export type CanaryRunnerDependencies = {
-    readonly createProject: InspectPackagesInput['createProject'];
     readonly createTemporaryFolder: TemporaryFolderCreator;
     readonly fileManager: CanaryFileReader & CanaryFileWriter;
+    readonly inspectPackages: (output: CanaryPackageOutput) => Promise<PackageApplicationProgrammingInterfaceInspection>;
     readonly now: () => number;
     readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;
     readonly runCommand: CommandRunner;
-    readonly runImportProbe: InspectPackagesInput['runImportProbe'];
     readonly repositoryFolder: string;
 };
 
@@ -64,7 +63,7 @@ type PacktoryRunResult = {
     readonly resolvedReference: string;
 } | {
     readonly failed: false;
-    readonly inspection: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>;
+    readonly inspection: PackageApplicationProgrammingInterfaceInspection;
     readonly resolvedReference: string;
 };
 
@@ -253,12 +252,9 @@ async function inspectCanaryClone(
     try {
         return {
             failed: false,
-            inspection: await inspectPackageApplicationProgrammingInterfaces({
-                createProject: dependencies.createProject,
-                fileManager: dependencies.fileManager,
+            inspection: await dependencies.inspectPackages({
                 nodeModulesFolder: clone.nodeModulesFolder,
-                nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
-                runImportProbe: dependencies.runImportProbe
+                nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types')
             }),
             resolvedReference: clone.resolvedReference
         };

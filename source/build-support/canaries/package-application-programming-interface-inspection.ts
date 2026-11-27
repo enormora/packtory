@@ -18,7 +18,7 @@ import {
 } from '../../packtory/published-artifact-smoke-gate.ts';
 import { typedExportSpecifiers } from './package-type-surface.ts';
 
-type PackageFolder = {
+export type PackageFolder = {
     readonly name: string;
     readonly folderPath: string;
 };
@@ -47,11 +47,14 @@ export type PackageApplicationProgrammingInterfaceInspection = {
     readonly packages: readonly PackageApplicationProgrammingInterface[];
 };
 
-export type InspectPackagesInput = {
-    readonly createProject: (options: ProjectOptions) => Project;
-    readonly fileManager: Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
+export type CanaryPackageOutput = {
     readonly nodeModulesFolder: string;
     readonly nodeTypeDefinitionsFolder: string;
+};
+
+export type InspectPackagesInput = CanaryPackageOutput & {
+    readonly createProject: (options: ProjectOptions) => Project;
+    readonly fileManager: Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
     readonly runImportProbe: (cwd: string, specifier: string) => Promise<readonly string[]>;
 };
 
@@ -126,7 +129,13 @@ async function packageFoldersInScope(
         });
 }
 
-async function packageFolders(input: InspectPackagesInput): Promise<readonly PackageFolder[]> {
+export async function readGeneratedPackageFolders(
+    input: Pick<InspectPackagesInput, 'fileManager' | 'nodeModulesFolder'>
+): Promise<readonly PackageFolder[]> {
+    const readability = await input.fileManager.checkReadability(input.nodeModulesFolder);
+    if (!readability.isReadable) {
+        throw new Error(`Generated package folder "${input.nodeModulesFolder}" is not readable`);
+    }
     const entries = await input.fileManager.listDirectoryEntries(input.nodeModulesFolder);
     const folderGroups = await Promise.all(entries.flatMap(async function (entry): Promise<readonly PackageFolder[]> {
         if (!entry.isDirectory) {
@@ -356,11 +365,13 @@ async function inspectPackage(
 export async function inspectPackageApplicationProgrammingInterfaces(
     input: InspectPackagesInput
 ): Promise<PackageApplicationProgrammingInterfaceInspection> {
-    const readability = await input.fileManager.checkReadability(input.nodeModulesFolder);
-    if (!readability.isReadable) {
-        throw new Error(`Generated package folder "${input.nodeModulesFolder}" is not readable`);
-    }
-    const folders = await packageFolders(input);
+    return await inspectPackageFolders(input, await readGeneratedPackageFolders(input));
+}
+
+export async function inspectPackageFolders(
+    input: InspectPackagesInput,
+    folders: readonly PackageFolder[]
+): Promise<PackageApplicationProgrammingInterfaceInspection> {
     const packages: PackageApplicationProgrammingInterface[] = [];
     for (const packageFolder of folders) {
         packages.push(await inspectPackage(input, packageFolder));
