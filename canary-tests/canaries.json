@@ -40,7 +40,7 @@
         "verificationCommands": []
     },
     {
-        "buildCommand": "npx just compile",
+        "buildCommand": "npx just _build-packages",
         "failureMode": "non-blocking",
         "installCommand": "npm clean-install --ignore-scripts",
         "name": "overkill",
