@@ -268,6 +268,11 @@ function scheduleManifestDependencies(
     }));
 }
 
+function mergePeerRequirements(closure: Closure, name: string, peers: readonly string[]): void {
+    const peerRequirements = Array.from(new Set([ ...closure.peerRequirements.get(name) ?? [], ...peers ]));
+    closure.peerRequirements.set(name, peerRequirements);
+}
+
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
 
@@ -320,16 +325,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             targetFolder: targetDirectory,
             sourcePackageName: name
         }, summaryResult.value);
-        const peerRequirements = Array.from(
-            new Set([
-                ...closure.peerRequirements.get(name) ?? [],
-                ...summaryResult.value.peers
-            ])
-        );
-        closure.peerRequirements.set(
-            name,
-            peerRequirements
-        );
+        mergePeerRequirements(closure, name, summaryResult.value.peers);
         const collectedResult = await collectVendorEntries(name, realPath, targetDirectory);
         if (collectedResult.isErr) {
             return Result.err(collectedResult.error);
