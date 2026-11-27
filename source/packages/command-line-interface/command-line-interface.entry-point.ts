@@ -13,7 +13,7 @@ const commandLineInterface = createCommandLineInterface(importModule);
 try {
     await commandLineInterface.run();
 } catch (error: unknown) {
-    commandLineInterface.fail(error);
+    await commandLineInterface.fail(error);
 }
 
 // eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
