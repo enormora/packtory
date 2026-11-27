@@ -58,6 +58,7 @@ suite('canary process adapters', function () {
             });
         }
     });
+
     suite('node import probe', function () {
         test('requests an isolated module import and parses its exported names', async function () {
             const execute: CanaryProcessExecutor = function (command, args, options, callback) {
