@@ -94,12 +94,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedVersionDetails()
             );
         });
@@ -116,12 +111,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedVersionDetails({ integrity: matchingIntegrity, shasum: matchingShasum })
             );
         });
@@ -148,12 +138,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedVersionDetails({ integrity: matchingIntegrity, shasum: undefined })
             );
         });
@@ -249,13 +234,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    publishedAt: undefined,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedReleaseMetadata(new Date('2026-05-19T10:00:00.000Z'))
             );
         });
@@ -272,13 +251,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    publishedAt: undefined,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedReleaseMetadata(
                     new Date('2026-05-19T10:00:00.000Z'),
                     { integrity: matchingIntegrity, shasum: matchingShasum }
@@ -299,14 +272,7 @@ suite('package-metadata-fetcher', function () {
                 settings
             );
 
-            const fallback = {
-                version: '',
-                tarballAddress: '',
-                tarballIntegrity: emptyTarballIntegrity,
-                publishedAt: undefined,
-                gitHead: undefined
-            };
-            assert.strictEqual(result.unwrapOr(fallback).gitHead, 'abcdef123456');
+            assert.strictEqual(result.unwrapOrElse(assert.fail).gitHead, 'abcdef123456');
         });
 
         test('fetchLatestPackageReleaseMetadata returns undefined publishedAt when the registry omits the time entry', async function () {
@@ -318,13 +284,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    publishedAt: undefined,
-                    gitHead: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 expectedReleaseMetadata(undefined)
             );
         });
@@ -396,14 +356,7 @@ suite('package-metadata-fetcher', function () {
             );
 
             assert.deepStrictEqual(
-                result.unwrapOr({
-                    version: '',
-                    tarballAddress: '',
-                    tarballIntegrity: emptyTarballIntegrity,
-                    publishedAt: undefined,
-                    gitHead: undefined,
-                    latestVersion: undefined
-                }),
+                result.unwrapOrElse(assert.fail),
                 {
                     version: targetVersion,
                     tarballAddress: targetTarballAddress,
