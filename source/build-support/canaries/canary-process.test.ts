@@ -100,7 +100,8 @@ suite('canary process adapters', function () {
             const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
                 callback(Object.assign(new Error('native failure'), { cmd: 'node', killed, signal }), output, errors);
             };
-            test(`reports import failures from ${JSON.stringify([ output, errors, killed, signal ])}`, async function () {
+            const failureDescription = JSON.stringify([ output, errors, killed, signal ]);
+            test(`reports import failures from ${failureDescription}`, async function () {
                 await assert.rejects(createNodeImportProbe(30, execute, 'node')('/modules', 'package'), { message });
             });
         }
