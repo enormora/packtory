@@ -1,7 +1,8 @@
 import { execFile as executeFile } from 'node:child_process';
 import fileSystem from 'node:fs';
-import { parentPort, Worker, workerData } from 'node:worker_threads';
+import { parentPort, Worker as WorkerThread, workerData } from 'node:worker_threads';
 import { Project } from 'ts-morph';
+import { z } from 'zod';
 import { errorMessage } from '../../common/error-normalization.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import {
@@ -11,15 +12,19 @@ import {
     readGeneratedPackageFolders,
     type CanaryPackageOutput,
     type InspectPackagesInput,
-    type PackageApplicationProgrammingInterfaceInspection,
-    type PackageFolder
+    type PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
-type PackageInspectionWork = CanaryPackageOutput & {
-    readonly folders: readonly PackageFolder[];
-};
+const packageInspectionWork = z.object({
+    folders: z.array(z.object({ name: z.string(), folderPath: z.string() })),
+    nodeModulesFolder: z.string(),
+    nodeTypeDefinitionsFolder: z.string()
+});
+
+type PackageInspectionWork = Readonly<z.input<typeof packageInspectionWork>>;
 
 const minimumParallelRunnerCores = 4;
+const inspectionGroupCount = 2;
 const importProbeTimeoutMilliseconds = 10_000;
 const inspectionRuntime: Pick<InspectPackagesInput, 'createProject' | 'fileManager' | 'runImportProbe'> = {
     createProject(options) {
@@ -31,17 +36,17 @@ const inspectionRuntime: Pick<InspectPackagesInput, 'createProject' | 'fileManag
 
 async function inspectOnWorker(work: PackageInspectionWork): Promise<PackageApplicationProgrammingInterfaceInspection> {
     return new Promise(function (resolve, reject) {
-        const worker = new Worker(new URL(import.meta.url), { workerData: work });
-        let result: PackageApplicationProgrammingInterfaceInspection | undefined;
-        let failure: Error | undefined;
+        const worker = new WorkerThread(new URL(import.meta.url), { workerData: work });
+        let result: PackageApplicationProgrammingInterfaceInspection | null = null;
+        let failure: Error | null = null;
         worker.once('message', function (inspection: PackageApplicationProgrammingInterfaceInspection) {
             result = inspection;
         });
-        worker.once('error', function (error) {
+        worker.once('error', function (error: Error) {
             failure = error;
         });
         worker.once('exit', function (code) {
-            if (code === 0 && result !== undefined) {
+            if (code === 0 && result !== null) {
                 resolve(result);
             } else {
                 reject(failure ?? new Error(`Canary package inspection worker exited with code ${code}`));
@@ -59,10 +64,10 @@ export async function inspectCanaryPackages(
         return await inspectPackageApplicationProgrammingInterfaces(input);
     }
     const folders = await readGeneratedPackageFolders(input);
-    if (folders.length < 2) {
+    if (folders.length < inspectionGroupCount) {
         return await inspectPackageFolders(input, folders);
     }
-    const workerStart = Math.ceil(folders.length / 2);
+    const workerStart = Math.ceil(folders.length / inspectionGroupCount);
     const inspections = await Promise.allSettled([
         inspectOnWorker({ ...output, folders: folders.slice(workerStart) }),
         inspectPackageFolders(input, folders.slice(0, workerStart))
@@ -79,6 +84,6 @@ export async function inspectCanaryPackages(
 }
 
 if (parentPort !== null) {
-    const work = workerData as PackageInspectionWork;
-    parentPort.postMessage(await inspectPackageFolders({ ...work, ...inspectionRuntime }, work.folders));
+    const work = packageInspectionWork.parse(workerData);
+    parentPort.postMessage(await inspectPackageFolders({ ...work, ...inspectionRuntime }, work.folders), []);
 }

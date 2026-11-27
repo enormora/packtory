@@ -10,8 +10,7 @@ import {
     runSelectedCanary
 } from '../../../source/build-support/canaries/canary-runner.ts';
 import { createFileManager, type FileManager } from '../../../source/file-manager/file-manager.ts';
-import { inspectPackageApplicationProgrammingInterfaces } from '../../../source/build-support/canaries/package-application-programming-interface-inspection.ts';
-import { createNativeCanaryRuntime, executeNativeCanaryProcess } from './native-runtime.ts';
+import { createNativeCanaryInspector, executeNativeCanaryProcess } from './native-runtime.ts';
 
 const runShellCommand = createShellCommandRunner(10_000, executeNativeCanaryProcess);
 
@@ -160,13 +159,7 @@ async function runFixtureCanary(
             return await mkdtemp(path.join(root, prefix));
         },
         fileManager,
-        async inspectPackages(output) {
-            return await inspectPackageApplicationProgrammingInterfaces({
-                ...output,
-                ...createNativeCanaryRuntime(),
-                fileManager
-            });
-        },
+        inspectPackages: createNativeCanaryInspector(fileManager),
         now() {
             return 0;
         },

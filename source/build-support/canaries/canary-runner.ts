@@ -5,10 +5,10 @@ import type { FileManager } from '../../file-manager/file-manager.ts';
 import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';
 import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
-import {
-    type CanaryPackageOutput,
-    type CanaryProcessExecutor,
-    type PackageApplicationProgrammingInterfaceInspection
+import type {
+    CanaryPackageOutput,
+    CanaryProcessExecutor,
+    PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
@@ -33,7 +33,9 @@ type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'remove
 export type CanaryRunnerDependencies = {
     readonly createTemporaryFolder: TemporaryFolderCreator;
     readonly fileManager: CanaryFileReader & CanaryFileWriter;
-    readonly inspectPackages: (output: CanaryPackageOutput) => Promise<PackageApplicationProgrammingInterfaceInspection>;
+    readonly inspectPackages: (
+        output: CanaryPackageOutput
+    ) => Promise<PackageApplicationProgrammingInterfaceInspection>;
     readonly now: () => number;
     readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;

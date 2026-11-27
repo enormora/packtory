@@ -19,13 +19,15 @@ async function runCanaries(argumentValues: readonly string[]): Promise<number> {
     const exitCode = await runCanaryCommandLineInterface(argumentValues, {
         fileManager,
         async runCanary(manifestPath, name) {
+            const runnerCores = availableParallelism();
+            process.stdout.write(`Canary runner CPUs available: ${runnerCores}\n`);
             return await runSelectedCanary(manifestPath, name, {
                 async createTemporaryFolder(prefix) {
                     return await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), prefix));
                 },
                 fileManager,
                 async inspectPackages(output) {
-                    return await inspectCanaryPackages(output, availableParallelism());
+                    return await inspectCanaryPackages(output, runnerCores);
                 },
                 now() {
                     return performance.now();

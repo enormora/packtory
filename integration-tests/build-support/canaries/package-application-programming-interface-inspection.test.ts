@@ -119,12 +119,12 @@ suite('package-api-inspection', function () {
     test('retains package order, declarations and import failures across inspection workers', async function () {
         await withTemporaryNodeModules(async function (nodeModulesFolder) {
             await writeInspectablePackages(nodeModulesFolder);
-            await writePackage(nodeModulesFolder, 'unimportable', {
+            await writePackage(nodeModulesFolder, 'sample-with-broken-import', {
                 exports: './index.js',
                 type: 'module'
             }, {
                 'index.d.ts': 'export const value: MissingType;',
-                'index.js': 'throw new Error("cannot import unimportable");'
+                'index.js': 'throw new Error("cannot import sample-with-broken-import");'
             });
             const output = {
                 nodeModulesFolder,
@@ -134,9 +134,12 @@ suite('package-api-inspection', function () {
             const parallel = await inspectCanaryPackages(output, 4);
             assert.deepStrictEqual(parallel, serial);
             assertSamplePackage(assertPresent(parallel.packages[1]));
-            const unimportable = assertPresent(parallel.packages[2]);
-            assert.match(unimportable.publicExports[0]?.runtimeImportError ?? '', /cannot import unimportable/u);
-            assert.match(unimportable.typeDiagnostics.join('\n'), /Cannot find name 'MissingType'/u);
+            const brokenPackage = assertPresent(parallel.packages[2]);
+            assert.match(
+                brokenPackage.publicExports[0]?.runtimeImportError ?? '',
+                /cannot import sample-with-broken-import/u
+            );
+            assert.match(brokenPackage.typeDiagnostics.join('\n'), /Cannot find name 'MissingType'/u);
         });
     });
 });
