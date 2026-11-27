@@ -1,5 +1,5 @@
 import fileSystem from 'node:fs';
-import { execFile as executeFile, type ExecFileException as ExecuteFileException } from 'node:child_process';
+import { execFile as executeFile, type ExecException as ExecuteFileException } from 'node:child_process';
 import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { InMemoryFileSystemHost, RealFileSystemHost, type FileSystemHost } from '@ts-morph/common';
@@ -80,7 +80,7 @@ function noOutputImportProbeErrorMessage(error: ExecuteFileException, timeoutMil
     if (error.killed === true && error.signal === 'SIGTERM') {
         return `Import probe timed out after ${String(timeoutMilliseconds)} ms without output.`;
     }
-    if (error.code !== undefined && error.code !== null) {
+    if (typeof error.code === 'number' || typeof error.code === 'string') {
         return `Import probe exited with code ${String(error.code)} without output.`;
     }
     if (error.signal !== undefined) {

@@ -46,7 +46,11 @@ suite('canary process adapters', function () {
     ) {
         test(`reports shell failures for ${timeout}, ${String(killed)}, ${signal}`, async function () {
             const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
-                callback(Object.assign(new Error('native failure'), { killed, signal }), ' output ', ' errors ');
+                callback(
+                    Object.assign(new Error('native failure'), { cmd: 'pack', killed, signal }),
+                    ' output ',
+                    ' errors '
+                );
             };
             await assert.rejects(createShellCommandRunner(timeout, execute)('pack', '/clone'), {
                 message: `output\nerrors\n${message}`
@@ -95,7 +99,7 @@ suite('canary process adapters', function () {
     ) {
         test(`reports import failures from ${JSON.stringify([ output, errors, killed, signal ])}`, async function () {
             const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
-                callback(Object.assign(new Error('native failure'), { killed, signal }), output, errors);
+                callback(Object.assign(new Error('native failure'), { cmd: 'node', killed, signal }), output, errors);
             };
             await assert.rejects(createNodeImportProbe(30, execute, 'node')('/modules', 'package'), { message });
         });

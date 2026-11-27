@@ -1,4 +1,4 @@
-import type { ExecFileException as ExecuteFileException } from 'node:child_process';
+import type { ExecException as ExecuteFileException } from 'node:child_process';
 import path from 'node:path';
 import {
     ModuleKind,
