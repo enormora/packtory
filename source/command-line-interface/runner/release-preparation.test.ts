@@ -18,6 +18,7 @@ import {
     type PlannedRelease,
     type ReleasePreparationDependencies
 } from './release-preparation.ts';
+import { releasePackage as createReleasePlanPackage } from '../../test-libraries/changelog-handler-fixtures.ts';
 
 type EngineSpecification = {
     readonly pullRequests: readonly PullRequest[];
@@ -66,24 +67,11 @@ const validConfiguration = {
 } as const;
 
 function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
-    return {
-        name: 'package-a',
-        previousVersion: '1.0.0',
-        nextVersion: '1.0.1',
-        artifactState: 'changed',
-        releaseClassification: 'substantive',
-        changed: true,
-        previousGitHead: 'old-head',
-        currentGitHead: 'new-head',
-        latestRegistryMetadata: undefined,
-        artifactFiles: [ 'index.js' ],
-        changedArtifactFiles: [ 'index.js' ],
+    return createReleasePlanPackage({
         sourceFiles: [ 'source/package-a/index.ts' ],
-        changelogDependencyNames: [],
-        changelogDependencyUpdates: [],
         changelogSourceFiles: [ 'source/package-a/index.ts' ],
         ...overrides
-    };
+    });
 }
 
 function createEngine(input: EngineSpecification): PullRequestLogEngine {
