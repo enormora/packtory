@@ -6,6 +6,19 @@ import { createModuleConstantReader } from './module-binding-evaluation.ts';
 import { moduleCallable } from './module-callable.ts';
 import type { ModuleValue } from './module-export-value.ts';
 import type { EvaluatedValue } from './primitive-value.ts';
+import type { LocalFunction } from './call-target.ts';
+
+function evaluateFunctionWithModuleBindings(
+    target: LocalFunction,
+    values: readonly EvaluatedValue[],
+    evaluateSource: (source: SourceFile) => SourceEvaluation,
+    evaluateFunction: (source: SourceFile) => FunctionEvaluation
+): EvaluatedValue | undefined {
+    const sourceFile = target.getSourceFile();
+    const functionEvaluation = evaluateFunction(sourceFile);
+    const constantReader = createModuleConstantReader(sourceFile, evaluateSource(sourceFile));
+    return functionEvaluation.callValue(target, values, constantReader);
+}
 
 export function evaluateImportedCall(
     call: CallExpression,
@@ -27,8 +40,5 @@ export function evaluateImportedCall(
     if (!values.every(isDefined)) {
         return undefined;
     }
-    const sourceFile = target.getSourceFile();
-    const functionEvaluation = evaluateFunction(sourceFile);
-    const constantReader = createModuleConstantReader(sourceFile, evaluateSource(sourceFile));
-    return functionEvaluation.callValue(target, values, constantReader);
+    return evaluateFunctionWithModuleBindings(target, values, evaluateSource, evaluateFunction);
 }
