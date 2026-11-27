@@ -19,37 +19,24 @@ type PackageSchema<Common extends z.ZodMiniObject> = Readonly<
     >
 >;
 
+function createPackageSchema<Common extends z.ZodMiniObject>(commonSettings: Common): PackageSchema<Common> {
+    return z.readonly(
+        z.extend(z.extend(commonSettings, optionalPackageSettingsSchema.shape), perPackageSettingsSchema.shape)
+    );
+}
+
 const partialRequiredCommonPackageSettingsSchema = z.partial(requiredCommonPackageSettingsSchema);
 
-export const packageSchemaWithAllCommonSettings: PackageSchema<typeof requiredCommonPackageSettingsSchema> = z.readonly(
-    z.extend(
-        z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
+export const packageSchemaWithAllCommonSettings: PackageSchema<typeof requiredCommonPackageSettingsSchema> =
+    createPackageSchema(requiredCommonPackageSettingsSchema);
 
 export const packageSchemaWithPartialCommonSettings: PackageSchema<typeof partialRequiredCommonPackageSettingsSchema> =
-    z.readonly(
-        z.extend(
-            z.extend(partialRequiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-            perPackageSettingsSchema.shape
-        )
-    );
+    createPackageSchema(partialRequiredCommonPackageSettingsSchema);
 
 export const packageSchemaWithMandatorySourcesFolder: PackageSchema<
     typeof commonPackageSettingsSourcesFolderRequiredSchema
-> = z.readonly(
-    z.extend(
-        z.extend(commonPackageSettingsSourcesFolderRequiredSchema, optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
+> = createPackageSchema(commonPackageSettingsSourcesFolderRequiredSchema);
 
 export const packageSchemaWithMandatoryMainPackageManifest: PackageSchema<
     typeof commonPackageSettingsMainPackageManifestRequiredSchema
-> = z.readonly(
-    z.extend(
-        z.extend(commonPackageSettingsMainPackageManifestRequiredSchema, optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
+> = createPackageSchema(commonPackageSettingsMainPackageManifestRequiredSchema);
