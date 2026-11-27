@@ -9,14 +9,11 @@ import {
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectDeadCodeEliminationOutputIssues } from './output-invariants.ts';
 
-function bundleWith(
-    modules: Readonly<Record<string, string>>,
-    overrides: Partial<AnalyzedBundle> = {}
-): AnalyzedBundle {
+function bundleWith(modules: Readonly<Record<string, string>>): AnalyzedBundle {
     const contents = Object.entries(modules).map(function ([ targetFilePath, content ]) {
         return analyzedBundleResource(`/source/${targetFilePath}`, { targetFilePath, content });
     });
-    return analyzedBundle({ name: 'package', contents, ...overrides });
+    return analyzedBundle({ name: 'package', contents });
 }
 
 function issues(bundle: AnalyzedBundle): readonly string[] {
@@ -235,25 +232,24 @@ suite('dead code elimination output invariants', function () {
                         directDependencies: new Set([ 'direct.js' ])
                     })
                 ],
-                ...{
-                    externalDependencies: new Map([
-                        [ 'dep', {
-                            ...externalDependency('dep', [ '/source/index.js' ]),
-                            references: [ {
-                                targetFilePath: 'external.js',
-                                sourceSpecifier: 'dep',
-                                emittedSpecifier: 'dep'
-                            } ]
+
+                externalDependencies: new Map([
+                    [ 'dep', {
+                        ...externalDependency('dep', [ '/source/index.js' ]),
+                        references: [ {
+                            targetFilePath: 'external.js',
+                            sourceSpecifier: 'dep',
+                            emittedSpecifier: 'dep'
                         } ]
-                    ]),
-                    linkedBundleDependencies: new Map([
-                        [ 'linked', externalDependency('linked', [ '/source/linked.js' ]) ]
-                    ]),
-                    substitutedInputFilePathsByPackageName: new Map([ [
-                        'substituted',
-                        new Set([ '/source/sub.js' ])
-                    ] ])
-                }
+                    } ]
+                ]),
+                linkedBundleDependencies: new Map([
+                    [ 'linked', externalDependency('linked', [ '/source/linked.js' ]) ]
+                ]),
+                substitutedInputFilePathsByPackageName: new Map([ [
+                    'substituted',
+                    new Set([ '/source/sub.js' ])
+                ] ])
             });
             assertIssues(
                 bundle,
@@ -292,26 +288,25 @@ suite('dead code elimination output invariants', function () {
                         directDependencies: new Set([ 'missing.md' ])
                     })
                 ],
-                ...{
-                    externalDependencies: new Map([
-                        [ 'dep', {
-                            ...externalDependency('dep', [ 'index.js' ]),
-                            references: [ {
-                                targetFilePath: 'external.js',
-                                sourceSpecifier: 'dep',
-                                emittedSpecifier: 'dep'
-                            } ]
+
+                externalDependencies: new Map([
+                    [ 'dep', {
+                        ...externalDependency('dep', [ 'index.js' ]),
+                        references: [ {
+                            targetFilePath: 'external.js',
+                            sourceSpecifier: 'dep',
+                            emittedSpecifier: 'dep'
                         } ]
-                    ]),
-                    linkedBundleDependencies: new Map([
-                        [ 'linked', externalDependency('linked', [ 'linked.js' ]) ],
-                        [ 'substituted', externalDependency('substituted', [ 'index.js' ]) ]
-                    ]),
-                    substitutedInputFilePathsByPackageName: new Map([ [
-                        'substituted',
-                        new Set([ '/source/sub.js' ])
-                    ] ])
-                }
+                    } ]
+                ]),
+                linkedBundleDependencies: new Map([
+                    [ 'linked', externalDependency('linked', [ 'linked.js' ]) ],
+                    [ 'substituted', externalDependency('substituted', [ 'index.js' ]) ]
+                ]),
+                substitutedInputFilePathsByPackageName: new Map([ [
+                    'substituted',
+                    new Set([ '/source/sub.js' ])
+                ] ])
             });
             assertNoIssues(bundle);
         });
