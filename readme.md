@@ -757,3 +757,7 @@ packages: [
 packtory ships several supply-chain trust features by default and adds opt-in npm provenance attestations on top. First-class GitHub Actions support is built in, with GitLab CI and pre-built sigstore bundles for other environments. See [Supply Chain](./documentation/supply-chain.md) for the full story - what's protecting you out of the box, how to enable provenance, the configurable opt-outs, and what every packtory publish actually produces.
 
 These examples demonstrate how `packtory` adapts to different project structures and facilitates the efficient bundling and publishing of packages with varying dependencies.
+
+## Development
+
+Use Node.js 26 to install development dependencies and run linting. Consumer engine requirements remain `^24.15.0 || ^26.0.0`, with compile, test, and publish dry-run checks on both supported runtimes.

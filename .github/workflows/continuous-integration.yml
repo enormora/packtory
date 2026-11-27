@@ -27,10 +27,10 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-            - name: Use Node.js
+            - name: Use development Node.js
               uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
-                  node-version: ${{ matrix.node-version }}
+                  node-version: 26.x
                   cache: npm
             - name: Install dependencies
               run: npm clean-install --ignore-scripts
@@ -38,6 +38,10 @@ jobs:
               run: npm audit --omit=dev
             - name: Static Code Analysis
               run: npx just lint
+            - name: Use supported runtime
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: ${{ matrix.node-version }}
             - name: Compile Typescript
               run: npx just compile
             - name: Run tests
