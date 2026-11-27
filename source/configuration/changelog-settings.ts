@@ -41,14 +41,13 @@ const changelogOutputSchema = z.union([
     githubReleaseOutputSchema
 ]);
 
-const pullRequestLogVersionBumpsFields = {
-    major: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-    minor: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-    patch: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-};
-const pullRequestLogVersionBumpsSchema = z.readonly(
-    z.strictObject(pullRequestLogVersionBumpsFields)
-);
+const labelListSchema = z.optional(z.readonly(z.array(nonEmptyStringSchema)));
+
+const pullRequestLogVersionBumpsSchema = z.readonly(z.strictObject({
+    major: labelListSchema,
+    minor: labelListSchema,
+    patch: labelListSchema
+}));
 
 const pullRequestLogCollapseRuleFields = {
     label: nonEmptyStringSchema,
@@ -66,7 +65,7 @@ const pullRequestLogCollapseRuleSchema = z.readonly(
 
 const pullRequestLogSettingsFields = {
     validLabels: z.optional(z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema))),
-    ignoredLabels: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
+    ignoredLabels: labelListSchema,
     versionBumps: z.optional(pullRequestLogVersionBumpsSchema),
     dateFormat: z.optional(nonEmptyStringSchema),
     collapseRules: z.optional(z.readonly(z.array(pullRequestLogCollapseRuleSchema))),
