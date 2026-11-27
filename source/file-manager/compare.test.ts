@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { compareFileDescriptions } from './compare.ts';
+import type { FileDescription } from './file-description.ts';
 
 suite('compare', function () {
     suite('equal results', function () {
@@ -104,38 +105,9 @@ suite('compare', function () {
         });
     });
 
-    test('returns not-equal when a file list reports a length that does not match its iterator output', function () {
-        const fileDescriptionsA = {
-            length: 1,
-            [Symbol.iterator](): Iterator<
-                { readonly filePath: string; readonly content: string; readonly isExecutable: boolean; }
-            > {
-                const iteratorItems = [
-                    {
-                        filePath: 'a',
-                        content: 'a',
-                        isExecutable: false
-                    }
-                ];
-                return iteratorItems[Symbol.iterator]();
-            }
-        } as unknown as readonly {
-            readonly filePath: string;
-            readonly content: string;
-            readonly isExecutable: boolean;
-        }[];
-        const fileDescriptionsB = {
-            length: 1,
-            [Symbol.iterator](): Iterator<
-                { readonly filePath: string; readonly content: string; readonly isExecutable: boolean; }
-            > {
-                return [][Symbol.iterator]();
-            }
-        } as unknown as readonly {
-            readonly filePath: string;
-            readonly content: string;
-            readonly isExecutable: boolean;
-        }[];
+    test('returns not-equal when a file list contains a missing entry', function () {
+        const fileDescriptionsA = [ { filePath: 'a', content: 'a', isExecutable: false } ];
+        const fileDescriptionsB = Array.from<FileDescription>({ length: 1 });
 
         const result = compareFileDescriptions(fileDescriptionsA, fileDescriptionsB);
         assert.deepStrictEqual(result, { status: 'not-equal' });
