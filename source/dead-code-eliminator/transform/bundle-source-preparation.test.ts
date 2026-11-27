@@ -40,15 +40,20 @@ suite('bundle preparation convergence', function () {
         const [ file ] = multiFileBindingsFor([ { filePath: '/repo/index.js', content } ]);
         assertDefined(file);
         const preparation = createSourcePreparation(file.sourceFile.getSourceFile());
-        prepareBundleSources([ preparation ], [ {
-            sourceFile: preparation.sourceFile,
-            targetFilePath: 'index.js',
-            moduleReferences: []
-        } ], function () {
-            return assert.fail('Re-exports cannot supply imported value reads');
-        }, function () {
-            return false;
-        });
+        prepareBundleSources(
+            [ preparation ],
+            [ {
+                sourceFile: preparation.sourceFile,
+                targetFilePath: 'index.js',
+                moduleReferences: []
+            } ],
+            function () {
+                return assert.fail('Re-exports cannot supply imported value reads');
+            },
+            function () {
+                return false;
+            }
+        );
         assert.strictEqual(preparation.sourceFile.getFullText(), content);
     });
 

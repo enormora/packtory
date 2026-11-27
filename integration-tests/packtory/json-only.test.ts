@@ -53,12 +53,16 @@ async function assertConsumerConfiguration(consumerFolder: string): Promise<void
         consumerConfig,
         JSON.stringify({ extends: `${packageName}/presets/node.json`, files: [ 'index.ts' ] })
     );
-    const parsed = ts.getParsedCommandLineOfConfigFile(consumerConfig, {}, {
-        ...ts.sys,
-        onUnRecoverableConfigFileDiagnostic(diagnostic) {
-            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+    const parsed = ts.getParsedCommandLineOfConfigFile(
+        consumerConfig,
+        {},
+        {
+            ...ts.sys,
+            onUnRecoverableConfigFileDiagnostic(diagnostic) {
+                assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+            }
         }
-    });
+    );
     assert.notStrictEqual(parsed, undefined);
     assert.partialDeepStrictEqual(parsed, {
         errors: [],

@@ -65,18 +65,18 @@ suite('published artifact smoke staging', function () {
         await staging.started;
         try {
             await nextTurn();
-            assert.deepStrictEqual([
-                staging.context.writeFile.callCount,
-                staging.context.removeFolder.callCount
-            ], [ 16, 0 ]);
+            assert.deepStrictEqual(
+                [ staging.context.writeFile.callCount, staging.context.removeFolder.callCount ],
+                [ 16, 0 ]
+            );
         } finally {
             staging.release();
             await verification;
         }
-        assert.deepStrictEqual([
-            staging.context.writeFile.callCount,
-            staging.context.removeFolder.callCount
-        ], [ 66, 1 ]);
+        assert.deepStrictEqual(
+            [ staging.context.writeFile.callCount, staging.context.removeFolder.callCount ],
+            [ 66, 1 ]
+        );
     });
 
     test('waits for pending writes before cleanup and preserves the write failure', async function () {
@@ -88,10 +88,10 @@ suite('published artifact smoke staging', function () {
         await staging.started;
         try {
             await nextTurn();
-            assert.deepStrictEqual([
-                staging.context.removeFolder.callCount,
-                staging.context.runImportProbe.callCount
-            ], [ 0, 0 ]);
+            assert.deepStrictEqual(
+                [ staging.context.removeFolder.callCount, staging.context.runImportProbe.callCount ],
+                [ 0, 0 ]
+            );
         } finally {
             staging.release();
             await rejected;

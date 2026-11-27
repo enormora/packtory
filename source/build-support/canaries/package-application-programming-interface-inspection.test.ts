@@ -373,14 +373,19 @@ suite('package-api-inspection', function () {
             nodeModulesFolder,
             createProject
         }) {
-            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'missing', {
-                exports: {
-                    '.': {
-                        types: './missing.d.ts',
-                        import: './index.js'
+            await writeCanaryPackage(
+                { fileManager, nodeModulesFolder },
+                'missing',
+                {
+                    exports: {
+                        '.': {
+                            types: './missing.d.ts',
+                            import: './index.js'
+                        }
                     }
-                }
-            }, {});
+                },
+                {}
+            );
             const result = await inspectPackageApplicationProgrammingInterfaces({
                 fileManager,
                 nodeModulesFolder,

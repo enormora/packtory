@@ -71,10 +71,10 @@ suite('namespace property demands', function () {
     });
 
     test('keeps an escaped subtree while merging its sibling observations', function () {
-        const demand = new Map<string, NamespaceDemand>([ [ 'escaped', allNamespaceProperties ], [
-            'other',
-            noNamespaceProperties
-        ] ]);
+        const demand = new Map<string, NamespaceDemand>([
+            [ 'escaped', allNamespaceProperties ],
+            [ 'other', noNamespaceProperties ]
+        ]);
         const observation = namespaceMemberDemand('escaped', namespaceMemberDemand('nested', noNamespaceProperties));
         assert.strictEqual(mergeNamespaceDemand(demand, observation), demand);
     });

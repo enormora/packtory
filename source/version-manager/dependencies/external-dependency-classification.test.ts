@@ -25,38 +25,41 @@ function registerExternalDependencyGroupingTests(): void {
     });
 
     test('groupExternalDependencies routes a direct dependency version to dependencies', function () {
+        const groupedDependencies = groupExternalDependencies(
+            { externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]) },
+            { ...baseMainPackageManifest, dependencies: { 'left-pad': '^1.0.0' } },
+            []
+        );
         assert.deepStrictEqual(
-            groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]) },
-                { ...baseMainPackageManifest, dependencies: { 'left-pad': '^1.0.0' } },
-                []
-            ),
+            groupedDependencies,
             { dependencies: { 'left-pad': '^1.0.0' }, peerDependencies: {} }
         );
     });
 
     test('groupExternalDependencies routes a peer dependency version to peerDependencies', function () {
+        const groupedDependencies = groupExternalDependencies(
+            { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+            { ...baseMainPackageManifest, peerDependencies: { react: '^19.0.0' } },
+            []
+        );
         assert.deepStrictEqual(
-            groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
-                { ...baseMainPackageManifest, peerDependencies: { react: '^19.0.0' } },
-                []
-            ),
+            groupedDependencies,
             { dependencies: {}, peerDependencies: { react: '^19.0.0' } }
         );
     });
 
     test('groupExternalDependencies prefers peerDependencies over dependencies when the dep is in both', function () {
+        const groupedDependencies = groupExternalDependencies(
+            { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+            {
+                ...baseMainPackageManifest,
+                dependencies: { react: '^18.0.0' },
+                peerDependencies: { react: '^19.0.0' }
+            },
+            []
+        );
         assert.deepStrictEqual(
-            groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
-                {
-                    ...baseMainPackageManifest,
-                    dependencies: { react: '^18.0.0' },
-                    peerDependencies: { react: '^19.0.0' }
-                },
-                []
-            ),
+            groupedDependencies,
             { dependencies: {}, peerDependencies: { react: '^19.0.0' } }
         );
     });
@@ -145,15 +148,16 @@ function registerExternalDependencyPolicyTests(): void {
     });
 
     test('groupExternalDependencies lets a mutable specifier through when its name is in allowMutableSpecifiers', function () {
+        const groupedDependencies = groupExternalDependencies(
+            { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
+            {
+                ...baseMainPackageManifest,
+                dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' }
+            },
+            [ 'react' ]
+        );
         assert.deepStrictEqual(
-            groupExternalDependencies(
-                { externalDependencies: new Map([ [ 'react', externalDependency('react') ] ]) },
-                {
-                    ...baseMainPackageManifest,
-                    dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' }
-                },
-                [ 'react' ]
-            ),
+            groupedDependencies,
             {
                 dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' },
                 peerDependencies: {}

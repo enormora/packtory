@@ -23,16 +23,19 @@ suite('tarball-response', function () {
         test(`cancels an oversized stream with content-length ${String(contentLength)}`, async function () {
             let pulled = 0;
             const cancel = fake();
-            const body = new ReadableStream<Uint8Array>({
-                pull(controller) {
-                    pulled += 1;
-                    controller.enqueue(Buffer.from('abc'));
-                    if (pulled === 3) {
-                        controller.close();
-                    }
+            const body = new ReadableStream<Uint8Array>(
+                {
+                    pull(controller) {
+                        pulled += 1;
+                        controller.enqueue(Buffer.from('abc'));
+                        if (pulled === 3) {
+                            controller.close();
+                        }
+                    },
+                    cancel
                 },
-                cancel
-            }, { highWaterMark: 0 });
+                { highWaterMark: 0 }
+            );
             const response = new Response(body, {
                 headers: contentLength === undefined ? {} : { 'content-length': contentLength }
             });

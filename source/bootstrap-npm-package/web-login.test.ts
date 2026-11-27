@@ -7,6 +7,10 @@ type LoginWebFunction = WebLoginDependencies['loginWeb'];
 type OpenInBrowser = WebLoginDependencies['openInBrowser'];
 type WebLoginResult = Awaited<ReturnType<WebLogin['login']>>;
 
+const failLoginWeb: LoginWebFunction = async function () {
+    throw new Error('npm login web flow timed out');
+};
+
 function createSuccessfulLoginWeb(token: WebLoginResult): LoginWebFunction {
     return async function () {
         return token;
@@ -69,10 +73,7 @@ suite('web-login', function () {
     });
 
     test('propagates errors thrown by loginWeb', async function () {
-        const loginWeb: LoginWebFunction = async function () {
-            throw new Error('npm login web flow timed out');
-        };
-        const webLogin = createWebLogin({ loginWeb, openInBrowser: fake.resolves(undefined) });
+        const webLogin = createWebLogin({ loginWeb: failLoginWeb, openInBrowser: fake.resolves(undefined) });
 
         try {
             await webLogin.login({ registryAddress: 'https://registry.npmjs.org/', hostname: 'workstation' });

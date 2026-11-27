@@ -75,27 +75,28 @@ suite('dead code elimination invariant assertions', function () {
     });
 
     test('rejects missing named and default exports', function () {
+        const bundle = bundleWith([
+            analyzedBundleResource('/source/index.js', {
+                targetFilePath: 'index.js',
+                content: [
+                    'import { missing } from "./named.js";',
+                    'import fallback from "./default.js";',
+                    'export const api = [ missing, fallback ];',
+                    ''
+                ]
+                    .join('\n')
+            }),
+            analyzedBundleResource('/source/named.js', {
+                targetFilePath: 'named.js',
+                content: 'export const value = 1;\n'
+            }),
+            analyzedBundleResource('/source/default.js', {
+                targetFilePath: 'default.js',
+                content: 'export const value = 1;\n'
+            })
+        ]);
         assertInvariantFailure(
-            bundleWith([
-                analyzedBundleResource('/source/index.js', {
-                    targetFilePath: 'index.js',
-                    content: [
-                        'import { missing } from "./named.js";',
-                        'import fallback from "./default.js";',
-                        'export const api = [ missing, fallback ];',
-                        ''
-                    ]
-                        .join('\n')
-                }),
-                analyzedBundleResource('/source/named.js', {
-                    targetFilePath: 'named.js',
-                    content: 'export const value = 1;\n'
-                }),
-                analyzedBundleResource('/source/default.js', {
-                    targetFilePath: 'default.js',
-                    content: 'export const value = 1;\n'
-                })
-            ]),
+            bundle,
             /named\.js does not export it[\s\S]*default\.js does not export it/u
         );
     });
@@ -140,28 +141,30 @@ suite('dead code elimination invariant assertions', function () {
     });
 
     test('rejects dependency metadata that references a pruned target file', function () {
+        const analyzedRootBundle = analyzedBundle({
+            name: 'package',
+            contents: [ analyzedBundleResource('/source/index.js', {
+                targetFilePath: 'index.js',
+                content: 'export const api = 1;\n'
+            }) ],
+            externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/missing.js' ]) ] ])
+        });
         assertInvariantFailure(
-            analyzedBundle({
-                name: 'package',
-                contents: [ analyzedBundleResource('/source/index.js', {
-                    targetFilePath: 'index.js',
-                    content: 'export const api = 1;\n'
-                }) ],
-                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/source/missing.js' ]) ] ])
-            }),
+            analyzedRootBundle,
             /external dependency dep references pruned target file missing\.js/u
         );
     });
 
     test('rejects direct dependencies from emitted code to pruned target files', function () {
+        const bundle = bundleWith([
+            analyzedBundleResource('/source/index.js', {
+                targetFilePath: 'index.js',
+                content: 'export const api = 1;\n',
+                directDependencies: new Set([ 'dead.js' ])
+            })
+        ]);
         assertInvariantFailure(
-            bundleWith([
-                analyzedBundleResource('/source/index.js', {
-                    targetFilePath: 'index.js',
-                    content: 'export const api = 1;\n',
-                    directDependencies: new Set([ 'dead.js' ])
-                })
-            ]),
+            bundle,
             /index\.js has direct dependency on pruned target file dead\.js/u
         );
     });

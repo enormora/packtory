@@ -105,11 +105,12 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageVersion returns latest tarball digest metadata', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, {
+                integrity: matchingIntegrity,
+                shasum: matchingShasum
+            })));
             const result = await fetchLatestPackageVersion(
-                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, {
-                    integrity: matchingIntegrity,
-                    shasum: matchingShasum
-                }))),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -158,23 +159,31 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageVersion throws when latest digest metadata is not a string', async function () {
-            await expectError(
-                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: { length: 1 } }))),
-                'Registry returned invalid dist.integrity for package "package-a" version "1.2.3"'
+            const npmFetch = fakeNpmFetch(
+                fake.resolves(latestPackageResponse(undefined, { integrity: { length: 1 } }))
             );
             await expectError(
-                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: { length: 1 } }))),
+                npmFetch,
+                'Registry returned invalid dist.integrity for package "package-a" version "1.2.3"'
+            );
+            const invalidShasumFetch = fakeNpmFetch(
+                fake.resolves(latestPackageResponse(undefined, { shasum: { length: 1 } }))
+            );
+            await expectError(
+                invalidShasumFetch,
                 'Registry returned invalid dist.shasum for package "package-a" version "1.2.3"'
             );
         });
 
         test('fetchLatestPackageVersion throws when latest digest metadata is empty', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: '' })));
             await expectError(
-                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: '' }))),
+                npmFetch,
                 'Registry returned invalid dist.integrity for package "package-a" version "1.2.3"'
             );
+            const emptyShasumFetch = fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: '' })));
             await expectError(
-                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: '' }))),
+                emptyShasumFetch,
                 'Registry returned invalid dist.shasum for package "package-a" version "1.2.3"'
             );
         });
@@ -190,8 +199,10 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageVersion returns Nothing when the registry responds with 404', async function () {
+            const rejectFetch = fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }));
+            const npmFetch = fakeNpmFetch(rejectFetch);
             const result = await fetchLatestPackageVersion(
-                fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -201,8 +212,12 @@ suite('package-metadata-fetcher', function () {
 
         test('fetchLatestPackageVersion rethrows 403 instead of treating the package as unpublished', async function () {
             await assert.rejects(async function () {
+                const rejectFetch = fake.rejects(Object.assign(new Error('status 403'), { statusCode: 403 }));
+                const npmFetch = fakeNpmFetch(
+                    rejectFetch
+                );
                 await fetchLatestPackageVersion(
-                    fakeNpmFetch(fake.rejects(Object.assign(new Error('status 403'), { statusCode: 403 }))),
+                    npmFetch,
                     'package-a',
                     settings
                 );
@@ -226,8 +241,9 @@ suite('package-metadata-fetcher', function () {
 
     suite('latest package release metadata', function () {
         test('fetchLatestPackageReleaseMetadata returns the latest version details with publishedAt when the registry response is valid', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z')));
             const result = await fetchLatestPackageReleaseMetadata(
-                fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z'))),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -245,11 +261,12 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageReleaseMetadata returns latest tarball digest metadata', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z', {
+                integrity: matchingIntegrity,
+                shasum: matchingShasum
+            })));
             const result = await fetchLatestPackageReleaseMetadata(
-                fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z', {
-                    integrity: matchingIntegrity,
-                    shasum: matchingShasum
-                }))),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -293,8 +310,9 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageReleaseMetadata returns undefined publishedAt when the registry omits the time entry', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse()));
             const result = await fetchLatestPackageReleaseMetadata(
-                fakeNpmFetch(fake.resolves(latestPackageResponse())),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -312,8 +330,10 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchLatestPackageReleaseMetadata returns Nothing when the package is missing from the registry', async function () {
+            const rejectFetch = fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }));
+            const npmFetch = fakeNpmFetch(rejectFetch);
             const result = await fetchLatestPackageReleaseMetadata(
-                fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+                npmFetch,
                 'package-a',
                 settings
             );
@@ -333,8 +353,9 @@ suite('package-metadata-fetcher', function () {
 
         test('fetchLatestPackageReleaseMetadata throws when the publish time is invalid', async function () {
             try {
+                const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse('not-a-date')));
                 await fetchLatestPackageReleaseMetadata(
-                    fakeNpmFetch(fake.resolves(latestPackageResponse('not-a-date'))),
+                    npmFetch,
                     'package-a',
                     settings
                 );
@@ -395,8 +416,9 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchPackageVersionReleaseMetadata returns Nothing when the exact version is missing', async function () {
+            const npmFetch = fakeNpmFetch(fake.resolves(latestPackageResponse()));
             const result = await fetchPackageVersionReleaseMetadata(
-                fakeNpmFetch(fake.resolves(latestPackageResponse())),
+                npmFetch,
                 'package-a',
                 targetVersion,
                 settings
@@ -406,8 +428,10 @@ suite('package-metadata-fetcher', function () {
         });
 
         test('fetchPackageVersionReleaseMetadata returns Nothing when the package is missing', async function () {
+            const rejectFetch = fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }));
+            const npmFetch = fakeNpmFetch(rejectFetch);
             const result = await fetchPackageVersionReleaseMetadata(
-                fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+                npmFetch,
                 'package-a',
                 targetVersion,
                 settings

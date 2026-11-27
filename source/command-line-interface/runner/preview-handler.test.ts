@@ -52,6 +52,12 @@ suite('preview-handler', function () {
     });
 
     test('runPreviewHandler returns 1 when the build fails', async function () {
+        const configurationFailure = Result.err(configurationError([]));
+        const failedPacktory = packtoryStub(
+            emptyOutcome({
+                result: configurationFailure
+            })
+        );
         const code = await runPreviewHandler({
             log() {
                 return undefined;
@@ -61,11 +67,7 @@ suite('preview-handler', function () {
             createTemporaryFilePath() {
                 return '/var/folders/preview.html';
             },
-            packtory: packtoryStub(
-                emptyOutcome({
-                    result: Result.err(configurationError([]))
-                })
-            ),
+            packtory: failedPacktory,
             spinnerRenderer: createSpinnerRendererStub(),
             configurationLoader: createConfigurationLoaderStub(),
             fileManager: createFakeFileManager(),

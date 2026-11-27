@@ -18,7 +18,7 @@ type CanaryCommand = { readonly buildCommand: string; } | { readonly publishComm
 
 export type Canary = CanaryCommand & CanaryFields;
 
-const canarySchema = z.readonly(z.pipe(
+const validatedCanarySchema = z.pipe(
     z.extend(canaryFields, {
         buildCommand: z.optional(commandSchema),
         publishCommand: z.optional(commandSchema)
@@ -37,7 +37,8 @@ const canarySchema = z.readonly(z.pipe(
         });
         return z.NEVER;
     })
-));
+);
+const canarySchema = z.readonly(validatedCanarySchema);
 
 const manifestSchema = z.readonly(z.array(canarySchema));
 export type CanaryManifest = readonly Canary[];

@@ -125,35 +125,14 @@ async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
     });
 }
 
-type ExtractionOutcomeCollection = {
-    readonly add: (outcome: Promise<readonly TarEntry[]>) => ExtractionOutcomeCollection;
-    readonly [Symbol.iterator]: () => IterableIterator<Promise<readonly TarEntry[]>>;
-};
-
-function appendOutcome(
-    outcomes: ExtractionOutcomeCollection,
-    outcome: Promise<readonly TarEntry[]>
-): ExtractionOutcomeCollection {
-    outcomes.add(outcome);
-    return outcomes;
-}
-
 async function raceExtractionOutcomes(streams: ExtractionStreams, limits: ExtractTarLimits): Promise<TarEntry[]> {
-    const entries = await Promise.race(
-        appendOutcome(
-            appendOutcome(
-                appendOutcome(
-                    appendOutcome(
-                        new Set<Promise<readonly TarEntry[]>>(),
-                        collectTarEntries(streams.tarEntries, limits)
-                    ),
-                    waitForStreamError(streams.source)
-                ),
-                waitForStreamError(streams.gunzip)
-            ),
-            waitForStreamError(streams.extractStream)
-        )
-    );
+    const outcomes = new Set([
+        collectTarEntries(streams.tarEntries, limits),
+        waitForStreamError(streams.source),
+        waitForStreamError(streams.gunzip),
+        waitForStreamError(streams.extractStream)
+    ]);
+    const entries = await Promise.race(outcomes);
     return Array.from(entries);
 }
 

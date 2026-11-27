@@ -62,11 +62,17 @@ function numericBitwise(operator: SyntaxKind, left: number, right: number): numb
 }
 /* eslint-enable no-bitwise -- Integer operator implementations end here. */
 
-function relationalComparison<Value>(
+function relationalOperand(value: PrimitiveValue): bigint | number | string {
+    return typeof value === 'bigint' || typeof value === 'string' ? value : Number(value);
+}
+
+function relationalComparison(
     operator: SyntaxKind,
-    left: Value,
-    right: Value
+    first: PrimitiveValue,
+    second: PrimitiveValue
 ): boolean | undefined {
+    const left = relationalOperand(first);
+    const right = relationalOperand(second);
     return match<number>(operator)
         .with(SyntaxKind.LessThanToken, function () {
             return left < right;

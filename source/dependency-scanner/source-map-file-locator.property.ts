@@ -18,7 +18,7 @@ suite('source-map-file-locator', function () {
         await fastCheck.assert(
             fastCheck.asyncProperty(
                 fastCheck.string().filter(function (value) {
-                    return !/^\/\/# sourceMappingURL=.+$/m.test(value);
+                    return !/^\/\/# sourceMappingURL=.+$/mu.test(value);
                 }),
                 async function (fileContent) {
                     const result = await createLocator(fileContent, true).locate('/source/file.js', '/source');
@@ -31,7 +31,7 @@ suite('source-map-file-locator', function () {
     test('locate() returns Maybe.nothing() when the referenced source-map file is unreadable', async function () {
         await fastCheck.assert(
             fastCheck.asyncProperty(
-                fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/),
+                fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/u),
                 async function (mapFileName) {
                     const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, false).locate(
                         '/source/file.js',
@@ -46,7 +46,7 @@ suite('source-map-file-locator', function () {
     test('locate() returns Maybe.just() when the referenced source-map file is readable', async function () {
         await fastCheck.assert(
             fastCheck.asyncProperty(
-                fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/),
+                fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/u),
                 async function (mapFileName) {
                     const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, true).locate(
                         '/source/file.js',

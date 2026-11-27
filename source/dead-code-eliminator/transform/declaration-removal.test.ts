@@ -81,11 +81,13 @@ suite('declaration-removal', function () {
         for (const content of [ 'export {};', 'const value=1;' ]) {
             test(`reports import repair changes accurately for ${content}`, function () {
                 const source = withSource(content);
+                const repaired = repairImportDeclarations(source, removalPlan(new Set()), true);
                 assert.strictEqual(
-                    repairImportDeclarations(source, removalPlan(new Set()), true),
+                    repaired,
                     content === 'const value=1;'
                 );
-                assert.strictEqual(repairImportDeclarations(source, removalPlan(new Set()), true), false);
+                const repairedAgain = repairImportDeclarations(source, removalPlan(new Set()), true);
+                assert.strictEqual(repairedAgain, false);
             });
         }
 

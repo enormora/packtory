@@ -37,11 +37,12 @@ suite('dead-code-elimination namespace', function () {
         const [ resolvedPackage ] = outcome.result.value;
         assertDefined(resolvedPackage);
 
-        assert.deepStrictEqual(
-            await runNodeProbe(`
+        const probeResult = runNodeProbe(`
             const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
             console.log(JSON.stringify(module.api()));
-        `),
+        `);
+        assert.deepStrictEqual(
+            await probeResult,
             expected
         );
         assertValidDeadCodeEliminationOutput('namespace observation', [ resolvedPackage.analyzedBundle ]);

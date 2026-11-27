@@ -220,7 +220,7 @@ function registerArraySortingEdgeCaseTests(): void {
 
         assert.throws(function () {
             serializePackageManifest({ foo: circularArray });
-        }, /^Error: Circular structures are not supported$/);
+        }, /^Error: Circular structures are not supported$/u);
     });
 }
 

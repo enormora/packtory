@@ -83,7 +83,7 @@ suite('package-analysis-stage', function () {
 
     test('analyzeResolvedPackages passes each linked bundle into the dead-code eliminator', async function () {
         const linkedPackage = linkedPackageNamed('package-a');
-        const analyzed = [ createAnalyzedBundle('package-a') ];
+        const analyzed = [ createAnalyzedBundle() ];
         const eliminator = stubEliminator(async function (inputs) {
             assert.strictEqual(inputs[0]?.bundle, linkedPackage.linkedBundle);
             return analyzed;
@@ -116,7 +116,7 @@ suite('package-analysis-stage', function () {
                 new Set([ '/provider/feature.js', '/provider/feature.d.ts' ])
             );
             assert.deepStrictEqual(inputs[1]?.substitutionPublicModuleInputFilePaths, new Set<string>());
-            return [ createAnalyzedBundle('package-a'), createAnalyzedBundle('consumer') ];
+            return [ createAnalyzedBundle(), createAnalyzedBundle('consumer') ];
         });
 
         await analyzeResolvedPackages(

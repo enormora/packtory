@@ -131,6 +131,29 @@ type RunForEachScheduledPackageInput<
     readonly emitScheduledEvents?: boolean;
 };
 
+function getExecutionPlan<TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }>(
+    configuration: ConfigurationWithGraph<TConfiguration>
+): readonly (readonly string[])[] {
+    const reverseGraph = configuration.packageGraph.reverse.bind(configuration.packageGraph);
+    return reverseGraph().getTopologicalGenerations();
+}
+
+function shouldEmitScheduledEvents(emitScheduledEvents = true): boolean {
+    return emitScheduledEvents;
+}
+
+function appendGenerationSuccesses<TResult, TNext, TOptions>(
+    nextItems: ResultCollector<TNext>,
+    succeededResults: ResultCollector<TResult>,
+    succeeded: readonly PackageSuccess<TResult, TOptions>[],
+    selectNext: (input: SelectNextInput<TResult, TOptions>) => TNext
+): void {
+    for (const entry of succeeded) {
+        nextItems.push(selectNext({ result: entry.result, options: entry.options }));
+        succeededResults.push(entry.result);
+    }
+}
+
 export function createScheduler(dependencies: SchedulerDependencies): Scheduler {
     const { progressBroadcastProvider } = dependencies;
 
@@ -182,17 +205,6 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         }
     }
 
-    function getExecutionPlan<TConfiguration extends { readonly packages: readonly PackageConfiguration[]; }>(
-        configuration: ConfigurationWithGraph<TConfiguration>
-    ): readonly (readonly string[])[] {
-        const reverseGraph = configuration.packageGraph.reverse.bind(configuration.packageGraph);
-        return reverseGraph().getTopologicalGenerations();
-    }
-
-    function shouldEmitScheduledEvents(emitScheduledEvents = true): boolean {
-        return emitScheduledEvents;
-    }
-
     function failGeneration<TResult>(
         succeeded: readonly TResult[],
         generationError: GenerationError<TResult>,
@@ -208,18 +220,6 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             succeeded: [ ...succeeded, ...generationError.succeeded ],
             failures: generationError.failures
         });
-    }
-
-    function appendGenerationSuccesses<TResult, TNext, TOptions>(
-        nextItems: ResultCollector<TNext>,
-        succeededResults: ResultCollector<TResult>,
-        succeeded: readonly PackageSuccess<TResult, TOptions>[],
-        selectNext: (input: SelectNextInput<TResult, TOptions>) => TNext
-    ): void {
-        for (const entry of succeeded) {
-            nextItems.push(selectNext({ result: entry.result, options: entry.options }));
-            succeededResults.push(entry.result);
-        }
     }
 
     async function runExecutionPlan<

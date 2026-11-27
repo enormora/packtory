@@ -141,22 +141,23 @@ suite('pure-expression builder facts', function () {
         test('keeps local builder facts through writes to other bindings', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };
 
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            '({ value } = source);',
-                            '++make().value;',
-                            '!builder;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
+            const pure = isPureExpression(
+                variableInitializer(
+                    [
+                        'import { z } from "schema-lib";',
+                        'const builder = z;',
+                        '({ value } = source);',
+                        '++make().value;',
+                        '!builder;',
+                        'const schema = builder.string();'
+                    ]
+                        .join('\n'),
+                    'schema'
                 ),
+                settings
+            );
+            assert.strictEqual(
+                pure,
                 true
             );
         });
@@ -164,20 +165,21 @@ suite('pure-expression builder facts', function () {
         test('keeps local builder facts through non-assignment binary expressions', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };
 
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            'builder === otherBuilder;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
+            const pure = isPureExpression(
+                variableInitializer(
+                    [
+                        'import { z } from "schema-lib";',
+                        'const builder = z;',
+                        'builder === otherBuilder;',
+                        'const schema = builder.string();'
+                    ]
+                        .join('\n'),
+                    'schema'
                 ),
+                settings
+            );
+            assert.strictEqual(
+                pure,
                 true
             );
         });
@@ -185,20 +187,21 @@ suite('pure-expression builder facts', function () {
         test('keeps local builder facts when other values are assigned before the read', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };
 
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            'otherBuilder = z;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
+            const pure = isPureExpression(
+                variableInitializer(
+                    [
+                        'import { z } from "schema-lib";',
+                        'const builder = z;',
+                        'otherBuilder = z;',
+                        'const schema = builder.string();'
+                    ]
+                        .join('\n'),
+                    'schema'
                 ),
+                settings
+            );
+            assert.strictEqual(
+                pure,
                 true
             );
         });
@@ -246,8 +249,13 @@ suite('pure-expression builder facts', function () {
                 'const schema = { ...base };'
             ];
 
-            assert.strictEqual(isPureExpression(variableInitializer(content.join('\n'), 'schema'), settings), true);
-            assert.strictEqual(isPureExpression(variableInitializer(content.join('\n'), 'schema'), undefined), false);
+            const pure = isPureExpression(variableInitializer(content.join('\n'), 'schema'), settings);
+            assert.strictEqual(pure, true);
+            const unconfiguredExpressionIsPure = isPureExpression(
+                variableInitializer(content.join('\n'), 'schema'),
+                undefined
+            );
+            assert.strictEqual(unconfiguredExpressionIsPure, false);
         });
     });
 
@@ -305,19 +313,20 @@ suite('pure-expression builder facts', function () {
         });
 
         test('rejects cyclic local builder aliases', function () {
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'const first = second;',
-                            'const second = first;',
-                            'const schema = first();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    undefined
+            const pure = isPureExpression(
+                variableInitializer(
+                    [
+                        'const first = second;',
+                        'const second = first;',
+                        'const schema = first();'
+                    ]
+                        .join('\n'),
+                    'schema'
                 ),
+                undefined
+            );
+            assert.strictEqual(
+                pure,
                 false
             );
         });
@@ -380,103 +389,54 @@ suite('pure-expression builder facts', function () {
 
         test('rejects mutated local builder aliases', function () {
             const settings: DeadCodeEliminationSettings = { enabled: true, pureImports: [ { from: 'schema-lib' } ] };
-
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            'builder.string = compute;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'let builder = z;',
-                            'builder = otherBuilder;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            '++builder;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const builder = z;',
-                            'builder--;',
-                            'const schema = builder.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { make } from "schema-lib";',
-                            'const builder = make;',
-                            'builder.extra = compute;',
-                            'const schema = builder();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
-            assert.strictEqual(
-                isPureExpression(
-                    variableInitializer(
-                        [
-                            'import { z } from "schema-lib";',
-                            'const value = compute();',
-                            'value.x = 1;',
-                            'const schema = value.string();'
-                        ]
-                            .join('\n'),
-                        'schema'
-                    ),
-                    settings
-                ),
-                false
-            );
+            const sources = [
+                [
+                    'import { z } from "schema-lib";',
+                    'const builder = z;',
+                    'builder.string = compute;',
+                    'const schema = builder.string();'
+                ]
+                    .join('\n'),
+                [
+                    'import { z } from "schema-lib";',
+                    'let builder = z;',
+                    'builder = otherBuilder;',
+                    'const schema = builder.string();'
+                ]
+                    .join('\n'),
+                [
+                    'import { z } from "schema-lib";',
+                    'const builder = z;',
+                    '++builder;',
+                    'const schema = builder.string();'
+                ]
+                    .join('\n'),
+                [
+                    'import { z } from "schema-lib";',
+                    'const builder = z;',
+                    'builder--;',
+                    'const schema = builder.string();'
+                ]
+                    .join('\n'),
+                [
+                    'import { make } from "schema-lib";',
+                    'const builder = make;',
+                    'builder.extra = compute;',
+                    'const schema = builder();'
+                ]
+                    .join('\n'),
+                [
+                    'import { z } from "schema-lib";',
+                    'const value = compute();',
+                    'value.x = 1;',
+                    'const schema = value.string();'
+                ]
+                    .join('\n')
+            ];
+            for (const content of sources) {
+                const expression = variableInitializer(content, 'schema');
+                assert.strictEqual(isPureExpression(expression, settings), false);
+            }
         });
     });
 });

@@ -38,14 +38,16 @@ suite('dead-code-elimination class heritage', function () {
 
         assert.strictEqual(safeModule.fileDescription.content.includes('class'), false);
         assertValidDeadCodeEliminationOutput('class heritage', [ resolvedPackage.analyzedBundle ]);
-        assert.deepStrictEqual(
-            await Promise.all([
-                runNodeProbe(`
+        const probeResult = runNodeProbe(`
                     const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
                     console.log(JSON.stringify(await module.api()));
-                `),
-                runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
-            ]),
+                `);
+        const probeResults = Promise.all([
+            probeResult,
+            runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
+        ]);
+        assert.deepStrictEqual(
+            await probeResults,
             [ expected, expected ]
         );
     });

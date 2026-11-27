@@ -24,11 +24,11 @@ export function evaluateImportedCall(
     }
     const evaluateArgument = evaluateSource(call.getSourceFile()).primitiveValue;
     const values = call.getArguments().map(evaluateArgument);
-    return values.every(isDefined)
-        ? evaluateFunction(target.getSourceFile()).callValue(
-            target,
-            values,
-            createModuleConstantReader(target.getSourceFile(), evaluateSource(target.getSourceFile()))
-        )
-        : undefined;
+    if (!values.every(isDefined)) {
+        return undefined;
+    }
+    const sourceFile = target.getSourceFile();
+    const functionEvaluation = evaluateFunction(sourceFile);
+    const constantReader = createModuleConstantReader(sourceFile, evaluateSource(sourceFile));
+    return functionEvaluation.callValue(target, values, constantReader);
 }

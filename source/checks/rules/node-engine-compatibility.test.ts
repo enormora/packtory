@@ -91,9 +91,10 @@ suite('node-engine-compatibility', function () {
 
         test('checks required direct peers', async function () {
             assert.deepStrictEqual(
-                await check({ engines: { node: '>=22' }, peerDependencies: { direct: '*' } }, {
-                    '/repo/node_modules/direct': { version: '1.0.0', engines: { node: '>=24' } }
-                }),
+                await check(
+                    { engines: { node: '>=22' }, peerDependencies: { direct: '*' } },
+                    { '/repo/node_modules/direct': { version: '1.0.0', engines: { node: '>=24' } } }
+                ),
                 [ mismatch ]
             );
         });
@@ -116,10 +117,13 @@ suite('node-engine-compatibility', function () {
         });
 
         test('checks a shared optional package when it also has a required path', async function () {
-            const issues = await check({ ...rootFields, optionalDependencies: { shared: '*' } }, {
-                '/repo/node_modules/direct': { dependencies: { shared: '*' } },
-                '/repo/node_modules/shared': { engines: { node: '>=24' } }
-            });
+            const issues = await check(
+                { ...rootFields, optionalDependencies: { shared: '*' } },
+                {
+                    '/repo/node_modules/direct': { dependencies: { shared: '*' } },
+                    '/repo/node_modules/shared': { engines: { node: '>=24' } }
+                }
+            );
             assert.strictEqual(issues.length, 1);
             assert.match(issues[0] ?? '', /root -> direct -> shared/u);
         });

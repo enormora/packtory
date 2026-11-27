@@ -18,6 +18,18 @@ const staticFileModificationTime = new Date(0);
 const executableFileMode = 493;
 const nonExecutableFileMode = 420;
 
+function addEntry(pack: Pack, filePath: string, isExecutable: boolean, payload: Buffer | string): void {
+    const entry = pack.entry(
+        {
+            name: filePath,
+            mtime: staticFileModificationTime,
+            mode: isExecutable ? executableFileMode : nonExecutableFileMode
+        },
+        payload
+    );
+    entry.end(undefined);
+}
+
 export function createTarballBuilder(dependencies: Partial<TarballBuilderDependencies> = {}): TarballBuilder {
     const createGzip = dependencies.createGzip ?? zlib.createGzip;
     const fileManager = dependencies.fileManager ?? {
@@ -28,18 +40,6 @@ export function createTarballBuilder(dependencies: Partial<TarballBuilderDepende
             throw new Error('readFileBytes is required to materialize vendor entries into the tarball');
         }
     };
-
-    function addEntry(pack: Pack, filePath: string, isExecutable: boolean, payload: Buffer | string): void {
-        const entry = pack.entry(
-            {
-                name: filePath,
-                mtime: staticFileModificationTime,
-                mode: isExecutable ? executableFileMode : nonExecutableFileMode
-            },
-            payload
-        );
-        entry.end(undefined);
-    }
 
     async function createPack(
         fileDescriptions: readonly FileDescription[],

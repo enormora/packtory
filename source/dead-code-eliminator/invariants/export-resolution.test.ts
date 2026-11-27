@@ -209,7 +209,7 @@ suite('dead code elimination export resolution', function () {
             hasExport(content, 'InterfaceName', 'declaration'),
             hasExport(content, 'TypeName', 'declaration'),
             hasExport(content, 'declaredName', 'declaration'),
-            hasExport(content, 'InterfaceName', 'runtime')
+            hasExport(content, 'InterfaceName')
         ], [
             true,
             true,
@@ -289,7 +289,7 @@ suite('dead code elimination export resolution', function () {
         });
 
         assert.deepStrictEqual([
-            hasExportThroughGraph(files, 'Api', 'runtime'),
+            hasExportThroughGraph(files, 'Api'),
             hasExportThroughGraph(files, 'Api', 'declaration'),
             hasExportThroughGraph(files, 'missing'),
             hasExportThroughGraph(files, 'assetName'),

@@ -4,7 +4,7 @@ import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import { normalizeAdditionalFile, normalizeRoot } from './normalize-paths.ts';
 
-const pathSegmentArbitrary = fastCheck.stringMatching(/^[\w.-]+$/);
+const pathSegmentArbitrary = fastCheck.stringMatching(/^[\w.-]+$/u);
 
 const relativePathArbitrary = fastCheck
     .array(pathSegmentArbitrary, {

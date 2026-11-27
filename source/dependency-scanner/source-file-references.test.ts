@@ -25,6 +25,59 @@ function expectReferencesToThrow(project: Project, filePath: string, expectedErr
     }, expectedError);
 }
 
+function expectMainResolvesToFoo(
+    files: readonly SourceFileFixture[],
+    options: ResolutionOptions = {}
+): void {
+    const project = createProject({ withFiles: files, ...options });
+    const mainPath = files[0]?.filePath ?? '';
+    const fooPath = files[1]?.filePath ?? '';
+    const result = getReferencedModules(project.getSourceFileOrThrow(mainPath), packageManifestPath);
+
+    assert.deepStrictEqual(moduleReferenceShapes(result), [
+        { kind: 'local-code', filePath: project.getSourceFileOrThrow(fooPath).getFilePath() }
+    ]);
+}
+
+function expectLocalWasmReference(importerPath: string, importValue: string): void {
+    const project = createProject({
+        withFiles: [
+            { filePath: importerPath, content: `import module from "${importValue}";` },
+            { filePath: '/module.wasm', content: 'wasm' }
+        ]
+    });
+
+    const result = getReferencedModules(project.getSourceFileOrThrow(importerPath), packageManifestPath);
+
+    assert.deepStrictEqual(moduleReferenceShapes(result), [ {
+        kind: 'local-asset',
+        filePath: '/module.wasm'
+    } ]);
+}
+
+function createNode16Project(files: readonly SourceFileFixture[]): Project {
+    const project = new Project({
+        compilerOptions: {
+            allowJs: true,
+            module: ModuleKind.Node16,
+            esModuleInterop: true,
+            noLib: true,
+            target: ScriptTarget.ES2022,
+            moduleResolution: ModuleResolutionKind.Node16,
+            resolveJsonModule: true,
+            types: []
+        },
+        skipLoadingLibFiles: true,
+        useInMemoryFileSystem: true
+    });
+
+    for (const file of files) {
+        project.createSourceFile(file.filePath, file.content);
+    }
+
+    return project;
+}
+
 suite('source-file-references', function () {
     suite('empty and failing imports', function () {
         test('returns an empty array when the given source file doesn’t has any imports', function () {
@@ -75,59 +128,6 @@ suite('source-file-references', function () {
             );
         });
     });
-
-    function expectMainResolvesToFoo(
-        files: readonly SourceFileFixture[],
-        options: ResolutionOptions = {}
-    ): void {
-        const project = createProject({ withFiles: files, ...options });
-        const mainPath = files[0]?.filePath ?? '';
-        const fooPath = files[1]?.filePath ?? '';
-        const result = getReferencedModules(project.getSourceFileOrThrow(mainPath), packageManifestPath);
-
-        assert.deepStrictEqual(moduleReferenceShapes(result), [
-            { kind: 'local-code', filePath: project.getSourceFileOrThrow(fooPath).getFilePath() }
-        ]);
-    }
-
-    function expectLocalWasmReference(importerPath: string, importValue: string): void {
-        const project = createProject({
-            withFiles: [
-                { filePath: importerPath, content: `import module from "${importValue}";` },
-                { filePath: '/module.wasm', content: 'wasm' }
-            ]
-        });
-
-        const result = getReferencedModules(project.getSourceFileOrThrow(importerPath), packageManifestPath);
-
-        assert.deepStrictEqual(moduleReferenceShapes(result), [ {
-            kind: 'local-asset',
-            filePath: '/module.wasm'
-        } ]);
-    }
-
-    function createNode16Project(files: readonly SourceFileFixture[]): Project {
-        const project = new Project({
-            compilerOptions: {
-                allowJs: true,
-                module: ModuleKind.Node16,
-                esModuleInterop: true,
-                noLib: true,
-                target: ScriptTarget.ES2022,
-                moduleResolution: ModuleResolutionKind.Node16,
-                resolveJsonModule: true,
-                types: []
-            },
-            skipLoadingLibFiles: true,
-            useInMemoryFileSystem: true
-        });
-
-        for (const file of files) {
-            project.createSourceFile(file.filePath, file.content);
-        }
-
-        return project;
-    }
 
     suite('local code references', function () {
         test('returns array with the resolved source file using an import from statement', function () {

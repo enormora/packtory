@@ -1,7 +1,7 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { BuildReport, Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument } from '../../report/preview/preview-document.ts';
-import * as webReport from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
+import { renderHypertextMarkupLanguageReport } from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 
 const javaScriptObjectNotationIndentSpaces = 2;
 
@@ -40,6 +40,6 @@ export async function writeReports(input: WriteReportsInput): Promise<void> {
     }
     if (flags.reportHypertextMarkupLanguage) {
         const document = await buildPreviewDocument({ report, result, dryRun, fileManager });
-        await fileManager.writeFile('packtory-report.html', webReport.renderHypertextMarkupLanguageReport(document));
+        await fileManager.writeFile('packtory-report.html', renderHypertextMarkupLanguageReport(document));
     }
 }

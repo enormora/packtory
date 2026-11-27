@@ -91,7 +91,7 @@ suite('file-set-diff', function () {
 
     test('classifies same content with different exec bit as modified with mode-only change', function () {
         const entry = singleModifiedEntry(
-            [ file('bin/cli.js', '#!/usr/bin/env node\n', false) ],
+            [ file('bin/cli.js', '#!/usr/bin/env node\n') ],
             [ file('bin/cli.js', '#!/usr/bin/env node\n', true) ]
         );
         assertDeepSubset(entry, {

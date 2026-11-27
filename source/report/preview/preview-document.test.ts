@@ -21,23 +21,24 @@ import { buildPreviewDocument } from './preview-document.ts';
 
 suite('preview-document', function () {
     test('buildPreviewDocument orders packages by report order and formats version transitions', async function () {
+        const buildResults = Result.ok([
+            buildResult(),
+            createBuildResultFixture({
+                packageName: 'package-b',
+                version: '0.0.1',
+                status: 'initial-version',
+                contents: [
+                    createAnalyzedResource({
+                        inputFilePath: '/workspace/package-b/index.js',
+                        targetFilePath: 'index.js',
+                        content: 'export {};\n'
+                    })
+                ]
+            })
+        ]);
         const document = await buildPreviewDocument({
             report: baseReport(),
-            result: Result.ok([
-                buildResult(),
-                createBuildResultFixture({
-                    packageName: 'package-b',
-                    version: '0.0.1',
-                    status: 'initial-version',
-                    contents: [
-                        createAnalyzedResource({
-                            inputFilePath: '/workspace/package-b/index.js',
-                            targetFilePath: 'index.js',
-                            content: 'export {};\n'
-                        })
-                    ]
-                })
-            ]),
+            result: buildResults,
             dryRun: true,
             fileManager: workspaceFileManager(
                 workspaceReader({ '/workspace/source/index.js': 'export const removed = 1;\n' })

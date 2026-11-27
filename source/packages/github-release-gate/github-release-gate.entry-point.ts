@@ -3,7 +3,6 @@
 import fileSystem from 'node:fs';
 import path from 'node:path';
 import { createFileManager } from '../../file-manager/file-manager.ts';
-import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
     runGitHubReleaseGate,
     type GitHubReleaseGateRunnerDependencies
@@ -57,8 +56,8 @@ async function loadPacktoryConfigurationFromCwd(): Promise<unknown> {
 function createDependencies(): GitHubReleaseGateRunnerDependencies {
     return {
         async analyzeReleaseAgainstLatestPublished(configuration) {
-            const packtory: typeof packtoryEntryPoint = await import('../packtory/packtory.entry-point.ts');
-            return packtory.analyzeReleaseAgainstLatestPublished(configuration);
+            const { analyzeReleaseAgainstLatestPublished } = await import('../packtory/packtory.entry-point.ts');
+            return analyzeReleaseAgainstLatestPublished(configuration);
         },
         fetch,
         fileManager: createFileManager({ hostFileSystem: fileSystem.promises }),

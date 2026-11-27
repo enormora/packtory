@@ -23,43 +23,46 @@ function createLoader(moduleValue: unknown): ConfigurationLoader {
 
 suite('config-loader', function () {
     test('load() rejects malformed module export shapes', async function () {
+        const invalidConfigurationValues = fastCheck.oneof(
+            fastCheck.boolean(),
+            fastCheck.integer(),
+            fastCheck.string(),
+            fastCheck.constant(null),
+            fastCheck.constant(undefined),
+            fastCheck.array(fastCheck.anything())
+        );
+        const configurationProperty = fastCheck.asyncProperty(
+            invalidConfigurationValues,
+            async function (moduleValue) {
+                await expectFailure(async function () {
+                    await createLoader(moduleValue).load();
+                });
+            }
+        );
         await fastCheck.assert(
-            fastCheck.asyncProperty(
-                fastCheck.oneof(
-                    fastCheck.boolean(),
-                    fastCheck.integer(),
-                    fastCheck.string(),
-                    fastCheck.constant(null),
-                    fastCheck.constant(undefined),
-                    fastCheck.array(fastCheck.anything())
-                ),
-                async function (moduleValue) {
-                    await expectFailure(async function () {
-                        await createLoader(moduleValue).load();
-                    });
-                }
-            )
+            configurationProperty
         );
     });
 
     test('load() rejects objects without config and buildConfiguration exports', async function () {
-        await fastCheck.assert(
-            fastCheck.asyncProperty(
-                fastCheck.dictionary(fastCheck.string(), fastCheck.anything(), { maxKeys: 4 }),
-                async function (moduleValue) {
-                    if (
-                        [ 'configuration', 'buildConfiguration', 'config', 'buildConfig' ].some(function (name) {
-                            return Object.hasOwn(moduleValue, name);
-                        })
-                    ) {
-                        return;
-                    }
-
-                    await expectFailure(async function () {
-                        await createLoader(moduleValue).load();
-                    });
+        const configurationProperty = fastCheck.asyncProperty(
+            fastCheck.dictionary(fastCheck.string(), fastCheck.anything(), { maxKeys: 4 }),
+            async function (moduleValue) {
+                if (
+                    [ 'configuration', 'buildConfiguration', 'config', 'buildConfig' ].some(function (name) {
+                        return Object.hasOwn(moduleValue, name);
+                    })
+                ) {
+                    return;
                 }
-            )
+
+                await expectFailure(async function () {
+                    await createLoader(moduleValue).load();
+                });
+            }
+        );
+        await fastCheck.assert(
+            configurationProperty
         );
     });
 

@@ -55,10 +55,10 @@ suite('export graph module ownership', function () {
             }
         });
         for (
-            const [ path, content ] of [ [ 'input.ts', 'import type * as ns from "library";' ], [
-                'input.d.ts',
-                'import * as ns from "library";'
-            ] ] as const
+            const [ path, content ] of [
+                [ 'input.ts', 'import type * as ns from "library";' ],
+                [ 'input.d.ts', 'import * as ns from "library";' ]
+            ] as const
         ) {
             const source = createProject().createSourceFile(path, content);
             const namespace = source.getFirstDescendantByKindOrThrow(SyntaxKind.NamespaceImport);

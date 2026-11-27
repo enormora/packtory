@@ -57,11 +57,11 @@ type FieldTestOptions = {
 };
 
 function pathDotNotationToBracketNotation(path: string): string {
-    return path.replaceAll(/\.(?<index>\d+)(?=\.|$)/g, '[$<index>]');
+    return path.replaceAll(/\.(?<index>\d+)(?=\.|$)/gu, '[$<index>]');
 }
 
 function parsePathSegment(pathSegment: string): PathSegment {
-    return /^\d+$/.test(pathSegment) ? Number(pathSegment) : pathSegment;
+    return /^\d+$/u.test(pathSegment) ? Number(pathSegment) : pathSegment;
 }
 
 function parsePath(path: string): readonly PathSegment[] {
@@ -257,19 +257,20 @@ function createUndefinedFieldTest(options: FieldTestOptions, required: boolean):
 }
 
 function createNullFieldTest(options: FieldTestOptions): void {
+    const rejectNullField = checkValidationFailure({
+        schema: options.schema,
+        data: cloneWithModification(options.data, options.path, 'set', null),
+        expectedMessages: Array.from(
+            getExpectedIssuesForFieldType({
+                path: options.path,
+                expectedFieldType: options.expectedFieldType,
+                assertedType: 'null'
+            })
+        )
+    });
     test(
         `validation fails when ${options.path} is null`,
-        checkValidationFailure({
-            schema: options.schema,
-            data: cloneWithModification(options.data, options.path, 'set', null),
-            expectedMessages: Array.from(
-                getExpectedIssuesForFieldType({
-                    path: options.path,
-                    expectedFieldType: options.expectedFieldType,
-                    assertedType: 'null'
-                })
-            )
-        })
+        rejectNullField
     );
 }
 
@@ -278,19 +279,20 @@ function createWrongTypeFieldTest(options: FieldTestOptions): void {
     const wrongTypeValue = expectsObjectLike ? invalidNumberValue : {};
     const assertedType = expectsObjectLike ? 'number' : 'object';
 
+    const rejectWrongFieldType = checkValidationFailure({
+        schema: options.schema,
+        data: cloneWithModification(options.data, options.path, 'set', wrongTypeValue),
+        expectedMessages: Array.from(
+            getExpectedIssuesForFieldType({
+                path: options.path,
+                expectedFieldType: options.expectedFieldType,
+                assertedType
+            })
+        )
+    });
     test(
         `validation fails when ${options.path} is not a ${options.expectedFieldType}`,
-        checkValidationFailure({
-            schema: options.schema,
-            data: cloneWithModification(options.data, options.path, 'set', wrongTypeValue),
-            expectedMessages: Array.from(
-                getExpectedIssuesForFieldType({
-                    path: options.path,
-                    expectedFieldType: options.expectedFieldType,
-                    assertedType
-                })
-            )
-        })
+        rejectWrongFieldType
     );
 }
 

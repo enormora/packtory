@@ -192,9 +192,11 @@ suite('substitute-bundles module references', function () {
             ]
         );
 
-        const substitutedGraph = substituteDependencies(inputGraph, [
-            bundleSource('manifest-package', '/package.json')
-        ], []);
+        const substitutedGraph = substituteDependencies(
+            inputGraph,
+            [ bundleSource('manifest-package', '/package.json') ],
+            []
+        );
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result.contents[0]?.moduleReferences, [

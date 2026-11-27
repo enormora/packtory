@@ -29,101 +29,102 @@ suite('type-roots', function () {
             deadCodeElimination: { enabled: false }
         });
 
-        assert.deepStrictEqual(
-            result,
-            asImplicitExportsBundle({
-                additionalAttributes: {},
-                packageManifest: {
-                    dependencies: {
-                        foo: '21.0.0',
-                        '@types/foo': '42.0.0'
-                    },
-                    name: 'the-package-name',
-                    sideEffects: [ './foo.js' ],
-                    version: '42.0.0',
-                    type: 'module'
-                },
-                contents: [
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
-                        fileDescription: {
-                            content: "import { foo } from './foo.js';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.js'),
-                            targetFilePath: 'entry.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "import { bar } from 'foo';\nexport const foo = bar('foo');\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/foo.js'),
-                            targetFilePath: 'foo.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: {
-                            survivingBindings: new Set([ 'bar', 'foo' ]),
-                            sideEffectStatements: [ { line: 2, kind: 'variable initializer' } ],
-                            sideEffectImports: new Set<string>()
-                        }
-                    },
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/foo.d.ts') ]),
-                        fileDescription: {
-                            content: "export declare const foo: import('./foo.js').Foo;\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.d.ts'),
-                            targetFilePath: 'entry.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "export type Bar = string;\nexport type { Foo } from 'foo';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/foo.d.ts'),
-                            targetFilePath: 'foo.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('Bar')
-                    }
-                ],
-                manifestFile: {
-                    content: '',
-                    isExecutable: false,
-                    filePath: 'package.json'
-                },
+        const expectedBundle = asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageManifest: {
                 dependencies: {
                     foo: '21.0.0',
                     '@types/foo': '42.0.0'
                 },
-                mainFile: {
-                    content: "import { foo } from './foo.js';\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
                 name: 'the-package-name',
-                packageType: 'module',
-                peerDependencies: {},
-                sideEffectsField: [ './foo.js' ],
-                typesMainFile: {
-                    content: "export declare const foo: import('./foo.js').Foo;\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.d.ts'),
-                    targetFilePath: 'entry.d.ts'
+                sideEffects: [ './foo.js' ],
+                version: '42.0.0',
+                type: 'module'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
+                    fileDescription: {
+                        content: "import { foo } from './foo.js';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
                 },
-                version: '42.0.0'
-            })
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "import { bar } from 'foo';\nexport const foo = bar('foo');\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: {
+                        survivingBindings: new Set([ 'bar', 'foo' ]),
+                        sideEffectStatements: [ { line: 2, kind: 'variable initializer' } ],
+                        sideEffectImports: new Set<string>()
+                    }
+                },
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/foo.d.ts') ]),
+                    fileDescription: {
+                        content: "export declare const foo: import('./foo.js').Foo;\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.d.ts'),
+                        targetFilePath: 'entry.d.ts'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export type Bar = string;\nexport type { Foo } from 'foo';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/foo.d.ts'),
+                        targetFilePath: 'foo.d.ts'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('Bar')
+                }
+            ],
+            manifestFile: {
+                content: '',
+                isExecutable: false,
+                filePath: 'package.json'
+            },
+            dependencies: {
+                foo: '21.0.0',
+                '@types/foo': '42.0.0'
+            },
+            mainFile: {
+                content: "import { foo } from './foo.js';\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: [ './foo.js' ],
+            typesMainFile: {
+                content: "export declare const foo: import('./foo.js').Foo;\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.d.ts'),
+                targetFilePath: 'entry.d.ts'
+            },
+            version: '42.0.0'
+        });
+        assert.deepStrictEqual(
+            result,
+            expectedBundle
         );
     });
 });

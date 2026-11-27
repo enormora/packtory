@@ -71,6 +71,47 @@ function createBundle(overrides: BundleOverrides): SoftwareBillOfMaterialsPackag
     };
 }
 
+async function captureSiblingLicenseCount(siblingLicense: string | undefined): Promise<number> {
+    const serialize = fake.returns('{"software-bill-of-materials":"stub"}');
+    const { builder } = createBuilder({ serialize });
+    await builder.generate(
+        createBundle({ name: 'package', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
+        [ createSibling(siblingLicense) ],
+        enabledSoftwareBillOfMaterials
+    );
+    const billOfMaterials = serialize.firstCall.args[0] as {
+        readonly components: Iterable<{ readonly name: string; readonly licenses: Iterable<unknown>; }>;
+    };
+    for (const component of billOfMaterials.components) {
+        if (component.name === 'bundle-sibling') {
+            return Array.from(component.licenses).length;
+        }
+    }
+    return -1;
+}
+
+async function captureScopeFor(
+    name: string,
+    dependenciesShape: Pick<SoftwareBillOfMaterialsPackage, 'dependencies' | 'peerDependencies'>
+): Promise<string | undefined> {
+    const serialize = fake.returns('{"software-bill-of-materials":"stub"}');
+    const { builder } = createBuilder({ serialize });
+    await builder.generate(
+        { ...createBundle({ name: 'package', version: '1.0.0' }), ...dependenciesShape },
+        [],
+        enabledSoftwareBillOfMaterials
+    );
+    const billOfMaterials = serialize.firstCall.args[0] as {
+        readonly components: Iterable<{ readonly name: string; readonly scope?: string; }>;
+    };
+    for (const component of billOfMaterials.components) {
+        if (component.name === name) {
+            return component.scope;
+        }
+    }
+    return undefined;
+}
+
 suite('sbom-file', function () {
     suite('enablement and output', function () {
         test('generate() returns a single software-bill-of-materials.cyclonedx.json FileDescription when SBOM is enabled', async function () {
@@ -154,25 +195,6 @@ suite('sbom-file', function () {
             assert.strictEqual(resolveLicense.callCount, 0);
         });
 
-        async function captureSiblingLicenseCount(siblingLicense: string | undefined): Promise<number> {
-            const serialize = fake.returns('{"software-bill-of-materials":"stub"}');
-            const { builder } = createBuilder({ serialize });
-            await builder.generate(
-                createBundle({ name: 'package', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
-                [ createSibling(siblingLicense) ],
-                enabledSoftwareBillOfMaterials
-            );
-            const billOfMaterials = serialize.firstCall.args[0] as {
-                readonly components: Iterable<{ readonly name: string; readonly licenses: Iterable<unknown>; }>;
-            };
-            for (const component of billOfMaterials.components) {
-                if (component.name === 'bundle-sibling') {
-                    return Array.from(component.licenses).length;
-                }
-            }
-            return -1;
-        }
-
         test('generate() emits the sibling’s license as the bundle dependency component license', async function () {
             assert.strictEqual(await captureSiblingLicenseCount('BSD-3-Clause'), 1);
         });
@@ -196,28 +218,6 @@ suite('sbom-file', function () {
                 { projectFolder: '/the-project', dependencyName: 'react' }
             ]);
         });
-
-        async function captureScopeFor(
-            name: string,
-            dependenciesShape: Pick<SoftwareBillOfMaterialsPackage, 'dependencies' | 'peerDependencies'>
-        ): Promise<string | undefined> {
-            const serialize = fake.returns('{"software-bill-of-materials":"stub"}');
-            const { builder } = createBuilder({ serialize });
-            await builder.generate(
-                { ...createBundle({ name: 'package', version: '1.0.0' }), ...dependenciesShape },
-                [],
-                enabledSoftwareBillOfMaterials
-            );
-            const billOfMaterials = serialize.firstCall.args[0] as {
-                readonly components: Iterable<{ readonly name: string; readonly scope?: string; }>;
-            };
-            for (const component of billOfMaterials.components) {
-                if (component.name === name) {
-                    return component.scope;
-                }
-            }
-            return undefined;
-        }
 
         test('generate() emits required scope for runtime dependencies', async function () {
             const scope = await captureScopeFor('left-pad', {

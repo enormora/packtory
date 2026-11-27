@@ -22,8 +22,11 @@ suite('unknown dynamic import targets', function () {
         });
         const expected = new Set(graph.externalTargets(new Set([ 'index.js::probe', 'library.js::value' ])));
         assert.strictEqual(expected.size, 4);
+        const targetSet = new Set(
+            graph.dynamicTargets(entry.sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression))
+        );
         assert.deepStrictEqual(
-            new Set(graph.dynamicTargets(entry.sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression))),
+            targetSet,
             expected
         );
     });

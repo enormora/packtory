@@ -10,7 +10,7 @@ import {
     type LocalFile
 } from './dependency-graph.ts';
 
-const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.js$/);
+const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.js$/u);
 
 function filePathAt(filePaths: readonly string[], index: number): string {
     const filePath = filePaths[index];
@@ -43,7 +43,7 @@ const dependencyFilesArbitrary: fastCheck.Arbitrary<DependencyFiles> = fastCheck
                     minLength: filePaths.length,
                     maxLength: filePaths.length
                 }),
-                externalDependencyNames: fastCheck.array(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/), {
+                externalDependencyNames: fastCheck.array(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u), {
                     maxLength: 3
                 }),
                 connections: fastCheck.shuffledSubarray(possibleConnections)

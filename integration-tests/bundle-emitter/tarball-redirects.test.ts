@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import * as timers from 'node:timers';
+import { setTimeout as scheduleTimeout, clearTimeout as cancelTimeout } from 'node:timers';
 import npmFetch from 'npm-registry-fetch';
 import { suite, test } from 'mocha';
 import { createRegistryClient, type RegistryClient } from '../../source/bundle-emitter/registry/registry-client.ts';
@@ -24,8 +24,8 @@ function registryClient(): RegistryClient {
         },
         clock: {
             getCurrentTimeInMilliseconds: Date.now,
-            setTimeout: timers.setTimeout,
-            clearTimeout: timers.clearTimeout
+            setTimeout: scheduleTimeout,
+            clearTimeout: cancelTimeout
         }
     });
 }

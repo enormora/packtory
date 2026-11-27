@@ -138,9 +138,10 @@ function registerSubstantiveInputTests(): void {
     });
 
     test('classifyPackageRelease treats pairs of invalid package.json contents as substantive', function () {
-        assertSubstantiveClassification([ file('package.json', 'not-json') ], [
-            file('package.json', 'still-not-json')
-        ]);
+        assertSubstantiveClassification(
+            [ file('package.json', 'not-json') ],
+            [ file('package.json', 'still-not-json') ]
+        );
     });
 
     test('classifyPackageRelease rejects non-package.json file changes as substantive', function () {

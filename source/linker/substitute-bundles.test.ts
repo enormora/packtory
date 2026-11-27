@@ -293,44 +293,48 @@ suite('substitute-bundles', function () {
     test('retains a referenced private file owned by a dependency', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
 
-        const substitutedGraph = substituteDependencies(inputGraph, [
-            versionedBundleWithManifest({
-                name: 'hidden-package',
-                version: '1.0.0',
-                roots: {
-                    main: {
-                        javaScript: {
-                            inputFilePath: '/bar.js',
-                            targetFilePath: 'bar.js',
-                            content: '',
-                            isExecutable: false
+        const substitutedGraph = substituteDependencies(
+            inputGraph,
+            [
+                versionedBundleWithManifest({
+                    name: 'hidden-package',
+                    version: '1.0.0',
+                    roots: {
+                        main: {
+                            javaScript: {
+                                inputFilePath: '/bar.js',
+                                targetFilePath: 'bar.js',
+                                content: '',
+                                isExecutable: false
+                            }
                         }
-                    }
-                },
-                surface: {
-                    mode: 'explicit',
-                    packageInterface: {
-                        modules: [ { root: 'main', export: '.' } ]
-                    }
-                },
-                contents: [
-                    {
-                        ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
-                        isSubstituted: false,
-                        analysis: emptySubstitutionAnalysis()
                     },
-                    {
-                        ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
-                        isSubstituted: false,
-                        analysis: emptySubstitutionAnalysis()
-                    }
-                ],
-                packageManifest: { name: 'hidden-package', version: '1.0.0' },
-                exportsField: { '.': { import: './bar.js' } },
-                mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
-                manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
-            })
-        ], []);
+                    surface: {
+                        mode: 'explicit',
+                        packageInterface: {
+                            modules: [ { root: 'main', export: '.' } ]
+                        }
+                    },
+                    contents: [
+                        {
+                            ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
+                            isSubstituted: false,
+                            analysis: emptySubstitutionAnalysis()
+                        },
+                        {
+                            ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
+                            isSubstituted: false,
+                            analysis: emptySubstitutionAnalysis()
+                        }
+                    ],
+                    packageManifest: { name: 'hidden-package', version: '1.0.0' },
+                    exportsField: { '.': { import: './bar.js' } },
+                    mainFile: { content: '', isExecutable: false, inputFilePath: '/bar.js', targetFilePath: 'bar.js' },
+                    manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+                })
+            ],
+            []
+        );
         assert.deepStrictEqual(substitutedGraph.flatten([ '/entry.js' ]), passthroughResult);
     });
 
@@ -420,10 +424,11 @@ suite('substitute-bundles', function () {
             { source: '/bar.js', content: 'true;', project },
             { source: '/baz.js', content: 'true;', project }
         ]);
-        const substitutedGraph = substituteDependencies(inputGraph, [
-            bundleSource('first-package', '/bar.js'),
-            bundleSource('second-package', '/baz.js')
-        ], []);
+        const substitutedGraph = substituteDependencies(
+            inputGraph,
+            [ bundleSource('first-package', '/bar.js'), bundleSource('second-package', '/baz.js') ],
+            []
+        );
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.partialDeepStrictEqual(result, {

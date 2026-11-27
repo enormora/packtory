@@ -265,13 +265,17 @@ export async function buildSingleArtifactDocument(
 }
 
 export async function buildUnchangedPackageDocument(overrides: Partial<PackageReport> = {}): Promise<PreviewDocument> {
+    const report = createBuildReportFixture({
+        packages: {
+            'package-a': createPackageReport([ tinyUnchangedSource('source/index.js') ], overrides)
+        }
+    });
+    const successfulResult = Result.ok([
+        buildResult({ contents: [ createAnalyzedResource({ content: 'export {};\n' }) ] })
+    ]);
     return buildPreviewDocument({
-        report: createBuildReportFixture({
-            packages: {
-                'package-a': createPackageReport([ tinyUnchangedSource('source/index.js') ], overrides)
-            }
-        }),
-        result: Result.ok([ buildResult({ contents: [ createAnalyzedResource({ content: 'export {};\n' }) ] }) ]),
+        report,
+        result: successfulResult,
         dryRun: true,
         fileManager: workspaceFileManager(async function () {
             return 'export {};\n';
@@ -283,6 +287,17 @@ export async function buildChangedSourceDiffDocument(
     emittedContent: string,
     workspaceContent: string
 ): Promise<PreviewDocument> {
+    const buildResults = Result.ok([
+        createBuildResultFixture({
+            contents: [
+                createAnalyzedResource({
+                    inputFilePath: '/workspace/source/index.js',
+                    targetFilePath: 'source/index.js',
+                    content: emittedContent
+                })
+            ]
+        })
+    ]);
     return buildPreviewDocument({
         report: reportForPackageA([
             createArtifactEntryFixture({
@@ -292,17 +307,7 @@ export async function buildChangedSourceDiffDocument(
                 badges: []
             })
         ]),
-        result: Result.ok([
-            createBuildResultFixture({
-                contents: [
-                    createAnalyzedResource({
-                        inputFilePath: '/workspace/source/index.js',
-                        targetFilePath: 'source/index.js',
-                        content: emittedContent
-                    })
-                ]
-            })
-        ]),
+        result: buildResults,
         dryRun: true,
         fileManager: workspaceFileManager(async function () {
             return workspaceContent;

@@ -31,6 +31,14 @@ type ScenarioRecorder = {
     readonly recordLog: (message: string) => void;
 };
 
+const promptForScenarioOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async function () {
+    return 'scenario-otp';
+};
+
+const promptForWiredOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async function () {
+    return 'wired-otp';
+};
+
 function createScenarioDependencies(
     recorder: ScenarioRecorder,
     loginResult: WebLoginResult
@@ -55,11 +63,13 @@ function createScenarioDependencies(
     const log = function (message: string): void {
         recorder.recordLog(message);
     };
-    const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async function () {
-        return 'scenario-otp';
+    return {
+        placeholderTarballBuilder,
+        webLogin,
+        packagePublication,
+        promptForOneTimePassword: promptForScenarioOneTimePassword,
+        log
     };
-
-    return { placeholderTarballBuilder, webLogin, packagePublication, promptForOneTimePassword, log };
 }
 
 function createScenarioRecorder(): ScenarioRecorder {
@@ -189,20 +199,16 @@ suite('bootstrap-runner', function () {
 
         test('threads the one-time-password prompt through to the publication step', async function () {
             const scenario = createScenario();
-            const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] =
-                async function () {
-                    return 'wired-otp';
-                };
             const runner = createBootstrapRunner({
                 ...scenario.dependencies,
-                promptForOneTimePassword
+                promptForOneTimePassword: promptForWiredOneTimePassword
             });
 
             await runner.run(buildBootstrapInput());
 
             const [ publication ] = scenario.recordings.publicationInputs;
             assertDefined(publication);
-            assert.strictEqual(publication.promptForOneTimePassword, promptForOneTimePassword);
+            assert.strictEqual(publication.promptForOneTimePassword, promptForWiredOneTimePassword);
         });
     });
 

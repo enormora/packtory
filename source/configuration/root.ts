@@ -3,10 +3,14 @@ import type { PackageRoot } from '../common/package-root.ts';
 import { isDeclarationCompanionFilePath } from '../common/declaration-companion-paths.ts';
 import { nonEmptyStringSchema } from './base-validations.ts';
 
-export const rootSchema: z.ZodMiniType<Root> = z.readonly(z.union([
-    z.strictObject({ javaScript: nonEmptyStringSchema, declarationFile: z.optional(nonEmptyStringSchema) }),
-    z.strictObject({ json: z.string().check(z.endsWith('.json')) }),
-    z.strictObject({ declarationFile: z.string().check(z.refine(isDeclarationCompanionFilePath)) })
-]));
+const rootFields = { javaScript: nonEmptyStringSchema, declarationFile: z.optional(nonEmptyStringSchema) };
+const jsonRootPathSchema = z.string().check(z.endsWith('.json'));
+const declarationRootPathSchema = z.string().check(z.refine(isDeclarationCompanionFilePath));
+const rootVariants = z.union([
+    z.strictObject(rootFields),
+    z.strictObject({ json: jsonRootPathSchema }),
+    z.strictObject({ declarationFile: declarationRootPathSchema })
+]);
+export const rootSchema: z.ZodMiniType<Root> = z.readonly(rootVariants);
 
 export type Root = PackageRoot<string>;

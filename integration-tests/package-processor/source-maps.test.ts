@@ -35,106 +35,107 @@ suite('source-maps', function () {
             deadCodeElimination: { enabled: false }
         });
 
+        const expectedBundle = asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageManifest: {
+                sideEffects: false,
+                type: 'module',
+                name: 'the-package-name',
+                version: '42.0.0'
+            },
+            manifestFile: {
+                content: '',
+                isExecutable: false,
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([
+                        path.join(fixture, 'source/foo.js'),
+                        path.join(fixture, 'source/entry.js.map')
+                    ]),
+                    fileDescription: {
+                        content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                },
+                {
+                    directDependencies: new Set([
+                        path.join(fixture, 'source/bar.js'),
+                        path.join(fixture, 'source/foo.js.map')
+                    ]),
+                    fileDescription: {
+                        content:
+                            "import { bar } from './bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('bar', 'foo')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content:
+                            '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./source/entry.ts"],"names":[],"mappings":""}\n',
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.js.map'),
+                        targetFilePath: 'entry.js.map'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: emptyAnalysis
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export const bar = 'bar';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/bar.js'),
+                        targetFilePath: 'bar.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('bar')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content:
+                            '{"version":3,"file":"foo.js","sourceRoot":"","sources":["./source/foo.ts"],"names":[],"mappings":""}\n',
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/foo.js.map'),
+                        targetFilePath: 'foo.js.map'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: emptyAnalysis
+                }
+            ],
+            dependencies: {},
+            mainFile: {
+                content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: false,
+            typesMainFile: undefined,
+            version: '42.0.0'
+        });
         assert.deepStrictEqual(
             result,
-            asImplicitExportsBundle({
-                additionalAttributes: {},
-                packageManifest: {
-                    sideEffects: false,
-                    type: 'module',
-                    name: 'the-package-name',
-                    version: '42.0.0'
-                },
-                manifestFile: {
-                    content: '',
-                    isExecutable: false,
-                    filePath: 'package.json'
-                },
-                contents: [
-                    {
-                        directDependencies: new Set([
-                            path.join(fixture, 'source/foo.js'),
-                            path.join(fixture, 'source/entry.js.map')
-                        ]),
-                        fileDescription: {
-                            content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.js'),
-                            targetFilePath: 'entry.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set([
-                            path.join(fixture, 'source/bar.js'),
-                            path.join(fixture, 'source/foo.js.map')
-                        ]),
-                        fileDescription: {
-                            content:
-                                "import { bar } from './bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/foo.js'),
-                            targetFilePath: 'foo.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar', 'foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content:
-                                '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./source/entry.ts"],"names":[],"mappings":""}\n',
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.js.map'),
-                            targetFilePath: 'entry.js.map'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: emptyAnalysis
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "export const bar = 'bar';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/bar.js'),
-                            targetFilePath: 'bar.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content:
-                                '{"version":3,"file":"foo.js","sourceRoot":"","sources":["./source/foo.ts"],"names":[],"mappings":""}\n',
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/foo.js.map'),
-                            targetFilePath: 'foo.js.map'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: emptyAnalysis
-                    }
-                ],
-                dependencies: {},
-                mainFile: {
-                    content: "import { foo } from './foo.js';\n//# sourceMappingURL=entry.js.map\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                name: 'the-package-name',
-                packageType: 'module',
-                peerDependencies: {},
-                sideEffectsField: false,
-                typesMainFile: undefined,
-                version: '42.0.0'
-            })
+            expectedBundle
         );
     });
 

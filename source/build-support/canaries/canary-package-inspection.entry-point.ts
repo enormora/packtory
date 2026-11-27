@@ -15,11 +15,12 @@ import {
     type PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
-const packageInspectionWork = z.object({
+const packageInspectionWorkFields = {
     folders: z.array(z.object({ name: z.string(), folderPath: z.string() })),
     nodeModulesFolder: z.string(),
     nodeTypeDefinitionsFolder: z.string()
-});
+};
+const packageInspectionWork = z.object(packageInspectionWorkFields);
 
 type PackageInspectionWork = Readonly<z.input<typeof packageInspectionWork>>;
 

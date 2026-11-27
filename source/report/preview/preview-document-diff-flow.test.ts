@@ -34,6 +34,17 @@ suite('preview-document diffs', function () {
     test('buildPreviewDocument reads workspace files through the injected file manager', async function () {
         const inputFilePath = '/workspace/index.js';
 
+        const buildResults = Result.ok([
+            createBuildResultFixture({
+                contents: [
+                    createAnalyzedResource({
+                        inputFilePath,
+                        targetFilePath: 'index.js',
+                        content: 'export const changed = 1;\n'
+                    })
+                ]
+            })
+        ]);
         const document = await buildPreviewDocument({
             report: reportForPackageA([
                 createArtifactEntryFixture({
@@ -43,17 +54,7 @@ suite('preview-document diffs', function () {
                     badges: []
                 })
             ]),
-            result: Result.ok([
-                createBuildResultFixture({
-                    contents: [
-                        createAnalyzedResource({
-                            inputFilePath,
-                            targetFilePath: 'index.js',
-                            content: 'export const changed = 1;\n'
-                        })
-                    ]
-                })
-            ]),
+            result: buildResults,
             dryRun: true,
             fileManager: workspaceFileManager(async function (requestedPath) {
                 assert.strictEqual(requestedPath, inputFilePath);

@@ -160,10 +160,10 @@ suite('release-handler', function () {
             });
 
             assert.strictEqual(await runReleaseHandler(dependencies), 0);
-            assert.deepStrictEqual([
-                dependencies.buildAndPublishAll.callCount,
-                dependencies.createGitHubReleaseClient.callCount
-            ], [ 1, 0 ]);
+            assert.deepStrictEqual(
+                [ dependencies.buildAndPublishAll.callCount, dependencies.createGitHubReleaseClient.callCount ],
+                [ 1, 0 ]
+            );
             assert.strictEqual(dependencies.log.lastCall.args[0], 'Release completed.');
         });
 

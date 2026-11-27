@@ -68,6 +68,51 @@ type DependencyNodeDataInput = {
     readonly sourcesFolder: string;
 };
 
+function collectReferenceLists(references: readonly ModuleReference[]): ReferenceLists {
+    const localReferences: ScannableLocalReference[] = [];
+    const externalDependencies: (DependencySpecifierReference & { readonly name: string; })[] = [];
+
+    for (const reference of references) {
+        if (reference.kind === moduleReferenceKind.externalPackage) {
+            externalDependencies.push({
+                name: reference.packageName,
+                sourceSpecifier: reference.sourceSpecifier,
+                emittedSpecifier: reference.emittedSpecifier
+            });
+        } else {
+            localReferences.push(reference);
+        }
+    }
+
+    return {
+        localReferences,
+        externalDependencies
+    };
+}
+
+function getReferencedModules(
+    project: TypescriptProject,
+    reference: ScannableLocalReference
+): readonly ModuleReference[] {
+    return reference.kind === moduleReferenceKind.localCode ? project.getReferencedModules(reference.filePath) : [];
+}
+
+function getNodeProject(
+    project: TypescriptProject,
+    reference: ScannableLocalReference
+): TypescriptProject | undefined {
+    return reference.kind === moduleReferenceKind.localCode ? project : undefined;
+}
+
+function toDependencyNode(
+    reference: ScannableLocalReference,
+    nodeData: DependencyGraphNodeData
+): DependencyGraphNodeData {
+    return reference.kind === moduleReferenceKind.generatedManifest
+        ? { ...nodeData, isGeneratedManifest: true }
+        : nodeData;
+}
+
 export function createDependencyScanner(
     dependencyScannerDependencies: Readonly<DependencyScannerDependencies>
 ): DependencyScanner {
@@ -84,51 +129,6 @@ export function createDependencyScanner(
             moduleReferences: input.moduleReferences,
             project: input.project
         };
-    }
-
-    function collectReferenceLists(references: readonly ModuleReference[]): ReferenceLists {
-        const localReferences: ScannableLocalReference[] = [];
-        const externalDependencies: (DependencySpecifierReference & { readonly name: string; })[] = [];
-
-        for (const reference of references) {
-            if (reference.kind === moduleReferenceKind.externalPackage) {
-                externalDependencies.push({
-                    name: reference.packageName,
-                    sourceSpecifier: reference.sourceSpecifier,
-                    emittedSpecifier: reference.emittedSpecifier
-                });
-            } else {
-                localReferences.push(reference);
-            }
-        }
-
-        return {
-            localReferences,
-            externalDependencies
-        };
-    }
-
-    function getReferencedModules(
-        project: TypescriptProject,
-        reference: ScannableLocalReference
-    ): readonly ModuleReference[] {
-        return reference.kind === moduleReferenceKind.localCode ? project.getReferencedModules(reference.filePath) : [];
-    }
-
-    function getNodeProject(
-        project: TypescriptProject,
-        reference: ScannableLocalReference
-    ): TypescriptProject | undefined {
-        return reference.kind === moduleReferenceKind.localCode ? project : undefined;
-    }
-
-    function toDependencyNode(
-        reference: ScannableLocalReference,
-        nodeData: DependencyGraphNodeData
-    ): DependencyGraphNodeData {
-        return reference.kind === moduleReferenceKind.generatedManifest
-            ? { ...nodeData, isGeneratedManifest: true }
-            : nodeData;
     }
 
     async function scanDependenciesOfReference(

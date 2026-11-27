@@ -47,7 +47,7 @@ function versionedBundleBuilder(): VersionedBundleBuilder {
 suite('package-processor publish provider versioning', function () {
     test('checks provider-versioned packages at the current version before asking for a bump', async function () {
         const provideVersion = fake.returns('1.2.4');
-        const currentVersionedBundle = createVersionedBundle('package-a', '1.2.3');
+        const currentVersionedBundle = createVersionedBundle();
         const addVersion = fake.returns(currentVersionedBundle);
         const checkBundleAlreadyPublished = fake.resolves({
             alreadyPublishedAsLatest: true,
@@ -86,11 +86,10 @@ suite('package-processor publish provider versioning', function () {
 
         const result = await processor.tryBuildAndPublish(tryBuildOptions({ automatic: false, provideVersion }));
 
-        assert.deepStrictEqual([ result.status, result.bundle.version, provideVersion.callCount ], [
-            'new-version',
-            '1.2.4',
-            1
-        ]);
+        assert.deepStrictEqual(
+            [ result.status, result.bundle.version, provideVersion.callCount ],
+            [ 'new-version', '1.2.4', 1 ]
+        );
         assert.deepStrictEqual(versions, [ '1.2.3', '1.2.4' ]);
         assert.strictEqual(determineCurrentVersion.callCount, 1);
         assert.partialDeepStrictEqual(provideVersion.firstCall.args, [ { currentVersion: '1.2.3' } ]);

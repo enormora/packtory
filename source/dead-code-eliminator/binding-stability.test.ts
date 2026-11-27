@@ -22,7 +22,8 @@ suite('binding stability', function () {
             const declaration = source.getVariableDeclarations()[0];
             assertDefined(declaration);
             const name = declaration.getNameNode();
-            assert.strictEqual(bindingHasOnlyUses(name, declaration, new Set(source.getDescendants())), false);
+            const hasOnlyUses = bindingHasOnlyUses(name, declaration, new Set(source.getDescendants()));
+            assert.strictEqual(hasOnlyUses, false);
         });
 
         for (

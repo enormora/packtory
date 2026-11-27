@@ -18,6 +18,14 @@ import {
     getOkResult
 } from '../test-libraries/result-helpers.ts';
 
+function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
+    return createPacktoryUnderTest({
+        resolveAndLink: fake(async function (options: ResolveOptionsInput) {
+            return createLinkedBundle(options.name, '/shared.js');
+        })
+    });
+}
+
 suite('packtory', function () {
     suite('resolve', function () {
         test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
@@ -28,14 +36,6 @@ suite('packtory', function () {
             const error = getErrorResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
             assert.strictEqual(error.type, 'configuration');
         });
-
-        function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
-            return createPacktoryUnderTest({
-                resolveAndLink: fake(async function (options: ResolveOptionsInput) {
-                    return createLinkedBundle(options.name, '/shared.js');
-                })
-            });
-        }
 
         test('resolveAndLinkAll() returns check failures after the linked bundles were built', async function () {
             const { packtory } = createPacktoryThatSharesSourceFile();
@@ -90,10 +90,7 @@ suite('packtory', function () {
             test('buildAndPublishAll() returns config issues when the config is invalid', async function () {
                 const { packtory } = createPacktoryUnderTest();
 
-                const { result } = await packtory.buildAndPublishAll({ invalid: true }, {
-                    dryRun: true,
-                    stage: false
-                });
+                const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true, stage: false });
 
                 const error = getErrorResult(result, 'Expected buildAndPublishAll() should fail but it did not');
                 assert.strictEqual(error.type, 'configuration');

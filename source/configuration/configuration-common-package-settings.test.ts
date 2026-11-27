@@ -12,79 +12,86 @@ import {
 
 suite('config common package settings', function () {
     suite('common settings accepted shapes', function () {
+        const acceptCommonSettingsOnly = validConfiguration(configurationWith({
+            commonPackageSettings: {
+                sourcesFolder: 'source',
+                mainPackageManifest
+            },
+            packages: [ packageWithoutCommonSettings() ]
+        }));
         test(
             'validation succeeds when commonPackageSettings is given and a package contains no common settings',
-            validConfiguration(configurationWith({
-                commonPackageSettings: {
-                    sourcesFolder: 'source',
-                    mainPackageManifest
-                },
-                packages: [ packageWithoutCommonSettings() ]
-            }))
+            acceptCommonSettingsOnly
         );
 
+        const acceptCommonAndPackageSettings = validConfiguration(configurationWith({
+            commonPackageSettings: {
+                sourcesFolder: 'source',
+                mainPackageManifest
+            },
+            packages: [ packageConfiguration() ]
+        }));
         test(
             'validation succeeds when commonPackageSettings is given and a package contains common settings as well',
-            validConfiguration(configurationWith({
-                commonPackageSettings: {
-                    sourcesFolder: 'source',
-                    mainPackageManifest
-                },
-                packages: [ packageConfiguration() ]
-            }))
+            acceptCommonAndPackageSettings
         );
 
+        const acceptCommonSourcesFolder = validConfiguration(configurationWith({
+            commonPackageSettings: { sourcesFolder: 'source' },
+            packages: [ packageConfiguration({ sourcesFolder: undefined }) ]
+        }));
         test(
             'validation succeeds when only sourcesFolder is provided in commonPackageSettings',
-            validConfiguration(configurationWith({
-                commonPackageSettings: { sourcesFolder: 'source' },
-                packages: [ packageConfiguration({ sourcesFolder: undefined }) ]
-            }))
+            acceptCommonSourcesFolder
         );
 
+        const acceptCommonAndPackageSourcesFolder = validConfiguration(configurationWith({
+            commonPackageSettings: { sourcesFolder: 'source' },
+            packages: [ packageConfiguration() ]
+        }));
         test(
             'validation succeeds when only sourcesFolder is provided in commonPackageSettings and in packages',
-            validConfiguration(configurationWith({
-                commonPackageSettings: { sourcesFolder: 'source' },
-                packages: [ packageConfiguration() ]
-            }))
+            acceptCommonAndPackageSourcesFolder
         );
 
+        const acceptCommonManifest = validConfiguration(configurationWith({
+            commonPackageSettings: { mainPackageManifest },
+            packages: [ packageConfiguration({ mainPackageManifest: undefined }) ]
+        }));
         test(
             'validation succeeds when only mainPackageManifest is provided in commonPackageSettings',
-            validConfiguration(configurationWith({
-                commonPackageSettings: { mainPackageManifest },
-                packages: [ packageConfiguration({ mainPackageManifest: undefined }) ]
-            }))
+            acceptCommonManifest
         );
 
+        const acceptCommonAndPackageManifest = validConfiguration(configurationWith({
+            commonPackageSettings: { mainPackageManifest },
+            packages: [ packageConfiguration() ]
+        }));
         test(
             'validation succeeds when only mainPackageManifest is provided in commonPackageSettings and in packages',
-            validConfiguration(configurationWith({
-                commonPackageSettings: { mainPackageManifest },
-                packages: [ packageConfiguration() ]
-            }))
+            acceptCommonAndPackageManifest
         );
 
+        const acceptAllCommonSettings = validConfiguration(configurationWith({
+            commonPackageSettings: {
+                sourcesFolder: 'source',
+                mainPackageManifest,
+                additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
+                includeSourceMapFiles: true,
+                additionalPackageManifestAttributes: { license: 'foo' }
+            },
+            packages: [ packageConfiguration({
+                versioning: { automatic: true },
+                bundleDependencies: [ 'foo' ],
+                bundlePeerDependencies: [ 'foo' ],
+                additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
+                includeSourceMapFiles: true,
+                additionalPackageManifestAttributes: { license: 'foo' }
+            }) ]
+        }));
         test(
             'validation succeeds when all optional properties are given',
-            validConfiguration(configurationWith({
-                commonPackageSettings: {
-                    sourcesFolder: 'source',
-                    mainPackageManifest,
-                    additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
-                    includeSourceMapFiles: true,
-                    additionalPackageManifestAttributes: { license: 'foo' }
-                },
-                packages: [ packageConfiguration({
-                    versioning: { automatic: true },
-                    bundleDependencies: [ 'foo' ],
-                    bundlePeerDependencies: [ 'foo' ],
-                    additionalFiles: [ { inputFilePath: 'foo', targetFilePath: 'foo' } ],
-                    includeSourceMapFiles: true,
-                    additionalPackageManifestAttributes: { license: 'foo' }
-                }) ]
-            }))
+            acceptAllCommonSettings
         );
 
         test(
@@ -102,25 +109,27 @@ suite('config common package settings', function () {
             invalidConfiguration({}, [ 'invalid value doesn’t match expected union' ])
         );
 
+        const rejectMissingPackageManifest = invalidConfiguration(
+            configurationWith({ packages: [ packageConfiguration({ mainPackageManifest: undefined }) ] }),
+            [
+                'invalid value doesn’t match expected union'
+            ]
+        );
         test(
             'validation fails when commonPackageSettings is not defined and mainPackageManifest is missing in a package',
-            invalidConfiguration(
-                configurationWith({ packages: [ packageConfiguration({ mainPackageManifest: undefined }) ] }),
-                [
-                    'invalid value doesn’t match expected union'
-                ]
-            )
+            rejectMissingPackageManifest
         );
 
+        const rejectMissingDuplicationEnabled = invalidConfiguration(
+            configurationWith({
+                checks: { noDuplicatedFiles: {} },
+                packages: [ packageConfiguration() ]
+            }),
+            [ 'invalid value doesn’t match expected union' ]
+        );
         test(
             'validation fails when checks.noDuplicatedFiles misses the enabled flag',
-            invalidConfiguration(
-                configurationWith({
-                    checks: { noDuplicatedFiles: {} },
-                    packages: [ packageConfiguration() ]
-                }),
-                [ 'invalid value doesn’t match expected union' ]
-            )
+            rejectMissingDuplicationEnabled
         );
 
         test(
@@ -130,47 +139,51 @@ suite('config common package settings', function () {
             ])
         );
 
+        const rejectEmptyCommonSettings = invalidConfiguration(
+            configurationWith({ commonPackageSettings: {}, packages: [ packageWithoutCommonSettings() ] }),
+            [
+                'invalid value doesn’t match expected union'
+            ]
+        );
         test(
             'validation fails when commonPackageSettings is empty and packages don’t define required properties',
-            invalidConfiguration(
-                configurationWith({ commonPackageSettings: {}, packages: [ packageWithoutCommonSettings() ] }),
-                [
-                    'invalid value doesn’t match expected union'
-                ]
-            )
+            rejectEmptyCommonSettings
         );
 
+        const rejectCommonManifestWithoutSources = invalidConfiguration(
+            configurationWith({
+                commonPackageSettings: { mainPackageManifest },
+                packages: [ packageWithoutCommonSettings() ]
+            }),
+            [ 'invalid value doesn’t match expected union' ]
+        );
         test(
             'validation fails when commonPackageSettings contains only mainPackageManifest',
-            invalidConfiguration(
-                configurationWith({
-                    commonPackageSettings: { mainPackageManifest },
-                    packages: [ packageWithoutCommonSettings() ]
-                }),
-                [ 'invalid value doesn’t match expected union' ]
-            )
+            rejectCommonManifestWithoutSources
         );
 
+        const rejectCommonSettingsWithoutSources = invalidConfiguration(
+            configurationWith({
+                commonPackageSettings: undefined,
+                packages: [ packageConfiguration({ sourcesFolder: undefined }) ]
+            }),
+            [ 'invalid value doesn’t match expected union' ]
+        );
         test(
             'validation fails when commonPackageSettings is undefined and sourcesFolder is missing in a package',
-            invalidConfiguration(
-                configurationWith({
-                    commonPackageSettings: undefined,
-                    packages: [ packageConfiguration({ sourcesFolder: undefined }) ]
-                }),
-                [ 'invalid value doesn’t match expected union' ]
-            )
+            rejectCommonSettingsWithoutSources
         );
 
+        const rejectCommonSourcesWithoutManifest = invalidConfiguration(
+            configurationWith({
+                commonPackageSettings: { sourcesFolder: 'foo' },
+                packages: [ packageWithoutCommonSettings() ]
+            }),
+            [ 'invalid value doesn’t match expected union' ]
+        );
         test(
             'validation fails when commonPackageSettings contains only sourcesFolder',
-            invalidConfiguration(
-                configurationWith({
-                    commonPackageSettings: { sourcesFolder: 'foo' },
-                    packages: [ packageWithoutCommonSettings() ]
-                }),
-                [ 'invalid value doesn’t match expected union' ]
-            )
+            rejectCommonSourcesWithoutManifest
         );
     });
 });

@@ -519,20 +519,29 @@ suite('external purity summary', function () {
 
         test('handles named imports without treating them as namespace imports', function () {
             assert.strictEqual(
-                purityFor([ 'build' ], [ {
-                    filePath: '/project/node_modules/schema-lib/index.js',
-                    content: 'import { value } from "./other.js"; export function build() { return {}; }'
-                }, { filePath: '/project/node_modules/schema-lib/other.js', content: 'export const value = 1;' } ]),
+                purityFor(
+                    [ 'build' ],
+                    [
+                        {
+                            filePath: '/project/node_modules/schema-lib/index.js',
+                            content: 'import { value } from "./other.js"; export function build() { return {}; }'
+                        },
+                        { filePath: '/project/node_modules/schema-lib/other.js', content: 'export const value = 1;' }
+                    ]
+                ),
                 'pure-callable'
             );
         });
 
         test('ignores anonymous default declarations while preserving named builder exports', function () {
             assert.strictEqual(
-                purityFor([ 'build' ], [ {
-                    filePath: '/project/node_modules/schema-lib/index.js',
-                    content: 'export default function () { return {}; } export function build() { return {}; }'
-                } ]),
+                purityFor(
+                    [ 'build' ],
+                    [ {
+                        filePath: '/project/node_modules/schema-lib/index.js',
+                        content: 'export default function () { return {}; } export function build() { return {}; }'
+                    } ]
+                ),
                 'pure-callable'
             );
         });

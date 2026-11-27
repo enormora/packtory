@@ -138,22 +138,34 @@ function registerJavaScriptAttributionTests(): void {
 
 function registerSourceMapFailureTests(): void {
     test('fails when a referenced source map is missing', async function () {
+        const attribution = attributeSingleFile(
+            missingMapFileManager(sourceWithMap('index.js.map')),
+            '/repo/dist/index.js'
+        );
         await assert.rejects(
-            attributeSingleFile(missingMapFileManager(sourceWithMap('index.js.map')), '/repo/dist/index.js'),
+            attribution,
             /Source map "\/repo\/dist\/index\.js\.map" referenced by "\/repo\/dist\/index\.js" is not readable/u
         );
     });
 
     test('fails when a referenced source map is malformed', async function () {
+        const attribution = attributeSingleFile(
+            readableMapFileManager(sourceWithMap('index.js.map'), '{'),
+            '/repo/dist/index.js'
+        );
         await assert.rejects(
-            attributeSingleFile(readableMapFileManager(sourceWithMap('index.js.map'), '{'), '/repo/dist/index.js'),
+            attribution,
             /Failed to parse source map "\/repo\/dist\/index\.js\.map"/u
         );
     });
 
     test('preserves the parse error cause for malformed source maps', async function () {
+        const attribution = attributeSingleFile(
+            readableMapFileManager(sourceWithMap('index.js.map'), '{'),
+            '/repo/dist/index.js'
+        );
         await assert.rejects(
-            attributeSingleFile(readableMapFileManager(sourceWithMap('index.js.map'), '{'), '/repo/dist/index.js'),
+            attribution,
             function (error: unknown) {
                 assert.strictEqual((error as Error).message, 'Failed to parse source map "/repo/dist/index.js.map"');
                 assertDefined((error as Error).cause);
@@ -163,11 +175,12 @@ function registerSourceMapFailureTests(): void {
     });
 
     test('fails when a referenced source map contains an empty source', async function () {
+        const attribution = attributeSingleFile(
+            readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ null ])),
+            '/repo/dist/index.js'
+        );
         await assert.rejects(
-            attributeSingleFile(
-                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ null ])),
-                '/repo/dist/index.js'
-            ),
+            attribution,
             /Source map "\/repo\/dist\/index\.js\.map" contains an empty source/u
         );
     });
@@ -179,22 +192,24 @@ function registerSourceMapFailureTests(): void {
             ]
         });
 
+        const attribution = attributeChangelogSourceFiles(
+            { fileManager, repositoryFolder: '/repo' },
+            bundleWith([ analyzedBundleResource('/repo/dist/index.js') ]),
+            []
+        );
         await assert.rejects(
-            attributeChangelogSourceFiles(
-                { fileManager, repositoryFolder: '/repo' },
-                bundleWith([ analyzedBundleResource('/repo/dist/index.js') ]),
-                []
-            ),
+            attribution,
             /Multiple sourceMappingURL references found in "\/repo\/dist\/index\.js"/u
         );
     });
 
     test('fails when a source map source resolves outside the repository folder', async function () {
+        const attribution = attributeSingleFile(
+            readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ '../../outside/index.ts' ])),
+            '/repo/dist/index.js'
+        );
         await assert.rejects(
-            attributeSingleFile(
-                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ '../../outside/index.ts' ])),
-                '/repo/dist/index.js'
-            ),
+            attribution,
             /Changelog source file "\/outside\/index\.ts" is outside repository folder "\/repo"/u
         );
     });
@@ -202,12 +217,13 @@ function registerSourceMapFailureTests(): void {
 
 function registerDirectSourceTests(): void {
     test('fails when an attributed source is the repository folder itself', async function () {
+        const attribution = attributeChangelogSourceFiles(
+            { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
+            bundleWith([ analyzedBundleResource('/repo', { targetFilePath: 'repo' }) ]),
+            []
+        );
         await assert.rejects(
-            attributeChangelogSourceFiles(
-                { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
-                bundleWith([ analyzedBundleResource('/repo', { targetFilePath: 'repo' }) ]),
-                []
-            ),
+            attribution,
             /Changelog source file "\/repo" is outside repository folder "\/repo"/u
         );
     });

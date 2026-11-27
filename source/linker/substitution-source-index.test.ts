@@ -96,10 +96,13 @@ suite('substitution source indexes', function () {
 
     test('rejects internal paths when their public root source is unavailable', function () {
         const workload = createPathReplacementWorkload(1, 1);
-        const lookup = createPathReplacementLookup([], [ {
-            ...workload.bundle,
-            contents: workload.bundle.contents.slice(1)
-        } ]);
+        const lookup = createPathReplacementLookup(
+            [],
+            [ {
+                ...workload.bundle,
+                contents: workload.bundle.contents.slice(1)
+            } ]
+        );
 
         assert.throws(function () {
             lookup(workload.requests);

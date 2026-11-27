@@ -66,11 +66,10 @@ function createGraphModule(
             const key = `${record.file.targetFilePath}::@evaluate`;
             if (!nodes.has(key)) {
                 nodes.set(key, function () {
-                    return moduleEvaluationDependencies({
-                        model: record.model,
-                        bindings: record.file.bindings,
-                        effects: analysis.effects(source)
-                    }, { ...targets, index: analysis.index, resolveModule: analysis.resolveModule });
+                    return moduleEvaluationDependencies(
+                        { model: record.model, bindings: record.file.bindings, effects: analysis.effects(source) },
+                        { ...targets, index: analysis.index, resolveModule: analysis.resolveModule }
+                    );
                 });
             }
             return key;

@@ -20,8 +20,8 @@ const reservedAttributeNames = new Set([
     'version'
 ]);
 
-const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
-const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.(?:js|d\.ts)$/);
+const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u);
+const filePathArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.(?:js|d\.ts)$/u);
 const versionArbitrary = fastCheck
     .tuple(
         fastCheck.integer({ min: 0, max: 9 }),
@@ -32,7 +32,7 @@ const versionArbitrary = fastCheck
         return `${major}.${minor}.${patch}`;
     });
 const dependencyRecordArbitrary = fastCheck.dictionary(packageNameArbitrary, versionArbitrary, { maxKeys: 3 });
-const additionalAttributeKeyArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter(function (key) {
+const additionalAttributeKeyArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,10}$/u).filter(function (key) {
     return !reservedAttributeNames.has(key);
 });
 
@@ -53,7 +53,7 @@ const bundleArbitrary: fastCheck.Arbitrary<VersionedBundle> = fastCheck
         additionalAttributes: additionalAttributesArbitrary,
         packageType: fastCheck.constant<'module'>('module'),
         mainTargetFilePath: filePathArbitrary,
-        typesTargetFilePath: fastCheck.option(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.d\.ts$/), {
+        typesTargetFilePath: fastCheck.option(fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}\.d\.ts$/u), {
             nil: undefined
         })
     })

@@ -17,12 +17,13 @@ const basicAuthenticationSchema = z.readonly(
     })
 );
 
+const npmOpenIdentityConnectAuthenticationFields = {
+    type: z.literal('npm-open-identity-connect'),
+    provider: z.optional(z.enum([ 'automatic', 'github-actions', 'environment' ])),
+    identityTokenEnvironmentVariable: z.optional(nonEmptyStringSchema)
+};
 const npmOpenIdentityConnectAuthenticationSchema = z.readonly(
-    z.strictObject({
-        type: z.literal('npm-open-identity-connect'),
-        provider: z.optional(z.enum([ 'automatic', 'github-actions', 'environment' ])),
-        identityTokenEnvironmentVariable: z.optional(nonEmptyStringSchema)
-    })
+    z.strictObject(npmOpenIdentityConnectAuthenticationFields)
 );
 
 const publishAuthenticationStrategySchema = z.discriminatedUnion('type', [
@@ -43,13 +44,14 @@ const metadataAuthenticationModeSchema = z.union([
     metadataAuthenticationStrategySchema
 ]);
 
+const publishAndMetadataAuthenticationFields = {
+    publish: publishAuthenticationStrategySchema,
+    metadata: z.optional(metadataAuthenticationModeSchema)
+};
 const authenticationConfigurationSchema = z.union([
     z.readonly(publishAuthenticationStrategySchema),
     z.readonly(
-        z.strictObject({
-            publish: publishAuthenticationStrategySchema,
-            metadata: z.optional(metadataAuthenticationModeSchema)
-        })
+        z.strictObject(publishAndMetadataAuthenticationFields)
     )
 ]);
 

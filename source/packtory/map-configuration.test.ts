@@ -278,10 +278,10 @@ function registerDependencyAndFileOptionTests(): void {
             }
         );
 
-        assert.deepStrictEqual([
-            options.bundleDependencies,
-            options.bundleDependencyClosure
-        ], [ [ bundleDependency ], [ bundleDependency ] ]);
+        assert.deepStrictEqual(
+            [ options.bundleDependencies, options.bundleDependencyClosure ],
+            [ [ bundleDependency ], [ bundleDependency ] ]
+        );
     });
 
     test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', function () {
@@ -362,6 +362,10 @@ function registerDependencyAndFileOptionTests(): void {
     });
 }
 
+const provideVersion = async function (): Promise<string> {
+    return '2.3.4';
+};
+
 function registerPackageManifestAndVersioningTests(): void {
     test('sets additionalPackageManifestAttributes to an empty object when they are not defined at all', function () {
         const result = runMapConfiguration(fooPackageConfigurationFactory.build(), { extraPackages: [] });
@@ -403,9 +407,6 @@ function registerPackageManifestAndVersioningTests(): void {
     });
 
     test('resolves source package versioning settings', async function () {
-        const provideVersion = async function (): Promise<string> {
-            return '2.3.4';
-        };
         const result = runMapConfiguration(
             {
                 ...fooPackageConfigurationFactory.build(),

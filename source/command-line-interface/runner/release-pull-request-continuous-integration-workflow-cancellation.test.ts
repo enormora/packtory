@@ -229,13 +229,14 @@ suite('release-pull-request-ci workflow cancellation', function () {
             readWorkflowRunResult: fake.resolves(successfulWorkflowRunResult(1))
         });
 
+        const continuousIntegrationRun = runConfiguredGitHubActionsContinuousIntegration({
+            client,
+            configuration: enablePullRequestRunCleanup(createConfiguration()),
+            headHash: 'release-head',
+            sleep
+        });
         assert.strictEqual(
-            await runConfiguredGitHubActionsContinuousIntegration({
-                client,
-                configuration: enablePullRequestRunCleanup(createConfiguration()),
-                headHash: 'release-head',
-                sleep
-            }),
+            await continuousIntegrationRun,
             true
         );
 
@@ -254,13 +255,14 @@ suite('release-pull-request-ci workflow cancellation', function () {
             dispatchWorkflow
         });
 
+        const continuousIntegrationRun = runConfiguredGitHubActionsContinuousIntegration({
+            client,
+            configuration: enablePullRequestRunCleanup(createConfiguration()),
+            headHash: 'release-head',
+            sleep
+        });
         await assert.rejects(
-            runConfiguredGitHubActionsContinuousIntegration({
-                client,
-                configuration: enablePullRequestRunCleanup(createConfiguration()),
-                headHash: 'release-head',
-                sleep
-            }),
+            continuousIntegrationRun,
             { message: 'Action-required pull request workflow runs did not delete: 10' }
         );
 

@@ -16,7 +16,7 @@ function analysisIdentity(target: string, transforms: readonly SourceMapTransfor
         targetFilePath: 'index.js',
         content: 'export const value = 42;'
     });
-    return eliminationInputIdentity(inputs({
+    const eliminationInputs = inputs({
         ...bundle,
         roots: Object.fromEntries(
             Object.values(bundle.roots).map(function (root) {
@@ -24,7 +24,8 @@ function analysisIdentity(target: string, transforms: readonly SourceMapTransfor
             })
         ),
         sourceMapTransformsByTargetPath: new Map([ [ target, transforms ] ])
-    }));
+    });
+    return eliminationInputIdentity(eliminationInputs);
 }
 
 suite('elimination input identity', function () {

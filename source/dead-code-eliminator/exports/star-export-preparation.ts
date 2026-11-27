@@ -69,8 +69,8 @@ function moduleEdits(
     protectedSources: ReadonlySet<SourceFile>
 ): readonly SourceTextEdit[] {
     const { model } = selection;
-    const names = selection.index.names(selection.model.source);
-    if (names === undefined || protectedSources.has(selection.model.source)) {
+    const names = selection.index.names(model.source);
+    if (names === undefined || protectedSources.has(model.source)) {
         return [];
     }
     const remaining = new Set(

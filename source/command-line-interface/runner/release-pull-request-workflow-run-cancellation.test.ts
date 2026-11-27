@@ -14,40 +14,41 @@ suite('release-pull-request-workflow-run-cancellation', function () {
     test('cancels active dispatched workflow runs for a release branch', async function () {
         const capturedRequests = captureRequests();
         const { records } = capturedRequests;
+        const routeFetch = createRecordedRouteFetch(
+            capturedRequests,
+            new Map([
+                [ routeKey('GET', '/repos/owner/repo/actions/workflows'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflows: [ {
+                            identifier: 101,
+                            name: 'ci',
+                            path: '.github/workflows/continuous-integration.yml'
+                        } ]
+                    });
+                } ],
+                [ routeKey('GET', '/repos/owner/repo/actions/workflows/101/runs'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflow_runs: [
+                            { database_id: 21, event: 'workflow_dispatch', status: 'in_progress' },
+                            { database_id: 22, event: 'workflow_dispatch', status: 'pending' },
+                            { database_id: 23, event: 'workflow_dispatch', status: 'queued' },
+                            { database_id: 24, event: 'workflow_dispatch', status: 'requested' },
+                            { database_id: 25, event: 'workflow_dispatch', status: 'waiting' },
+                            { event: 'workflow_dispatch', status: 'waiting' },
+                            { database_id: 26, event: 'workflow_dispatch', status: 'completed' },
+                            { database_id: 27, event: 'pull_request', status: 'waiting' }
+                        ]
+                    });
+                } ],
+                [ routeKey('POST', '/repos/owner/repo/actions/runs/21/cancel'), emptyResponse ],
+                [ routeKey('POST', '/repos/owner/repo/actions/runs/22/cancel'), emptyResponse ],
+                [ routeKey('POST', '/repos/owner/repo/actions/runs/23/cancel'), emptyResponse ],
+                [ routeKey('POST', '/repos/owner/repo/actions/runs/24/cancel'), emptyResponse ],
+                [ routeKey('POST', '/repos/owner/repo/actions/runs/25/cancel'), emptyResponse ]
+            ])
+        );
         const client = createClient(
-            createRecordedRouteFetch(
-                capturedRequests,
-                new Map([
-                    [ routeKey('GET', '/repos/owner/repo/actions/workflows'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflows: [ {
-                                identifier: 101,
-                                name: 'ci',
-                                path: '.github/workflows/continuous-integration.yml'
-                            } ]
-                        });
-                    } ],
-                    [ routeKey('GET', '/repos/owner/repo/actions/workflows/101/runs'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflow_runs: [
-                                { database_id: 21, event: 'workflow_dispatch', status: 'in_progress' },
-                                { database_id: 22, event: 'workflow_dispatch', status: 'pending' },
-                                { database_id: 23, event: 'workflow_dispatch', status: 'queued' },
-                                { database_id: 24, event: 'workflow_dispatch', status: 'requested' },
-                                { database_id: 25, event: 'workflow_dispatch', status: 'waiting' },
-                                { event: 'workflow_dispatch', status: 'waiting' },
-                                { database_id: 26, event: 'workflow_dispatch', status: 'completed' },
-                                { database_id: 27, event: 'pull_request', status: 'waiting' }
-                            ]
-                        });
-                    } ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/21/cancel'), emptyResponse ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/22/cancel'), emptyResponse ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/23/cancel'), emptyResponse ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/24/cancel'), emptyResponse ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/25/cancel'), emptyResponse ]
-                ])
-            )
+            routeFetch
         );
 
         const activeRunIdentifiers = await client.cancelActiveDispatchedWorkflowRuns({
@@ -84,31 +85,32 @@ suite('release-pull-request-workflow-run-cancellation', function () {
     test('returns deleted action-required pull request run ids', async function () {
         const capturedRequests = captureRequests();
         const { records } = capturedRequests;
+        const routeFetch = createRecordedRouteFetch(
+            capturedRequests,
+            new Map([
+                [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflow_runs: [
+                            {
+                                conclusion: 'action_required',
+                                database_id: 10,
+                                event: 'pull_request',
+                                head_sha: 'release-head'
+                            },
+                            {
+                                conclusion: 'success',
+                                database_id: 11,
+                                event: 'pull_request',
+                                head_sha: 'release-head'
+                            }
+                        ]
+                    });
+                } ],
+                [ routeKey('DELETE', '/repos/owner/repo/actions/runs/10'), emptyResponse ]
+            ])
+        );
         const client = createClient(
-            createRecordedRouteFetch(
-                capturedRequests,
-                new Map([
-                    [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflow_runs: [
-                                {
-                                    conclusion: 'action_required',
-                                    database_id: 10,
-                                    event: 'pull_request',
-                                    head_sha: 'release-head'
-                                },
-                                {
-                                    conclusion: 'success',
-                                    database_id: 11,
-                                    event: 'pull_request',
-                                    head_sha: 'release-head'
-                                }
-                            ]
-                        });
-                    } ],
-                    [ routeKey('DELETE', '/repos/owner/repo/actions/runs/10'), emptyResponse ]
-                ])
-            )
+            routeFetch
         );
 
         assert.deepStrictEqual(

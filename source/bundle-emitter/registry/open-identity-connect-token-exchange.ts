@@ -45,15 +45,23 @@ export type OpenIdentityConnectTokenExchanger = {
     ) => Promise<NpmFetchOptions>;
 };
 
+function getCacheKey(packageName: string, registrySettings: Readonly<RegistrySettings>): string {
+    return `${resolveRegistryAddress(registrySettings) ?? npmRegistryAddress}::${packageName}`;
+}
+
+function parseExchangedToken(body: unknown): ParsedOpenIdentityConnectExchangeToken {
+    const parsed = parseOpenIdentityConnectExchangeResponse(body);
+    if (!parsed.success) {
+        throw new TypeError(`OIDC token exchange returned an invalid response: ${parsed.issues.join('; ')}`);
+    }
+    return { token: parsed.data.token, expiresAt: parsed.data.expires.getTime() };
+}
+
 export function createOpenIdentityConnectTokenExchanger(
     dependencies: OpenIdentityConnectExchangerDependencies
 ): OpenIdentityConnectTokenExchanger {
     const { fetch: fetchImplementation, clock, resolveIdentifierToken } = dependencies;
     const cache = new Map<string, OpenIdentityConnectExchangeToken>();
-
-    function getCacheKey(packageName: string, registrySettings: Readonly<RegistrySettings>): string {
-        return `${resolveRegistryAddress(registrySettings) ?? npmRegistryAddress}::${packageName}`;
-    }
 
     function readCachedToken(cacheKey: string): string | undefined {
         const cachedToken = cache.get(cacheKey);
@@ -66,14 +74,6 @@ export function createOpenIdentityConnectTokenExchanger(
             return cachedToken.token;
         }
         return undefined;
-    }
-
-    function parseExchangedToken(body: unknown): ParsedOpenIdentityConnectExchangeToken {
-        const parsed = parseOpenIdentityConnectExchangeResponse(body);
-        if (!parsed.success) {
-            throw new TypeError(`OIDC token exchange returned an invalid response: ${parsed.issues.join('; ')}`);
-        }
-        return { token: parsed.data.token, expiresAt: parsed.data.expires.getTime() };
     }
 
     async function requestExchange(

@@ -158,10 +158,10 @@ suite('module constant snapshots', function () {
 
     suite('declaration snapshots', function () {
         for (
-            const [ content, name ] of [ [ 'export function compute(){}', 'compute' ], [
-                'export class Box{}',
-                'Box'
-            ] ] as const
+            const [ content, name ] of [
+                [ 'export function compute(){}', 'compute' ],
+                [ 'export class Box{}', 'Box' ]
+            ] as const
         ) {
             test(`does not request primitive evaluation of the declaration ${name}`, function () {
                 const fixture = createExportModuleFixture({ 'index.js': content }, []);

@@ -58,11 +58,11 @@ suite('runtime extension dependencies', function () {
                         dependencies: { tslib: '2.8.1' }
                     }, enabled);
 
-                    assert.deepStrictEqual({
-                        dependencies: bundle.dependencies,
-                        peerDependencies: bundle.peerDependencies
-                    }, { dependencies: { tslib: '2.8.1' }, peerDependencies: {} });
-                    assert.match(bundle.mainFile?.content ?? '', /tslib/);
+                    assert.deepStrictEqual(
+                        { dependencies: bundle.dependencies, peerDependencies: bundle.peerDependencies },
+                        { dependencies: { tslib: '2.8.1' }, peerDependencies: {} }
+                    );
+                    assert.match(bundle.mainFile?.content ?? '', /tslib/u);
                 });
 
                 test('emits a declared peer dependency and preserves its live reference', async function () {
@@ -71,11 +71,11 @@ suite('runtime extension dependencies', function () {
                         peerDependencies: { tslib: '2.8.1' }
                     }, enabled);
 
-                    assert.deepStrictEqual({
-                        dependencies: bundle.dependencies,
-                        peerDependencies: bundle.peerDependencies
-                    }, { dependencies: {}, peerDependencies: { tslib: '2.8.1' } });
-                    assert.match(bundle.mainFile?.content ?? '', /tslib/);
+                    assert.deepStrictEqual(
+                        { dependencies: bundle.dependencies, peerDependencies: bundle.peerDependencies },
+                        { dependencies: {}, peerDependencies: { tslib: '2.8.1' } }
+                    );
+                    assert.match(bundle.mainFile?.content ?? '', /tslib/u);
                 });
             });
         }

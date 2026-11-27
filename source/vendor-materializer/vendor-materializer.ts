@@ -247,29 +247,29 @@ const walkPackageDirectory = async function (
     return Result.ok(undefined);
 };
 
+function queueItem(
+    name: string,
+    source: DependencySource,
+    required: boolean
+): QueueItem {
+    return { name, ...source, required };
+}
+
+function scheduleManifestDependencies(
+    closure: Closure,
+    source: DependencySource,
+    summary: ParsedManifestSummary
+): void {
+    closure.pendingPackages.scheduleAll(summary.dependencies.map(function (dependencyName) {
+        return queueItem(dependencyName, source, true);
+    }));
+    closure.pendingPackages.scheduleAll(summary.peers.map(function (dependencyName) {
+        return queueItem(dependencyName, source, false);
+    }));
+}
+
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
-
-    function queueItem(
-        name: string,
-        source: DependencySource,
-        required: boolean
-    ): QueueItem {
-        return { name, ...source, required };
-    }
-
-    function scheduleManifestDependencies(
-        closure: Closure,
-        source: DependencySource,
-        summary: ParsedManifestSummary
-    ): void {
-        closure.pendingPackages.scheduleAll(summary.dependencies.map(function (dependencyName) {
-            return queueItem(dependencyName, source, true);
-        }));
-        closure.pendingPackages.scheduleAll(summary.peers.map(function (dependencyName) {
-            return queueItem(dependencyName, source, false);
-        }));
-    }
 
     async function collectVendorEntries(
         packageName: string,
@@ -320,14 +320,15 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             targetFolder: targetDirectory,
             sourcePackageName: name
         }, summaryResult.value);
+        const peerRequirements = Array.from(
+            new Set([
+                ...closure.peerRequirements.get(name) ?? [],
+                ...summaryResult.value.peers
+            ])
+        );
         closure.peerRequirements.set(
             name,
-            Array.from(
-                new Set([
-                    ...closure.peerRequirements.get(name) ?? [],
-                    ...summaryResult.value.peers
-                ])
-            )
+            peerRequirements
         );
         const collectedResult = await collectVendorEntries(name, realPath, targetDirectory);
         if (collectedResult.isErr) {

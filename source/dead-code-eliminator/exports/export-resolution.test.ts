@@ -73,33 +73,35 @@ const originCases: readonly OriginCase[] = [
 
 suite('export resolution', function () {
     test('propagates a delayed ambiguous provider into an already known consumer', function () {
+        const moduleMap = new Map([
+            [ 'entry', moduleExports([], [ 'delayed', 'known' ]) ],
+            [ 'delayed', moduleExports([], [ 'first', 'second' ]) ],
+            [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
+            [ 'first', moduleExports([ [ 'value', binding('first', 'value') ] ], []) ],
+            [ 'second', moduleExports([ [ 'value', binding('second', 'value') ] ], []) ]
+        ]);
         const resolver = createExportResolver(
-            new Map([
-                [ 'entry', moduleExports([], [ 'delayed', 'known' ]) ],
-                [ 'delayed', moduleExports([], [ 'first', 'second' ]) ],
-                [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
-                [ 'first', moduleExports([ [ 'value', binding('first', 'value') ] ], []) ],
-                [ 'second', moduleExports([ [ 'value', binding('second', 'value') ] ], []) ]
-            ])
+            moduleMap
         );
         assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'ambiguous' });
     });
 
     test('reads module entries once while settling forwarding dependencies', function () {
         let reads = 0;
+        const moduleMap = new Map([
+            [ 'entry', {
+                closed: true,
+                stars: [ 'dependency' ],
+                get entries() {
+                    reads += 1;
+                    assert.strictEqual(reads, 1);
+                    return new Map<string, ExportEntry<string>>();
+                }
+            } ],
+            [ 'dependency', moduleExports([ [ 'value', binding('dependency', 'value') ] ], []) ]
+        ]);
         const resolver = createExportResolver(
-            new Map([
-                [ 'entry', {
-                    closed: true,
-                    stars: [ 'dependency' ],
-                    get entries() {
-                        reads += 1;
-                        assert.strictEqual(reads, 1);
-                        return new Map<string, ExportEntry<string>>();
-                    }
-                } ],
-                [ 'dependency', moduleExports([ [ 'value', binding('dependency', 'value') ] ], []) ]
-            ])
+            moduleMap
         );
         assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
             kind: 'unique',
@@ -119,14 +121,15 @@ suite('export resolution', function () {
 
     suite('defining bindings', function () {
         test('resolves a renamed export through its defining binding', function () {
+            const moduleMap = new Map([
+                [
+                    'entry',
+                    moduleExports([ [ 'alias', { module: 'dependency', name: 'public' } ] ], [])
+                ],
+                [ 'dependency', moduleExports([ [ 'public', binding('dependency', 'local') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [
-                        'entry',
-                        moduleExports([ [ 'alias', { module: 'dependency', name: 'public' } ] ], [])
-                    ],
-                    [ 'dependency', moduleExports([ [ 'public', binding('dependency', 'local') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'alias'), {
                 kind: 'unique',
@@ -135,16 +138,17 @@ suite('export resolution', function () {
         });
 
         test('merges multiple paths to the same defining binding', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'first', 'second' ]) ],
+                [ 'first', moduleExports([], [ 'shared' ]) ],
+                [
+                    'second',
+                    moduleExports([ [ 'value', { module: 'shared', name: 'value' } ] ], [])
+                ],
+                [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'first', 'second' ]) ],
-                    [ 'first', moduleExports([], [ 'shared' ]) ],
-                    [
-                        'second',
-                        moduleExports([ [ 'value', { module: 'shared', name: 'value' } ] ], [])
-                    ],
-                    [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
@@ -163,24 +167,26 @@ suite('export resolution', function () {
         });
 
         test('omits default exports from star forwarding', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'dependency' ]) ],
+                [ 'dependency', moduleExports([ [ 'default', binding('dependency', 'snapshot') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'dependency' ]) ],
-                    [ 'dependency', moduleExports([ [ 'default', binding('dependency', 'snapshot') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'default'), { kind: 'missing' });
         });
 
         test('follows explicit default forwarding', function () {
+            const moduleMap = new Map([
+                [
+                    'entry',
+                    moduleExports([ [ 'value', { module: 'dependency', name: 'default' } ] ], [])
+                ],
+                [ 'dependency', moduleExports([ [ 'default', binding('dependency', 'snapshot') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [
-                        'entry',
-                        moduleExports([ [ 'value', { module: 'dependency', name: 'default' } ] ], [])
-                    ],
-                    [ 'dependency', moduleExports([ [ 'default', binding('dependency', 'snapshot') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
@@ -189,12 +195,13 @@ suite('export resolution', function () {
         });
 
         test('resolves cycles containing a defining binding', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'cycle' ]) ],
+                [ 'cycle', moduleExports([], [ 'entry', 'shared' ]) ],
+                [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'cycle' ]) ],
-                    [ 'cycle', moduleExports([], [ 'entry', 'shared' ]) ],
-                    [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
@@ -244,11 +251,12 @@ suite('export resolution', function () {
         });
 
         test('does not replace an unknown explicit export with a star export', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([ [ 'value', null ] ], [ 'shared' ]) ],
+                [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([ [ 'value', null ] ], [ 'shared' ]) ],
-                    [ 'shared', moduleExports([ [ 'value', binding('shared', 'value') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
         });
@@ -263,12 +271,13 @@ suite('export resolution', function () {
 
     suite('resolution boundaries', function () {
         test('retains a cached origin when another star dependency is missing', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'known', 'empty' ]) ],
+                [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
+                [ 'empty', moduleExports([], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'known', 'empty' ]) ],
-                    [ 'known', moduleExports([ [ 'value', binding('known', 'value') ] ], []) ],
-                    [ 'empty', moduleExports([], []) ]
-                ])
+                moduleMap
             );
             const expected = { kind: 'unique', origin: { module: 'known', name: 'value' } };
             assert.deepStrictEqual(resolver.resolve('known', 'value'), expected);
@@ -316,12 +325,13 @@ suite('export resolution', function () {
         });
 
         test('ignores missing paths alongside a unique binding', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'empty', 'present' ]) ],
+                [ 'empty', moduleExports([], []) ],
+                [ 'present', moduleExports([ [ 'value', binding('present', 'value') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'empty', 'present' ]) ],
-                    [ 'empty', moduleExports([], []) ],
-                    [ 'present', moduleExports([ [ 'value', binding('present', 'value') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
@@ -330,11 +340,12 @@ suite('export resolution', function () {
         });
 
         test('keeps a known binding uncertain alongside an unknown path', function () {
+            const moduleMap = new Map([
+                [ 'entry', moduleExports([], [ 'present', 'external' ]) ],
+                [ 'present', moduleExports([ [ 'value', binding('present', 'value') ] ], []) ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', moduleExports([], [ 'present', 'external' ]) ],
-                    [ 'present', moduleExports([ [ 'value', binding('present', 'value') ] ], []) ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), { kind: 'unknown' });
         });
@@ -350,14 +361,15 @@ suite('export resolution', function () {
         });
 
         test('resolves explicit exports even when other names are opaque', function () {
+            const moduleMap = new Map([
+                [ 'entry', {
+                    closed: false,
+                    entries: new Map([ [ 'value', binding('entry', 'local') ] ]),
+                    stars: []
+                } ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [ 'entry', {
-                        closed: false,
-                        entries: new Map([ [ 'value', binding('entry', 'local') ] ]),
-                        stars: []
-                    } ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('entry', 'value'), {
                 kind: 'unique',
@@ -366,20 +378,24 @@ suite('export resolution', function () {
         });
 
         test('terminates named forwarding cycles and resolves later independent queries', function () {
+            const moduleMap = new Map([
+                [
+                    'first',
+                    moduleExports(
+                        [
+                            [ 'value', { module: 'second', name: 'alias' } ],
+                            [ 'other', binding('first', 'other') ]
+                        ],
+                        []
+                    )
+                ],
+                [
+                    'second',
+                    moduleExports([ [ 'alias', { module: 'first', name: 'value' } ] ], [])
+                ]
+            ]);
             const resolver = createExportResolver(
-                new Map([
-                    [
-                        'first',
-                        moduleExports([ [ 'value', { module: 'second', name: 'alias' } ], [
-                            'other',
-                            binding('first', 'other')
-                        ] ], [])
-                    ],
-                    [
-                        'second',
-                        moduleExports([ [ 'alias', { module: 'first', name: 'value' } ] ], [])
-                    ]
-                ])
+                moduleMap
             );
             assert.deepStrictEqual(resolver.resolve('first', 'value'), { kind: 'missing' });
             assert.deepStrictEqual(resolver.resolve('first', 'other'), {

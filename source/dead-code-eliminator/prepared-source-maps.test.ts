@@ -16,16 +16,17 @@ function repeatedEffectBundle(): LinkedBundle {
     for (const generated of [ { line: 2, column: 1 }, { line: 4, column: 15 }, { line: 5, column: 0 } ]) {
         addMapping(map, { generated, source: 'original.ts', original: generated });
     }
+    const resource = bundleResource('/source/index.js.map', {
+        targetFilePath: 'index.js.map',
+        content: JSON.stringify(toEncodedMap(map))
+    });
     return bundleForCodeFile({
         name: 'package',
         inputFilePath: '/source/index.js',
         targetFilePath: 'index.js',
         content,
         extraResources: [ {
-            ...bundleResource('/source/index.js.map', {
-                targetFilePath: 'index.js.map',
-                content: JSON.stringify(toEncodedMap(map))
-            }),
+            ...resource,
             isSubstituted: false
         } ]
     });

@@ -56,13 +56,14 @@ async function runCheckWithCollectedErrors(
 suite('mutation-timeout-cli-runner', function () {
     test('runMutationTimeoutCheck writes the failure message and returns exit code 1 when timeouts exist', async function () {
         const reportPath = 'mutation-report.json';
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [ {
+                value: JSON.stringify(singleMutantReport(timeoutMutant))
+            } ]
+        });
         const result = await runCheckWithCollectedErrors(
             [ 'node', 'check', reportPath ],
-            createFakeFileManager({
-                simulatedReadFileResponses: [ {
-                    value: JSON.stringify(singleMutantReport(timeoutMutant))
-                } ]
-            })
+            fileManager
         );
         assert.partialDeepStrictEqual(result, {
             exitCode: 1,
@@ -72,13 +73,14 @@ suite('mutation-timeout-cli-runner', function () {
 
     test('runMutationTimeoutCheck returns exit code 0 and writes nothing when no timeouts exist', async function () {
         const reportPath = 'mutation-report.json';
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [ {
+                value: JSON.stringify(singleMutantReport(killedMutant))
+            } ]
+        });
         const result = await runCheckWithCollectedErrors(
             [ 'node', 'check', reportPath ],
-            createFakeFileManager({
-                simulatedReadFileResponses: [ {
-                    value: JSON.stringify(singleMutantReport(killedMutant))
-                } ]
-            })
+            fileManager
         );
         assert.partialDeepStrictEqual(result, {
             exitCode: 0,

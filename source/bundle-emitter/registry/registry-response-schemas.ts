@@ -8,22 +8,19 @@ function packageResponseSchema(includePublicationTimes: boolean): z.ZodMiniType<
             latest: z.optional(z.string())
         })
     };
-    const versions = z.record(
-        z.string(),
-        z.object({
-            dist: z.object({
-                tarball: z.string(),
-                integrity: z.optional(z.unknown()),
-                shasum: z.optional(z.unknown())
-            }),
-            gitHead: z.optional(z.string())
-        })
-    );
-    return z.object(
-        includePublicationTimes
-            ? { ...metadata, time: z.optional(z.record(z.string(), z.string())), versions }
-            : { ...metadata, versions }
-    );
+    const versionFields = {
+        dist: z.object({
+            tarball: z.string(),
+            integrity: z.optional(z.unknown()),
+            shasum: z.optional(z.unknown())
+        }),
+        gitHead: z.optional(z.string())
+    };
+    const versions = z.record(z.string(), z.object(versionFields));
+    const responseFields = includePublicationTimes
+        ? { ...metadata, time: z.optional(z.record(z.string(), z.string())), versions }
+        : { ...metadata, versions };
+    return z.object(responseFields);
 }
 
 export type AbbreviatedPackageResponse = {

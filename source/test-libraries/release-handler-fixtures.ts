@@ -176,13 +176,14 @@ function createPlanRelease(packages: readonly ReleasePlanPackage[]): SinonSpy {
     return fake.resolves(releasePlanOutcome(packages));
 }
 
+async function unusedPacktoryMethod(): Promise<never> {
+    throw new Error('unused packtory method');
+}
+
 function createPacktory(
     buildAndPublishAll: SinonSpy,
     planReleaseAgainstLatestPublished: SinonSpy
 ): Packtory {
-    async function unusedPacktoryMethod(): Promise<never> {
-        throw new Error('unused packtory method');
-    }
     return {
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll,

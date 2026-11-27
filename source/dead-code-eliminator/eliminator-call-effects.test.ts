@@ -16,18 +16,21 @@ function assertRemainingCalls(source: SourceFile, input: CallEffectCase): void {
     const targets = source.getDescendantsOfKind(SyntaxKind.CallExpression).map(function (call) {
         return call.getExpression().getText();
     });
-    assert.deepStrictEqual({
-        named: targets
-            .filter(function (target) {
-                return /^\(*\s*pure\s*\)*$/u.test(target);
-            })
-            .length,
-        inline: targets
-            .filter(function (target) {
-                return target.includes('=>') || /\bfunction\b/u.test(target);
-            })
-            .length
-    }, { named: input.namedCalls, inline: input.inlineCalls });
+    assert.deepStrictEqual(
+        {
+            named: targets
+                .filter(function (target) {
+                    return /^\(*\s*pure\s*\)*$/u.test(target);
+                })
+                .length,
+            inline: targets
+                .filter(function (target) {
+                    return target.includes('=>') || /\bfunction\b/u.test(target);
+                })
+                .length
+        },
+        { named: input.namedCalls, inline: input.inlineCalls }
+    );
 }
 
 suite('unused call effects', function () {

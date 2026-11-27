@@ -72,11 +72,10 @@ suite('workspace comparison contract', function () {
     test('maps emitted statuses to input files and keeps incomplete reports unavailable', function () {
         const workspaceSnapshot = {
             ...empty,
-            files: [ { path: 'kept.js', sourcePath: '/source/kept.js', sizeBytes: 10 }, {
-                path: 'removed.js',
-                sourcePath: '/source/removed.js',
-                sizeBytes: 20
-            } ]
+            files: [
+                { path: 'kept.js', sourcePath: '/source/kept.js', sizeBytes: 10 },
+                { path: 'removed.js', sourcePath: '/source/removed.js', sizeBytes: 20 }
+            ]
         };
         const result = buildWorkspaceComparison(
             createPackageReportFixture({ workspaceSnapshot, packageSnapshot: empty }),

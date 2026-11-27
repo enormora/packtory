@@ -16,9 +16,9 @@ import {
 } from '../../command-line-interface/spinner/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner/spinner-worker-backend.ts';
 import { createConfigurationLoader } from '../../command-line-interface/configuration-loader.ts';
-import * as preview from '../../command-line-interface/preview-input-output/preview-input-output.ts';
+import { createDefaultPreviewInputOutput } from '../../command-line-interface/preview-input-output/preview-input-output.ts';
 import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
-import * as releaseGitHub from '../../command-line-interface/runner/release-pull-request-github-client.ts';
+import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pull-request-github-client.ts';
 import { readContinuousIntegrationEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
@@ -65,7 +65,7 @@ export function createCommandLineInterface(
 
     const workingDirectory = process.cwd();
 
-    const previewInputOutput = preview.createDefaultPreviewInputOutput({
+    const previewInputOutput = createDefaultPreviewInputOutput({
         async openFile(filePath) {
             const { default: open } = await import('open');
             await open(filePath, { wait: false });
@@ -112,7 +112,7 @@ export function createCommandLineInterface(
             return createGitHubReleaseClient({ ...context, fetch });
         },
         createReleasePullRequestGitHubClient(context) {
-            return releaseGitHub.createReleasePullRequestGitHubClient({ ...context, fetch });
+            return createReleasePullRequestGitHubClient({ ...context, fetch });
         },
         currentDate() {
             return new Date(clock.getCurrentTimeInMilliseconds());

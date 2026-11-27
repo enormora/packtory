@@ -1,5 +1,5 @@
 import type { PacktoryConfiguration as PublicPacktoryConfiguration } from '../../configuration/configuration.ts';
-import type * as versioning from '../../configuration/manual-versioning-settings.ts';
+import type { VersionProviderInput as PublicVersionProviderInput } from '../../configuration/manual-versioning-settings.ts';
 import type {
     BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     BuildReport as PublicBuildReport,
@@ -65,7 +65,7 @@ export const {
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type PacktoryConfiguration = PublicPacktoryConfiguration;
-export type VersionProviderInput = versioning.VersionProviderInput;
+export type VersionProviderInput = PublicVersionProviderInput;
 export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
 export type PackageDependencyInspection = PublicPackageDependencyInspection;

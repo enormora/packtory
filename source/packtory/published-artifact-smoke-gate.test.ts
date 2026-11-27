@@ -16,10 +16,7 @@ import {
 import { runtimeExportsFromExportsField } from './published-artifact-smoke-gate.ts';
 
 function assertNoSmokeProbe(context: SmokeGateContext): void {
-    assert.deepStrictEqual([
-        context.createTemporaryFolder.callCount,
-        context.runImportProbe.callCount
-    ], [ 0, 0 ]);
+    assert.deepStrictEqual([ context.createTemporaryFolder.callCount, context.runImportProbe.callCount ], [ 0, 0 ]);
 }
 
 async function assertVerifyRejectsWithMessages(
@@ -242,10 +239,10 @@ suite('published artifact smoke gate', function () {
 
                 await verify(context.gate, invalidExportBundle);
 
-                assert.deepStrictEqual([
-                    context.createTemporaryFolder.callCount,
-                    context.runImportProbe.callCount
-                ], [ 0, 0 ]);
+                assert.deepStrictEqual(
+                    [ context.createTemporaryFolder.callCount, context.runImportProbe.callCount ],
+                    [ 0, 0 ]
+                );
             });
         });
 
@@ -296,11 +293,14 @@ suite('published artifact smoke gate', function () {
                 await verify(context.gate, invalidExecutableBundle);
                 await verify(context.gate, invalidExecutableArrayBundle);
 
-                assert.deepStrictEqual([
-                    context.createTemporaryFolder.callCount,
-                    context.runImportProbe.callCount,
-                    context.setExecutable.callCount
-                ], [ 0, 0, 0 ]);
+                assert.deepStrictEqual(
+                    [
+                        context.createTemporaryFolder.callCount,
+                        context.runImportProbe.callCount,
+                        context.setExecutable.callCount
+                    ],
+                    [ 0, 0, 0 ]
+                );
             });
 
             test('reports missing string bin targets', async function () {
@@ -339,10 +339,10 @@ suite('published artifact smoke gate', function () {
                     '- Package "package-a" export "package-a" points to missing artifact target "missing-export.js"\n' +
                     '- Package "package-a" bin "package-a" points to missing artifact target "missing-bin.js"'
             });
-            assert.deepStrictEqual([
-                context.createTemporaryFolder.callCount,
-                context.runImportProbe.callCount
-            ], [ 0, 0 ]);
+            assert.deepStrictEqual(
+                [ context.createTemporaryFolder.callCount, context.runImportProbe.callCount ],
+                [ 0, 0 ]
+            );
         });
 
         test('reports all failed runtime export imports', async function () {

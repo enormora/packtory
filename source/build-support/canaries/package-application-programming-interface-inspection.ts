@@ -233,10 +233,10 @@ function importProbeFailureMessage(
     timeoutMilliseconds: number
 ): string {
     const standardErrorOutput = standardError.trim();
-    const standardOutputOutput = standardOutput.trim();
     if (standardErrorOutput.length > 0) {
         return standardErrorOutput;
     }
+    const standardOutputOutput = standardOutput.trim();
     if (standardOutputOutput.length > 0) {
         return standardOutputOutput;
     }

@@ -20,8 +20,9 @@ suite('constant-binding', function () {
                 .getExpressionOrThrow()
                 .asKindOrThrow(SyntaxKind.Identifier);
             const root = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow();
+            const constantValue = constantValueFor(read, new Map([ [ declaration, evaluated(42) ] ]), root);
             assert.deepStrictEqual(
-                constantValueFor(read, new Map([ [ declaration, evaluated(42) ] ]), root),
+                constantValue,
                 evaluated(42)
             );
         });
@@ -35,8 +36,9 @@ suite('constant-binding', function () {
             const read = source.getVariableDeclarationOrThrow('observed').getInitializerOrThrow().asKindOrThrow(
                 SyntaxKind.Identifier
             );
+            const value = constantValueFor(read, new Map([ [ declaration, evaluated(7) ] ]), read);
             assert.deepStrictEqual(
-                constantValueFor(read, new Map([ [ declaration, evaluated(7) ] ]), read),
+                value,
                 evaluated(7)
             );
         });
@@ -142,7 +144,8 @@ suite('constant-binding', function () {
                 .getBody()
                 .asKindOrThrow(SyntaxKind.Identifier);
             const root = source.getFirstDescendantByKindOrThrow(SyntaxKind.CallExpression);
-            assert.strictEqual(constantValueFor(read, new Map([ [ declaration, evaluated(1) ] ]), root), undefined);
+            const value = constantValueFor(read, new Map([ [ declaration, evaluated(1) ] ]), root);
+            assert.strictEqual(value, undefined);
         });
     }
 

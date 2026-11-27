@@ -278,13 +278,14 @@ suite('changelog-handler', function () {
         test('strips leading TypeError prefixes from thrown errors', async function () {
             const spies = makeSpies();
 
+            const handlerDependencies = dependenciesWith({
+                spies,
+                configurationLoader: {
+                    load: fake.rejects(new TypeError('bad config'))
+                }
+            });
             const code = await runChangelogHandler(
-                dependenciesWith({
-                    spies,
-                    configurationLoader: {
-                        load: fake.rejects(new TypeError('bad config'))
-                    }
-                })
+                handlerDependencies
             );
 
             assert.strictEqual(code, 1);

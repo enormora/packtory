@@ -4,6 +4,10 @@ import { safeParse } from '../common/schema-validation.ts';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { versioningSettingsSchema } from './versioning-settings.ts';
 
+function provideFixedVersion(): string {
+    return '1';
+}
+
 suite('versioning-settings', function () {
     suite('versioning schema branches', function () {
         test('schema accepts the automatic versioning branch', function () {
@@ -71,15 +75,15 @@ suite('versioning-settings', function () {
 
     suite('provider versioning validation', function () {
         test('validation succeeds when valid provider manual versioning settings are given', function () {
-            const provideVersion = function (): string {
-                return '1';
-            };
-            const result = safeParse(versioningSettingsSchema, { automatic: false, provideVersion });
+            const result = safeParse(versioningSettingsSchema, {
+                automatic: false,
+                provideVersion: provideFixedVersion
+            });
 
             if (!result.success) {
                 assert.fail(`Validation failed with: ${result.error.message}`);
             }
-            assert.deepStrictEqual(result.data, { automatic: false, provideVersion });
+            assert.deepStrictEqual(result.data, { automatic: false, provideVersion: provideFixedVersion });
         });
 
         test(

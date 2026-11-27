@@ -138,13 +138,13 @@ function spreadObjectShape(object: ObjectLiteralExpression, context: EvaluationC
             ? spreadSourceIsSafe(property, context)
             : recordField(property, context) !== undefined;
     });
+    if (!complete) {
+        return undefined;
+    }
     const hasAccessors = object.getProperties().some(function (property) {
         return TypeScriptMorphNode.isGetAccessorDeclaration(property) ||
             TypeScriptMorphNode.isSetAccessorDeclaration(property);
     });
-    if (!complete) {
-        return undefined;
-    }
     return opaqueResult(hasAccessors ? 'value' : 'object');
 }
 

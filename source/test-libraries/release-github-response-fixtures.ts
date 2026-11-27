@@ -154,10 +154,11 @@ export function createDeleteReleaseBranchClient(
     capturedRequests: CapturedRequests,
     response: RouteResponse
 ): ReleasePullRequestGitHubClient {
-    return createClient(createRecordedRouteFetch(
+    const routeFetch = createRecordedRouteFetch(
         capturedRequests,
         new Map([ [ routeKey('DELETE', releaseBranchReferencePath), response ] ])
-    ));
+    );
+    return createClient(routeFetch);
 }
 
 export function countReleasePullRequestLookups(records: readonly RecordedRequest[]): number {

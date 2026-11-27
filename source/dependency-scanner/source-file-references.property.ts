@@ -12,7 +12,7 @@ const builtinImportArbitrary = fastCheck.constantFrom(
         return !moduleName.startsWith('_');
     })
 );
-const unresolvedImportArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter(function (moduleName) {
+const unresolvedImportArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,10}$/u).filter(function (moduleName) {
     return !builtinModules.includes(moduleName) && !builtinModules.includes(`node:${moduleName}`);
 });
 

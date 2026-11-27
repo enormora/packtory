@@ -83,6 +83,44 @@ function setup(
     };
 }
 
+async function expectInvalidMode(
+    overrides: Readonly<Partial<PackFlags>>,
+    messagePattern: RegExp
+): Promise<void> {
+    const { dependencies, logSpy, stopAllSpy, packPackageSpy, configurationLoadSpy } = setup(
+        makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
+        overrides
+    );
+
+    const code = await runPackHandler(dependencies);
+
+    assert.strictEqual(code, 1);
+    assert.strictEqual(logSpy.callCount, 1);
+    assert.match(logSpy.firstCall.args[0] as string, messagePattern);
+    assert.strictEqual(configurationLoadSpy.callCount, 0);
+    assert.strictEqual(packPackageSpy.callCount, 0);
+    assert.strictEqual(stopAllSpy.callCount, 0);
+}
+
+async function expectFailure(
+    error: unknown,
+    patterns: readonly RegExp[],
+    overrides: Readonly<Partial<PackFlags>> = {}
+): Promise<void> {
+    const { dependencies, logSpy } = setup(
+        makeOutcome({ isOk: false, isErr: true, error } as unknown as PackOutcome['result']),
+        overrides
+    );
+
+    const code = await runPackHandler(dependencies);
+
+    assert.strictEqual(code, 1);
+    const message = logSpy.firstCall.args[0] as string;
+    for (const pattern of patterns) {
+        assert.match(message, pattern);
+    }
+}
+
 suite('pack-handler', function () {
     test('returns 0 and logs a success line when the pack outcome is Ok', async function () {
         const { dependencies, logSpy } = setup(
@@ -116,25 +154,6 @@ suite('pack-handler', function () {
         });
     });
 
-    async function expectInvalidMode(
-        overrides: Readonly<Partial<PackFlags>>,
-        messagePattern: RegExp
-    ): Promise<void> {
-        const { dependencies, logSpy, stopAllSpy, packPackageSpy, configurationLoadSpy } = setup(
-            makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
-            overrides
-        );
-
-        const code = await runPackHandler(dependencies);
-
-        assert.strictEqual(code, 1);
-        assert.strictEqual(logSpy.callCount, 1);
-        assert.match(logSpy.firstCall.args[0] as string, messagePattern);
-        assert.strictEqual(configurationLoadSpy.callCount, 0);
-        assert.strictEqual(packPackageSpy.callCount, 0);
-        assert.strictEqual(stopAllSpy.callCount, 0);
-    }
-
     suite('invalid modes', function () {
         test('rejects --all together with a package argument before loading config', async function () {
             await expectInvalidMode(
@@ -157,25 +176,6 @@ suite('pack-handler', function () {
             );
         });
     });
-
-    async function expectFailure(
-        error: unknown,
-        patterns: readonly RegExp[],
-        overrides: Readonly<Partial<PackFlags>> = {}
-    ): Promise<void> {
-        const { dependencies, logSpy } = setup(
-            makeOutcome({ isOk: false, isErr: true, error } as unknown as PackOutcome['result']),
-            overrides
-        );
-
-        const code = await runPackHandler(dependencies);
-
-        assert.strictEqual(code, 1);
-        const message = logSpy.firstCall.args[0] as string;
-        for (const pattern of patterns) {
-            assert.match(message, pattern);
-        }
-    }
 
     suite('failures', function () {
         suite('issue failures', function () {

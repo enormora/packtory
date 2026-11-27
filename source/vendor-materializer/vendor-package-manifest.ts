@@ -4,13 +4,13 @@ import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
+const peerMetadataFields = { optional: z.optional(z.boolean()) };
+const peerMetadataSchema = z.record(
+    z.string(),
+    z.object(peerMetadataFields)
+);
 const peerDependencyMetadataSchema = z.optional(
-    z.record(
-        z.string(),
-        z.object({
-            optional: z.optional(z.boolean())
-        })
-    )
+    peerMetadataSchema
 );
 
 type OptionalPeerMetadata = Readonly<Record<string, { readonly optional?: boolean | undefined; }>> | undefined;

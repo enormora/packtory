@@ -112,11 +112,11 @@ function createEngine(input: EngineSpecification): PullRequestLogEngine {
     };
 }
 
-function createPacktory(result: ReleasePlanResult): Packtory {
-    async function unusedPacktoryMethod(): Promise<never> {
-        throw new Error('unused packtory method');
-    }
+async function unusedPacktoryMethod(): Promise<never> {
+    throw new Error('unused packtory method');
+}
 
+function createPacktory(result: ReleasePlanResult): Packtory {
     return {
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll: unusedPacktoryMethod,

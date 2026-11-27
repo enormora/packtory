@@ -40,14 +40,16 @@ suite('dead-code-elimination direct eval', function () {
         };
 
         assertValidDeadCodeEliminationOutput('direct eval', [ resolvedPackage.analyzedBundle ]);
-        assert.deepStrictEqual(
-            await Promise.all([
-                runNodeProbe(`
+        const probeResult = runNodeProbe(`
                     const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
                     console.log(JSON.stringify(module.api()));
-                `),
-                runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
-            ]),
+                `);
+        const probeResults = Promise.all([
+            probeResult,
+            runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
+        ]);
+        assert.deepStrictEqual(
+            await probeResults,
             [ expected, expected ]
         );
     });

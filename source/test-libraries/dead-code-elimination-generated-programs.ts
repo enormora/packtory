@@ -88,7 +88,7 @@ export const deadCodeEliminationExpressionArbitrary: fastCheck.Arbitrary<Generat
         .map(objectExpression)
 );
 
-export const deadCodeEliminationEventNameArbitrary = fastCheck.stringMatching(/^[a-z][a-z0-9]{0,7}$/);
+export const deadCodeEliminationEventNameArbitrary = fastCheck.stringMatching(/^[a-z][a-z0-9]{0,7}$/u);
 
 function deadCodeEliminationSourcePathFor(targetFilePath: string): string {
     return `/source/${targetFilePath}`;

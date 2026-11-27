@@ -116,11 +116,12 @@ suite('module evaluation dependencies', function () {
         ) {
             test(`retains the default export evaluated by ${content}`, function () {
                 const fixture = evaluationFixture(content);
+                const evaluationDependencies = moduleEvaluationDependencies({
+                    ...fixture.input,
+                    effects: new Set(fixture.input.model.source.getStatements())
+                }, identifiedTargets(fixture));
                 assert.deepStrictEqual(
-                    moduleEvaluationDependencies({
-                        ...fixture.input,
-                        effects: new Set(fixture.input.model.source.getStatements())
-                    }, identifiedTargets(fixture)),
+                    evaluationDependencies,
                     [ 'index.js:export:default' ]
                 );
             });
@@ -135,26 +136,28 @@ suite('module evaluation dependencies', function () {
         const source = fixture.source('index.d.ts');
         const model = fixture.models.get(source);
         assertDefined(model);
+        const moduleExportIndex = createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule);
+        const evaluationDependencies = moduleEvaluationDependencies({
+            model,
+            bindings: Array.from(model.locals.values()),
+            effects: new Set()
+        }, {
+            index: moduleExportIndex,
+            resolveModule() {
+                return fixture.source('library.d.ts');
+            },
+            binding() {
+                return undefined;
+            },
+            exported() {
+                return assert.fail('Declaration evaluation must not retain value exports');
+            },
+            evaluated(target) {
+                return target === fixture.source('library.d.ts') ? 'library evaluation' : undefined;
+            }
+        });
         assert.deepStrictEqual(
-            moduleEvaluationDependencies({
-                model,
-                bindings: Array.from(model.locals.values()),
-                effects: new Set()
-            }, {
-                index: createModuleExportIndex(Array.from(fixture.models.values()), fixture.resolveModule),
-                resolveModule() {
-                    return fixture.source('library.d.ts');
-                },
-                binding() {
-                    return undefined;
-                },
-                exported() {
-                    return assert.fail('Declaration evaluation must not retain value exports');
-                },
-                evaluated(target) {
-                    return target === fixture.source('library.d.ts') ? 'library evaluation' : undefined;
-                }
-            }),
+            evaluationDependencies,
             [ 'library evaluation' ]
         );
     });

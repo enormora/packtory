@@ -19,13 +19,13 @@ function parseJavaScriptObjectNotationString(content: string): unknown {
     return JSON.parse(content) as unknown;
 }
 
+function buildMissingDependencyMessage(dependencyName: string): string {
+    const intro = `Dependency "${dependencyName}" is declared in the published manifest`;
+    return `${intro} but is not installed in ${installedDependenciesFolderName}`;
+}
+
 export function createLicenseResolver(dependencies: LicenseResolverDependencies): LicenseResolver {
     const { fileManager } = dependencies;
-
-    function buildMissingDependencyMessage(dependencyName: string): string {
-        const intro = `Dependency "${dependencyName}" is declared in the published manifest`;
-        return `${intro} but is not installed in ${installedDependenciesFolderName}`;
-    }
 
     return {
         async resolveLicense({ projectFolder, dependencyName }) {

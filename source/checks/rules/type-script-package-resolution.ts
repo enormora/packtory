@@ -83,20 +83,22 @@ export function createPackageResolutionAnalyzer(
         problemAffectsEntrypointResolution
     } = dependencies;
     const identities = createPackageAnalysisIdentity();
+    const problemFields = {
+        kind: z.custom<ProblemKind>(function (value) {
+            return typeof value === 'string' && Object.hasOwn(problemKindInformation, value);
+        }),
+        shortDescription: z.string(),
+        affectedResolutionKinds: z.array(z.enum([ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ])),
+        affectedEntrypoints: z.array(z.string())
+    };
+    const analyzedReportFields = {
+        kind: z.literal('analyzed'),
+        entrypoints: z.array(z.string()),
+        problems: z.array(z.object(problemFields))
+    };
     const reportSchema = z.union([
         z.object({ kind: z.literal('missing-declarations') }),
-        z.object({
-            kind: z.literal('analyzed'),
-            entrypoints: z.array(z.string()),
-            problems: z.array(z.object({
-                kind: z.custom<ProblemKind>(function (value) {
-                    return typeof value === 'string' && Object.hasOwn(problemKindInformation, value);
-                }),
-                shortDescription: z.string(),
-                affectedResolutionKinds: z.array(z.enum([ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ])),
-                affectedEntrypoints: z.array(z.string())
-            }))
-        })
+        z.object(analyzedReportFields)
     ]);
 
     function toProblemReport(

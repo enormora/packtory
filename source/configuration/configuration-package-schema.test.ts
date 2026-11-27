@@ -46,13 +46,14 @@ suite('config package schema', function () {
             })
         );
 
+        const rejectNonStringName = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({ packages: [ packageConfiguration({ sourcesFolder: 'foo', name: 42 }) ] }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when name is not a string',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({ packages: [ packageConfiguration({ sourcesFolder: 'foo', name: 42 }) ] }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectNonStringName
         );
 
         test(
@@ -64,119 +65,127 @@ suite('config package schema', function () {
             })
         );
 
+        const rejectNonObjectRoots = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({ packages: [ packageConfiguration({ sourcesFolder: 'foo', roots: 'foo' }) ] }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when roots is not an object',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({ packages: [ packageConfiguration({ sourcesFolder: 'foo', roots: 'foo' }) ] }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectNonObjectRoots
         );
 
+        const rejectInvalidRoot = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                packages: [ packageConfiguration({ sourcesFolder: 'foo', roots: { main: { foo: 'bar' } } }) ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when a root entry is invalid',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    packages: [ packageConfiguration({ sourcesFolder: 'foo', roots: { main: { foo: 'bar' } } }) ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectInvalidRoot
         );
 
+        const rejectNonArrayAdditionalFiles = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest,
+                    additionalFiles: 'foo'
+                },
+                packages: [ packageWithoutCommonSettings() ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when additionalFiles is not an array',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest,
-                        additionalFiles: 'foo'
-                    },
-                    packages: [ packageWithoutCommonSettings() ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectNonArrayAdditionalFiles
         );
 
+        const rejectNonBooleanSourceMapSetting = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest,
+                    includeSourceMapFiles: 'foo'
+                },
+                packages: [ packageWithoutCommonSettings() ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when includeSourceMapFiles is not a boolean',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest,
-                        includeSourceMapFiles: 'foo'
-                    },
-                    packages: [ packageWithoutCommonSettings() ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectNonBooleanSourceMapSetting
         );
 
+        const rejectInvalidAdditionalManifestAttributes = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest,
+                    additionalPackageManifestAttributes: 'foo'
+                },
+                packages: [ packageWithoutCommonSettings() ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when additionalPackageManifestAttributes is not an object',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest,
-                        additionalPackageManifestAttributes: 'foo'
-                    },
-                    packages: [ packageWithoutCommonSettings() ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectInvalidAdditionalManifestAttributes
         );
     });
 
     suite('registryless package schema', function () {
+        const rejectInvalidVersioning = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest
+                },
+                packages: [ packageWithoutCommonSettings({ versioning: 'foo' }) ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when versioning is not an object',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest
-                    },
-                    packages: [ packageWithoutCommonSettings({ versioning: 'foo' }) ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectInvalidVersioning
         );
 
+        const rejectInvalidBundleDependencies = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest
+                },
+                packages: [ packageWithoutCommonSettings({ bundleDependencies: 'foo' }) ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when bundleDependencies is not an array',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest
-                    },
-                    packages: [ packageWithoutCommonSettings({ bundleDependencies: 'foo' }) ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectInvalidBundleDependencies
         );
 
+        const rejectInvalidBundlePeerDependencies = checkValidationFailure({
+            schema: packtoryConfigurationSchema,
+            data: configurationWith({
+                commonPackageSettings: {
+                    sourcesFolder: 'source',
+                    mainPackageManifest
+                },
+                packages: [ packageWithoutCommonSettings({ bundlePeerDependencies: 'foo' }) ]
+            }),
+            expectedMessages: [ 'invalid value doesn’t match expected union' ]
+        });
         test(
             'validation fails when bundlePeerDependencies is not an array',
-            checkValidationFailure({
-                schema: packtoryConfigurationSchema,
-                data: configurationWith({
-                    commonPackageSettings: {
-                        sourcesFolder: 'source',
-                        mainPackageManifest
-                    },
-                    packages: [ packageWithoutCommonSettings({ bundlePeerDependencies: 'foo' }) ]
-                }),
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
-            })
+            rejectInvalidBundlePeerDependencies
         );
 
         test(

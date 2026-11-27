@@ -1,4 +1,4 @@
-import * as gitHubAddress from './validate-application-programming-interface-base-address.ts';
+import { assertGitHubApplicationProgrammingInterfaceBaseAddress } from './validate-application-programming-interface-base-address.ts';
 
 export type GitHubReleaseGateRunnerConfiguration = {
     readonly continuousIntegrationWorkflowFile: string;
@@ -72,8 +72,9 @@ export function readGitHubReleaseGateRunnerConfiguration(
             defaultDependencyOnlyMinimumAgeDays
         ),
         defaultBranch: getEnvironmentVariable('DEFAULT_BRANCH') ?? defaultMainBranch(),
-        githubApplicationProgrammingInterfaceBaseAddress: gitHubAddress
-            .assertGitHubApplicationProgrammingInterfaceBaseAddress(serviceAddress),
+        githubApplicationProgrammingInterfaceBaseAddress: assertGitHubApplicationProgrammingInterfaceBaseAddress(
+            serviceAddress
+        ),
         githubOutputPath: getRequiredEnvironmentVariable(getEnvironmentVariable, 'GITHUB_OUTPUT'),
         maximumLatencyHours: parseInteger(getEnvironmentVariable('MAXIMUM_LATENCY_HOURS'), defaultMaximumLatencyHours),
         quietPeriodMinutes: parseInteger(getEnvironmentVariable('QUIET_PERIOD_MINUTES'), defaultQuietPeriodMinutes),

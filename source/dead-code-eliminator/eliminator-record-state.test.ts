@@ -326,10 +326,10 @@ const recordWriteCases: readonly ReturnEvaluationCase[] = [ {
 } ];
 
 for (
-    const { title, cases } of [ { title: 'record result discardability', cases: discardedRecordCases }, {
-        title: 'bounded record writes',
-        cases: recordWriteCases
-    } ]
+    const { title, cases } of [
+        { title: 'record result discardability', cases: discardedRecordCases },
+        { title: 'bounded record writes', cases: recordWriteCases }
+    ]
 ) {
     suite(title, function () {
         for (const input of cases) {

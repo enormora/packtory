@@ -18,24 +18,22 @@ export type CompilerInputObservation = {
     readonly snapshot: () => CompilerInputs | null;
 };
 const sourceTextSchema = z.string();
+const directoryEntryFields = {
+    name: z.string(),
+    isDirectory: z.boolean(),
+    isSymlink: z.boolean()
+};
+const directoryEntriesSchema = z.array(z.object(directoryEntryFields));
 
 function observedValue(operation: Operation, value: unknown): string {
     if (operation === 'readFile') {
         return contentDigest(sourceTextSchema.parse(value));
     }
     if (operation === 'readDir') {
-        return JSON.stringify(
-            z
-                .array(z.object({
-                    name: z.string(),
-                    isDirectory: z.boolean(),
-                    isSymlink: z.boolean()
-                }))
-                .parse(value)
-                .toSorted(function (left, right) {
-                    return left.name.localeCompare(right.name);
-                })
-        );
+        const entries = directoryEntriesSchema.parse(value).toSorted(function (left, right) {
+            return left.name.localeCompare(right.name);
+        });
+        return JSON.stringify(entries);
     }
     return JSON.stringify(value);
 }

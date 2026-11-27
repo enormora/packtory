@@ -118,6 +118,36 @@ function makeContent(targetFilePath: string, content: string, isSubstituted = fa
     };
 }
 
+function buildEmptyArtifactDependencies(
+    progressBroadcaster: ArtifactsBuilderDependencies['progressBroadcaster']
+): ArtifactsBuilderDependencies {
+    return {
+        fileManager: createFakeFileManager(),
+        tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+        zipBuilder: { build: fake.resolves(Buffer.from([])) },
+        progressBroadcaster
+    };
+}
+
+function captureArtifactEntries<TProjected>(
+    broadcaster: ProgressBroadcaster,
+    project: (entry: ArtifactEntry) => TProjected
+): readonly CapturedArtifactEntries<TProjected>[] {
+    const received: { readonly entries: readonly TProjected[]; }[] = [];
+    broadcaster.consumer.on('artifactsCollected', function (payload) {
+        received.push({ entries: payload.entries.map(project) });
+    });
+    return received;
+}
+
+function artifactsBuilderWithBroadcaster(): ArtifactsBuilderBroadcasterFixture {
+    const broadcaster = createProgressBroadcaster();
+    return {
+        builder: createArtifactsBuilder(buildEmptyArtifactDependencies(broadcaster.provider)),
+        broadcaster
+    };
+}
+
 suite('artifacts-builder', function () {
     suite('base operations', function () {
         test('buildTarball() returns the tarData', async function () {
@@ -430,36 +460,6 @@ suite('artifacts-builder', function () {
     });
 
     suite('progress reporting', function () {
-        function buildEmptyArtifactDependencies(
-            progressBroadcaster: ArtifactsBuilderDependencies['progressBroadcaster']
-        ): ArtifactsBuilderDependencies {
-            return {
-                fileManager: createFakeFileManager(),
-                tarballBuilder: { build: fake.resolves(Buffer.from([])) },
-                zipBuilder: { build: fake.resolves(Buffer.from([])) },
-                progressBroadcaster
-            };
-        }
-
-        function captureArtifactEntries<TProjected>(
-            broadcaster: ProgressBroadcaster,
-            project: (entry: ArtifactEntry) => TProjected
-        ): readonly CapturedArtifactEntries<TProjected>[] {
-            const received: { readonly entries: readonly TProjected[]; }[] = [];
-            broadcaster.consumer.on('artifactsCollected', function (payload) {
-                received.push({ entries: payload.entries.map(project) });
-            });
-            return received;
-        }
-
-        function artifactsBuilderWithBroadcaster(): ArtifactsBuilderBroadcasterFixture {
-            const broadcaster = createProgressBroadcaster();
-            return {
-                builder: createArtifactsBuilder(buildEmptyArtifactDependencies(broadcaster.provider)),
-                broadcaster
-            };
-        }
-
         test('collectContents() emits an artifactsCollected event with the package name when a subscriber is registered', function () {
             const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
             const received: { readonly packageName: string; }[] = [];

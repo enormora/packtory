@@ -51,6 +51,16 @@ async function buildZipWithDeadline(
     );
 }
 
+const invalidZip = function (
+    _data: ZippableFileMap,
+    _options: Readonly<Record<string, never>>,
+    callback: ZipCallback
+): void {
+    queueMicrotask(function () {
+        callback(undefined, 'not-bytes');
+    });
+};
+
 suite('zip-builder', function () {
     suite('file entries', function () {
         test('creates an empty zip', async function () {
@@ -340,15 +350,6 @@ suite('zip-builder', function () {
         });
 
         test('rejects when the zip implementation returns a non-binary payload', async function () {
-            const invalidZip = function (
-                _data: ZippableFileMap,
-                _options: Readonly<Record<string, never>>,
-                callback: ZipCallback
-            ): void {
-                queueMicrotask(function () {
-                    callback(undefined, 'not-bytes');
-                });
-            };
             const builder = createZipBuilder({ zip: invalidZip });
 
             await assert.rejects(

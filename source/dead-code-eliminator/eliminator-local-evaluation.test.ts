@@ -143,12 +143,10 @@ const evaluationGuards: readonly ExpressionEvaluationCase[] = [ {
     content: 'function compute(){return missing?1:2;}export const value=compute();',
     result: undefined
 } ];
-const stringLimitCases = [ [ 'folds concatenation at the string limit', 2048, 2048, true ], [
-    'retains concatenation beyond the string limit',
-    2048,
-    2049,
-    false
-] ] as const;
+const stringLimitCases = [
+    [ 'folds concatenation at the string limit', 2048, 2048, true ],
+    [ 'retains concatenation beyond the string limit', 2048, 2049, false ]
+] as const;
 function emittedCode(bundles: readonly AnalyzedBundle[]): string {
     const contents: string[] = [];
     for (const bundle of bundles) {

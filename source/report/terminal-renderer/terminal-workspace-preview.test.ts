@@ -9,23 +9,23 @@ import {
 import { buildArtifactTree } from '../preview/artifact-tree-builder.ts';
 import { renderTerminalPreview } from './terminal-preview-renderer.ts';
 
-suite('terminal workspace preview', function () {
-    function workspacePackage(): PreviewPackage {
-        const tree = buildArtifactTree([
-            createArtifactEntryFixture({ path: 'visible.js', status: 'changed' }),
-            createArtifactEntryFixture({ path: 'hidden.js', status: 'unchanged' })
-        ]);
-        return createPreviewPackageFixture({
-            sourceTree: tree,
-            tree,
-            comparisonRows: [
-                { label: 'dep', before: '^1', after: '^2' },
-                { label: 'same', before: '^1', after: '^1' },
-                { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
-            ]
-        });
-    }
+function workspacePackage(): PreviewPackage {
+    const tree = buildArtifactTree([
+        createArtifactEntryFixture({ path: 'visible.js', status: 'changed' }),
+        createArtifactEntryFixture({ path: 'hidden.js', status: 'unchanged' })
+    ]);
+    return createPreviewPackageFixture({
+        sourceTree: tree,
+        tree,
+        comparisonRows: [
+            { label: 'dep', before: '^1', after: '^2' },
+            { label: 'same', before: '^1', after: '^1' },
+            { label: 'unresolved', before: 'unknown exports', after: 'unknown exports' }
+        ]
+    });
+}
 
+suite('terminal workspace preview', function () {
     test('lists summaries and keeps failures visible without package detail', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({

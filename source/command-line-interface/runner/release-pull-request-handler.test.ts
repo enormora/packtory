@@ -188,16 +188,17 @@ suite('release-pull-request-handler', function () {
             });
 
             test('maintain reports release preparation failures', async function () {
+                const packtory = createPacktoryWithPlan(
+                    fake.resolves({
+                        result: Result.err({ type: 'configuration', issues: [ 'Registry failed' ] }),
+                        getReport() {
+                            return createBuildReportFixture();
+                        }
+                    })
+                );
                 const { dependencies, log } = createDependencies({
                     flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
-                    packtory: createPacktoryWithPlan(
-                        fake.resolves({
-                            result: Result.err({ type: 'configuration', issues: [ 'Registry failed' ] }),
-                            getReport() {
-                                return createBuildReportFixture();
-                            }
-                        })
-                    )
+                    packtory
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);

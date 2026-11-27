@@ -55,7 +55,8 @@ suite('packages without JavaScript', function () {
     test('packs declaration-only and JSON exports and preserves transitive declarations', async function () {
         const consumer = await packFixture('without-javascript', packageConfiguration);
         const output = path.join(consumer, 'node_modules', packageName);
-        assert.partialDeepStrictEqual(JSON.parse(await readFile(path.join(output, 'package.json'), 'utf8')), {
+        const packageManifest = JSON.parse(await readFile(path.join(output, 'package.json'), 'utf8'));
+        assert.partialDeepStrictEqual(packageManifest, {
             exports: expectedExports
         });
         const files = await readdir(output);
@@ -90,13 +91,14 @@ suite('packages without JavaScript', function () {
             ] as const
         ) {
             const consumer = await packFixture(entry.fixture, entry.configuration);
+            const packageManifest = JSON.parse(
+                await readFile(
+                    path.join(consumer, 'node_modules', entry.configuration.name, 'package.json'),
+                    'utf8'
+                )
+            );
             assert.partialDeepStrictEqual(
-                JSON.parse(
-                    await readFile(
-                        path.join(consumer, 'node_modules', entry.configuration.name, 'package.json'),
-                        'utf8'
-                    )
-                ),
+                packageManifest,
                 {
                     exports: { '.': entry.expected }
                 }
@@ -116,8 +118,11 @@ suite('packages without JavaScript', function () {
         assert.partialDeepStrictEqual(requirePackage(`${configuration.name}/node`), {
             compilerOptions: { module: 'NodeNext' }
         });
+        const packageManifest = JSON.parse(
+            await readFile(path.join(consumer, 'node_modules', configuration.name, 'package.json'), 'utf8')
+        );
         assert.partialDeepStrictEqual(
-            JSON.parse(await readFile(path.join(consumer, 'node_modules', configuration.name, 'package.json'), 'utf8')),
+            packageManifest,
             {
                 exports: { '.': './tsconfig.json', './node': './presets/node.json' }
             }

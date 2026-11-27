@@ -7,6 +7,10 @@ import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts'
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
+function rejectUnregisteredSourceError(error: unknown): never {
+    throw new Error(`expected the source error listener to be registered before piping: ${String(error)}`);
+}
+
 async function expectFailure(action: () => Promise<unknown>, expectedError: RegExp | 'error'): Promise<void> {
     try {
         await action();
@@ -127,6 +131,41 @@ async function extractFakeTarEntries(
         },
         limits
     );
+}
+
+async function runWithThrowingStream(thrown: () => never, expectedError: RegExp): Promise<void> {
+    const throwingStream = {
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+            return {
+                async next(): Promise<IteratorResult<unknown>> {
+                    thrown();
+                }
+            };
+        }
+    };
+    const intermediateStream = {
+        pipe() {
+            return throwingStream;
+        }
+    };
+    const source = {
+        once() {
+            return source;
+        },
+        pipe() {
+            return intermediateStream;
+        }
+    };
+    await expectFailure(async function () {
+        await withPromiseDeadline(
+            extractTarEntries(Buffer.from('unused'), {
+                createSource() {
+                    return source as unknown as Readable;
+                }
+            }),
+            'throwing tar extraction'
+        );
+    }, expectedError);
 }
 
 suite('extract-tar', function () {
@@ -264,41 +303,6 @@ suite('extract-tar', function () {
     });
 
     suite('stream failures', function () {
-        async function runWithThrowingStream(thrown: () => never, expectedError: RegExp): Promise<void> {
-            const throwingStream = {
-                [Symbol.asyncIterator](): AsyncIterator<unknown> {
-                    return {
-                        async next(): Promise<IteratorResult<unknown>> {
-                            thrown();
-                        }
-                    };
-                }
-            };
-            const intermediateStream = {
-                pipe() {
-                    return throwingStream;
-                }
-            };
-            const source = {
-                once() {
-                    return source;
-                },
-                pipe() {
-                    return intermediateStream;
-                }
-            };
-            await expectFailure(async function () {
-                await withPromiseDeadline(
-                    extractTarEntries(Buffer.from('unused'), {
-                        createSource() {
-                            return source as unknown as Readable;
-                        }
-                    }),
-                    'throwing tar extraction'
-                );
-            }, expectedError);
-        }
-
         test('rejects with an Error when iteration throws a non-Error value', async function () {
             await runWithThrowingStream(function () {
                 throwNonError('boom');
@@ -356,9 +360,7 @@ suite('extract-tar', function () {
         });
 
         test('rejects when the injected source stream emits an error event', async function () {
-            let sourceErrorListener = function (error: unknown): void {
-                throw new Error(`expected the source error listener to be registered before piping: ${String(error)}`);
-            };
+            let sourceErrorListener: (error: unknown) => void = rejectUnregisteredSourceError;
             const extractStream = {
                 once() {
                     return extractStream;

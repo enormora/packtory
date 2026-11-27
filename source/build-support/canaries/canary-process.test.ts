@@ -44,14 +44,14 @@ suite('canary process adapters', function () {
             [ 50, true, 'SIGKILL', 'native failure' ]
         ] as const
     ) {
+        const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
+            callback(
+                Object.assign(new Error('native failure'), { cmd: 'pack', killed, signal }),
+                ' output ',
+                ' errors '
+            );
+        };
         test(`reports shell failures for ${timeout}, ${String(killed)}, ${signal}`, async function () {
-            const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
-                callback(
-                    Object.assign(new Error('native failure'), { cmd: 'pack', killed, signal }),
-                    ' output ',
-                    ' errors '
-                );
-            };
             await assert.rejects(createShellCommandRunner(timeout, execute)('pack', '/clone'), {
                 message: `output\nerrors\n${message}`
             });
@@ -80,10 +80,10 @@ suite('canary process adapters', function () {
             [ 'invalid', /Unexpected token/u ]
         ] as const
     ) {
+        const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
+            callback(null, output, '');
+        };
         test(`rejects invalid import output ${JSON.stringify(output)}`, async function () {
-            const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
-                callback(null, output, '');
-            };
             await assert.rejects(createNodeImportProbe(30, execute, 'node')('/modules', 'package'), error);
         });
     }
@@ -97,10 +97,10 @@ suite('canary process adapters', function () {
             [ '', '', true, 'SIGKILL', 'native failure' ]
         ] as const
     ) {
+        const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
+            callback(Object.assign(new Error('native failure'), { cmd: 'node', killed, signal }), output, errors);
+        };
         test(`reports import failures from ${JSON.stringify([ output, errors, killed, signal ])}`, async function () {
-            const execute: CanaryProcessExecutor = function (_command, _args, _options, callback) {
-                callback(Object.assign(new Error('native failure'), { cmd: 'node', killed, signal }), output, errors);
-            };
             await assert.rejects(createNodeImportProbe(30, execute, 'node')('/modules', 'package'), { message });
         });
     }

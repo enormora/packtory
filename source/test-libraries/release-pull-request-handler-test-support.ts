@@ -187,16 +187,18 @@ export function createDependencies(
 export function createReleaseContentDependencies(
     overrides: Readonly<Partial<ReleasePullRequestHandlerDependencies>> = {}
 ): CreatedReleasePullRequestDependencies {
+    const buildAllPackages = fake.resolves({
+        result: Result.ok({ packages: [ createReleasePackage() ] }),
+        getReport() {
+            return createBuildReportFixture();
+        }
+    });
+    const packtory = createPacktoryWithPlan(
+        buildAllPackages
+    );
     return createDependencies({
         flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
-        packtory: createPacktoryWithPlan(
-            fake.resolves({
-                result: Result.ok({ packages: [ createReleasePackage() ] }),
-                getReport() {
-                    return createBuildReportFixture();
-                }
-            })
-        ),
+        packtory,
         ...overrides
     });
 }

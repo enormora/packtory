@@ -14,6 +14,10 @@ const fixedDecimals = 2;
 // eslint-disable-next-line node/no-process-env -- the probe runs in a CLI subprocess and uses an env var as its only configuration channel
 const outputPath = process.env.PACKTORY_BENCH_EVENT_LOOP_PROBE_OUTPUT;
 
+const milliseconds = function (nanoseconds: number): number {
+    return Number((nanoseconds / nanosecondsPerMillisecond).toFixed(fixedDecimals));
+};
+
 if (outputPath !== undefined && outputPath !== '') {
     const histogram = monitorEventLoopDelay({ resolution: histogramResolutionMilliseconds });
     histogram.enable();
@@ -33,10 +37,6 @@ if (outputPath !== undefined && outputPath !== '') {
     process.on('exit', function () {
         cancelInterval(fineSampler);
         histogram.disable();
-
-        const milliseconds = function (nanoseconds: number): number {
-            return Number((nanoseconds / nanosecondsPerMillisecond).toFixed(fixedDecimals));
-        };
 
         const payload = {
             histogram: {

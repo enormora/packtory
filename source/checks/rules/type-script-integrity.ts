@@ -55,6 +55,13 @@ function hasExecutableDeclarations(bundle: ExplicitBundle): boolean {
     }) === true;
 }
 
+function publishedPackagesFor(input: RunInput): ReadonlyMap<string, PublishedPackageWithManifest> {
+    if (input.publishedPackages === undefined) {
+        throw new Error('Published packages missing for TypeScript integrity');
+    }
+    return input.publishedPackages;
+}
+
 export function createTypeScriptIntegrityRule(
     dependencies: TypeScriptIntegrityDependencies
 ): TypeScriptIntegrityRule {
@@ -113,13 +120,6 @@ export function createTypeScriptIntegrityRule(
             throw new Error(`Published package missing for "${bundle.name}"`);
         }
         return runForPackage(bundle, publishedPackage, publishedPackages, declarationMode);
-    }
-
-    function publishedPackagesFor(input: RunInput): ReadonlyMap<string, PublishedPackageWithManifest> {
-        if (input.publishedPackages === undefined) {
-            throw new Error('Published packages missing for TypeScript integrity');
-        }
-        return input.publishedPackages;
     }
 
     async function run(input: RunInput): Promise<readonly string[]> {

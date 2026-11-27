@@ -18,7 +18,7 @@ export function findMatchingImportEntryKey(specifier: string, importsField: Impo
         .keys(importsField)
         .filter(function (key) {
             const wildcardPattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
-            const wildcardRegularExpression = new RegExp(wildcardPattern);
+            const wildcardRegularExpression = new RegExp(wildcardPattern, 'u');
             return wildcardRegularExpression.test(specifier);
         })
         .toSorted(function (left, right) {

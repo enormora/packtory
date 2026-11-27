@@ -31,6 +31,18 @@ function sourceMapFileLocatorFactory(overrides: Overrides = {}): SourceMapFileLo
     };
 }
 
+async function expectLocateReturnsNothingWithoutCheckReadability(content: string): Promise<void> {
+    const { locator, fileManager } = sourceMapFileLocatorFactory({
+        readFileContent: content,
+        isReadable: true
+    });
+
+    const result = await locator.locate('/foo/bar.js', '/foo');
+
+    assert.deepStrictEqual(result, Maybe.nothing());
+    assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
+}
+
 suite('source-map-file-locator', function () {
     suite('missing source maps', function () {
         test('reads the content of the given source file', async function () {
@@ -41,18 +53,6 @@ suite('source-map-file-locator', function () {
             assert.strictEqual(fileManager.getReadFileCallCount(), 1);
             assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: '/foo/bar.js' });
         });
-
-        async function expectLocateReturnsNothingWithoutCheckReadability(content: string): Promise<void> {
-            const { locator, fileManager } = sourceMapFileLocatorFactory({
-                readFileContent: content,
-                isReadable: true
-            });
-
-            const result = await locator.locate('/foo/bar.js', '/foo');
-
-            assert.deepStrictEqual(result, Maybe.nothing());
-            assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
-        }
 
         test('returns nothing when there is no external source mapping URL referenced in the given file', async function () {
             await expectLocateReturnsNothingWithoutCheckReadability('no sourceMappingURL comment');

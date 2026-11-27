@@ -285,10 +285,14 @@ function registerLocalValidationTests(): void {
 
     test('throws when an object-form additional file uses an absolute target path', function () {
         try {
-            combineAllBundleFiles('/source', [], [ {
-                inputFilePath: 'file.txt',
-                targetFilePath: '/absolute/file.txt'
-            } ]);
+            combineAllBundleFiles(
+                '/source',
+                [],
+                [ {
+                    inputFilePath: 'file.txt',
+                    targetFilePath: '/absolute/file.txt'
+                } ]
+            );
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');

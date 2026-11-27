@@ -206,35 +206,36 @@ suite('release-pull-request-github-client', function () {
     test('finds dispatched workflow runs through the repository fallback when workflow runs lag', async function () {
         const capturedRequests = captureRequests();
         const { records } = capturedRequests;
+        const routeFetch = createRecordedRouteFetch(
+            capturedRequests,
+            new Map([
+                [ routeKey('GET', '/repos/owner/repo/actions/workflows'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflows: [ {
+                            identifier: 101,
+                            name: 'ci',
+                            path: '.github/workflows/continuous-integration.yml'
+                        } ]
+                    });
+                } ],
+                [ routeKey('GET', '/repos/owner/repo/actions/workflows/101/runs'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflow_runs: [
+                            { database_id: 21, event: 'workflow_dispatch', head_sha: 'other-head' }
+                        ]
+                    });
+                } ],
+                [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
+                    return javaScriptObjectNotationResponse({
+                        workflow_runs: [
+                            { database_id: 22, event: 'workflow_dispatch', head_sha: 'release-head' }
+                        ]
+                    });
+                } ]
+            ])
+        );
         const client = createClient(
-            createRecordedRouteFetch(
-                capturedRequests,
-                new Map([
-                    [ routeKey('GET', '/repos/owner/repo/actions/workflows'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflows: [ {
-                                identifier: 101,
-                                name: 'ci',
-                                path: '.github/workflows/continuous-integration.yml'
-                            } ]
-                        });
-                    } ],
-                    [ routeKey('GET', '/repos/owner/repo/actions/workflows/101/runs'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflow_runs: [
-                                { database_id: 21, event: 'workflow_dispatch', head_sha: 'other-head' }
-                            ]
-                        });
-                    } ],
-                    [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
-                        return javaScriptObjectNotationResponse({
-                            workflow_runs: [
-                                { database_id: 22, event: 'workflow_dispatch', head_sha: 'release-head' }
-                            ]
-                        });
-                    } ]
-                ])
-            )
+            routeFetch
         );
 
         assert.deepStrictEqual(

@@ -20,7 +20,7 @@ export type OptionalPackageSettings = {
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
-export const optionalPackageSettingsSchema = z.strictObject({
+const optionalPackageSettingsFields = {
     additionalChangelogSourceFiles: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
     additionalFiles: z.optional(z.readonly(z.array(additionalFileDescriptionSchema))),
     includeSourceMapFiles: z.optional(z.boolean()),
@@ -28,4 +28,5 @@ export const optionalPackageSettingsSchema = z.strictObject({
     publishSettings: z.optional(publishSettingsSchema),
     dependencyPolicy: z.optional(dependencyPolicySchema),
     deadCodeElimination: z.optional(deadCodeEliminationSettingsSchema)
-});
+};
+export const optionalPackageSettingsSchema = z.strictObject(optionalPackageSettingsFields);

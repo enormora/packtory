@@ -3,14 +3,14 @@ import operatingSystem from 'node:os';
 import { randomUUID as createUniqueIdentifier } from 'node:crypto';
 import fileSystem from 'node:fs/promises';
 import { performance as currentPerformance } from 'node:perf_hooks';
-import * as nodePseudoTerminal from 'node-pty';
+import { type IPty as PseudoTerminalProcess, spawn as spawnPseudoTerminal } from 'node-pty';
 import {
     createFrameRecorder,
     type FrameRecorder,
     type FrameRecorderResult
 } from './command-line-interface-spinner-metrics.ts';
 
-type PseudoTerminal = Pick<nodePseudoTerminal.IPty, 'onData' | 'onExit'>;
+type PseudoTerminal = Pick<PseudoTerminalProcess, 'onData' | 'onExit'>;
 
 const commandLineInterfaceColumns = 120;
 const commandLineInterfaceRows = 40;
@@ -133,7 +133,7 @@ async function readEventLoopProbeReport(probeOutputPath: string): Promise<EventL
 }
 
 function spawnCommandLineInterfacePublish(workingDirectory: string, probeOutputPath: string): PseudoTerminal {
-    return nodePseudoTerminal.spawn(
+    return spawnPseudoTerminal(
         process.execPath,
         [
             '--experimental-strip-types',

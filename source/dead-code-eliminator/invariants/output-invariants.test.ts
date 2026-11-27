@@ -76,7 +76,7 @@ suite('dead code elimination output invariants', function () {
 
     suite('accepted graphs', function () {
         test('accepts runtime imports and re-exports that preserve exported bindings', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'index.js',
                     content: [
@@ -110,11 +110,12 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'grouped.js',
                     content: 'export const grouped = 1;\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('accepts declaration imports through source and declaration candidates', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.d.ts', {
                     targetFilePath: 'index.d.ts',
                     content: [
@@ -138,11 +139,12 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'common.d.cts',
                     content: 'export type CtsApi = string;\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('ignores package imports, type-only runtime imports, static exports, and source maps', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/readme.md', {
                     targetFilePath: 'readme.md',
                     content: 'import "./missing.js";\n'
@@ -161,11 +163,12 @@ suite('dead code elimination output invariants', function () {
                         .join('\n'),
                     directDependencies: new Set([ 'index.js.map' ])
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('accepts absolute targets, namespace imports, and type-only runtime re-exports', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'lib/index.js',
                     content: [
@@ -190,11 +193,12 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'data.json',
                     content: '{"ok":true}\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('ignores named type-only imports in runtime mode', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'index.js',
                     content: [ 'import { type Api, value } from "./value.js";', 'export const output = value;', '' ]
@@ -204,11 +208,12 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'value.js',
                     content: 'export const value = 1;\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('keeps default imports unchecked when a namespace import is present', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'index.js',
                     content: [
@@ -222,11 +227,12 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'value.js',
                     content: 'export const value = 1;\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
 
         test('accepts local export declarations for every local binding form', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'index.js',
                     content: [
@@ -260,46 +266,48 @@ suite('dead code elimination output invariants', function () {
                     targetFilePath: 'namespace.js',
                     content: 'export const value = 1;\n'
                 })
-            ]));
+            ]);
+            assertNoIssues(bundle);
         });
     });
 
     suite('reported issues', function () {
         test('reports local, dynamic, re-export, and metadata references to pruned targets', function () {
-            assertIssues(
-                bundleWith([
-                    analyzedBundleResource('/source/index.js', {
-                        targetFilePath: 'index.js',
-                        content: [
-                            'import { missing } from "./missing.js";',
-                            'export { gone } from "./gone.js";',
-                            'export { localGone };',
-                            'void import("./lazy.js");',
-                            'export const value = missing;',
-                            ''
-                        ]
-                            .join('\n'),
-                        directDependencies: new Set([ 'direct.js' ])
-                    })
-                ], {
-                    externalDependencies: new Map([
-                        [ 'dep', {
-                            ...externalDependency('dep', [ '/source/index.js' ]),
-                            references: [ {
-                                targetFilePath: 'external.js',
-                                sourceSpecifier: 'dep',
-                                emittedSpecifier: 'dep'
-                            } ]
+            const bundle = bundleWith([
+                analyzedBundleResource('/source/index.js', {
+                    targetFilePath: 'index.js',
+                    content: [
+                        'import { missing } from "./missing.js";',
+                        'export { gone } from "./gone.js";',
+                        'export { localGone };',
+                        'void import("./lazy.js");',
+                        'export const value = missing;',
+                        ''
+                    ]
+                        .join('\n'),
+                    directDependencies: new Set([ 'direct.js' ])
+                })
+            ], {
+                externalDependencies: new Map([
+                    [ 'dep', {
+                        ...externalDependency('dep', [ '/source/index.js' ]),
+                        references: [ {
+                            targetFilePath: 'external.js',
+                            sourceSpecifier: 'dep',
+                            emittedSpecifier: 'dep'
                         } ]
-                    ]),
-                    linkedBundleDependencies: new Map([
-                        [ 'linked', externalDependency('linked', [ '/source/linked.js' ]) ]
-                    ]),
-                    substitutedInputFilePathsByPackageName: new Map([ [
-                        'substituted',
-                        new Set([ '/source/sub.js' ])
-                    ] ])
-                }),
+                    } ]
+                ]),
+                linkedBundleDependencies: new Map([
+                    [ 'linked', externalDependency('linked', [ '/source/linked.js' ]) ]
+                ]),
+                substitutedInputFilePathsByPackageName: new Map([ [
+                    'substituted',
+                    new Set([ '/source/sub.js' ])
+                ] ])
+            });
+            assertIssues(
+                bundle,
                 [
                     /index\.js imports \.\/missing\.js in runtime mode, but no emitted target remains/u,
                     /index\.js imports \.\/gone\.js in runtime mode, but no emitted target remains/u,
@@ -314,7 +322,7 @@ suite('dead code elimination output invariants', function () {
         });
 
         test('accepts present dependency metadata references', function () {
-            assertNoIssues(bundleWith([
+            const bundle = bundleWith([
                 analyzedBundleResource('/source/index.js', {
                     targetFilePath: 'index.js',
                     content: 'export const value = 1;\n'
@@ -348,7 +356,8 @@ suite('dead code elimination output invariants', function () {
                     [ 'substituted', externalDependency('substituted', [ 'index.js' ]) ]
                 ]),
                 substitutedInputFilePathsByPackageName: new Map([ [ 'substituted', new Set([ '/source/sub.js' ]) ] ])
-            }));
+            });
+            assertNoIssues(bundle);
         });
 
         test('reports declaration-mode missing targets without runtime declaration-only candidates', function () {
@@ -366,22 +375,23 @@ suite('dead code elimination output invariants', function () {
         });
 
         test('reports type-only declaration imports and exports when their targets are pruned', function () {
+            const bundle = bundleWith([
+                analyzedBundleResource('/source/index.d.ts', {
+                    targetFilePath: 'index.d.ts',
+                    content: [
+                        'import { type Imported } from "./imported.js";',
+                        'export type { Exported } from "./exported.js";',
+                        ''
+                    ]
+                        .join('\n')
+                }),
+                analyzedBundleResource('/source/imported.d.ts', {
+                    targetFilePath: 'imported.d.ts',
+                    content: 'export type Present = string;\n'
+                })
+            ]);
             assertExactIssues(
-                bundleWith([
-                    analyzedBundleResource('/source/index.d.ts', {
-                        targetFilePath: 'index.d.ts',
-                        content: [
-                            'import { type Imported } from "./imported.js";',
-                            'export type { Exported } from "./exported.js";',
-                            ''
-                        ]
-                            .join('\n')
-                    }),
-                    analyzedBundleResource('/source/imported.d.ts', {
-                        targetFilePath: 'imported.d.ts',
-                        content: 'export type Present = string;\n'
-                    })
-                ]),
+                bundle,
                 [
                     'package: index.d.ts imports Imported from ./imported.js, but imported.d.ts does not export it in declaration mode',
                     'package: index.d.ts imports ./exported.js in declaration mode, but no emitted target remains'
@@ -390,35 +400,36 @@ suite('dead code elimination output invariants', function () {
         });
 
         test('reports missing imported names through aliases and re-export chains', function () {
+            const bundle = bundleWith([
+                analyzedBundleResource('/source/index.js', {
+                    targetFilePath: 'index.js',
+                    content: [
+                        'import { missing as renamed } from "./named.js";',
+                        'import fallback from "./without-default.js";',
+                        'export { missing as exposed } from "./re-export.js";',
+                        ''
+                    ]
+                        .join('\n')
+                }),
+                analyzedBundleResource('/source/named.js', {
+                    targetFilePath: 'named.js',
+                    content: 'export const present = 1;\n'
+                }),
+                analyzedBundleResource('/source/without-default.js', {
+                    targetFilePath: 'without-default.js',
+                    content: 'export const present = 1;\n'
+                }),
+                analyzedBundleResource('/source/re-export.js', {
+                    targetFilePath: 're-export.js',
+                    content: 'export { present } from "./leaf.js";\n'
+                }),
+                analyzedBundleResource('/source/leaf.js', {
+                    targetFilePath: 'leaf.js',
+                    content: 'export const present = 1;\n'
+                })
+            ]);
             assertIssues(
-                bundleWith([
-                    analyzedBundleResource('/source/index.js', {
-                        targetFilePath: 'index.js',
-                        content: [
-                            'import { missing as renamed } from "./named.js";',
-                            'import fallback from "./without-default.js";',
-                            'export { missing as exposed } from "./re-export.js";',
-                            ''
-                        ]
-                            .join('\n')
-                    }),
-                    analyzedBundleResource('/source/named.js', {
-                        targetFilePath: 'named.js',
-                        content: 'export const present = 1;\n'
-                    }),
-                    analyzedBundleResource('/source/without-default.js', {
-                        targetFilePath: 'without-default.js',
-                        content: 'export const present = 1;\n'
-                    }),
-                    analyzedBundleResource('/source/re-export.js', {
-                        targetFilePath: 're-export.js',
-                        content: 'export { present } from "./leaf.js";\n'
-                    }),
-                    analyzedBundleResource('/source/leaf.js', {
-                        targetFilePath: 'leaf.js',
-                        content: 'export const present = 1;\n'
-                    })
-                ]),
+                bundle,
                 [
                     /imports missing from \.\/named\.js, but named\.js does not export it in runtime mode/u,
                     /imports default from \.\/without-default\.js, but without-default\.js does not export it in runtime mode/u,

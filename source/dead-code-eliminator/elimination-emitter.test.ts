@@ -59,6 +59,10 @@ function originalBundle(name: string, resources: readonly AnalyzedBundleResource
     });
 }
 
+function simplifyFile(file: SimplifiedFileDecision): SimplifiedFileDecision {
+    return { path: file.path, sourceBytes: file.sourceBytes };
+}
+
 suite('elimination-emitter', function () {
     test('maybeEmitElimination() does not emit when no subscriber is registered', function () {
         const wrapped = createSpyingBroadcaster();
@@ -75,9 +79,7 @@ suite('elimination-emitter', function () {
     test('maybeEmitElimination() emits eliminationCompleted with per-bundle decisions when a subscriber is registered', function () {
         const broadcaster = createProgressBroadcaster();
         const received: SimplifiedEliminationPayload[] = [];
-        function simplifyFile(file: SimplifiedFileDecision): SimplifiedFileDecision {
-            return { path: file.path, sourceBytes: file.sourceBytes };
-        }
+
         broadcaster.consumer.on('eliminationCompleted', function (payload) {
             received.push({
                 perBundle: payload.perBundle.map(function (bundleResult) {
@@ -229,6 +231,6 @@ suite('elimination-emitter', function () {
 
         assert.throws(function () {
             maybeEmitElimination(broadcaster.provider, [], [ bundle('package-a', [ resource('/source/a.ts', 'x') ]) ]);
-        }, /Original bundle missing/);
+        }, /Original bundle missing/u);
     });
 });

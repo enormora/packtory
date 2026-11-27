@@ -76,7 +76,8 @@ suite('condition outcome proofs', function () {
 
     test('consumes depth while following an outcome dependency', function () {
         const expression = variableInitializer('const result=!void missing();', 'result');
-        assert.deepStrictEqual(conditionOutcome(expression, createSourceEvaluation(expression.getSourceFile()), 31), {
+        const outcome = conditionOutcome(expression, createSourceEvaluation(expression.getSourceFile()), 31);
+        assert.deepStrictEqual(outcome, {
             truthy: undefined,
             nullish: false
         });
@@ -85,8 +86,9 @@ suite('condition outcome proofs', function () {
     for (const [ depth, truthy, nullish ] of [ [ 31, false, true ], [ 32, undefined, undefined ] ] as const) {
         test(`bounds outcome evaluation at depth ${String(depth)}`, function () {
             const expression = variableInitializer('const result=void missing();', 'result');
+            const outcome = conditionOutcome(expression, createSourceEvaluation(expression.getSourceFile()), depth);
             assert.deepStrictEqual(
-                conditionOutcome(expression, createSourceEvaluation(expression.getSourceFile()), depth),
+                outcome,
                 {
                     truthy,
                     nullish

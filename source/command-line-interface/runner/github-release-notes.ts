@@ -25,13 +25,13 @@ function hasReleaseNotes(value: string | undefined): value is string {
 }
 
 function escapeRegExp(value: string): string {
-    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
 }
 
 function releaseNotesHeadingPattern(target: ReleaseNotesTarget): RegExp {
     const packageName = escapeRegExp(target.name);
     const version = escapeRegExp(target.version);
-    return new RegExp(`^##\\s+(?:${packageName}\\s+)?${version}(?:\\s|\\(|$)`);
+    return new RegExp(String.raw`^##\s+(?:${packageName}\s+)?${version}(?:\s|\(|$)`, 'u');
 }
 
 function extractReleaseNotes(markdown: string, target: ReleaseNotesTarget): string | undefined {

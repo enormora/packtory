@@ -5,10 +5,12 @@ type Deadline = {
     readonly promise: Promise<never>;
 };
 
+function ignoreDeadlineFailure(): void {
+    return undefined;
+}
+
 function createDeadline(): Deadline {
-    let failDeadline = function (): void {
-        return undefined;
-    };
+    let failDeadline = ignoreDeadlineFailure;
     const promise = new Promise<never>(function (_resolve, reject) {
         failDeadline = reject;
     });

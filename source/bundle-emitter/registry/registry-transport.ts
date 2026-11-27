@@ -31,11 +31,11 @@ function assertMetadataChunk(chunk: unknown, receivedBytes: number): asserts chu
 }
 
 async function readRegistryJavaScriptObjectNotation(response: RegistryResponse): Promise<unknown> {
-    const chunks: Uint8Array[] = [];
-    let receivedBytes = 0;
     if (!isResponseStream(response.body)) {
         throw new Error('Registry response is missing a readable body');
     }
+    const chunks: Uint8Array[] = [];
+    let receivedBytes = 0;
     for await (const chunk of response.body) {
         assertMetadataChunk(chunk, receivedBytes);
         receivedBytes += chunk.byteLength;

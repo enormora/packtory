@@ -37,7 +37,7 @@ function createAutomaticBumpProcessor(overrides: AutomaticBumpOverrides): Automa
     const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
     const context = createProcessor({
         determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
-        addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+        addVersion: fake.returns(createVersionedBundle()),
         increaseVersion: fake.returns(rebuiltBundle),
         ...overrides.generateSoftwareBillOfMaterials === undefined
             ? {}

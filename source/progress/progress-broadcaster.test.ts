@@ -22,6 +22,10 @@ type ScheduledListenerPayload = {
     readonly packageName: string;
 };
 
+const noop = function (): void {
+    return undefined;
+};
+
 suite('progress-broadcaster', function () {
     test('emits events to registered listeners', function () {
         const broadcaster = createProgressBroadcaster();
@@ -55,10 +59,6 @@ suite('progress-broadcaster', function () {
 
         assert.strictEqual(broadcaster.provider.hasSubscribers('eliminationCompleted'), false);
     });
-
-    const noop = function (): void {
-        return undefined;
-    };
 
     test('hasSubscribers() returns true after a listener is registered', function () {
         const broadcaster = createProgressBroadcaster();

@@ -54,13 +54,13 @@ import {
     createGitCommandRunner,
     spawnChildProcessGitCommand
 } from '../git/git-command.ts';
-import * as npmIdentity from '../npm-open-identity-connect-identifier-token-resolver.ts';
+import { createNpmOpenIdentityConnectIdentifierTokenResolver } from '../npm-open-identity-connect-identifier-token-resolver.ts';
 import { createLicenseResolver } from '../software-bill-of-materials/license-resolver.ts';
 import {
     createSoftwareBillOfMaterialsFileBuilder,
     type SoftwareBillOfMaterialsFileBuilder
 } from '../software-bill-of-materials/software-bill-of-materials-file.ts';
-import * as inventory from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
+import { createSoftwareBillOfMaterialsSerializer } from '../software-bill-of-materials/software-bill-of-materials-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../software-bill-of-materials/tool-version.ts';
 
 export async function importPackageManifest(specifier: string): Promise<unknown> {
@@ -69,10 +69,10 @@ export async function importPackageManifest(specifier: string): Promise<unknown>
 
 function outputErrorMessage(standardOutput: string, standardError: string): string | undefined {
     const standardErrorOutput = standardError.trim();
-    const standardOutputOutput = standardOutput.trim();
     if (standardErrorOutput.length > 0) {
         return standardErrorOutput;
     }
+    const standardOutputOutput = standardOutput.trim();
     return standardOutputOutput.length > 0 ? standardOutputOutput : undefined;
 }
 
@@ -197,7 +197,7 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
         },
         fetch,
         clock,
-        resolveIdentifierToken: npmIdentity.createNpmOpenIdentityConnectIdentifierTokenResolver({
+        resolveIdentifierToken: createNpmOpenIdentityConnectIdentifierTokenResolver({
             fetch,
             getEnvironmentVariable
         }),
@@ -208,7 +208,7 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
 function buildSoftwareBillOfMaterialsFileBuilder(fileManager: FileManager): SoftwareBillOfMaterialsFileBuilder {
     return createSoftwareBillOfMaterialsFileBuilder({
         licenseResolver: createLicenseResolver({ fileManager }),
-        softwareBillOfMaterialsSerializer: inventory.createSoftwareBillOfMaterialsSerializer(),
+        softwareBillOfMaterialsSerializer: createSoftwareBillOfMaterialsSerializer(),
         toolVersionProvider: createPacktoryToolVersionResolver({ importPackageManifest }),
         projectFolder: process.cwd()
     });
