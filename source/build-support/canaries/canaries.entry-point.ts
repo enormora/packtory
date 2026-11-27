@@ -1,14 +1,12 @@
 import { execFile as executeFile } from 'node:child_process';
 import fileSystem from 'node:fs';
-import { tmpdir as temporaryDirectory } from 'node:os';
+import { availableParallelism, tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
-import { Project } from 'ts-morph';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import { argumentValue, runCanaryCommandLineInterface } from './canary-command-line-interface.ts';
+import { inspectCanaryPackages } from './canary-package-inspection.entry-point.ts';
 import { createShellCommandRunner, runSelectedCanary } from './canary-runner.ts';
-import { createNodeImportProbe } from './package-application-programming-interface-inspection.ts';
 
-const importProbeTimeoutMilliseconds = 10_000;
 const shellCommandTimeoutMilliseconds = 900_000;
 const millisecondsPerSecond = 1000;
 
@@ -21,14 +19,16 @@ async function runCanaries(argumentValues: readonly string[]): Promise<number> {
     const exitCode = await runCanaryCommandLineInterface(argumentValues, {
         fileManager,
         async runCanary(manifestPath, name) {
+            const runnerCores = availableParallelism();
+            process.stdout.write(`Canary runner CPUs available: ${runnerCores}\n`);
             return await runSelectedCanary(manifestPath, name, {
-                createProject(options) {
-                    return new Project(options);
-                },
                 async createTemporaryFolder(prefix) {
                     return await fileSystem.promises.mkdtemp(path.join(temporaryDirectory(), prefix));
                 },
                 fileManager,
+                async inspectPackages(output) {
+                    return await inspectCanaryPackages(output, runnerCores);
+                },
                 now() {
                     return performance.now();
                 },
@@ -41,7 +41,6 @@ async function runCanaries(argumentValues: readonly string[]): Promise<number> {
                     await fileSystem.promises.rm(folderPath, { recursive: true, force: true });
                 },
                 repositoryFolder: process.cwd(),
-                runImportProbe: createNodeImportProbe(importProbeTimeoutMilliseconds, executeFile, process.execPath),
                 async runCommand(command, cwd) {
                     const started = performance.now();
                     try {

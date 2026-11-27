@@ -4,7 +4,7 @@ Each advisory canary measures the candidate’s successful `packtory pack --all`
 
 Each canary checks out and installs the downstream project once. The `buildCommand` runs against its lockfile before the runner copies the prepared tree, so its outputs must work in both workspaces. Keep CLI-specific checks in `verificationCommands`, which run independently with the npm baseline and the source candidate.
 
-The two CLI verification sequences can run concurrently on the same runner. The timed candidate pack runs on its own. Candidate API inspection can overlap the baseline pack.
+The two variants run concurrently on the same runner. Each variant verifies, packs, and inspects its own workspace in that order. The benchmark records the candidate pack's wall time, including any overlap with the baseline. With at least four CPU cores available, each variant can inspect two groups of generated packages in parallel on the same runner. Each package still gets its own TypeScript project and import probes.
 
 The npm baseline uses the CLI installed from Packtory's own lockfile. Each variant gets a local `packtory` shim that runs its CLI from the downstream workspace.
 

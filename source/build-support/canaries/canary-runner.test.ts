@@ -58,11 +58,8 @@ function createRunnerDependencies(
     });
     const [ canaryBuildCommand ] = Object.values<string>(canaryCommand);
     return {
-        createProject() {
-            throw new Error('Unexpected type inspection');
-        },
-        async runImportProbe() {
-            throw new Error('Unexpected runtime import');
+        async inspectPackages() {
+            return { packages: [] };
         },
         commandCalls,
         async createTemporaryFolder(prefix) {
@@ -121,22 +118,23 @@ suite('canary-runner', function () {
     });
 
     suite('verification commands', function () {
-        test('overlaps verification sequences and finishes both before packing', async function () {
+        test('packs a verified variant while the other variant is still verifying', async function () {
             const dependencies = createRunnerDependencies({ buildCommand: 'compile' }, new Set(), [
                 'verify-first',
                 'verify-second'
             ]);
-            const candidateStarted = Promise.withResolvers<undefined>();
+            const baselinePackStarted = Promise.withResolvers<undefined>();
 
             await runSelectedCanary('canaries.json', 'sample', {
                 ...dependencies,
                 async runCommand(command, cwd) {
+                    const mode = cloneMode(cwd);
                     const result = await dependencies.runCommand(command, cwd);
-                    if (command === 'verify-first') {
-                        if (cloneMode(cwd) === 'candidate') {
-                            candidateStarted.resolve(undefined);
-                        }
-                        await candidateStarted.promise;
+                    if (command === 'verify-first' && mode === 'candidate') {
+                        await baselinePackStarted.promise;
+                    }
+                    if (mode === 'baseline' && command.startsWith('packtory pack --all ')) {
+                        baselinePackStarted.resolve(undefined);
                     }
                     return result;
                 }
@@ -157,9 +155,9 @@ suite('canary-runner', function () {
                 'baseline verify-first',
                 'candidate verify-first',
                 'baseline verify-second',
+                'baseline pack',
                 'candidate verify-second',
-                'candidate pack',
-                'baseline pack'
+                'candidate pack'
             ]);
         });
 
@@ -337,22 +335,20 @@ suite('canary-runner', function () {
         );
     });
 
-    test('overlaps baseline packing with candidate inspection after timing the candidate pack', async function () {
+    test('overlaps both pack commands and records the candidate pack duration', async function () {
         const dependencies = createRunnerDependencies({ publishCommand: 'compile' }, new Set(), []);
         const durations: number[] = [];
+        const baselinePackStarted = Promise.withResolvers<undefined>();
         const candidateInspection = Promise.withResolvers<undefined>();
         let time = 0;
         const result = await runSelectedCanary('canaries.json', 'sample', {
             ...dependencies,
-            fileManager: {
-                ...dependencies.fileManager,
-                async listDirectoryEntries(folderPath) {
-                    if (cloneMode(folderPath) === 'candidate') {
-                        candidateInspection.resolve(undefined);
-                        throw new Error('candidate inspection failed');
-                    }
-                    return dependencies.fileManager.listDirectoryEntries(folderPath);
+            async inspectPackages(output) {
+                if (cloneMode(output.nodeModulesFolder) === 'candidate') {
+                    candidateInspection.resolve(undefined);
+                    throw new Error('candidate inspection failed');
                 }
+                return await dependencies.inspectPackages(output);
             },
             now() {
                 return time;
@@ -363,10 +359,15 @@ suite('canary-runner', function () {
                 }
             },
             async runCommand(command, cwd) {
-                if (command.startsWith('packtory pack --all ') && cloneMode(cwd) === 'baseline') {
-                    await candidateInspection.promise;
+                if (command.startsWith('packtory pack --all ')) {
+                    if (cloneMode(cwd) === 'baseline') {
+                        baselinePackStarted.resolve(undefined);
+                        await candidateInspection.promise;
+                    } else {
+                        await baselinePackStarted.promise;
+                    }
+                    time += 125;
                 }
-                time += command.startsWith('packtory pack --all ') ? 125 : 1000;
                 return dependencies.runCommand(command, cwd);
             }
         });

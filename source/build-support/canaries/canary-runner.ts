@@ -5,10 +5,10 @@ import type { FileManager } from '../../file-manager/file-manager.ts';
 import { compareCanaryApplicationProgrammingInterfaces, type CanaryIssue } from './canary-comparison.ts';
 import { writeCanaryConfigurationOverlay } from './canary-configuration-overlay.ts';
 import { readCanaryManifest, selectCanary, type Canary, type CanaryManifest } from './canary-manifest.ts';
-import {
-    inspectPackageApplicationProgrammingInterfaces,
-    type CanaryProcessExecutor,
-    type InspectPackagesInput
+import type {
+    CanaryPackageOutput,
+    CanaryProcessExecutor,
+    PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
 type CommandResult = {
@@ -27,18 +27,19 @@ type ShellCommandFailure = {
     readonly timeoutMilliseconds: number;
 };
 
-type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'listDirectoryEntries' | 'readFile'>;
+type CanaryFileReader = Pick<FileManager, 'checkReadability' | 'readFile'>;
 type CanaryFileWriter = Pick<FileManager, 'copyDirectory' | 'copyFile' | 'removeFile' | 'setExecutable' | 'writeFile'>;
 
 export type CanaryRunnerDependencies = {
-    readonly createProject: InspectPackagesInput['createProject'];
     readonly createTemporaryFolder: TemporaryFolderCreator;
     readonly fileManager: CanaryFileReader & CanaryFileWriter;
+    readonly inspectPackages: (
+        output: CanaryPackageOutput
+    ) => Promise<PackageApplicationProgrammingInterfaceInspection>;
     readonly now: () => number;
     readonly recordPackDuration: (mode: PacktoryMode, durationMilliseconds: number) => void;
     readonly removeFolder: FolderRemover;
     readonly runCommand: CommandRunner;
-    readonly runImportProbe: InspectPackagesInput['runImportProbe'];
     readonly repositoryFolder: string;
 };
 
@@ -64,7 +65,7 @@ type PacktoryRunResult = {
     readonly resolvedReference: string;
 } | {
     readonly failed: false;
-    readonly inspection: Awaited<ReturnType<typeof inspectPackageApplicationProgrammingInterfaces>>;
+    readonly inspection: PackageApplicationProgrammingInterfaceInspection;
     readonly resolvedReference: string;
 };
 
@@ -253,12 +254,9 @@ async function inspectCanaryClone(
     try {
         return {
             failed: false,
-            inspection: await inspectPackageApplicationProgrammingInterfaces({
-                createProject: dependencies.createProject,
-                fileManager: dependencies.fileManager,
+            inspection: await dependencies.inspectPackages({
                 nodeModulesFolder: clone.nodeModulesFolder,
-                nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types'),
-                runImportProbe: dependencies.runImportProbe
+                nodeTypeDefinitionsFolder: path.join(dependencies.repositoryFolder, 'node_modules', '@types')
             }),
             resolvedReference: clone.resolvedReference
         };
@@ -267,11 +265,12 @@ async function inspectCanaryClone(
     }
 }
 
-async function packAndInspectBaseline(
+async function runPreparedCanaryClone(
     dependencies: CanaryRunnerDependencies,
-    clone: PreparedClone,
-    verificationFailure: string | undefined
+    canary: Canary,
+    clone: PreparedClone
 ): Promise<PacktoryRunResult> {
+    const verificationFailure = await verifyCanaryClone(dependencies, canary, clone);
     const packagingFailure = await packCanaryClone(dependencies, clone, verificationFailure);
     return await inspectCanaryClone(dependencies, clone, packagingFailure);
 }
@@ -329,14 +328,9 @@ async function compareCanaryClones(
     if (errors.length > 0) {
         throw new AggregateError(errors, errors.map(errorMessage).join('\n'));
     }
-    const [ baselineVerificationFailure, candidateVerificationFailure ] = await Promise.all([
-        verifyCanaryClone(dependencies, canary, baselineClone),
-        verifyCanaryClone(dependencies, canary, candidateClone)
-    ]);
-    const candidatePackagingFailure = await packCanaryClone(dependencies, candidateClone, candidateVerificationFailure);
     const [ baseline, candidate ] = await Promise.all([
-        packAndInspectBaseline(dependencies, baselineClone, baselineVerificationFailure),
-        inspectCanaryClone(dependencies, candidateClone, candidatePackagingFailure)
+        runPreparedCanaryClone(dependencies, canary, baselineClone),
+        runPreparedCanaryClone(dependencies, canary, candidateClone)
     ]);
     const failureContext = hasPublishCommand(canary)
         ? `while running "${canary.publishCommand}"`

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
+import { inspectCanaryPackages } from '../../../source/build-support/canaries/canary-package-inspection.entry-point.ts';
 
 import {
     createNodeImportProbe,
@@ -112,6 +113,33 @@ suite('package-api-inspection', function () {
             assertInspectablePackageNames(result);
             assert.deepStrictEqual(result.packages[0]?.publicExports[0]?.runtimeExportNames, [ 'addon' ]);
             assertSamplePackage(assertPresent(result.packages[1]));
+        });
+    });
+
+    test('retains package order, declarations and import failures across inspection workers', async function () {
+        await withTemporaryNodeModules(async function (nodeModulesFolder) {
+            await writeInspectablePackages(nodeModulesFolder);
+            await writePackage(nodeModulesFolder, 'sample-with-broken-import', {
+                exports: './index.js',
+                type: 'module'
+            }, {
+                'index.d.ts': 'export const value: MissingType;',
+                'index.js': 'throw new Error("cannot import sample-with-broken-import");'
+            });
+            const output = {
+                nodeModulesFolder,
+                nodeTypeDefinitionsFolder: path.join(path.dirname(nodeModulesFolder), 'runtime-types')
+            };
+            const serial = await inspectCanaryPackages(output, 2);
+            const parallel = await inspectCanaryPackages(output, 4);
+            assert.deepStrictEqual(parallel, serial);
+            assertSamplePackage(assertPresent(parallel.packages[1]));
+            const brokenPackage = assertPresent(parallel.packages[2]);
+            assert.match(
+                brokenPackage.publicExports[0]?.runtimeImportError ?? '',
+                /cannot import sample-with-broken-import/u
+            );
+            assert.match(brokenPackage.typeDiagnostics.join('\n'), /Cannot find name 'MissingType'/u);
         });
     });
 });
