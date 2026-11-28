@@ -8,7 +8,7 @@ import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts
 import { withInMemoryCanaryPackages } from '../../test-libraries/in-memory-canary-packages.ts';
 import {
     inspectPackageApplicationProgrammingInterfaces
-} from './package-application-programming-interface-inspection.ts';
+} from '../../test-libraries/canary-inspection.ts';
 
 type ImportProbeCall = {
     readonly cwd: string;

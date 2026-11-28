@@ -7,7 +7,6 @@ import { errorMessage } from '../../common/error-normalization.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import {
     createNodeImportProbe,
-    inspectPackageApplicationProgrammingInterfaces,
     inspectPackageFolders,
     readGeneratedPackageFolders,
     type CanaryPackageOutput,
@@ -22,7 +21,9 @@ const packageInspectionWorkFields = {
 };
 const packageInspectionWork = z.object(packageInspectionWorkFields);
 
-type PackageInspectionWork = Readonly<z.input<typeof packageInspectionWork>>;
+type PackageInspectionWork = CanaryPackageOutput & {
+    readonly folders: Parameters<typeof inspectPackageFolders>[1];
+};
 
 const minimumParallelRunnerCores = 4;
 const inspectionGroupCount = 2;
@@ -61,21 +62,17 @@ export async function inspectCanaryPackages(
     runnerCores: number
 ): Promise<PackageApplicationProgrammingInterfaceInspection> {
     const input = { ...output, ...inspectionRuntime };
-    if (runnerCores < minimumParallelRunnerCores) {
-        return await inspectPackageApplicationProgrammingInterfaces(input);
-    }
     const folders = await readGeneratedPackageFolders(input);
-    if (folders.length < inspectionGroupCount) {
-        return await inspectPackageFolders(input, folders);
+    if (runnerCores < minimumParallelRunnerCores || folders.length < inspectionGroupCount) {
+        return await inspectOnWorker({ ...output, folders });
     }
-    const workerStart = Math.ceil(folders.length / inspectionGroupCount);
+    const groupSize = Math.ceil(folders.length / inspectionGroupCount);
     const inspections = await Promise.allSettled([
-        inspectOnWorker({ ...output, folders: folders.slice(workerStart) }),
-        inspectPackageFolders(input, folders.slice(0, workerStart))
+        inspectOnWorker({ ...output, folders: folders.slice(0, groupSize) }),
+        inspectOnWorker({ ...output, folders: folders.slice(groupSize) })
     ]);
-    const [ worker, local ] = inspections;
     return {
-        packages: [ local, worker ].flatMap(function (inspection) {
+        packages: inspections.flatMap(function (inspection) {
             if (inspection.status === 'rejected') {
                 throw new Error(errorMessage(inspection.reason));
             }

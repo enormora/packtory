@@ -373,12 +373,6 @@ export async function inspectPackageFolders(
     return { packages };
 }
 
-export async function inspectPackageApplicationProgrammingInterfaces(
-    input: InspectPackagesInput
-): Promise<PackageApplicationProgrammingInterfaceInspection> {
-    return await inspectPackageFolders(input, await readGeneratedPackageFolders(input));
-}
-
 type ImportProbeRuntime = {
     readonly timeoutMilliseconds: number;
     readonly execute: CanaryProcessExecutor;
