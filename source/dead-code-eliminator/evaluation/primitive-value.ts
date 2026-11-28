@@ -63,7 +63,11 @@ function numericBitwise(operator: SyntaxKind, left: number, right: number): numb
 /* eslint-enable no-bitwise -- Integer operator implementations end here. */
 
 function relationalOperand(value: PrimitiveValue): bigint | number | string {
-    return typeof value === 'bigint' || typeof value === 'string' ? value : Number(value);
+    return match(value)
+        .with(P.union(P.bigint, P.string), function (operand) {
+            return operand;
+        })
+        .otherwise(Number);
 }
 
 function relationalComparison(
