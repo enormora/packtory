@@ -2,8 +2,17 @@ import type { MainPackageManifest } from '../../configuration/package-manifest.t
 
 export type ImportsField = NonNullable<MainPackageManifest['imports']>;
 
-function escapeRegExp(value: string): string {
-    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+function matchesImportKey(specifier: string, key: string): boolean {
+    const wildcard = key.indexOf('*');
+    if (wildcard === -1) {
+        return specifier === key;
+    }
+    const prefix = key.slice(0, wildcard);
+    const suffix = key.slice(wildcard + 1);
+    return !suffix.includes('*')
+        && specifier.length >= key.length - 1
+        && specifier.startsWith(prefix)
+        && specifier.endsWith(suffix);
 }
 
 function compareKeyRelevance(specifier: string, left: string, right: string): number {
@@ -17,9 +26,7 @@ export function findMatchingImportEntryKey(specifier: string, importsField: Impo
     const matchingKeys = Object
         .keys(importsField)
         .filter(function (key) {
-            const wildcardPattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
-            const wildcardRegularExpression = new RegExp(wildcardPattern, 'u');
-            return wildcardRegularExpression.test(specifier);
+            return matchesImportKey(specifier, key);
         })
         .toSorted(function (left, right) {
             return compareKeyRelevance(specifier, left, right);
