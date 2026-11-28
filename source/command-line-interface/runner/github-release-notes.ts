@@ -24,21 +24,30 @@ function hasReleaseNotes(value: string | undefined): value is string {
     return value !== undefined && value.trim().length > 0;
 }
 
-function escapeRegExp(value: string): string {
-    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+function hasReleaseVersion(heading: string, version: string): boolean {
+    return heading.startsWith(version) && /^(?:\s|\(|$)/u.test(heading.slice(version.length));
 }
 
-function releaseNotesHeadingPattern(target: ReleaseNotesTarget): RegExp {
-    const packageName = escapeRegExp(target.name);
-    const version = escapeRegExp(target.version);
-    return new RegExp(String.raw`^##\s+(?:${packageName}\s+)?${version}(?:\s|\(|$)`, 'u');
+function isReleaseHeading(line: string, target: ReleaseNotesTarget): boolean {
+    const heading = line.replace(/^##\s+/u, '');
+    if (heading === line) {
+        return false;
+    }
+    if (hasReleaseVersion(heading, target.version)) {
+        return true;
+    }
+    if (!heading.startsWith(target.name)) {
+        return false;
+    }
+    const afterName = heading.slice(target.name.length);
+    const versionHeading = afterName.trimStart();
+    return versionHeading !== afterName && hasReleaseVersion(versionHeading, target.version);
 }
 
 function extractReleaseNotes(markdown: string, target: ReleaseNotesTarget): string | undefined {
     const lines = markdown.split(/\r?\n/u);
-    const headingPattern = releaseNotesHeadingPattern(target);
     const start = lines.findIndex(function (line) {
-        return headingPattern.test(line);
+        return isReleaseHeading(line, target);
     });
     if (start === -1) {
         return undefined;

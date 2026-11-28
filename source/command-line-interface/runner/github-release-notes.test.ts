@@ -61,6 +61,28 @@ suite('github-release-notes', function () {
     });
 
     suite('recovery', function () {
+        for (const heading of [
+            '## 1.0.1',
+            '##   1.0.1',
+            '##\t1.0.1(2026-06-13)',
+            '## package-a\t1.0.1',
+            '## package-a   1.0.1',
+            '## package-a 1.0.1(2026-06-13)',
+            '## 1.0.1\tRelease'
+        ]) {
+            test(`recovers the exact release heading ${JSON.stringify(heading)}`, async function () {
+                const markdown = `${heading}\n\n* Recovered`;
+                const readFile = fake.resolves(markdown);
+                const notes = await collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    configuration,
+                    [ target ],
+                    generatedChangelog(new Map())
+                );
+                assert.strictEqual(notes[0]?.body, markdown);
+            });
+        }
+
         test('recovers missing package release notes from the configured package changelog', async function () {
             const readFile = fake.resolves(
                 '# Changelog\n\n## package-a 1.0.1\n\n* Recovered\n\n## package-a 1.0.0\n\n* Old'
@@ -121,6 +143,35 @@ suite('github-release-notes', function () {
     });
 
     suite('rejections', function () {
+        for (const heading of [
+            '## package-a 1.0.10',
+            '## package-a 1.0.1-beta',
+            '## package-a1.0.1',
+            '## package-ab 1.0.1',
+            '## package-b 1.0.1',
+            '## package-a 1x0x1',
+            '# package-a 1.0.1',
+            'prefix ## package-a 1.0.1',
+            'package-a ## 1.0.1',
+            '1.0.1 ## Release',
+            '## package-a',
+            '## 1.0.1suffix',
+            '##1.0.1',
+            '1.0.1',
+            'package-a 1.0.1'
+        ]) {
+            test(`rejects the unrelated release heading ${JSON.stringify(heading)}`, async function () {
+                const readFile = fake.resolves(`${heading}\n\n* Unrelated`);
+                const notes = collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    configuration,
+                    [ target ],
+                    generatedChangelog(new Map())
+                );
+                await assert.rejects(notes, /GitHub release notes for "package-a@1.0.1" could not be generated/u);
+            });
+        }
+
         test('rejects when no package changelog output path is configured', async function () {
             const readFile = fake.resolves('unexpected');
 
