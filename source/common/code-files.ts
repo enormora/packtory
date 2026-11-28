@@ -1,5 +1,5 @@
 export function isCodeFile(targetFilePath: string): boolean {
-    return /\.[cm]?[jt]sx?$/.test(targetFilePath);
+    return /\.[cm]?[jt]sx?$/u.test(targetFilePath);
 }
 
 export function isDeclarationCodeFile(targetFilePath: string): boolean {
@@ -11,6 +11,6 @@ function basenameOf(targetFilePath: string): string {
 }
 
 export function isTextDiffablePath(targetFilePath: string): boolean {
-    return isCodeFile(targetFilePath) || /\.(?:json|md|txt|ya?ml|map)$/.test(targetFilePath) ||
+    return isCodeFile(targetFilePath) || /\.(?:json|md|txt|ya?ml|map)$/u.test(targetFilePath) ||
         [ 'LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme' ].includes(basenameOf(targetFilePath));
 }

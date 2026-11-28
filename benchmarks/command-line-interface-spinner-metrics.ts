@@ -29,7 +29,7 @@ export type FrameRecorder = {
 };
 
 function escapePackageName(packageName: string): string {
-    return packageName.replaceAll(/[$()*+.?[\\\]^{|}]/g, '\\$&');
+    return packageName.replaceAll(/[$()*+.?[\\\]^{|}]/gu, '\\$&');
 }
 
 function calculatePercentile(values: readonly number[], percentile: number): number {

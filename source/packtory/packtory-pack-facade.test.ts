@@ -143,6 +143,13 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
     const addVersion = fake(function (input: AddVersionInput) {
         return createVersionedBundle(input.bundle.name);
     });
+    const sessionMaterializationResult = Result.ok({ entries: [], packageNames: [], peerRequirements: new Map() });
+    const createConfiguredVendorMaterializer = fake.returns({
+        materializeExternals: fake.resolves(sessionMaterializationResult)
+    });
+    const materializeExternals = fake.resolves(
+        Result.ok({ entries: [], packageNames: [], peerRequirements: new Map<string, readonly string[]>() })
+    );
     return {
         packEmitterPack,
         packtory: createPacktory({
@@ -176,17 +183,8 @@ function createPacktoryForPackAll(packEmitterPack: SinonSpy = fake.resolves(unde
             },
             packEmitter: { pack: packEmitterPack as never },
             vendorMaterializer: {
-                createSession: fake.returns({
-                    materializeExternals: fake.resolves(Result
-                        .ok({ entries: [], packageNames: [], peerRequirements: new Map() }))
-                }) as never,
-                materializeExternals: fake.resolves(
-                    Result.ok({
-                        entries: [],
-                        packageNames: [],
-                        peerRequirements: new Map<string, readonly string[]>()
-                    })
-                )
+                createSession: createConfiguredVendorMaterializer as never,
+                materializeExternals
             },
             async readCurrentGitHead() {
                 return undefined;

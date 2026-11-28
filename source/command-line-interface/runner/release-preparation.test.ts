@@ -9,8 +9,11 @@ import type {
     PullRequestWithLabel
 } from '../../changelog/pull-request-log.ts';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
+import {
+    createReleasePlanOutcome,
+    releasePackage as createReleasePlanPackage
+} from '../../test-libraries/changelog-handler-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
 import { pullRequestChangedFileFactory } from '../../test-libraries/pull-request-log-fixtures.ts';
 import {
     loadPlannedRelease,
@@ -66,24 +69,11 @@ const validConfiguration = {
 } as const;
 
 function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
-    return {
-        name: 'package-a',
-        previousVersion: '1.0.0',
-        nextVersion: '1.0.1',
-        artifactState: 'changed',
-        releaseClassification: 'substantive',
-        changed: true,
-        previousGitHead: 'old-head',
-        currentGitHead: 'new-head',
-        latestRegistryMetadata: undefined,
-        artifactFiles: [ 'index.js' ],
-        changedArtifactFiles: [ 'index.js' ],
+    return createReleasePlanPackage({
         sourceFiles: [ 'source/package-a/index.ts' ],
-        changelogDependencyNames: [],
-        changelogDependencyUpdates: [],
         changelogSourceFiles: [ 'source/package-a/index.ts' ],
         ...overrides
-    };
+    });
 }
 
 function createEngine(input: EngineSpecification): PullRequestLogEngine {
@@ -112,11 +102,11 @@ function createEngine(input: EngineSpecification): PullRequestLogEngine {
     };
 }
 
-function createPacktory(result: ReleasePlanResult): Packtory {
-    async function unusedPacktoryMethod(): Promise<never> {
-        throw new Error('unused packtory method');
-    }
+async function unusedPacktoryMethod(): Promise<never> {
+    throw new Error('unused packtory method');
+}
 
+function createPacktory(result: ReleasePlanResult): Packtory {
     return {
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll: unusedPacktoryMethod,
@@ -128,12 +118,7 @@ function createPacktory(result: ReleasePlanResult): Packtory {
         inspectPackageTree: unusedPacktoryMethod,
         packAllPackages: unusedPacktoryMethod,
         packPackage: unusedPacktoryMethod,
-        planReleaseAgainstLatestPublished: fake.resolves({
-            result,
-            getReport() {
-                return createBuildReportFixture();
-            }
-        }),
+        planReleaseAgainstLatestPublished: fake.resolves(createReleasePlanOutcome(result)),
         resolveAndLinkAll: unusedPacktoryMethod
     };
 }

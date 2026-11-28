@@ -128,7 +128,7 @@ function registerArtifactMetadataTests(): void {
     });
 
     test('inspectArtifactSizes reports zero bytes for empty content', function () {
-        const [ entry ] = inspectArtifactSizes([ description('file.txt', '') ]);
+        const [ entry ] = inspectArtifactSizes([ description('file.txt') ]);
         assert.strictEqual(entry?.sizeBytes, 0);
     });
 

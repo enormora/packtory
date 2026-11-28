@@ -213,12 +213,9 @@ suite('release-pull-request-ci workflow cancellation', function () {
     });
 
     test('waits for delayed action-required pull request runs to clear before dispatch', async function () {
-        const deletedRunIdentifiersByRead: readonly (readonly number[])[] = [ [ 10 ], [], [] ];
-        let deletionReadIndex = 0;
+        const deletedRunBatches = [ [ 10 ], [], [] ].values();
         const deleteActionRequiredPullRequestRuns = fake(async function () {
-            const runIdentifiers = deletedRunIdentifiersByRead[deletionReadIndex] ?? [];
-            deletionReadIndex += 1;
-            return runIdentifiers;
+            return deletedRunBatches.next().value ?? [];
         });
         const dispatchWorkflow = fake.resolves(undefined);
         const sleep = fake.resolves(undefined);
@@ -229,13 +226,14 @@ suite('release-pull-request-ci workflow cancellation', function () {
             readWorkflowRunResult: fake.resolves(successfulWorkflowRunResult(1))
         });
 
+        const continuousIntegrationRun = runConfiguredGitHubActionsContinuousIntegration({
+            client,
+            configuration: enablePullRequestRunCleanup(createConfiguration()),
+            headHash: 'release-head',
+            sleep
+        });
         assert.strictEqual(
-            await runConfiguredGitHubActionsContinuousIntegration({
-                client,
-                configuration: enablePullRequestRunCleanup(createConfiguration()),
-                headHash: 'release-head',
-                sleep
-            }),
+            await continuousIntegrationRun,
             true
         );
 
@@ -254,13 +252,14 @@ suite('release-pull-request-ci workflow cancellation', function () {
             dispatchWorkflow
         });
 
+        const continuousIntegrationRun = runConfiguredGitHubActionsContinuousIntegration({
+            client,
+            configuration: enablePullRequestRunCleanup(createConfiguration()),
+            headHash: 'release-head',
+            sleep
+        });
         await assert.rejects(
-            runConfiguredGitHubActionsContinuousIntegration({
-                client,
-                configuration: enablePullRequestRunCleanup(createConfiguration()),
-                headHash: 'release-head',
-                sleep
-            }),
+            continuousIntegrationRun,
             { message: 'Action-required pull request workflow runs did not delete: 10' }
         );
 

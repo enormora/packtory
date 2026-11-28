@@ -109,14 +109,15 @@ suite('preview-document package state', function () {
         });
 
         test('buildPreviewDocument leaves versionTransition undefined when no version decision exists', async function () {
+            const report = createBuildReportFixture({
+                packages: {
+                    'package-a': createPackageReport([
+                        createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
+                    ])
+                }
+            });
             const document = await buildPreviewDocument({
-                report: createBuildReportFixture({
-                    packages: {
-                        'package-a': createPackageReport([
-                            createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
-                        ])
-                    }
-                }),
+                report,
                 result: Result.ok([ buildResult() ]),
                 dryRun: true,
                 fileManager: workspaceFileManager(async function () {

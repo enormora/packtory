@@ -61,11 +61,12 @@ function expectedProperties(graph: readonly DemandNode[], root: number): Readonl
 }
 
 const graphs = fastCheck.integer({ min: 1, max: 16 }).chain(function (size) {
+    const nodeFields = {
+        properties: fastCheck.subarray([ 'first', 'second', 'third' ]),
+        dependencies: fastCheck.uniqueArray(fastCheck.integer({ min: 0, max: size - 1 }), { maxLength: size })
+    };
     return fastCheck.array(
-        fastCheck.record({
-            properties: fastCheck.subarray([ 'first', 'second', 'third' ]),
-            dependencies: fastCheck.uniqueArray(fastCheck.integer({ min: 0, max: size - 1 }), { maxLength: size })
-        }),
+        fastCheck.record(nodeFields),
         { minLength: size, maxLength: size }
     );
 });

@@ -64,10 +64,10 @@ function observeBinding(declaration: VariableDeclaration, observation: Namespace
         return true;
     }
     const statement = constantStatement(declaration);
-    const name = declaration.getNameNode();
     if (statement === undefined || statement.hasExportKeyword()) {
         return false;
     }
+    const name = declaration.getNameNode();
     return TypeScriptMorphNode.isIdentifier(name)
         ? observeNamespaceAlias(name, declaration, observation)
         : TypeScriptMorphNode.isObjectBindingPattern(name) && observeObjectBinding(name, observation);

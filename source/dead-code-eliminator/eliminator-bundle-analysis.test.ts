@@ -110,22 +110,23 @@ suite('eliminator bundle analysis', function () {
 
         test('eliminate populates analysis on every resource', async function () {
             const eliminator = createTestEliminator();
+            const eliminationInputs = inputs(
+                linkedBundle({
+                    name: 'package',
+                    contents: [
+                        {
+                            ...bundleResource('/a.ts', { isExplicitlyIncluded: true }),
+                            isSubstituted: false
+                        },
+                        {
+                            ...bundleResource('/b.ts', { isExplicitlyIncluded: true }),
+                            isSubstituted: false
+                        }
+                    ]
+                })
+            );
             const [ analyzed ] = await eliminator.eliminate(
-                inputs(
-                    linkedBundle({
-                        name: 'package',
-                        contents: [
-                            {
-                                ...bundleResource('/a.ts', { isExplicitlyIncluded: true }),
-                                isSubstituted: false
-                            },
-                            {
-                                ...bundleResource('/b.ts', { isExplicitlyIncluded: true }),
-                                isSubstituted: false
-                            }
-                        ]
-                    })
-                )
+                eliminationInputs
             );
             assert.strictEqual(analyzed?.contents.length, 2);
             for (const resource of analyzed.contents) {

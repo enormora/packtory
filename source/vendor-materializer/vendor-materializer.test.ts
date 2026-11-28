@@ -369,14 +369,29 @@ function registerMaterializationTests(): void {
     });
 }
 
+async function runSinglePackageSymlinkScenario(
+    scenario: SinglePackageSymlinkScenario
+): Promise<VendorMaterializerFailure> {
+    return await runExpectingFailure(
+        {
+            readabilities: [ { value: { isReadable: true } } ],
+            realPaths: [ { value: scenario.packageRealPath }, scenario.targetRealPath ],
+            listings: scenario.listings,
+            fileReads: [ { value: '{}' } ]
+        },
+        { initialDependencyNames: [ scenario.initialName ], projectFolder: '/repo' }
+    );
+}
+
 function registerSymlinkTests(): void {
     test('vendors a symlink whose resolved target stays inside the package directory', async function () {
         const result = await runWith(
             {
                 readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: '/repo/node_modules/package' }, {
-                    value: '/repo/node_modules/package/dist/index.js'
-                } ],
+                realPaths: [
+                    { value: '/repo/node_modules/package' },
+                    { value: '/repo/node_modules/package/dist/index.js' }
+                ],
                 listings: [
                     {
                         value: [
@@ -439,20 +454,6 @@ function registerSymlinkTests(): void {
             resolvedTargetPath: '/Users/victim/.npmrc'
         });
     });
-
-    async function runSinglePackageSymlinkScenario(
-        scenario: SinglePackageSymlinkScenario
-    ): Promise<VendorMaterializerFailure> {
-        return await runExpectingFailure(
-            {
-                readabilities: [ { value: { isReadable: true } } ],
-                realPaths: [ { value: scenario.packageRealPath }, scenario.targetRealPath ],
-                listings: scenario.listings,
-                fileReads: [ { value: '{}' } ]
-            },
-            { initialDependencyNames: [ scenario.initialName ], projectFolder: '/repo' }
-        );
-    }
 
     test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
         const failure = await runSinglePackageSymlinkScenario({

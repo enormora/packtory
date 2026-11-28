@@ -2,7 +2,9 @@ import { validateConfiguration } from '../../configuration/validation.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { buildPreviewDocument, type PreviewDocument } from '../../report/preview/preview-document.ts';
-import * as webReport from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
+import {
+    renderHypertextMarkupLanguageReport
+} from '../../report/hypertext-markup-language-renderer/hypertext-markup-language-renderer.ts';
 import {
     renderFailureOnlyTerminalPreview,
     renderTerminalPreview
@@ -30,7 +32,7 @@ async function renderOpenedReport(
     document: PreviewDocument
 ): Promise<void> {
     const filePath = dependencies.createTemporaryFilePath();
-    await dependencies.fileManager.writeFile(filePath, webReport.renderHypertextMarkupLanguageReport(document));
+    await dependencies.fileManager.writeFile(filePath, renderHypertextMarkupLanguageReport(document));
     const opened = await dependencies.openFile(filePath);
     if (!opened) {
         dependencies.log(filePath);

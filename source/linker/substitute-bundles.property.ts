@@ -221,19 +221,20 @@ function assertSubstitutionResult(assertion: SubstitutionAssertion): void {
 
 suite('substitute-bundles', function () {
     test('substituteDependencies() only rewrites matched imports and never invents unrelated files', function () {
-        fastCheck.assert(
-            fastCheck.property(
-                importCountArbitrary,
-                fastCheck.array(fastCheck.boolean(), { minLength: 0, maxLength: 4 }),
-                function (importCount, replacementFlags) {
-                    const scenario = createSubstitutionScenario(importCount, replacementFlags);
-                    const graph = createSubstitutionGraph(scenario.importPaths);
-                    const substituted = substituteDependencies(graph, scenario.bundleDependencies, []);
-                    const result = substituted.flatten([ '/entry.js' ]);
+        const validationProperty = fastCheck.property(
+            importCountArbitrary,
+            fastCheck.array(fastCheck.boolean(), { minLength: 0, maxLength: 4 }),
+            function (importCount, replacementFlags) {
+                const scenario = createSubstitutionScenario(importCount, replacementFlags);
+                const graph = createSubstitutionGraph(scenario.importPaths);
+                const substituted = substituteDependencies(graph, scenario.bundleDependencies, []);
+                const result = substituted.flatten([ '/entry.js' ]);
 
-                    assertSubstitutionResult({ result, ...scenario });
-                }
-            ),
+                assertSubstitutionResult({ result, ...scenario });
+            }
+        );
+        fastCheck.assert(
+            validationProperty,
             { numRuns: 30 }
         );
     });

@@ -20,10 +20,10 @@ function buildOptions(): BuildVersionedBundleOptions {
                 executables: [ { root: 'main', name: 'tool' } ]
             }),
             contents: [ { ...runtime, isSubstituted: false, analysis: createEmptyFileAnalysis() } ],
-            externalDependencies: new Map([ [ 'dep', externalDependency('dep') ], [
-                'peer',
-                externalDependency('peer')
-            ] ])
+            externalDependencies: new Map([
+                [ 'dep', externalDependency('dep') ],
+                [ 'peer', externalDependency('peer') ]
+            ])
         }),
         version: '1.0.0',
         mainPackageManifest: { type: 'module', dependencies: { dep: '^1' }, peerDependencies: { peer: '^2' } },

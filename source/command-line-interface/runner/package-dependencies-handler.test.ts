@@ -1,4 +1,4 @@
-import * as assert from 'node:assert';
+import assert from 'node:assert';
 import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';

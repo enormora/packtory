@@ -172,19 +172,21 @@ suite('runner command routing', function () {
 
         test('release-diff files-only mode suppresses text hunks from parsed CLI arguments', async function () {
             const pageOutput = fake.resolves(undefined);
+            const successfulResult = Result.ok([
+                createPackageReleaseDiff({
+                    files: {
+                        added: [],
+                        removed: [],
+                        modified: [ textModifiedFileFactory.build() ],
+                        unchanged: []
+                    }
+                })
+            ]);
+            const releaseDiffOutcome = toReleaseDiffOutcome(
+                successfulResult
+            );
             const diffAgainstLatestPublished = fake.resolves(
-                toReleaseDiffOutcome(
-                    Result.ok([
-                        createPackageReleaseDiff({
-                            files: {
-                                added: [],
-                                removed: [],
-                                modified: [ textModifiedFileFactory.build() ],
-                                unchanged: []
-                            }
-                        })
-                    ])
-                )
+                releaseDiffOutcome
             );
             const runner = createRunner({ diffAgainstLatestPublished, pageOutput });
 
@@ -223,7 +225,7 @@ suite('runner command routing', function () {
             assert.strictEqual(result.exitCode, 1);
             assert.strictEqual(buildAndPublishAll.callCount, 0);
             assert.strictEqual(result.log.callCount, 1);
-            assert.match(String(result.log.firstCall.args[0]), /packtory --help/);
+            assert.match(String(result.log.firstCall.args[0]), /packtory --help/u);
         });
 
         test('prints root help with trace when no command is provided', async function () {
@@ -305,16 +307,16 @@ suite('runner command routing', function () {
         test('prints subcommand help that includes the full publish command path', async function () {
             const help = await expectSubcommandHelp('publish');
 
-            assert.match(help, /packtory publish/);
+            assert.match(help, /packtory publish/u);
             assert.ok(!help.includes('--trace'), 'Expected publish help to omit the root trace flag');
         });
 
         test('prints subcommand help that includes the full preview command path and --open flag', async function () {
             const help = await expectSubcommandHelp('preview');
 
-            assert.match(help, /packtory preview/);
-            assert.match(help, /--open/);
-            assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./);
+            assert.match(help, /packtory preview/u);
+            assert.match(help, /--open/u);
+            assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./u);
         });
 
         test('prints subcommand help that includes the release-diff files-only flag', async function () {
@@ -327,12 +329,12 @@ suite('runner command routing', function () {
         test('prints subcommand help that includes the release publish flags', async function () {
             const help = await expectSubcommandHelp('release');
 
-            assert.match(help, /packtory release/);
-            assert.match(help, /--publish/);
-            assert.match(help, /--tag/);
-            assert.match(help, /--push/);
-            assert.match(help, /--github-release/);
-            assert.match(help, /--no-dry-run/);
+            assert.match(help, /packtory release/u);
+            assert.match(help, /--publish/u);
+            assert.match(help, /--tag/u);
+            assert.match(help, /--push/u);
+            assert.match(help, /--github-release/u);
+            assert.match(help, /--no-dry-run/u);
         });
 
         test('prints nested configuration inspect help', async function () {

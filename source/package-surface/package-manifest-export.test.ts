@@ -17,9 +17,10 @@ suite('package-json-export', function () {
     });
 
     test('adds a "./package.json" entry when exportPackageManifest is true', function () {
-        const result = decorateWithPackageManifestExport({ exportPackageManifest: true }, {
-            '.': { import: './index.js' }
-        });
+        const result = decorateWithPackageManifestExport(
+            { exportPackageManifest: true },
+            { '.': { import: './index.js' } }
+        );
 
         assert.deepStrictEqual(result, {
             '.': { import: './index.js' },

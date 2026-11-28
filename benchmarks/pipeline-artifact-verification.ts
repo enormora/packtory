@@ -36,11 +36,15 @@ async function verifyZip(fileManager: FileManager, artifact: PipelineArtifact): 
 }
 
 async function verifyTar(fileManager: FileManager, artifact: PipelineArtifact): Promise<void> {
-    const entries = await extractTarEntries(await fileManager.readFileBytes(artifact.outputPath), {}, {
-        maximumEntryCount: maximumArchiveEntries,
-        maximumEntryPathLength: maximumArchivePathLength,
-        maximumExtractedBytes: maximumArchiveBytes
-    });
+    const entries = await extractTarEntries(
+        await fileManager.readFileBytes(artifact.outputPath),
+        {},
+        {
+            maximumEntryCount: maximumArchiveEntries,
+            maximumEntryPathLength: maximumArchivePathLength,
+            maximumExtractedBytes: maximumArchiveBytes
+        }
+    );
     const byName = new Map(entries.map(function (entry) {
         return [ entry.header.name, entry ];
     }));

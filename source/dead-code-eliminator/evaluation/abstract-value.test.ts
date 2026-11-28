@@ -13,6 +13,10 @@ import {
 } from './abstract-value.ts';
 import { evaluated } from './primitive-value.ts';
 
+function exponentiation(base: bigint, exponent: bigint): AbstractValue | undefined {
+    return evaluateAbstractBinary(SyntaxKind.AsteriskAsteriskToken, evaluated(base), evaluated(exponent));
+}
+
 suite('abstract values', function () {
     suite('abstract binary values', function () {
         for (const operator of [ SyntaxKind.PlusToken, SyntaxKind.EqualsEqualsToken ]) {
@@ -65,10 +69,6 @@ suite('abstract values', function () {
     });
 
     suite('oversized bigint values', function () {
-        function exponentiation(base: bigint, exponent: bigint): AbstractValue | undefined {
-            return evaluateAbstractBinary(SyntaxKind.AsteriskAsteriskToken, evaluated(base), evaluated(exponent));
-        }
-
         test('keeps an exponentiation beyond the evaluation bound as a bigint of unknown value', function () {
             const oversized = exponentiation(2n, 4096n);
             assertDefined(oversized);

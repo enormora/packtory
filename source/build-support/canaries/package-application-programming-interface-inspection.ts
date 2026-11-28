@@ -18,7 +18,7 @@ import {
 } from '../../packtory/published-artifact-smoke-gate.ts';
 import { typedExportSpecifiers } from './package-type-surface.ts';
 
-type PackageFolder = {
+export type PackageFolder = {
     readonly name: string;
     readonly folderPath: string;
 };
@@ -233,10 +233,10 @@ function importProbeFailureMessage(
     timeoutMilliseconds: number
 ): string {
     const standardErrorOutput = standardError.trim();
-    const standardOutputOutput = standardOutput.trim();
     if (standardErrorOutput.length > 0) {
         return standardErrorOutput;
     }
+    const standardOutputOutput = standardOutput.trim();
     if (standardOutputOutput.length > 0) {
         return standardOutputOutput;
     }
@@ -371,12 +371,6 @@ export async function inspectPackageFolders(
         packages.push(await inspectPackage(input, packageFolder));
     }
     return { packages };
-}
-
-export async function inspectPackageApplicationProgrammingInterfaces(
-    input: InspectPackagesInput
-): Promise<PackageApplicationProgrammingInterfaceInspection> {
-    return await inspectPackageFolders(input, await readGeneratedPackageFolders(input));
 }
 
 type ImportProbeRuntime = {

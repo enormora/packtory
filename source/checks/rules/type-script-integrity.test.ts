@@ -320,12 +320,13 @@ suite('type-script-integrity', function () {
         });
 
         test('turns a failing package-resolution analysis into a check issue', async function () {
+            const integrityRule = ruleFor({
+                analyzePackageResolution: fake.rejects(
+                    new Error('File not found: /node_modules/package/package.json')
+                )
+            });
             const issues = await runRule({
-                rule: ruleFor({
-                    analyzePackageResolution: fake.rejects(
-                        new Error('File not found: /node_modules/package/package.json')
-                    )
-                }),
+                rule: integrityRule,
                 settings: { typeScriptIntegrity: { enabled: true } },
                 publishedPackages: publishedPackagesFor('package'),
                 bundleNames: [ 'package' ]

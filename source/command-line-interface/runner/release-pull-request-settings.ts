@@ -1,13 +1,14 @@
 import { z } from 'zod/mini';
 import { nonEmptyStringSchema } from '../../configuration/base-validations.ts';
 
+const githubActionsWorkflowDispatchFields = {
+    trigger: z.literal('workflow-dispatch'),
+    workflowFile: nonEmptyStringSchema,
+    requiredStatusContexts: z.readonly(z.tuple([ nonEmptyStringSchema ], nonEmptyStringSchema)),
+    deleteActionRequiredPullRequestRuns: z.optional(z.boolean())
+};
 const githubActionsWorkflowDispatchSchema = z.readonly(
-    z.strictObject({
-        trigger: z.literal('workflow-dispatch'),
-        workflowFile: nonEmptyStringSchema,
-        requiredStatusContexts: z.readonly(z.tuple([ nonEmptyStringSchema ], nonEmptyStringSchema)),
-        deleteActionRequiredPullRequestRuns: z.optional(z.boolean())
-    })
+    z.strictObject(githubActionsWorkflowDispatchFields)
 );
 
 export const releasePullRequestSettingsSchema = z.readonly(

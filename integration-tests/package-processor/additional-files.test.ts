@@ -69,75 +69,76 @@ suite('additional-files', function () {
             allowMutableSpecifiers: []
         });
 
+        const expectedBundle = asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageManifest: {
+                name: 'additional-files-package',
+                sideEffects: false,
+                type: 'module',
+                version: '1.0.0'
+            },
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/greeting.js') ]),
+                    fileDescription: {
+                        content:
+                            "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
+                        inputFilePath: path.join(fixture, 'source/entry.js'),
+                        isExecutable: false,
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('greeting', 'run')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export function greeting(value) {\n    return value ?? 'hello from src';\n}\n",
+                        inputFilePath: path.join(fixture, 'source/greeting.js'),
+                        isExecutable: false,
+                        targetFilePath: 'greeting.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('greeting')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: 'This file should be included in the bundle.\n',
+                        inputFilePath: additionalFileSourcePath,
+                        isExecutable: false,
+                        targetFilePath: 'documentation/additional-information.txt'
+                    },
+                    isExplicitlyIncluded: true,
+                    isSubstituted: false,
+                    analysis: emptyAnalysis
+                }
+            ],
+            dependencies: {},
+            mainFile: {
+                content:
+                    "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'additional-files-package',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: false,
+            version: '1.0.0',
+            typesMainFile: undefined
+        });
         assert.deepStrictEqual(
             result,
-            asImplicitExportsBundle({
-                additionalAttributes: {},
-                packageManifest: {
-                    name: 'additional-files-package',
-                    sideEffects: false,
-                    type: 'module',
-                    version: '1.0.0'
-                },
-                manifestFile: {
-                    isExecutable: false,
-                    content: '',
-                    filePath: 'package.json'
-                },
-                contents: [
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/greeting.js') ]),
-                        fileDescription: {
-                            content:
-                                "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
-                            inputFilePath: path.join(fixture, 'source/entry.js'),
-                            isExecutable: false,
-                            targetFilePath: 'entry.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('greeting', 'run')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "export function greeting(value) {\n    return value ?? 'hello from src';\n}\n",
-                            inputFilePath: path.join(fixture, 'source/greeting.js'),
-                            isExecutable: false,
-                            targetFilePath: 'greeting.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('greeting')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: 'This file should be included in the bundle.\n',
-                            inputFilePath: additionalFileSourcePath,
-                            isExecutable: false,
-                            targetFilePath: 'documentation/additional-information.txt'
-                        },
-                        isExplicitlyIncluded: true,
-                        isSubstituted: false,
-                        analysis: emptyAnalysis
-                    }
-                ],
-                dependencies: {},
-                mainFile: {
-                    content:
-                        "import { greeting } from './greeting.js';\n\nexport function run(value) {\n    return greeting(value);\n}\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                name: 'additional-files-package',
-                packageType: 'module',
-                peerDependencies: {},
-                sideEffectsField: false,
-                version: '1.0.0',
-                typesMainFile: undefined
-            })
+            expectedBundle
         );
     });
 

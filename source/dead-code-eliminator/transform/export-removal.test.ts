@@ -27,9 +27,11 @@ suite('export removal', function () {
         });
 
         test('removes dead export aliases while keeping a locally used binding', function () {
-            const output = removeExports('const value=42;export {value as dead,value as live};', [ 'value' ], [
-                'live'
-            ]);
+            const output = removeExports(
+                'const value=42;export {value as dead,value as live};',
+                [ 'value' ],
+                [ 'live' ]
+            );
             const source = createProject().createSourceFile('output.js', output);
             assert.notStrictEqual(source.getVariableDeclaration('value'), undefined);
             assert.deepStrictEqual(

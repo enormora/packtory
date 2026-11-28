@@ -73,7 +73,8 @@ export async function runEmittedPackageApplicationProgrammingInterface(
 ): Promise<unknown> {
     const packageFolder = await writeAnalyzedPackage(resolvedPackage.analyzedBundle);
     try {
-        return await runNodeProbe(importScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href), 3000);
+        const probeScript = importScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href);
+        return await runNodeProbe(probeScript, 3000);
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }
@@ -85,7 +86,8 @@ export async function importEmittedPackageEntry(
 ): Promise<void> {
     const packageFolder = await writeAnalyzedPackage(analyzedBundle);
     try {
-        await runNodeProbe(importOnlyScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href), 3000);
+        const probeScript = importOnlyScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href);
+        await runNodeProbe(probeScript, 3000);
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }
@@ -114,7 +116,8 @@ export async function importEmittedPackageEntryWithProjectDependencies(
     const packageFolder = await writeAnalyzedPackage(analyzedBundle);
     try {
         await linkProjectDependencies(packageFolder);
-        await runNodeProbe(importOnlyScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href), 60_000);
+        const probeScript = importOnlyScript(pathToFileAddress(path.join(packageFolder, targetFilePath)).href);
+        await runNodeProbe(probeScript, 60_000);
     } finally {
         await rm(packageFolder, { recursive: true, force: true });
     }

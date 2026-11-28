@@ -34,13 +34,14 @@ suite('tarball-redirects', function () {
 
         test('rejects bytes that differ from the registry digest', async function () {
             const integrity = `sha512-${createHash('sha512').update('different').digest('base64')}`;
+            const tarballRequest = fetchTarballForTest(
+                fake.resolves(new Response(tarballBytes)),
+                tarballAddress,
+                { integrity, shasum: undefined },
+                settings
+            );
             await assert.rejects(
-                fetchTarballForTest(
-                    fake.resolves(new Response(tarballBytes)),
-                    tarballAddress,
-                    { integrity, shasum: undefined },
-                    settings
-                ),
+                tarballRequest,
                 /Downloaded tarball failed dist.integrity verification/u
             );
         });
@@ -69,13 +70,14 @@ suite('tarball-redirects', function () {
         });
 
         test('rejects unsuccessful HTTP responses with their status code', async function () {
+            const tarballRequest = fetchTarballForTest(
+                fake.resolves(new Response('error', { status: 500 })),
+                tarballAddress,
+                emptyIntegrity,
+                settings
+            );
             await assert.rejects(
-                fetchTarballForTest(
-                    fake.resolves(new Response('error', { status: 500 })),
-                    tarballAddress,
-                    emptyIntegrity,
-                    settings
-                ),
+                tarballRequest,
                 { message: 'Tarball download failed with status 500', statusCode: 500 }
             );
         });
@@ -124,13 +126,14 @@ suite('tarball-redirects', function () {
         }
 
         test('rejects redirects without a Location header', async function () {
+            const tarballRequest = fetchTarballForTest(
+                fake.resolves(new Response(null, { status: 302 })),
+                tarballAddress,
+                emptyIntegrity,
+                settings
+            );
             await assert.rejects(
-                fetchTarballForTest(
-                    fake.resolves(new Response(null, { status: 302 })),
-                    tarballAddress,
-                    emptyIntegrity,
-                    settings
-                ),
+                tarballRequest,
                 /^Error: Registry tarball redirect is missing a Location header$/u
             );
         });

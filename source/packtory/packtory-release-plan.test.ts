@@ -187,17 +187,18 @@ function registerPlanningTests(): void {
 
 function registerMetadataTests(): void {
     test('plans previous and current git heads for published packages', async function () {
+        const buildResult = buildResultFor({
+            previousReleaseArtifacts: previousReleaseArtifactsFor({
+                version: '1.0.0',
+                publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                gitHead: 'old-head',
+                files: [ { filePath: 'package/index.js', content: 'old', isExecutable: false } ]
+            })
+        });
         const result = await planFor({
             packageNames: [ 'package-a' ],
             buildResults: [
-                buildResultFor({
-                    previousReleaseArtifacts: previousReleaseArtifactsFor({
-                        version: '1.0.0',
-                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        gitHead: 'old-head',
-                        files: [ { filePath: 'package/index.js', content: 'old', isExecutable: false } ]
-                    })
-                })
+                buildResult
             ],
             currentGitHead: 'current-head',
             collectContents() {
@@ -297,6 +298,13 @@ function registerDependencyAttributionTests(): void {
     });
 }
 
+const stopWithConfigurationFailure = async function (): ReturnType<ReleasePackageResolver> {
+    return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
+        type: 'configuration',
+        issues: [ 'bad' ]
+    });
+};
+
 function registerFailureTests(): void {
     test('returns a partial failure when building a package plan throws after publish succeeds', async function () {
         const result = await planFor({
@@ -389,12 +397,6 @@ function registerFailureTests(): void {
     test('passes non-partial resolve failures through unchanged', async function () {
         const releasePlan = createPlanner({ packageNames: [] });
         const validated = validatedReleaseConfigurationFor([ 'package-a' ]);
-        const stopWithConfigurationFailure = async function (): ReturnType<ReleasePackageResolver> {
-            return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
-                type: 'configuration',
-                issues: [ 'bad' ]
-            });
-        };
 
         const result = await releasePlan(validated, stopWithConfigurationFailure);
 

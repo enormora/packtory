@@ -48,6 +48,9 @@ async function captureMessages(
 
 suite('publish-handler', function () {
     test('runPublishHandler returns 0 and logs a success summary when the build succeeds', async function () {
+        const outcome = buildOutcome({
+            result: Result.ok([ createBuildResultFixture() ])
+        });
         const { code, messages } = await captureMessages(
             {
                 noDryRun: true,
@@ -56,9 +59,7 @@ suite('publish-handler', function () {
                 reportHypertextMarkupLanguage: false,
                 trace: false
             },
-            buildOutcome({
-                result: Result.ok([ createBuildResultFixture() ])
-            })
+            outcome
         );
 
         assert.strictEqual(code, 0);
@@ -68,6 +69,14 @@ suite('publish-handler', function () {
     });
 
     test('runPublishHandler passes stage mode through to the success summary', async function () {
+        const successfulResult = Result.ok([
+            createBuildResultFixture({
+                publication: stagedForApproval('stage-123')
+            })
+        ]);
+        const outcome = buildOutcome({
+            result: successfulResult
+        });
         const { code, messages } = await captureMessages(
             {
                 noDryRun: true,
@@ -76,13 +85,7 @@ suite('publish-handler', function () {
                 reportHypertextMarkupLanguage: false,
                 trace: false
             },
-            buildOutcome({
-                result: Result.ok([
-                    createBuildResultFixture({
-                        publication: stagedForApproval('stage-123')
-                    })
-                ])
-            })
+            outcome
         );
 
         assert.strictEqual(code, 0);
@@ -95,6 +98,9 @@ suite('publish-handler', function () {
     });
 
     test('runPublishHandler returns 1 and logs the publish failure when the build fails', async function () {
+        const outcome = buildOutcome({
+            result: Result.err(configurationError([ 'missing field' ]))
+        });
         const { code, messages } = await captureMessages(
             {
                 noDryRun: true,
@@ -103,9 +109,7 @@ suite('publish-handler', function () {
                 reportHypertextMarkupLanguage: false,
                 trace: false
             },
-            buildOutcome({
-                result: Result.err(configurationError([ 'missing field' ]))
-            })
+            outcome
         );
 
         assert.strictEqual(code, 1);
@@ -115,6 +119,21 @@ suite('publish-handler', function () {
     });
 
     test('runPublishHandler passes stage mode through to the publish failure summary', async function () {
+        const partialPublicationFailure = publishPartialFailure({
+            skipped: [],
+            succeeded: [
+                createBuildResultFixture({
+                    publication: stagedForApproval('stage-123')
+                })
+            ],
+            failures: [ new Error('boom') ]
+        });
+        const failure = Result.err(
+            partialPublicationFailure
+        );
+        const outcome = buildOutcome({
+            result: failure
+        });
         const { code, messages } = await captureMessages(
             {
                 noDryRun: true,
@@ -123,19 +142,7 @@ suite('publish-handler', function () {
                 reportHypertextMarkupLanguage: false,
                 trace: false
             },
-            buildOutcome({
-                result: Result.err(
-                    publishPartialFailure({
-                        skipped: [],
-                        succeeded: [
-                            createBuildResultFixture({
-                                publication: stagedForApproval('stage-123')
-                            })
-                        ],
-                        failures: [ new Error('boom') ]
-                    })
-                )
-            })
+            outcome
         );
 
         assert.strictEqual(code, 1);

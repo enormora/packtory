@@ -39,36 +39,37 @@ function createCommitScenarioWithToken(
         'heads/packtory-release-pull-request-staging-release-packtory-ebb84e32ba80-main-head'
     );
     const encodedContent = Buffer.from('changelog\n', 'utf8').toString('base64');
+    const routeFetch = createRecordedRouteFetch(
+        capturedRequests,
+        new Map([
+            [
+                routeKey('GET', `/repos/owner/repo/git/ref/${encodedTemporaryBranchReference}`),
+                function () {
+                    return readReference('old-temporary-head');
+                }
+            ],
+            [ routeKey('PATCH', `/repos/owner/repo/git/refs/${encodedTemporaryBranchReference}`), emptyResponse ],
+            [ routeKey('PATCH', `/repos/owner/repo/git/refs/${encodedBranchReference}`), emptyResponse ],
+            [ routeKey('POST', '/repos/owner/repo/git/refs'), emptyResponse ],
+            [
+                routeKey('GET', `/repos/owner/repo/git/ref/${encodedBranchReference}`),
+                function () {
+                    return readReference('old-release-head');
+                }
+            ],
+            [ routeKey('DELETE', `/repos/owner/repo/git/refs/${encodedTemporaryBranchReference}`), emptyResponse ],
+            [
+                routeKey('POST', '/graphql'),
+                function () {
+                    return javaScriptObjectNotationResponse({
+                        data: { createCommitOnBranch: { commit: { objectIdentifier: 'signed-release-head' } } }
+                    });
+                }
+            ]
+        ])
+    );
     const client = createClientWithToken(
-        createRecordedRouteFetch(
-            capturedRequests,
-            new Map([
-                [
-                    routeKey('GET', `/repos/owner/repo/git/ref/${encodedTemporaryBranchReference}`),
-                    function () {
-                        return readReference('old-temporary-head');
-                    }
-                ],
-                [ routeKey('PATCH', `/repos/owner/repo/git/refs/${encodedTemporaryBranchReference}`), emptyResponse ],
-                [ routeKey('PATCH', `/repos/owner/repo/git/refs/${encodedBranchReference}`), emptyResponse ],
-                [ routeKey('POST', '/repos/owner/repo/git/refs'), emptyResponse ],
-                [
-                    routeKey('GET', `/repos/owner/repo/git/ref/${encodedBranchReference}`),
-                    function () {
-                        return readReference('old-release-head');
-                    }
-                ],
-                [ routeKey('DELETE', `/repos/owner/repo/git/refs/${encodedTemporaryBranchReference}`), emptyResponse ],
-                [
-                    routeKey('POST', '/graphql'),
-                    function () {
-                        return javaScriptObjectNotationResponse({
-                            data: { createCommitOnBranch: { commit: { objectIdentifier: 'signed-release-head' } } }
-                        });
-                    }
-                ]
-            ])
-        ),
+        routeFetch,
         token
     );
     return {

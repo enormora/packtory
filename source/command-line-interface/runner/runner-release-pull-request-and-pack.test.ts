@@ -138,26 +138,27 @@ suite('runner release-pull-request and pack', function () {
 
         test('release-pull-request authorize-publish forwards the manual release PR number', async function () {
             const fileManager = createFakeFileManager();
+            const createConfiguredReleaseClient = fake.returns(
+                createReleasePullRequestClient({
+                    getPullRequest: fake.resolves({
+                        author: 'github-actions[bot]',
+                        baseReference: 'main',
+                        changedFiles: [ 'CHANGELOG.md' ],
+                        headReference: 'release/packtory',
+                        headRepository: 'enormora/packtory',
+                        labels: [ 'release' ],
+                        mergeCommitHash: 'merge-sha',
+                        merged: true,
+                        number: 12,
+                        subject: 'Release packages',
+                        title: 'Prepare release'
+                    })
+                })
+            );
             const runner = createRunner({
                 fileManager,
                 loadConfiguration: fake.resolves(createReleasePullRequestConfiguration()),
-                createReleasePullRequestGitHubClient: fake.returns(
-                    createReleasePullRequestClient({
-                        getPullRequest: fake.resolves({
-                            author: 'github-actions[bot]',
-                            baseReference: 'main',
-                            changedFiles: [ 'CHANGELOG.md' ],
-                            headReference: 'release/packtory',
-                            headRepository: 'enormora/packtory',
-                            labels: [ 'release' ],
-                            mergeCommitHash: 'merge-sha',
-                            merged: true,
-                            number: 12,
-                            subject: 'Release packages',
-                            title: 'Prepare release'
-                        })
-                    })
-                ),
+                createReleasePullRequestGitHubClient: createConfiguredReleaseClient,
                 readEnvironmentVariable(name) {
                     return { GH_TOKEN: 'gh-token', GITHUB_OUTPUT: '/github-output', GITHUB_REF_NAME: 'main' }[name];
                 }
@@ -200,23 +201,24 @@ suite('runner release-pull-request and pack', function () {
                 GITHUB_EVENT_PATH: '/event.json',
                 GITHUB_REPOSITORY: 'owner/repo'
             };
+            const createConfiguredReleaseClient = fake.returns(
+                createReleasePullRequestClient({
+                    getPullRequestHead: fake.resolves({
+                        author: 'maintainer',
+                        changedFiles: [ 'source/index.ts' ],
+                        headReference: 'feature',
+                        labels: [ 'bug' ],
+                        parentHashes: [ 'main-head' ],
+                        subject: 'Fix bug',
+                        title: 'Fix bug'
+                    })
+                })
+            );
             const runner = createRunner({
                 fileManager,
                 loadConfiguration: fake.resolves(createReleasePullRequestConfiguration()),
                 log,
-                createReleasePullRequestGitHubClient: fake.returns(
-                    createReleasePullRequestClient({
-                        getPullRequestHead: fake.resolves({
-                            author: 'maintainer',
-                            changedFiles: [ 'source/index.ts' ],
-                            headReference: 'feature',
-                            labels: [ 'bug' ],
-                            parentHashes: [ 'main-head' ],
-                            subject: 'Fix bug',
-                            title: 'Fix bug'
-                        })
-                    })
-                ),
+                createReleasePullRequestGitHubClient: createConfiguredReleaseClient,
                 readEnvironmentVariable(name) {
                     return environment[name];
                 }
@@ -231,29 +233,29 @@ suite('runner release-pull-request and pack', function () {
         test('release-pull-request help advertises release PR subcommands', async function () {
             const help = await expectHelp([ 'release-pull-request', '--help' ]);
 
-            assert.match(help, /maintain/);
-            assert.match(help, /validate/);
-            assert.match(help, /authorize-publish/);
+            assert.match(help, /maintain/u);
+            assert.match(help, /validate/u);
+            assert.match(help, /authorize-publish/u);
         });
 
         test('release-pull-request maintain help advertises writes and dry-run opt-in', async function () {
             const help = await expectHelp([ 'release-pull-request', 'maintain', '--help' ]);
 
-            assert.match(help, /Creates or updates the generated release PR\./);
-            assert.match(help, /--no-dry-run/);
+            assert.match(help, /Creates or updates the generated release PR\./u);
+            assert.match(help, /--no-dry-run/u);
         });
 
         test('release-pull-request validate help advertises GitHub event validation', async function () {
             const help = await expectHelp([ 'release-pull-request', 'validate', '--help' ]);
 
-            assert.match(help, /Validates the release PR policy for the current GitHub event\./);
+            assert.match(help, /Validates the release PR policy for the current GitHub event\./u);
         });
 
         test('release-pull-request authorize-publish help advertises manual retry input', async function () {
             const help = await expectHelp([ 'release-pull-request', 'authorize-publish', '--help' ]);
 
-            assert.match(help, /Authorizes publishing from a merged release PR\./);
-            assert.match(help, /--release-pull-request/);
+            assert.match(help, /Authorizes publishing from a merged release PR\./u);
+            assert.match(help, /--release-pull-request/u);
         });
     });
 

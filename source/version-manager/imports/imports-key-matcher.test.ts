@@ -3,6 +3,30 @@ import { suite, test } from 'mocha';
 import { findMatchingImportEntryKey } from './imports-key-matcher.ts';
 
 suite('imports-key-matcher', function () {
+    for (
+        const [ specifier, key, matches ] of [
+            [ '#literal.+[value]', '#literal.+[value]', true ],
+            [ '#literalXvalue', '#literal.+[value]', false ],
+            [ '#foo#foo', '#foo', false ],
+            [ '#foo/nested/file.js', '#foo/*.js', true ],
+            [ '#foo/file.ts', '#foo/*.js', false ],
+            [ '#other/file.js', '#foo/*.js', false ],
+            [ '#foo/.js', '#foo/*.js', true ],
+            [ '#foo/', '#foo/*', true ],
+            [ '#suffix', '#*suffix', true ],
+            [ '#ab', '#ab*ab', false ],
+            [ '#foo/a+b.x', '#foo/*+b.x', true ],
+            [ '#foo/aabXx', '#foo/*+b.x', false ],
+            [ '#foo/a/b.js', '#foo/*/*.js', false ],
+            [ '#🦊/file.js', '#🦊/*.js', true ]
+        ] as const
+    ) {
+        test(`matches ${specifier} against ${key}: ${String(matches)}`, function () {
+            const expected = matches ? key : undefined;
+            assert.strictEqual(findMatchingImportEntryKey(specifier, { [key]: './target.js' }), expected);
+        });
+    }
+
     test('findMatchingImportEntryKey returns undefined when the imports field is empty', function () {
         assert.strictEqual(findMatchingImportEntryKey('#foo', {}), undefined);
     });

@@ -16,6 +16,16 @@ import {
 import type { TerminalSpinnerRenderer } from '../command-line-interface/spinner/terminal-spinner-renderer.ts';
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../packtory/packtory.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
+import { createBuildReportFixture } from './preview-fixtures.ts';
+
+export function createReleasePlanOutcome(result: ReleasePlanResult): ReleasePlanOutcome {
+    return {
+        result,
+        getReport() {
+            return createBuildReportFixture();
+        }
+    };
+}
 
 export function releasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
     return {

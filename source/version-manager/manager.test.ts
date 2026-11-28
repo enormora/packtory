@@ -19,6 +19,34 @@ function createAnalyzedBundle(): AnalyzedBundle {
     });
 }
 
+function callAddVersionWithProvider(
+    progressBroadcaster: VersionManagerDependencies['progressBroadcaster'],
+    additionalPackageManifestAttributes: Parameters<
+        VersionManager['addVersion']
+    >[0]['additionalPackageManifestAttributes'] = {}
+): void {
+    const manager = createVersionManager({ inspectWorkspace, progressBroadcaster });
+    manager.addVersion({
+        bundle: analyzedBundle({}),
+        version: '1.0.0',
+        mainPackageManifest: { type: 'module' },
+        bundleDependencies: [],
+        bundlePeerDependencies: [],
+        additionalPackageManifestAttributes,
+        allowMutableSpecifiers: []
+    });
+}
+
+function expectAssembledFields(
+    received: readonly Readonly<Record<string, { readonly source: string; }>>[]
+): Readonly<Record<string, { readonly source: string; }>> {
+    const [ fields ] = received;
+    if (fields === undefined) {
+        assert.fail('expected packageManifestAssembled to fire once');
+    }
+    return fields;
+}
+
 suite('manager', function () {
     test('addVersion() creates the versioned bundle and manifest file', function () {
         const manager = createVersionManager({
@@ -204,34 +232,6 @@ suite('manager', function () {
             assert.strictEqual((error as Error).message, 'Failed to increase version');
         }
     });
-
-    function callAddVersionWithProvider(
-        progressBroadcaster: VersionManagerDependencies['progressBroadcaster'],
-        additionalPackageManifestAttributes: Parameters<
-            VersionManager['addVersion']
-        >[0]['additionalPackageManifestAttributes'] = {}
-    ): void {
-        const manager = createVersionManager({ inspectWorkspace, progressBroadcaster });
-        manager.addVersion({
-            bundle: analyzedBundle({}),
-            version: '1.0.0',
-            mainPackageManifest: { type: 'module' },
-            bundleDependencies: [],
-            bundlePeerDependencies: [],
-            additionalPackageManifestAttributes,
-            allowMutableSpecifiers: []
-        });
-    }
-
-    function expectAssembledFields(
-        received: readonly Readonly<Record<string, { readonly source: string; }>>[]
-    ): Readonly<Record<string, { readonly source: string; }>> {
-        const [ fields ] = received;
-        if (fields === undefined) {
-            assert.fail('expected packageManifestAssembled to fire once');
-        }
-        return fields;
-    }
 
     test('addVersion() emits a packageManifestAssembled event with the package name when subscribed', function () {
         const broadcaster = createProgressBroadcaster();

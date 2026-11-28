@@ -42,62 +42,66 @@ type ConfigurationSchema<Common extends z.ZodMiniType, Package extends z.ZodMini
     >
 >;
 
+function createPackageConfigurationFields<Common extends z.ZodMiniType, Package extends z.ZodMiniType>(
+    commonPackageSettings: Common,
+    packageSchema: Package
+): typeof topLevelSettingsSchemaShape & {
+    readonly commonPackageSettings: Common;
+    readonly packages: z.ZodMiniReadonly<z.ZodMiniTuple<readonly [Package], Package>>;
+} {
+    return {
+        ...topLevelSettingsSchemaShape,
+        commonPackageSettings,
+        packages: z.readonly(z.tuple([ packageSchema ], packageSchema))
+    };
+}
+
+const optionalCommonSettingsSchema = z.optional(
+    z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
+);
+const requiredCommonSettingsSchema = z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape);
+const commonSettingsWithMainManifestSchema = z.extend(
+    commonPackageSettingsMainPackageManifestRequiredSchema,
+    optionalPackageSettingsSchema.shape
+);
+const commonSettingsWithSourcesFolderSchema = z.extend(
+    commonPackageSettingsSourcesFolderRequiredSchema,
+    optionalPackageSettingsSchema.shape
+);
+
 const packageConfigurationWithOptionalCommonPackageSettingsSchema: ConfigurationSchema<
     z.ZodMiniOptional<CommonSettingsSchema<typeof optionalCommonPackageSettingsSchema>>,
     typeof packageSchemaWithAllCommonSettings
 > = z.readonly(
-    z.object({
-        ...topLevelSettingsSchemaShape,
-        commonPackageSettings: z.optional(
-            z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
-        ),
-        packages: z.readonly(z.tuple([ packageSchemaWithAllCommonSettings ], packageSchemaWithAllCommonSettings))
-    })
+    z.object(createPackageConfigurationFields(optionalCommonSettingsSchema, packageSchemaWithAllCommonSettings))
 );
 
 const packageConfigurationWithRequiredCommonPackageSettingsSchema: ConfigurationSchema<
     CommonSettingsSchema<typeof requiredCommonPackageSettingsSchema>,
     typeof packageSchemaWithPartialCommonSettings
 > = z.readonly(
-    z.object({
-        ...topLevelSettingsSchemaShape,
-        commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-        packages: z.readonly(
-            z.tuple([ packageSchemaWithPartialCommonSettings ], packageSchemaWithPartialCommonSettings)
-        )
-    })
+    z.object(createPackageConfigurationFields(requiredCommonSettingsSchema, packageSchemaWithPartialCommonSettings))
 );
 
 const packageConfigurationWithRequiredMainPackageManifestSchema: ConfigurationSchema<
     CommonSettingsSchema<typeof commonPackageSettingsMainPackageManifestRequiredSchema>,
     typeof packageSchemaWithMandatorySourcesFolder
 > = z.readonly(
-    z.object({
-        ...topLevelSettingsSchemaShape,
-        commonPackageSettings: z.extend(
-            commonPackageSettingsMainPackageManifestRequiredSchema,
-            optionalPackageSettingsSchema.shape
-        ),
-        packages: z.readonly(
-            z.tuple([ packageSchemaWithMandatorySourcesFolder ], packageSchemaWithMandatorySourcesFolder)
-        )
-    })
+    z.object(
+        createPackageConfigurationFields(commonSettingsWithMainManifestSchema, packageSchemaWithMandatorySourcesFolder)
+    )
 );
 
 const packageConfigurationWithRequiredSourcesFolderSchema: ConfigurationSchema<
     CommonSettingsSchema<typeof commonPackageSettingsSourcesFolderRequiredSchema>,
     typeof packageSchemaWithMandatoryMainPackageManifest
 > = z.readonly(
-    z.object({
-        ...topLevelSettingsSchemaShape,
-        commonPackageSettings: z.extend(
-            commonPackageSettingsSourcesFolderRequiredSchema,
-            optionalPackageSettingsSchema.shape
-        ),
-        packages: z.readonly(
-            z.tuple([ packageSchemaWithMandatoryMainPackageManifest ], packageSchemaWithMandatoryMainPackageManifest)
+    z.object(
+        createPackageConfigurationFields(
+            commonSettingsWithSourcesFolderSchema,
+            packageSchemaWithMandatoryMainPackageManifest
         )
-    })
+    )
 );
 
 export const packtoryConfigurationWithoutRegistrySchema: z.ZodMiniUnion<

@@ -58,6 +58,28 @@ async function expectCheckReadability(access: SinonSpy, expectedReadable: boolea
     assert.deepStrictEqual(result, { isReadable: expectedReadable });
 }
 
+async function runWriteFile(
+    access: SinonSpy
+): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy; }> {
+    const writeFile = fake.resolves(undefined);
+    const mkdir = fake.resolves(undefined);
+    const fileManager = fileManagerFactory({ access, writeFile, mkdir });
+
+    await fileManager.writeFile('/foo/bar.txt', 'the-content');
+    return { writeFile, mkdir };
+}
+
+async function runWriteBinaryFile(
+    access: SinonSpy
+): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy; readonly payload: Buffer; }> {
+    const writeFile = fake.resolves(undefined);
+    const mkdir = fake.resolves(undefined);
+    const fileManager = fileManagerFactory({ access, writeFile, mkdir });
+    const payload = Buffer.from([ 7, 8, 9 ]);
+    await fileManager.writeBinaryFile('/dist/archive.zip', payload);
+    return { writeFile, mkdir, payload };
+}
+
 suite('file-manager', function () {
     test('removes a file even when it is already absent', async function () {
         const rm = fake.resolves(undefined);
@@ -100,17 +122,6 @@ suite('file-manager', function () {
             });
         });
 
-        async function runWriteFile(
-            access: SinonSpy
-        ): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy; }> {
-            const writeFile = fake.resolves(undefined);
-            const mkdir = fake.resolves(undefined);
-            const fileManager = fileManagerFactory({ access, writeFile, mkdir });
-
-            await fileManager.writeFile('/foo/bar.txt', 'the-content');
-            return { writeFile, mkdir };
-        }
-
         test('writeFile() recursively creates the parent folder and then writes the given content to the given file when the parent folder does not exist', async function () {
             const access = fake.rejects(undefined);
             const { writeFile, mkdir } = await runWriteFile(access);
@@ -147,17 +158,6 @@ suite('file-manager', function () {
     });
 
     suite('binary writes', function () {
-        async function runWriteBinaryFile(
-            access: SinonSpy
-        ): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy; readonly payload: Buffer; }> {
-            const writeFile = fake.resolves(undefined);
-            const mkdir = fake.resolves(undefined);
-            const fileManager = fileManagerFactory({ access, writeFile, mkdir });
-            const payload = Buffer.from([ 7, 8, 9 ]);
-            await fileManager.writeBinaryFile('/dist/archive.zip', payload);
-            return { writeFile, mkdir, payload };
-        }
-
         test('writeBinaryFile() writes the binary payload without applying utf-8 encoding when the parent folder is already readable', async function () {
             const access = fake.resolves(undefined);
             const { writeFile, mkdir, payload } = await runWriteBinaryFile(access);

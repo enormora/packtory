@@ -124,23 +124,25 @@ suite('oidc-token-exchange', function () {
         });
 
         test('exchangeToken throws when the OIDC exchange response status is not ok', async function () {
+            const exchanger = exchangerFactory({
+                fetch: fake.resolves(
+                    fakeFetchResponse({ ok: false, status: 500, javaScriptObjectNotation: {} })
+                ) as unknown as typeof globalThis.fetch
+            });
             await expectExchangeError(
-                exchangerFactory({
-                    fetch: fake.resolves(
-                        fakeFetchResponse({ ok: false, status: 500, javaScriptObjectNotation: {} })
-                    ) as unknown as typeof globalThis.fetch
-                }),
+                exchanger,
                 'OIDC token exchange failed with status 500'
             );
         });
 
         test('exchangeToken throws when the OIDC response does not match the expected shape', async function () {
+            const exchanger = exchangerFactory({
+                fetch: fake.resolves(
+                    fakeFetchResponse({ javaScriptObjectNotation: { token_type: 'oidc' } })
+                ) as unknown as typeof globalThis.fetch
+            });
             await expectExchangeError(
-                exchangerFactory({
-                    fetch: fake.resolves(
-                        fakeFetchResponse({ javaScriptObjectNotation: { token_type: 'oidc' } })
-                    ) as unknown as typeof globalThis.fetch
-                }),
+                exchanger,
                 'OIDC token exchange returned an invalid response: at token: missing property; at expires: missing property'
             );
         });

@@ -104,296 +104,298 @@ export function createCommandLineInterfaceRunner(
     } = dependencies;
     let exitCode = 0;
     let traceEnabled = Boolean();
+    const releasePullRequestNumberType = optionalType(string);
+    const commands = {
+        [publishCommandName]: defineCommand({
+            name: publishCommandName,
+            description: 'Builds and publishes all packages (dry-run enabled by default).',
+            arguments: {
+                noDryRun: flag({ long: 'no-dry-run' }),
+                stage: flag({ long: 'stage' }),
+                reportJavaScriptObjectNotation: flag({ long: 'report-json' }),
+                reportHypertextMarkupLanguage: flag({ long: 'report-html' })
+            },
+            async handler({ noDryRun, stage, reportJavaScriptObjectNotation, reportHypertextMarkupLanguage }) {
+                exitCode = await runPublishHandler({
+                    log,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    fileManager,
+                    flags: {
+                        noDryRun,
+                        stage,
+                        reportJavaScriptObjectNotation,
+                        reportHypertextMarkupLanguage,
+                        trace: traceEnabled
+                    }
+                });
+            }
+        }),
+        [previewCommandName]: defineCommand({
+            name: previewCommandName,
+            description: 'Builds all packages in fresh dry-run mode and opens a human preview.',
+            arguments: {
+                open: flag({ long: 'open' }),
+                packageName: option({ long: 'package', type: optionalType(string) }),
+                allFiles: flag({ long: 'all-files' })
+            },
+            async handler({ open, packageName, allFiles }) {
+                exitCode = await runPreviewHandler({
+                    log,
+                    pageOutput,
+                    openFile,
+                    createTemporaryFilePath,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    fileManager,
+                    flags: { open, packageName, allFiles }
+                });
+            }
+        }),
+        [releaseDiffCommandName]: defineCommand({
+            name: releaseDiffCommandName,
+            description: 'Compares the next dry-run build against the latest published version, per package.',
+            arguments: {
+                filesOnly: flag({ long: 'files-only' })
+            },
+            async handler({ filesOnly }) {
+                exitCode = await runReleaseDiffHandler({
+                    log,
+                    pageOutput,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    flags: { filesOnly, packageName: undefined }
+                });
+            }
+        }),
+        [releaseCommandName]: defineCommand({
+            name: releaseCommandName,
+            description: 'Publishes packages and creates release tags through the GitHub API.',
+            arguments: {
+                publish: flag({ long: 'publish' }),
+                tag: flag({ long: 'tag' }),
+                push: flag({ long: 'push' }),
+                githubRelease: flag({ long: 'github-release' }),
+                noDryRun: flag({ long: 'no-dry-run' })
+            },
+            async handler({ publish, tag, push, githubRelease, noDryRun }) {
+                exitCode = await runReleaseHandler({
+                    log,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    fileManager,
+                    createPullRequestLogEngine,
+                    createGitHubReleaseClient,
+                    currentDate,
+                    readEnvironmentVariable,
+                    readPackageInformation,
+                    workingDirectory,
+                    flags: { publish, tag, push, githubRelease, noDryRun },
+                    trace: traceEnabled
+                });
+            }
+        }),
+        [releasePullRequestCommandName]: defineCommandGroup({
+            name: releasePullRequestCommandName,
+            commands: {
+                [maintainReleasePullRequestCommandName]: defineCommand({
+                    name: maintainReleasePullRequestCommandName,
+                    description: 'Creates or updates the generated release PR.',
+                    arguments: {
+                        noDryRun: flag({ long: 'no-dry-run' })
+                    },
+                    async handler({ noDryRun }) {
+                        exitCode = await runReleasePullRequestHandler({
+                            log,
+                            packtory,
+                            spinnerRenderer,
+                            configurationLoader,
+                            fileManager,
+                            createPullRequestLogEngine,
+                            createReleasePullRequestGitHubClient,
+                            currentDate,
+                            readEnvironmentVariable,
+                            readPackageInformation,
+                            workingDirectory,
+                            sleep,
+                            trace: traceEnabled,
+                            flags: {
+                                command: maintainReleasePullRequestCommandName,
+                                noDryRun,
+                                releasePullRequestNumber: undefined
+                            }
+                        });
+                    }
+                }),
+                [validateReleasePullRequestCommandName]: defineCommand({
+                    name: validateReleasePullRequestCommandName,
+                    description: 'Validates the release PR policy for the current GitHub event.',
+                    arguments: {},
+                    async handler() {
+                        exitCode = await runReleasePullRequestHandler({
+                            log,
+                            packtory,
+                            spinnerRenderer,
+                            configurationLoader,
+                            fileManager,
+                            createPullRequestLogEngine,
+                            createReleasePullRequestGitHubClient,
+                            currentDate,
+                            readEnvironmentVariable,
+                            readPackageInformation,
+                            workingDirectory,
+                            sleep,
+                            trace: traceEnabled,
+                            flags: {
+                                command: validateReleasePullRequestCommandName,
+                                releasePullRequestNumber: undefined
+                            }
+                        });
+                    }
+                }),
+                [authorizePublishReleasePullRequestCommandName]: defineCommand({
+                    name: authorizePublishReleasePullRequestCommandName,
+                    description: 'Authorizes publishing from a merged release PR.',
+                    arguments: {
+                        releasePullRequestNumber: option({
+                            long: 'release-pull-request',
+                            type: releasePullRequestNumberType
+                        })
+                    },
+                    async handler({ releasePullRequestNumber }) {
+                        exitCode = await runReleasePullRequestHandler({
+                            log,
+                            packtory,
+                            spinnerRenderer,
+                            configurationLoader,
+                            fileManager,
+                            createPullRequestLogEngine,
+                            createReleasePullRequestGitHubClient,
+                            currentDate,
+                            readEnvironmentVariable,
+                            readPackageInformation,
+                            workingDirectory,
+                            sleep,
+                            trace: traceEnabled,
+                            flags: {
+                                command: authorizePublishReleasePullRequestCommandName,
+                                releasePullRequestNumber
+                            }
+                        });
+                    }
+                })
+            }
+        }),
+        [changelogCommandName]: defineCommand({
+            name: changelogCommandName,
+            description: 'Generates grouped Markdown changelog output for the next release.',
+            arguments: {},
+            async handler() {
+                exitCode = await runChangelogHandler({
+                    log,
+                    pageOutput,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    fileManager,
+                    createPullRequestLogEngine,
+                    currentDate,
+                    readEnvironmentVariable,
+                    readPackageInformation,
+                    workingDirectory,
+                    trace: traceEnabled
+                });
+            }
+        }),
+        [configurationCommandName]: defineCommandGroup({
+            name: configurationCommandName,
+            commands: {
+                [inspectConfigurationCommandName]: defineCommand({
+                    name: inspectConfigurationCommandName,
+                    description: 'Validates packtory.config.js and prints a compact package summary.',
+                    arguments: {},
+                    async handler() {
+                        exitCode = await runConfigurationInspectHandler({
+                            log,
+                            spinnerRenderer,
+                            configurationLoader
+                        });
+                    }
+                })
+            }
+        }),
+        [inspectionCommandName]: createInspectionCommands({
+            log,
+            packtory,
+            spinnerRenderer,
+            configurationLoader,
+            pageOutput,
+            getTraceEnabled() {
+                return traceEnabled;
+            },
+            recordExitCode(code) {
+                exitCode = code;
+            }
+        }),
+        [packCommandName]: defineCommand({
+            name: packCommandName,
+            description: 'Builds one package or all packages and writes artifacts to disk.',
+            arguments: {
+                packageName: positional({ type: optionalType(string), displayName: 'package' }),
+                all: flag({ long: 'all' }),
+                format: option({ long: 'format', type: oneOf([ 'zip', 'tar', 'folder' ]) }),
+                outputPath: option({ long: 'out', type: string }),
+                version: option({
+                    long: 'version',
+                    type: string,
+                    defaultValue() {
+                        return defaultPackVersion;
+                    }
+                }),
+                vendorDependencies: flag({ long: 'vendor-dependencies' })
+            },
+            async handler({ packageName, all, format, outputPath, version, vendorDependencies }) {
+                exitCode = await runPackHandler({
+                    log,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    flags: {
+                        all,
+                        packageName,
+                        format,
+                        outputPath,
+                        version,
+                        vendorDependencies,
+                        trace: traceEnabled
+                    }
+                });
+            }
+        }),
+        [treeCommandName]: defineCommand({
+            name: treeCommandName,
+            description: 'Prints the local artifact tree for a single configured package.',
+            arguments: {
+                packageName: positional({ type: string, displayName: 'package' })
+            },
+            async handler({ packageName }) {
+                exitCode = await runPackageTreeHandler({
+                    log,
+                    packtory,
+                    spinnerRenderer,
+                    configurationLoader,
+                    flags: { packageName, trace: traceEnabled }
+                });
+            }
+        })
+    };
     const baseCommand = defineCommandGroup({
         name: 'packtory',
-        commands: {
-            [publishCommandName]: defineCommand({
-                name: publishCommandName,
-                description: 'Builds and publishes all packages (dry-run enabled by default).',
-                arguments: {
-                    noDryRun: flag({ long: 'no-dry-run' }),
-                    stage: flag({ long: 'stage' }),
-                    reportJavaScriptObjectNotation: flag({ long: 'report-json' }),
-                    reportHypertextMarkupLanguage: flag({ long: 'report-html' })
-                },
-                async handler({ noDryRun, stage, reportJavaScriptObjectNotation, reportHypertextMarkupLanguage }) {
-                    exitCode = await runPublishHandler({
-                        log,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        fileManager,
-                        flags: {
-                            noDryRun,
-                            stage,
-                            reportJavaScriptObjectNotation,
-                            reportHypertextMarkupLanguage,
-                            trace: traceEnabled
-                        }
-                    });
-                }
-            }),
-            [previewCommandName]: defineCommand({
-                name: previewCommandName,
-                description: 'Builds all packages in fresh dry-run mode and opens a human preview.',
-                arguments: {
-                    open: flag({ long: 'open' }),
-                    packageName: option({ long: 'package', type: optionalType(string) }),
-                    allFiles: flag({ long: 'all-files' })
-                },
-                async handler({ open, packageName, allFiles }) {
-                    exitCode = await runPreviewHandler({
-                        log,
-                        pageOutput,
-                        openFile,
-                        createTemporaryFilePath,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        fileManager,
-                        flags: { open, packageName, allFiles }
-                    });
-                }
-            }),
-            [releaseDiffCommandName]: defineCommand({
-                name: releaseDiffCommandName,
-                description: 'Compares the next dry-run build against the latest published version, per package.',
-                arguments: {
-                    filesOnly: flag({ long: 'files-only' })
-                },
-                async handler({ filesOnly }) {
-                    exitCode = await runReleaseDiffHandler({
-                        log,
-                        pageOutput,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        flags: { filesOnly, packageName: undefined }
-                    });
-                }
-            }),
-            [releaseCommandName]: defineCommand({
-                name: releaseCommandName,
-                description: 'Publishes packages and creates release tags through the GitHub API.',
-                arguments: {
-                    publish: flag({ long: 'publish' }),
-                    tag: flag({ long: 'tag' }),
-                    push: flag({ long: 'push' }),
-                    githubRelease: flag({ long: 'github-release' }),
-                    noDryRun: flag({ long: 'no-dry-run' })
-                },
-                async handler({ publish, tag, push, githubRelease, noDryRun }) {
-                    exitCode = await runReleaseHandler({
-                        log,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        fileManager,
-                        createPullRequestLogEngine,
-                        createGitHubReleaseClient,
-                        currentDate,
-                        readEnvironmentVariable,
-                        readPackageInformation,
-                        workingDirectory,
-                        flags: { publish, tag, push, githubRelease, noDryRun },
-                        trace: traceEnabled
-                    });
-                }
-            }),
-            [releasePullRequestCommandName]: defineCommandGroup({
-                name: releasePullRequestCommandName,
-                commands: {
-                    [maintainReleasePullRequestCommandName]: defineCommand({
-                        name: maintainReleasePullRequestCommandName,
-                        description: 'Creates or updates the generated release PR.',
-                        arguments: {
-                            noDryRun: flag({ long: 'no-dry-run' })
-                        },
-                        async handler({ noDryRun }) {
-                            exitCode = await runReleasePullRequestHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                fileManager,
-                                createPullRequestLogEngine,
-                                createReleasePullRequestGitHubClient,
-                                currentDate,
-                                readEnvironmentVariable,
-                                readPackageInformation,
-                                workingDirectory,
-                                sleep,
-                                trace: traceEnabled,
-                                flags: {
-                                    command: maintainReleasePullRequestCommandName,
-                                    noDryRun,
-                                    releasePullRequestNumber: undefined
-                                }
-                            });
-                        }
-                    }),
-                    [validateReleasePullRequestCommandName]: defineCommand({
-                        name: validateReleasePullRequestCommandName,
-                        description: 'Validates the release PR policy for the current GitHub event.',
-                        arguments: {},
-                        async handler() {
-                            exitCode = await runReleasePullRequestHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                fileManager,
-                                createPullRequestLogEngine,
-                                createReleasePullRequestGitHubClient,
-                                currentDate,
-                                readEnvironmentVariable,
-                                readPackageInformation,
-                                workingDirectory,
-                                sleep,
-                                trace: traceEnabled,
-                                flags: {
-                                    command: validateReleasePullRequestCommandName,
-                                    releasePullRequestNumber: undefined
-                                }
-                            });
-                        }
-                    }),
-                    [authorizePublishReleasePullRequestCommandName]: defineCommand({
-                        name: authorizePublishReleasePullRequestCommandName,
-                        description: 'Authorizes publishing from a merged release PR.',
-                        arguments: {
-                            releasePullRequestNumber: option({
-                                long: 'release-pull-request',
-                                type: optionalType(string)
-                            })
-                        },
-                        async handler({ releasePullRequestNumber }) {
-                            exitCode = await runReleasePullRequestHandler({
-                                log,
-                                packtory,
-                                spinnerRenderer,
-                                configurationLoader,
-                                fileManager,
-                                createPullRequestLogEngine,
-                                createReleasePullRequestGitHubClient,
-                                currentDate,
-                                readEnvironmentVariable,
-                                readPackageInformation,
-                                workingDirectory,
-                                sleep,
-                                trace: traceEnabled,
-                                flags: {
-                                    command: authorizePublishReleasePullRequestCommandName,
-                                    releasePullRequestNumber
-                                }
-                            });
-                        }
-                    })
-                }
-            }),
-            [changelogCommandName]: defineCommand({
-                name: changelogCommandName,
-                description: 'Generates grouped Markdown changelog output for the next release.',
-                arguments: {},
-                async handler() {
-                    exitCode = await runChangelogHandler({
-                        log,
-                        pageOutput,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        fileManager,
-                        createPullRequestLogEngine,
-                        currentDate,
-                        readEnvironmentVariable,
-                        readPackageInformation,
-                        workingDirectory,
-                        trace: traceEnabled
-                    });
-                }
-            }),
-            [configurationCommandName]: defineCommandGroup({
-                name: configurationCommandName,
-                commands: {
-                    [inspectConfigurationCommandName]: defineCommand({
-                        name: inspectConfigurationCommandName,
-                        description: 'Validates packtory.config.js and prints a compact package summary.',
-                        arguments: {},
-                        async handler() {
-                            exitCode = await runConfigurationInspectHandler({
-                                log,
-                                spinnerRenderer,
-                                configurationLoader
-                            });
-                        }
-                    })
-                }
-            }),
-            [inspectionCommandName]: createInspectionCommands({
-                log,
-                packtory,
-                spinnerRenderer,
-                configurationLoader,
-                pageOutput,
-                getTraceEnabled() {
-                    return traceEnabled;
-                },
-                recordExitCode(code) {
-                    exitCode = code;
-                }
-            }),
-            [packCommandName]: defineCommand({
-                name: packCommandName,
-                description: 'Builds one package or all packages and writes artifacts to disk.',
-                arguments: {
-                    packageName: positional({ type: optionalType(string), displayName: 'package' }),
-                    all: flag({ long: 'all' }),
-                    format: option({ long: 'format', type: oneOf([ 'zip', 'tar', 'folder' ]) }),
-                    outputPath: option({ long: 'out', type: string }),
-                    version: option({
-                        long: 'version',
-                        type: string,
-                        defaultValue() {
-                            return defaultPackVersion;
-                        }
-                    }),
-                    vendorDependencies: flag({ long: 'vendor-dependencies' })
-                },
-                async handler({ packageName, all, format, outputPath, version, vendorDependencies }) {
-                    exitCode = await runPackHandler({
-                        log,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        flags: {
-                            all,
-                            packageName,
-                            format,
-                            outputPath,
-                            version,
-                            vendorDependencies,
-                            trace: traceEnabled
-                        }
-                    });
-                }
-            }),
-            [treeCommandName]: defineCommand({
-                name: treeCommandName,
-                description: 'Prints the local artifact tree for a single configured package.',
-                arguments: {
-                    packageName: positional({ type: string, displayName: 'package' })
-                },
-                async handler({ packageName }) {
-                    exitCode = await runPackageTreeHandler({
-                        log,
-                        packtory,
-                        spinnerRenderer,
-                        configurationLoader,
-                        flags: { packageName, trace: traceEnabled }
-                    });
-                }
-            })
-        }
+        commands
     });
 
     async function runPreparedCommand(

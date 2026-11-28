@@ -22,12 +22,12 @@ export function argumentValue(argumentValues: readonly string[], name: string): 
 }
 
 function parseArguments(argumentValues: readonly string[]): ParsedArguments {
-    const manifestPath = argumentValue(argumentValues, '--manifest') ?? 'canary-tests/canaries.json';
     const name = argumentValue(argumentValues, '--name');
-    const summaryPath = argumentValue(argumentValues, '--summary') ?? '';
     if (name === undefined) {
         throw new Error('Missing required --name argument');
     }
+    const manifestPath = argumentValue(argumentValues, '--manifest') ?? 'canary-tests/canaries.json';
+    const summaryPath = argumentValue(argumentValues, '--summary') ?? '';
     return { manifestPath, name, summaryPath };
 }
 

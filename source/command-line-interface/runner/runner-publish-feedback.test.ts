@@ -11,17 +11,53 @@ import {
     type Overrides
 } from '../../test-libraries/runner-test-support.ts';
 
+async function expectRunnerToReportFailure(overrides: Overrides, expectedMessage: string): Promise<void> {
+    const log = fake();
+    const runner = createRunner({ ...overrides, log });
+
+    const exitCode = await runner.run([ 'foo', 'bar', 'publish', '--no-dry-run' ]);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(log.firstCall.args[0], expectedMessage);
+}
+
+async function runWithIssues(
+    type: 'checks' | 'configuration',
+    issues: readonly string[]
+): Promise<{ readonly log: SinonSpy; }> {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
+    const log = fake();
+    const runner = createRunner({ buildAndPublishAll, log });
+
+    await runner.run([ 'foo', 'bar', 'publish' ]);
+    return { log };
+}
+
+async function runPublishCapturingLog(
+    buildAndPublishAll: SinonSpy,
+    extraArguments: readonly string[] = []
+): Promise<SinonSpy> {
+    const log = fake();
+    const runner = createRunner({ buildAndPublishAll, log });
+    await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
+    return log;
+}
+
+async function runWithProgressEvent(
+    spinnerRenderer: NonNullable<Overrides['spinnerRenderer']>,
+    eventName: Parameters<ProgressBroadcaster['provider']['emit']>[0],
+    eventPayload: Parameters<ProgressBroadcaster['provider']['emit']>[1]
+): Promise<ProgressBroadcaster> {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const progressBroadcaster = createProgressBroadcaster();
+    const runner = createRunner({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
+
+    await runner.run([ 'foo', 'bar', 'publish' ]);
+    progressBroadcaster.provider.emit(eventName, eventPayload);
+    return progressBroadcaster;
+}
+
 suite('runner publish feedback', function () {
-    async function expectRunnerToReportFailure(overrides: Overrides, expectedMessage: string): Promise<void> {
-        const log = fake();
-        const runner = createRunner({ ...overrides, log });
-
-        const exitCode = await runner.run([ 'foo', 'bar', 'publish', '--no-dry-run' ]);
-
-        assert.strictEqual(exitCode, 1);
-        assert.strictEqual(log.firstCall.args[0], expectedMessage);
-    }
-
     suite('throwing and issue output', function () {
         test('reports the error when buildAndPublishAll() throws', async function () {
             const log = fake();
@@ -32,18 +68,6 @@ suite('runner publish feedback', function () {
             assert.strictEqual(exitCode, 1);
             assert.strictEqual(log.firstCall.args[0], 'foo');
         });
-
-        async function runWithIssues(
-            type: 'checks' | 'configuration',
-            issues: readonly string[]
-        ): Promise<{ readonly log: SinonSpy; }> {
-            const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
-            const log = fake();
-            const runner = createRunner({ buildAndPublishAll, log });
-
-            await runner.run([ 'foo', 'bar', 'publish' ]);
-            return { log };
-        }
 
         test('prints error summary when publish command encounters config errors', async function () {
             const { log } = await runWithIssues('configuration', [ 'foo' ]);
@@ -84,16 +108,6 @@ suite('runner publish feedback', function () {
         const dryRunNote =
             '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode';
 
-        async function runPublishCapturingLog(
-            buildAndPublishAll: SinonSpy,
-            extraArguments: readonly string[] = []
-        ): Promise<SinonSpy> {
-            const log = fake();
-            const runner = createRunner({ buildAndPublishAll, log });
-            await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
-            return log;
-        }
-
         const partialResultWithTwoFailures = toOutcome(
             Result.err({
                 skipped: [],
@@ -133,7 +147,8 @@ suite('runner publish feedback', function () {
         });
 
         test('prints success summary and dry-run note when publish command had no errors', async function () {
-            const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ]))));
+            const publishPackages = fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ])));
+            const log = await runPublishCapturingLog(publishPackages);
 
             assertDeepSubset(log, {
                 callCount: 2,
@@ -147,7 +162,8 @@ suite('runner publish feedback', function () {
         });
 
         test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async function () {
-            const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ]))), [
+            const publishPackages = fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ])));
+            const log = await runPublishCapturingLog(publishPackages, [
                 '--no-dry-run'
             ]);
 
@@ -195,20 +211,6 @@ suite('runner publish feedback', function () {
                 }
             });
         });
-
-        async function runWithProgressEvent(
-            spinnerRenderer: NonNullable<Overrides['spinnerRenderer']>,
-            eventName: Parameters<ProgressBroadcaster['provider']['emit']>[0],
-            eventPayload: Parameters<ProgressBroadcaster['provider']['emit']>[1]
-        ): Promise<ProgressBroadcaster> {
-            const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-            const progressBroadcaster = createProgressBroadcaster();
-            const runner = createRunner({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
-
-            await runner.run([ 'foo', 'bar', 'publish' ]);
-            progressBroadcaster.provider.emit(eventName, eventPayload);
-            return progressBroadcaster;
-        }
 
         test('stops a running spinner with failure status when progressBroadcaster receives an "error" event', async function () {
             const stop = fake();

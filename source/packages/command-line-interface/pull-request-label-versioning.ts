@@ -9,7 +9,9 @@ import type { VersionProvider } from '../../configuration/manual-versioning-sett
 import type { PacktoryConfiguration } from '../../configuration/configuration.ts';
 import type { VersionSourceResolver } from '../../packtory/map-configuration.ts';
 import { formatGitHubRepositoryName } from '../../command-line-interface/runner/github-repository.ts';
-import * as changelog from '../../command-line-interface/runner/changelog-pull-request-log-configuration.ts';
+import {
+    createPullRequestLogConfiguration
+} from '../../command-line-interface/runner/changelog-pull-request-log-configuration.ts';
 
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 
@@ -85,7 +87,7 @@ export function createPullRequestLabelVersionSourceResolver(
     ): Promise<readonly PullRequestWithLabel[]> {
         const packageInformation = await dependencies.readPackageInformation();
         const githubRepository = formatGitHubRepositoryName(packageInformation);
-        const pullRequestLogConfiguration = changelog.createPullRequestLogConfiguration(
+        const pullRequestLogConfiguration = createPullRequestLogConfiguration(
             packtoryConfiguration.changelog
         );
         const pullRequestLogEngine = createEngine(dependencies, pullRequestLogConfiguration);
@@ -125,7 +127,7 @@ export function createPullRequestLabelVersionSourceResolver(
             if (input.currentVersion === undefined) {
                 return '0.0.1';
             }
-            const pullRequestLogConfiguration = changelog.createPullRequestLogConfiguration(
+            const pullRequestLogConfiguration = createPullRequestLogConfiguration(
                 sourceInput.packtoryConfiguration.changelog
             );
             return selectNextVersion(

@@ -23,6 +23,10 @@ function sampleBundle(): LinkedBundle {
     });
 }
 
+const makeBundle = function (name: string, content: string): LinkedBundle {
+    return bundleForCodeFile({ name, content, inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' });
+};
+
 suite('symbol inspection', function () {
     test('omits non-code resources from symbol inspection', async function () {
         const bundle = bundleForCodeFile({
@@ -168,10 +172,13 @@ suite('symbol inspection', function () {
             return symbol.name === 'used';
         });
         assertDefined(used);
-        assert.deepStrictEqual({ decision: used.decision, chain: used.chain }, {
-            decision: 'kept',
-            chain: [ { binding: 'helpers.ts::used', reason: 'named-import', consumerPackage: 'consumer' } ]
-        });
+        assert.deepStrictEqual(
+            { decision: used.decision, chain: used.chain },
+            {
+                decision: 'kept',
+                chain: [ { binding: 'helpers.ts::used', reason: 'named-import', consumerPackage: 'consumer' } ]
+            }
+        );
         assert.deepStrictEqual(
             trace.events.flatMap(function (event) {
                 return event.type === 'cross-bundle-seed-added' && event.reason === 'named-import'
@@ -192,9 +199,6 @@ suite('symbol inspection', function () {
     });
 
     test('keeps package-local explanations separate for identical binding identifiers', async function () {
-        const makeBundle = function (name: string, content: string): LinkedBundle {
-            return bundleForCodeFile({ name, content, inputFilePath: `/${name}/index.js`, targetFilePath: 'index.js' });
-        };
         const inspected = await createTestEliminator().inspectSymbols(inputs(
             makeBundle('effect', 'const api = console.log("hello"); console.log(api);'),
             makeBundle('entry', 'export const api = 1;')

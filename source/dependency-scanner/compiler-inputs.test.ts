@@ -262,15 +262,19 @@ suite('compiler input freshness', function () {
             } ]);
         });
         for (
-            const [ status, isDirectory ] of [ [ {
-                exists: false
-            }, false ], [ {
-                exists: true,
-                isDirectory: false
-            }, false ], [ {
-                exists: true,
-                isDirectory: true
-            }, true ] ] as const
+            const [ status, isDirectory ] of [
+                [ {
+                    exists: false
+                }, false ],
+                [ {
+                    exists: true,
+                    isDirectory: false
+                }, false ],
+                [ {
+                    exists: true,
+                    isDirectory: true
+                }, true ]
+            ] as const
         ) {
             test(`validates symlink directory targets: ${JSON.stringify(status)}`, async function () {
                 const fileManager = createFakeFileManager({

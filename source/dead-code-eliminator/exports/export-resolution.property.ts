@@ -110,18 +110,20 @@ function resolutionIdentity(resolution: ExportResolution<number>): ExportResolut
         : resolution;
 }
 
-const originEntries = fastCheck.oneof(
-    fastCheck.record({
-        kind: fastCheck.constant('origin' as const),
-        origin: fastCheck.record({
-            module: fastCheck.nat({ max: 7 }),
-            name: fastCheck.constantFrom('local', 'other')
-        })
-    }),
-    fastCheck.record({
-        kind: fastCheck.constant('origin' as const),
-        origin: fastCheck.record({ name: fastCheck.constant(undefined), module: fastCheck.nat({ max: 7 }) })
+const anonymousOriginFields = {
+    kind: fastCheck.constant('origin' as const),
+    origin: fastCheck.record({ name: fastCheck.constant(undefined), module: fastCheck.nat({ max: 7 }) })
+};
+const namedOriginFields = {
+    kind: fastCheck.constant('origin' as const),
+    origin: fastCheck.record({
+        module: fastCheck.nat({ max: 7 }),
+        name: fastCheck.constantFrom('local', 'other')
     })
+};
+const originEntries = fastCheck.oneof(
+    fastCheck.record(namedOriginFields),
+    fastCheck.record(anonymousOriginFields)
 );
 
 const entries = fastCheck.oneof(
@@ -133,14 +135,15 @@ const entries = fastCheck.oneof(
     fastCheck.constant(null)
 );
 
-const moduleGraphs: fastCheck.Arbitrary<ModuleGraph> = fastCheck.array(
-    fastCheck.record({
-        closed: fastCheck.boolean(),
-        entries: fastCheck.array(fastCheck.tuple(fastCheck.constantFrom('value', 'default'), entries), {
-            maxLength: 3
-        }),
-        stars: fastCheck.uniqueArray(fastCheck.nat({ max: 7 }), { maxLength: 4 })
+const moduleGraphFields = {
+    closed: fastCheck.boolean(),
+    entries: fastCheck.array(fastCheck.tuple(fastCheck.constantFrom('value', 'default'), entries), {
+        maxLength: 3
     }),
+    stars: fastCheck.uniqueArray(fastCheck.nat({ max: 7 }), { maxLength: 4 })
+};
+const moduleGraphs: fastCheck.Arbitrary<ModuleGraph> = fastCheck.array(
+    fastCheck.record(moduleGraphFields),
     { minLength: 1, maxLength: 7 }
 );
 

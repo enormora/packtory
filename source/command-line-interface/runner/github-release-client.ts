@@ -167,17 +167,18 @@ export function createGitHubReleaseClient(dependencies: GitHubReleaseClientDepen
                     })
                 )
             );
+            const referenceRequest = octokit.request(
+                'POST /repos/{owner}/{repo}/git/refs',
+                toGitHubRequest({
+                    headers: requestHeaders,
+                    owner: dependencies.owner,
+                    repository: dependencies.repository,
+                    reference: `refs/tags/${request.tagName}`,
+                    hash: readCreatedTagHash(tag)
+                })
+            );
             await resolveGitHubResponse(
-                octokit.request(
-                    'POST /repos/{owner}/{repo}/git/refs',
-                    toGitHubRequest({
-                        headers: requestHeaders,
-                        owner: dependencies.owner,
-                        repository: dependencies.repository,
-                        reference: `refs/tags/${request.tagName}`,
-                        hash: readCreatedTagHash(tag)
-                    })
-                )
+                referenceRequest
             );
             return 'created';
         }

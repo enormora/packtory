@@ -10,7 +10,7 @@ import {
 
 suite('release-pull-request-github-client responses', function () {
     test('normalizes nullable GitHub response fields', async function () {
-        const client = createClient(createRouteFetch(
+        const routeFetch = createRouteFetch(
             new Map([
                 [ routeKey('GET', '/repos/owner/repo/pulls/12'), function () {
                     return javaScriptObjectNotationResponse(createPullRequest(12, {
@@ -39,7 +39,8 @@ suite('release-pull-request-github-client responses', function () {
                     });
                 } ]
             ])
-        ));
+        );
+        const client = createClient(routeFetch);
 
         assert.deepStrictEqual(await client.getPullRequest(12), {
             author: '',

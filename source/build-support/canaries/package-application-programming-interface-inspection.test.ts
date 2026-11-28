@@ -6,7 +6,9 @@ import { assertPresent } from '../../test-libraries/deep-subset-assertion.ts';
 import { writeCanaryPackage } from '../../test-libraries/canary-package-writer.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { withInMemoryCanaryPackages } from '../../test-libraries/in-memory-canary-packages.ts';
-import { inspectPackageApplicationProgrammingInterfaces } from './package-application-programming-interface-inspection.ts';
+import {
+    inspectPackageApplicationProgrammingInterfaces
+} from '../../test-libraries/canary-inspection.ts';
 
 type ImportProbeCall = {
     readonly cwd: string;
@@ -373,14 +375,19 @@ suite('package-api-inspection', function () {
             nodeModulesFolder,
             createProject
         }) {
-            await writeCanaryPackage({ fileManager, nodeModulesFolder }, 'missing', {
-                exports: {
-                    '.': {
-                        types: './missing.d.ts',
-                        import: './index.js'
+            await writeCanaryPackage(
+                { fileManager, nodeModulesFolder },
+                'missing',
+                {
+                    exports: {
+                        '.': {
+                            types: './missing.d.ts',
+                            import: './index.js'
+                        }
                     }
-                }
-            }, {});
+                },
+                {}
+            );
             const result = await inspectPackageApplicationProgrammingInterfaces({
                 fileManager,
                 nodeModulesFolder,

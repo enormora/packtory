@@ -30,9 +30,11 @@ function importDemand(declaration: ImportDeclaration, name: string, context: Con
             return mergeNamespaceDemand(demand, context.binding(specifier));
         }, initial);
     const namespace = clause.getNamespaceImport();
-    return namespace === undefined
-        ? named
-        : mergeNamespaceDemand(named, namespacePropertyDemand(context.binding(namespace.getParent()), name));
+    if (namespace === undefined) {
+        return named;
+    }
+    const namespaceDemand = context.binding(namespace.getParent());
+    return mergeNamespaceDemand(named, namespacePropertyDemand(namespaceDemand, name));
 }
 
 function exportDemand(declaration: ExportDeclaration, name: string, context: ConsumerContext): NamespaceDemand {

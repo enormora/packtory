@@ -12,9 +12,9 @@ import {
     type AdditionalPackageManifestAttributes
 } from './package-manifest.ts';
 
-const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
-const fileNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
-const dependencyNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
+const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u);
+const fileNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u);
+const dependencyNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u);
 const additionalAttributeKeyArbitrary = fileNameArbitrary.filter(function (key) {
     return !isForbiddenAdditionalPackageManifestAttributeName(key);
 });
@@ -135,8 +135,8 @@ function generatedConfigurationFor(configuration: GeneratedConfigurationInput): 
 const validConfigurationArbitrary = fastCheck
     .record({
         packageName: packageNameArbitrary,
-        commonSourcesFolder: fastCheck.option(fastCheck.stringMatching(/^[a-z][\d/a-z-]{0,12}$/), { nil: undefined }),
-        packageSourcesFolder: fastCheck.option(fastCheck.stringMatching(/^[a-z][\d/a-z-]{0,12}$/), { nil: undefined }),
+        commonSourcesFolder: fastCheck.option(fastCheck.stringMatching(/^[a-z][\d/a-z-]{0,12}$/u), { nil: undefined }),
+        packageSourcesFolder: fastCheck.option(fastCheck.stringMatching(/^[a-z][\d/a-z-]{0,12}$/u), { nil: undefined }),
         packageMainType: fastCheck.option(fastCheck.constant<'module'>('module'), { nil: undefined }),
         commonMainType: fastCheck.option(fastCheck.constant<'module'>('module'), { nil: undefined }),
         commonIncludeSourceMaps: fastCheck.option(fastCheck.boolean(), { nil: undefined }),

@@ -71,8 +71,9 @@ function tryBuildOptions(buildOptions: BuildAndPublishOptions): DetermineVersion
 }
 
 async function expectMissingTagFailure(processor: PackageProcessor): Promise<void> {
+    const publication = processor.tryBuildAndPublish(tryBuildOptions(providerVersioningBuildOptions()));
     await assert.rejects(
-        processor.tryBuildAndPublish(tryBuildOptions(providerVersioningBuildOptions())),
+        publication,
         { message: 'missing package tag' }
     );
 }
@@ -87,6 +88,41 @@ function createCurrentHeadRetryProcessor(scenario: CurrentHeadRetryScenario): Pr
             previousReleaseArtifacts: publishedArtifacts(scenario.artifactVersion, scenario.artifactGitHead)
         })
     });
+}
+
+function setupSoftwareBillOfMaterialsScenario(
+    softwareBillOfMaterialsResult: SoftwareBillOfMaterialsResult
+): SoftwareBillOfMaterialsScenario {
+    const bundle = createVersionedBundle();
+    const analyzedBundle = createAnalyzedBundle();
+    const generateSoftwareBillOfMaterials = fake.resolves(softwareBillOfMaterialsResult);
+    const checkBundleAlreadyPublished = fake.resolves({
+        alreadyPublishedAsLatest: false,
+        previousReleaseArtifacts: Maybe.nothing()
+    });
+    const { processor } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        addVersion: fake.returns(bundle),
+        checkBundleAlreadyPublished,
+        generateSoftwareBillOfMaterials
+    });
+    return { bundle, analyzedBundle, generateSoftwareBillOfMaterials, checkBundleAlreadyPublished, processor };
+}
+
+function assertGeneratedSoftwareBillOfMaterials(
+    generateSoftwareBillOfMaterials: SinonSpy,
+    bundle: VersionedBundleWithManifest,
+    buildOptions: BuildAndPublishOptions
+): void {
+    assert.strictEqual(generateSoftwareBillOfMaterials.callCount, 2);
+    const expectedSiblings = [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
+    assert.deepStrictEqual(generateSoftwareBillOfMaterials.firstCall.args, [
+        bundle,
+        expectedSiblings,
+        { access: 'public', softwareBillOfMaterials: { enabled: true } }
+    ]);
+    const secondCallBundle = generateSoftwareBillOfMaterials.secondCall.args[0] as VersionedBundleWithManifest;
+    assert.strictEqual(secondCallBundle.version, '1.2.4');
 }
 
 suite('package-processor publish', function () {
@@ -279,7 +315,7 @@ suite('package-processor publish', function () {
             const emit = fake();
             const { processor } = createProcessor({
                 determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
-                addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+                addVersion: fake.returns(createVersionedBundle()),
                 increaseVersion: fake.returns(createVersionedBundle('package-a', '1.2.4')),
                 emit,
                 hasSubscribers: fake(function (eventName: string) {
@@ -337,7 +373,7 @@ suite('package-processor publish', function () {
 
         test('buildAndPublish() publishes the rebuilt bundle and emits publishing progress', async function () {
             const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
-            const addVersion = fake.returns(createVersionedBundle('package-a', '1.2.3'));
+            const addVersion = fake.returns(createVersionedBundle());
             const publish = fake.resolves(publishedToRegistry);
             const { processor, emit } = createProcessor({
                 determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
@@ -386,7 +422,7 @@ suite('package-processor publish', function () {
             const publish = fake.resolves(stagedForApproval('stage-123'));
             const { processor } = createProcessor({
                 determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
-                addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+                addVersion: fake.returns(createVersionedBundle()),
                 increaseVersion: fake.returns(rebuiltBundle),
                 publish
             });
@@ -410,7 +446,7 @@ suite('package-processor publish', function () {
             const publish = fake.resolves(publishedToRegistry);
             const { processor } = createProcessor({
                 determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
-                addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+                addVersion: fake.returns(createVersionedBundle()),
                 increaseVersion: fake.returns(rebuiltBundle),
                 generateSoftwareBillOfMaterials: fake.resolves([ softwareBillOfMaterialsFile ]),
                 publish
@@ -430,41 +466,6 @@ suite('package-processor publish', function () {
             );
         });
     });
-
-    function setupSoftwareBillOfMaterialsScenario(
-        softwareBillOfMaterialsResult: SoftwareBillOfMaterialsResult
-    ): SoftwareBillOfMaterialsScenario {
-        const bundle = createVersionedBundle('package-a', '1.2.3');
-        const analyzedBundle = createAnalyzedBundle();
-        const generateSoftwareBillOfMaterials = fake.resolves(softwareBillOfMaterialsResult);
-        const checkBundleAlreadyPublished = fake.resolves({
-            alreadyPublishedAsLatest: false,
-            previousReleaseArtifacts: Maybe.nothing()
-        });
-        const { processor } = createProcessor({
-            determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
-            addVersion: fake.returns(bundle),
-            checkBundleAlreadyPublished,
-            generateSoftwareBillOfMaterials
-        });
-        return { bundle, analyzedBundle, generateSoftwareBillOfMaterials, checkBundleAlreadyPublished, processor };
-    }
-
-    function assertGeneratedSoftwareBillOfMaterials(
-        generateSoftwareBillOfMaterials: SinonSpy,
-        bundle: VersionedBundleWithManifest,
-        buildOptions: BuildAndPublishOptions
-    ): void {
-        assert.strictEqual(generateSoftwareBillOfMaterials.callCount, 2);
-        const expectedSiblings = [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
-        assert.deepStrictEqual(generateSoftwareBillOfMaterials.firstCall.args, [
-            bundle,
-            expectedSiblings,
-            { access: 'public', softwareBillOfMaterials: { enabled: true } }
-        ]);
-        const secondCallBundle = generateSoftwareBillOfMaterials.secondCall.args[0] as VersionedBundleWithManifest;
-        assert.strictEqual(secondCallBundle.version, '1.2.4');
-    }
 
     suite('sbom extra files', function () {
         test('tryBuildAndPublish() invokes the softwareBillOfMaterialsFileBuilder for the pre-bump bundle to feed the already-published check, then again for the post-bump bundle', async function () {

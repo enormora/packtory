@@ -3,7 +3,7 @@ import fastCheck from 'fast-check';
 import { suite, test } from 'mocha';
 import { validateConfiguration } from './validation.ts';
 
-const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/);
+const packageNameArbitrary = fastCheck.stringMatching(/^[a-z][\da-z-]{0,7}$/u);
 
 type GeneratedPackageConfiguration = {
     readonly name: string;
@@ -23,20 +23,21 @@ function createValidPackage(name: string): GeneratedPackageConfiguration {
 
 suite('validation', function () {
     test('validateConfiguration() returns Result.err for malformed non-config values', function () {
+        const validationProperty = fastCheck.property(
+            fastCheck.oneof(
+                fastCheck.boolean(),
+                fastCheck.integer(),
+                fastCheck.string(),
+                fastCheck.constant(null),
+                fastCheck.constant(undefined)
+            ),
+            function (value) {
+                const result = validateConfiguration(value);
+                assert.strictEqual(result.isErr, true);
+            }
+        );
         fastCheck.assert(
-            fastCheck.property(
-                fastCheck.oneof(
-                    fastCheck.boolean(),
-                    fastCheck.integer(),
-                    fastCheck.string(),
-                    fastCheck.constant(null),
-                    fastCheck.constant(undefined)
-                ),
-                function (value) {
-                    const result = validateConfiguration(value);
-                    assert.strictEqual(result.isErr, true);
-                }
-            )
+            validationProperty
         );
     });
 

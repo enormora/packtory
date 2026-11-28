@@ -24,85 +24,86 @@ suite('nested-folders', function () {
             deadCodeElimination: { enabled: false }
         });
 
+        const expectedBundle = asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageManifest: {
+                name: 'the-package-name',
+                sideEffects: false,
+                type: 'module',
+                version: '42.0.0'
+            },
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/nested/foo.js') ]),
+                    fileDescription: {
+                        content: "import { foo } from './nested/foo.js';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                },
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/nested/deep/bar.js') ]),
+                    fileDescription: {
+                        content: "import { bar } from './deep/bar.js';\n\nexport const foo = 'foo';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/nested/foo.js'),
+                        targetFilePath: 'nested/foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('bar', 'foo')
+                },
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/nested/deep/folder/baz.js') ]),
+                    fileDescription: {
+                        content: "import { baz } from './folder/baz.js';\n\nexport const bar = 'bar';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/nested/deep/bar.js'),
+                        targetFilePath: 'nested/deep/bar.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('baz', 'bar')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export const baz = 'baz';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/nested/deep/folder/baz.js'),
+                        targetFilePath: 'nested/deep/folder/baz.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('baz')
+                }
+            ],
+            mainFile: {
+                content: "import { foo } from './nested/foo.js';\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            dependencies: {},
+            packageType: 'module',
+            peerDependencies: {},
+            name: 'the-package-name',
+            sideEffectsField: false,
+            typesMainFile: undefined,
+            version: '42.0.0'
+        });
         assert.deepStrictEqual(
             result,
-            asImplicitExportsBundle({
-                additionalAttributes: {},
-                packageManifest: {
-                    name: 'the-package-name',
-                    sideEffects: false,
-                    type: 'module',
-                    version: '42.0.0'
-                },
-                manifestFile: {
-                    isExecutable: false,
-                    content: '',
-                    filePath: 'package.json'
-                },
-                contents: [
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/nested/foo.js') ]),
-                        fileDescription: {
-                            content: "import { foo } from './nested/foo.js';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.js'),
-                            targetFilePath: 'entry.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/nested/deep/bar.js') ]),
-                        fileDescription: {
-                            content: "import { bar } from './deep/bar.js';\n\nexport const foo = 'foo';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/nested/foo.js'),
-                            targetFilePath: 'nested/foo.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar', 'foo')
-                    },
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/nested/deep/folder/baz.js') ]),
-                        fileDescription: {
-                            content: "import { baz } from './folder/baz.js';\n\nexport const bar = 'bar';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/nested/deep/bar.js'),
-                            targetFilePath: 'nested/deep/bar.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('baz', 'bar')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "export const baz = 'baz';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/nested/deep/folder/baz.js'),
-                            targetFilePath: 'nested/deep/folder/baz.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('baz')
-                    }
-                ],
-                mainFile: {
-                    content: "import { foo } from './nested/foo.js';\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                dependencies: {},
-                packageType: 'module',
-                peerDependencies: {},
-                name: 'the-package-name',
-                sideEffectsField: false,
-                typesMainFile: undefined,
-                version: '42.0.0'
-            })
+            expectedBundle
         );
     });
 });

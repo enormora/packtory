@@ -48,6 +48,7 @@ suite('dependency-existence-validation', function () {
     });
 
     test('validateDependenciesExist returns no issues when a package has no declared dependencies', function () {
-        assert.deepStrictEqual(validateDependenciesExist(configurations(packageWith('a'))), []);
+        const issues = validateDependenciesExist(configurations(packageWith('a')));
+        assert.deepStrictEqual(issues, []);
     });
 });

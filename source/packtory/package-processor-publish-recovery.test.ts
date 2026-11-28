@@ -82,7 +82,7 @@ function createConfirmedPublishScenario(): ConfirmedPublishScenario {
     const { processor } = createProcessor({
         determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
         findCurrentHeadPublishedVersion,
-        addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+        addVersion: fake.returns(createVersionedBundle()),
         increaseVersion: fake.returns(rebuiltBundle),
         checkBundleAlreadyPublished,
         publish: fake.rejects(publishFailure)
@@ -97,7 +97,7 @@ function createUnconfirmedPublishProcessor(
     const processorOverrides = {
         determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
         findCurrentHeadPublishedVersion: overrides.findCurrentHeadPublishedVersion ?? fake.resolves(undefined),
-        addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+        addVersion: fake.returns(createVersionedBundle()),
         increaseVersion: fake.returns(createVersionedBundle('package-a', '1.2.4')),
         publish: fake.rejects(publishFailure),
         ...overrides.checkBundleAlreadyPublished === undefined

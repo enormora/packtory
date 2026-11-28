@@ -28,6 +28,36 @@ type ResolvedImportLiteral = {
     readonly result: ReturnType<typeof resolveTypescriptModuleFilePath>;
 };
 
+function expectImportMetadataResolveReferences(expectation: ImportMetadataResolveExpectation): void {
+    const project = createProject({
+        withFiles: [ { filePath: 'main.ts', content: expectation.mainContent } ]
+    });
+    const extraFiles = expectation.extraFiles ?? [];
+    for (const file of extraFiles) {
+        project.createSourceFile(file.filePath, file.content);
+    }
+    const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
+    assert.deepStrictEqual(moduleReferenceShapes(result), expectation.expected);
+}
+
+function resolveFirstImportLiteral(files: readonly SourceFileFixture[]): ResolvedImportLiteral {
+    const project = createProject({ withFiles: files });
+    const sourceFile = project.getSourceFileOrThrow('main.ts');
+    const [ literal ] = sourceFile.getImportStringLiterals();
+    if (literal === undefined) {
+        assert.fail('Expected an import literal to exist');
+    }
+    return {
+        project,
+        result: resolveTypescriptModuleFilePath({
+            moduleSpecifier: literal.getLiteralValue(),
+            containingSourceFile: sourceFile,
+            containingFilePath: sourceFile.getFilePath(),
+            resolutionMode: 'type'
+        })
+    };
+}
+
 suite('source-file-references import.meta and package assets', function () {
     suite('package-owned assets', function () {
         test('findPackageOwnedAssetFilePath() searches the current folder and its ancestors up to root', function () {
@@ -105,18 +135,6 @@ suite('source-file-references import.meta and package assets', function () {
     });
 
     suite('import.meta.resolve references', function () {
-        function expectImportMetadataResolveReferences(expectation: ImportMetadataResolveExpectation): void {
-            const project = createProject({
-                withFiles: [ { filePath: 'main.ts', content: expectation.mainContent } ]
-            });
-            const extraFiles = expectation.extraFiles ?? [];
-            for (const file of extraFiles) {
-                project.createSourceFile(file.filePath, file.content);
-            }
-            const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageManifestPath);
-            assert.deepStrictEqual(moduleReferenceShapes(result), expectation.expected);
-        }
-
         suite('resolved references', function () {
             test('returns local code references for import.meta.resolve() pointing at a sibling source file', function () {
                 expectImportMetadataResolveReferences({
@@ -263,24 +281,6 @@ suite('source-file-references import.meta and package assets', function () {
     });
 
     suite('literal resolution', function () {
-        function resolveFirstImportLiteral(files: readonly SourceFileFixture[]): ResolvedImportLiteral {
-            const project = createProject({ withFiles: files });
-            const sourceFile = project.getSourceFileOrThrow('main.ts');
-            const [ literal ] = sourceFile.getImportStringLiterals();
-            if (literal === undefined) {
-                assert.fail('Expected an import literal to exist');
-            }
-            return {
-                project,
-                result: resolveTypescriptModuleFilePath({
-                    moduleSpecifier: literal.getLiteralValue(),
-                    containingSourceFile: sourceFile,
-                    containingFilePath: sourceFile.getFilePath(),
-                    resolutionMode: 'type'
-                })
-            };
-        }
-
         test('resolveTypescriptModuleFilePath() returns undefined when ts cannot resolve the module', function () {
             const { result } = resolveFirstImportLiteral([
                 { filePath: 'main.ts', content: 'import {} from "not-resolved";' }

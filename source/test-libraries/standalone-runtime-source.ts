@@ -3,10 +3,11 @@ import { createSourcePreparation } from '../source-transformation/source-prepara
 import { createExpressionPurityChecker } from '../dead-code-eliminator/expression-purity.ts';
 import { prepareBundleSources } from '../dead-code-eliminator/transform/bundle-source-preparation.ts';
 
+const resolveModule = function (): undefined {
+    return undefined;
+};
+
 export function prepareStandaloneRuntimeSource(source: SourceFile): void {
-    const resolveModule = function (): undefined {
-        return undefined;
-    };
     prepareBundleSources(
         [ createSourcePreparation(source) ],
         [ {

@@ -8,6 +8,7 @@ import {
 } from '../command-line-interface/runner/release-handler.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../packtory/packtory.ts';
+import { createReleasePlanOutcome } from './changelog-handler-fixtures.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createGitHubReleaseClientFixture } from './runner-test-support.ts';
 
@@ -54,17 +55,8 @@ export function currentHeadPublishedPackage(overrides: Partial<ReleasePlanPackag
     });
 }
 
-function releasePlanOutcomeFrom(result: ReleasePlanResult): ReleasePlanOutcome {
-    return {
-        result,
-        getReport() {
-            return createBuildReportFixture();
-        }
-    };
-}
-
 function releasePlanOutcome(packages: readonly ReleasePlanPackage[]): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(Result.ok({ packages }));
+    return createReleasePlanOutcome(Result.ok({ packages }));
 }
 
 export function publishResult(name: string, version: string): BuildAndPublishResult {
@@ -116,7 +108,7 @@ export function failedPartialPublish(): SinonSpy {
 
 export function failedReleasePlan(): SinonSpy {
     return fake.resolves(
-        releasePlanOutcomeFrom(
+        createReleasePlanOutcome(
             Result.err({ type: 'configuration', issues: [ 'invalid release plan' ] }) as ReleasePlanResult
         )
     );
@@ -176,13 +168,14 @@ function createPlanRelease(packages: readonly ReleasePlanPackage[]): SinonSpy {
     return fake.resolves(releasePlanOutcome(packages));
 }
 
+async function unusedPacktoryMethod(): Promise<never> {
+    throw new Error('unused packtory method');
+}
+
 function createPacktory(
     buildAndPublishAll: SinonSpy,
     planReleaseAgainstLatestPublished: SinonSpy
 ): Packtory {
-    async function unusedPacktoryMethod(): Promise<never> {
-        throw new Error('unused packtory method');
-    }
     return {
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll,

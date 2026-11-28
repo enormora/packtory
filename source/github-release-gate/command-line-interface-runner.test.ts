@@ -69,22 +69,23 @@ suite('github-release-gate-cli-runner', function () {
                 const fileManager = createFakeFileManager();
                 const loadPacktoryConfiguration = fake.resolves({});
                 const analyzeReleaseAgainstLatestPublished = fake.resolves(substantiveReleaseAnalysis());
+                const releaseGateRun = runGitHubReleaseGate({
+                    analyzeReleaseAgainstLatestPublished,
+                    fetch: request,
+                    fileManager,
+                    getEnvironmentVariable: createEnvironmentVariableReader(createBaseEnvironment({
+                        GITHUB_API_BASE_URL: applicationProgrammingInterfaceBaseAddress,
+                        CHECKED_OUT_HEAD_HASH: 'different-head',
+                        QUIET_PERIOD_MINUTES: '0'
+                    })),
+                    loadPacktoryConfiguration,
+                    now() {
+                        return new Date('2026-05-20T12:00:00.000Z');
+                    },
+                    standardOutputWrite: fake()
+                });
                 await assert.rejects(
-                    runGitHubReleaseGate({
-                        analyzeReleaseAgainstLatestPublished,
-                        fetch: request,
-                        fileManager,
-                        getEnvironmentVariable: createEnvironmentVariableReader(createBaseEnvironment({
-                            GITHUB_API_BASE_URL: applicationProgrammingInterfaceBaseAddress,
-                            CHECKED_OUT_HEAD_HASH: 'different-head',
-                            QUIET_PERIOD_MINUTES: '0'
-                        })),
-                        loadPacktoryConfiguration,
-                        now() {
-                            return new Date('2026-05-20T12:00:00.000Z');
-                        },
-                        standardOutputWrite: fake()
-                    }),
+                    releaseGateRun,
                     /^Error: Checked-out commit different-head differs from main HEAD abc123; retry from main$/u
                 );
                 assert.strictEqual(loadPacktoryConfiguration.callCount, 0);

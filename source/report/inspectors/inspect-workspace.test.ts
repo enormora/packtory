@@ -151,9 +151,9 @@ suite('inspect workspace', function () {
             }),
             { dependencies: undefined, peerDependencies: undefined }
         );
-        assert.deepStrictEqual({ modules: snapshot.modules, executables: snapshot.executables }, {
-            modules: [],
-            executables: '{"tool":"./cli.js"}'
-        });
+        assert.deepStrictEqual(
+            { modules: snapshot.modules, executables: snapshot.executables },
+            { modules: [], executables: '{"tool":"./cli.js"}' }
+        );
     });
 });

@@ -16,34 +16,37 @@ suite('bundle-dependency-grouping', function () {
     });
 
     test('groupBundleDependencies routes a linked dep to dependencies when it is in bundleDependencies', function () {
+        const groupedDependencies = groupBundleDependencies(
+            { linkedBundleDependencies: new Map([ [ 'my-dep', externalDependency('my-dep') ] ]) },
+            [],
+            [ { name: 'my-dep', version: '2.0.0' } ]
+        );
         assert.deepStrictEqual(
-            groupBundleDependencies(
-                { linkedBundleDependencies: new Map([ [ 'my-dep', externalDependency('my-dep') ] ]) },
-                [],
-                [ { name: 'my-dep', version: '2.0.0' } ]
-            ),
+            groupedDependencies,
             { dependencies: { 'my-dep': '2.0.0' }, peerDependencies: {} }
         );
     });
 
     test('groupBundleDependencies routes a linked dep to peerDependencies when it is in bundlePeerDependencies', function () {
+        const groupedDependencies = groupBundleDependencies(
+            { linkedBundleDependencies: new Map([ [ 'my-peer', externalDependency('my-peer') ] ]) },
+            [ { name: 'my-peer', version: '3.0.0' } ],
+            []
+        );
         assert.deepStrictEqual(
-            groupBundleDependencies(
-                { linkedBundleDependencies: new Map([ [ 'my-peer', externalDependency('my-peer') ] ]) },
-                [ { name: 'my-peer', version: '3.0.0' } ],
-                []
-            ),
+            groupedDependencies,
             { dependencies: {}, peerDependencies: { 'my-peer': '3.0.0' } }
         );
     });
 
     test('groupBundleDependencies prefers the peer entry when a name appears in both peers and dependencies', function () {
+        const groupedDependencies = groupBundleDependencies(
+            { linkedBundleDependencies: new Map([ [ 'shared', externalDependency('shared') ] ]) },
+            [ { name: 'shared', version: '3.0.0' } ],
+            [ { name: 'shared', version: '2.0.0' } ]
+        );
         assert.deepStrictEqual(
-            groupBundleDependencies(
-                { linkedBundleDependencies: new Map([ [ 'shared', externalDependency('shared') ] ]) },
-                [ { name: 'shared', version: '3.0.0' } ],
-                [ { name: 'shared', version: '2.0.0' } ]
-            ),
+            groupedDependencies,
             { dependencies: {}, peerDependencies: { shared: '3.0.0' } }
         );
     });

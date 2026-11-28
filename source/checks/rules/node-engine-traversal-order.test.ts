@@ -12,16 +12,17 @@ suite('Node engine traversal diagnostics', function () {
     test('checks distinct generated siblings independently', async function () {
         const rule = createNodeEngineCompatibilityRule({ fileManager: engineFileManager({}, {}, Array.of<string>()) });
         const fields = { engines: { node: '>=22' }, dependencies: { first: '*', second: '*' } };
+        const rootBundle = analyzedBundle({
+            name: 'root',
+            linkedBundleDependencies: new Map([
+                [ 'first', externalDependency('first', [ 'index.js' ]) ],
+                [ 'second', externalDependency('second', [ 'index.js' ]) ]
+            ])
+        });
         const issues = await rule.run({
             ...engineCheckInput(fields),
             bundles: [
-                analyzedBundle({
-                    name: 'root',
-                    linkedBundleDependencies: new Map([
-                        [ 'first', externalDependency('first', [ 'index.js' ]) ],
-                        [ 'second', externalDependency('second', [ 'index.js' ]) ]
-                    ])
-                }),
+                rootBundle,
                 analyzedBundle({ name: 'first' }),
                 analyzedBundle({ name: 'second' })
             ],
@@ -90,14 +91,15 @@ suite('Node engine traversal diagnostics', function () {
     test('rejects a generated sibling manifest that has no corresponding analyzed bundle', async function () {
         const rule = createNodeEngineCompatibilityRule({ fileManager: engineFileManager({}, {}, Array.of<string>()) });
         const fields = { engines: { node: '>=22' }, dependencies: { sibling: '*' } };
+        const rootBundle = analyzedBundle({
+            name: 'root',
+            linkedBundleDependencies: new Map([
+                [ 'sibling', externalDependency('sibling', [ 'index.js' ]) ]
+            ])
+        });
         const issues = await rule.run({
             ...engineCheckInput(fields),
-            bundles: [ analyzedBundle({
-                name: 'root',
-                linkedBundleDependencies: new Map([
-                    [ 'sibling', externalDependency('sibling', [ 'index.js' ]) ]
-                ])
-            }) ],
+            bundles: [ rootBundle ],
             publishedPackages: new Map([
                 [ 'root', enginePublishedPackage('root', fields) ],
                 [ 'sibling', enginePublishedPackage('sibling', {}) ]

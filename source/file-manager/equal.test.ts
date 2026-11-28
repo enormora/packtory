@@ -29,7 +29,7 @@ suite('equal', function () {
         assert.strictEqual(
             areFileDescriptionEqual(
                 createFileDescription('a.js', 'x', true),
-                createFileDescription('a.js', 'x', false)
+                createFileDescription('a.js', 'x')
             ),
             false
         );

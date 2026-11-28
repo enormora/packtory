@@ -3,7 +3,9 @@ import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
+import {
+    assertValidDeadCodeEliminationOutput
+} from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { runNodeProbe } from '../../source/test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../source/test-libraries/deep-subset-assertion.ts';
 import { loadPackageManifest } from '../load-package-manifest.ts';
@@ -12,6 +14,11 @@ import { runEmittedPackageApplicationProgrammingInterface } from './emitted-pack
 const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-class-heritage');
 const entryPath = path.join(fixturePath, 'source/index.js');
 const expected = [ 'TypeError', 'TypeError', 'TypeError', 'TypeError', 'TypeError', 42 ];
+
+const originalProbeScript = `
+                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
+                    console.log(JSON.stringify(await module.api()));
+                `;
 
 suite('dead-code-elimination class heritage', function () {
     test('preserves class definition exceptions through the production pipeline', async function () {
@@ -38,12 +45,10 @@ suite('dead-code-elimination class heritage', function () {
 
         assert.strictEqual(safeModule.fileDescription.content.includes('class'), false);
         assertValidDeadCodeEliminationOutput('class heritage', [ resolvedPackage.analyzedBundle ]);
+
         assert.deepStrictEqual(
             await Promise.all([
-                runNodeProbe(`
-                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
-                    console.log(JSON.stringify(await module.api()));
-                `),
+                runNodeProbe(originalProbeScript),
                 runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
             ]),
             [ expected, expected ]

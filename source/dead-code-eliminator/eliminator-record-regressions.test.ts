@@ -77,11 +77,16 @@ suite('record behavior through the DCE pipeline', function () {
         );
         const [ field ] = access.getExpression().getDescendantsOfKind(SyntaxKind.PropertyAssignment);
         assertDefined(field);
-        assert.deepStrictEqual({
-            declaredBrand: TypeScriptMorphNode.isPrivateIdentifier(holder.getPropertyOrThrow('#answer').getNameNode()),
-            accessedBrand: access.getNameNode().getText(),
-            ordinaryKey: field.getNameNode().asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText()
-        }, { declaredBrand: true, accessedBrand: '#answer', ordinaryKey: '#answer' });
+        assert.deepStrictEqual(
+            {
+                declaredBrand: TypeScriptMorphNode.isPrivateIdentifier(
+                    holder.getPropertyOrThrow('#answer').getNameNode()
+                ),
+                accessedBrand: access.getNameNode().getText(),
+                ordinaryKey: field.getNameNode().asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText()
+            },
+            { declaredBrand: true, accessedBrand: '#answer', ordinaryKey: '#answer' }
+        );
         assert.strictEqual(createSourceEvaluation(source).primitiveValue(access), undefined);
         assert.deepStrictEqual(
             source.getExportSymbols().map(function (symbol) {

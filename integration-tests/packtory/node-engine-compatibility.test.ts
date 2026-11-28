@@ -104,13 +104,16 @@ suite('Node engine compatibility in the package pipeline', function () {
         try {
             const resolved = await resolveAndLinkAll(fixture.configuration);
             assertEngineFailure(resolved.result);
-            const published = await buildAndPublishAll({
-                ...fixture.configuration,
-                registrySettings: {
-                    registryAddress: 'http://127.0.0.1:1',
-                    authentication: { type: 'bearer-token', token: 'unused-test-token' }
-                }
-            }, { dryRun: false, stage: false });
+            const published = await buildAndPublishAll(
+                {
+                    ...fixture.configuration,
+                    registrySettings: {
+                        registryAddress: 'http://127.0.0.1:1',
+                        authentication: { type: 'bearer-token', token: 'unused-test-token' }
+                    }
+                },
+                { dryRun: false, stage: false }
+            );
             assertEngineFailure(published.result);
         } finally {
             await rm(fixture.folder, { recursive: true, force: true });

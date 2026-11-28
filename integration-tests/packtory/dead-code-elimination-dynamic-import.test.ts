@@ -3,7 +3,9 @@ import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
+import {
+    assertValidDeadCodeEliminationOutput
+} from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { runNodeProbe } from '../../source/test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../source/test-libraries/deep-subset-assertion.ts';
 import { loadPackageManifest } from '../load-package-manifest.ts';
@@ -17,10 +19,16 @@ const expected = {
     events: [ 'entry', 'start-import', 'lazy', 'destructured' ]
 };
 
+const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-dynamic-import');
+const entryPath = path.join(fixturePath, 'source/index.js');
+
+const originalProbeScript = `
+                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
+                    console.log(JSON.stringify(await module.api()));
+                `;
+
 suite('dead-code-elimination dynamic import', function () {
     test('preserves dynamic namespace exports and lazy evaluation through the production pipeline', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-dynamic-import');
-        const entryPath = path.join(fixturePath, 'source/index.js');
         const outcome = await resolveAndLinkAll({
             commonPackageSettings: {
                 sourcesFolder: path.join(fixturePath, 'source'),
@@ -46,12 +54,10 @@ suite('dead-code-elimination dynamic import', function () {
             false
         );
         assertValidDeadCodeEliminationOutput('dynamic import', [ resolvedPackage.analyzedBundle ]);
+
         assert.deepStrictEqual(
             await Promise.all([
-                runNodeProbe(`
-                    const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
-                    console.log(JSON.stringify(await module.api()));
-                `),
+                runNodeProbe(originalProbeScript),
                 runEmittedPackageApplicationProgrammingInterface(resolvedPackage, 'index.js')
             ]),
             [ expected, expected ]

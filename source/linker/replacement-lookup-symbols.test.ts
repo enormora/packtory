@@ -111,9 +111,10 @@ describe('replacement-lookup symbol reachability', function () {
     });
 
     it('checks each request against its own export requirements', function () {
-        const lookup = createPathReplacementLookup([], [
-            peerEntryBundle('export type { Public } from "./internal.js";\n')
-        ]);
+        const lookup = createPathReplacementLookup(
+            [],
+            [ peerEntryBundle('export type { Public } from "./internal.js";\n') ]
+        );
 
         assert.deepStrictEqual(
             lookup([ namedRequest('/b/internal.d.ts', [ 'Public' ]) ]).importPathReplacements.get('/b/internal.d.ts'),
@@ -131,12 +132,14 @@ describe('replacement-lookup symbol reachability', function () {
     });
 
     it('uses the peer contents supplied to each lookup', function () {
-        const publicLookup = createPathReplacementLookup([], [
-            peerEntryBundle('export type { Public } from "./internal.js";\n')
-        ]);
-        const privateLookup = createPathReplacementLookup([], [
-            peerEntryBundle('export type { Private } from "./internal.js";\n')
-        ]);
+        const publicLookup = createPathReplacementLookup(
+            [],
+            [ peerEntryBundle('export type { Public } from "./internal.js";\n') ]
+        );
+        const privateLookup = createPathReplacementLookup(
+            [],
+            [ peerEntryBundle('export type { Private } from "./internal.js";\n') ]
+        );
         const requests = [ namedRequest('/b/internal.d.ts', [ 'Public' ]) ];
 
         assert.strictEqual(publicLookup(requests).importPathReplacements.size, 1);

@@ -53,10 +53,10 @@ suite('namespace consumers', function () {
                 'import type {Value} from "./library.js";export type * from "./library.js";const local=1;export {local};',
             'library.js': 'export const Value=42;'
         });
-        assert.deepStrictEqual({ count: graph.consumers.size, unknown: graph.unknownDynamic }, {
-            count: 0,
-            unknown: false
-        });
+        assert.deepStrictEqual(
+            { count: graph.consumers.size, unknown: graph.unknownDynamic },
+            { count: 0, unknown: false }
+        );
     });
 
     test('does not index unresolved external targets as local consumers', function () {
@@ -64,10 +64,10 @@ suite('namespace consumers', function () {
             'index.js':
                 'import * as ns from "external-package";export * from "external-package";export async function probe(){return import("external-package");}'
         });
-        assert.deepStrictEqual({ count: graph.consumers.size, unknown: graph.unknownDynamic }, {
-            count: 0,
-            unknown: false
-        });
+        assert.deepStrictEqual(
+            { count: graph.consumers.size, unknown: graph.unknownDynamic },
+            { count: 0, unknown: false }
+        );
     });
 
     test('marks a nonliteral dynamic import as observing unknown modules', function () {

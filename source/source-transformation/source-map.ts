@@ -75,6 +75,14 @@ function recomposeWithTransform(originalMap: string, transform: SourceMapTransfo
     if (!translated.sawMapping) {
         return originalMap;
     }
+    const mappings = encodedMappings(presortedDecodedMap({
+        version: 3,
+        sources: Array.from(traceMap.sources),
+        names: Array.from(traceMap.names),
+        mappings: translated.mappings.map(function (line) {
+            return Array.from(line);
+        })
+    }));
     return JSON.stringify({
         version: 3,
         file: traceMap.file === null ? undefined : traceMap.file,
@@ -82,14 +90,7 @@ function recomposeWithTransform(originalMap: string, transform: SourceMapTransfo
         sources: traceMap.sources,
         sourcesContent: traceMap.sourcesContent,
         names: traceMap.names,
-        mappings: encodedMappings(presortedDecodedMap({
-            version: 3,
-            sources: Array.from(traceMap.sources),
-            names: Array.from(traceMap.names),
-            mappings: translated.mappings.map(function (line) {
-                return Array.from(line);
-            })
-        }))
+        mappings
     });
 }
 

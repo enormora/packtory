@@ -27,77 +27,78 @@ suite('package-types', function () {
             deadCodeElimination: { enabled: false }
         });
 
+        const expectedBundle = asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageManifest: {
+                dependencies: { 'example-module': '1.2.3' },
+                name: 'the-package-name',
+                sideEffects: false,
+                type: 'module',
+                version: '42.0.0'
+            },
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
+                    fileDescription: {
+                        content: "import { foo } from './foo.js';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                },
+                {
+                    directDependencies: new Set([ path.join(fixture, 'source/bar.js') ]),
+                    fileDescription: {
+                        content:
+                            "import { bar } from './bar.js';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('bar', 'path', 'foo')
+                },
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
+                        isExecutable: false,
+                        inputFilePath: path.join(fixture, 'source/bar.js'),
+                        targetFilePath: 'bar.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('example', 'bar')
+                }
+            ],
+            dependencies: {
+                'example-module': '1.2.3'
+            },
+            mainFile: {
+                content: "import { foo } from './foo.js';\n",
+                isExecutable: false,
+                inputFilePath: path.join(fixture, 'source/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: false,
+            typesMainFile: undefined,
+            version: '42.0.0'
+        });
         assert.deepStrictEqual(
             result,
-            asImplicitExportsBundle({
-                additionalAttributes: {},
-                packageManifest: {
-                    dependencies: { 'example-module': '1.2.3' },
-                    name: 'the-package-name',
-                    sideEffects: false,
-                    type: 'module',
-                    version: '42.0.0'
-                },
-                manifestFile: {
-                    isExecutable: false,
-                    content: '',
-                    filePath: 'package.json'
-                },
-                contents: [
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/foo.js') ]),
-                        fileDescription: {
-                            content: "import { foo } from './foo.js';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/entry.js'),
-                            targetFilePath: 'entry.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set([ path.join(fixture, 'source/bar.js') ]),
-                        fileDescription: {
-                            content:
-                                "import { bar } from './bar.js';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/foo.js'),
-                            targetFilePath: 'foo.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar', 'path', 'foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
-                            isExecutable: false,
-                            inputFilePath: path.join(fixture, 'source/bar.js'),
-                            targetFilePath: 'bar.js'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('example', 'bar')
-                    }
-                ],
-                dependencies: {
-                    'example-module': '1.2.3'
-                },
-                mainFile: {
-                    content: "import { foo } from './foo.js';\n",
-                    isExecutable: false,
-                    inputFilePath: path.join(fixture, 'source/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                name: 'the-package-name',
-                packageType: 'module',
-                peerDependencies: {},
-                sideEffectsField: false,
-                typesMainFile: undefined,
-                version: '42.0.0'
-            })
+            expectedBundle
         );
     });
 

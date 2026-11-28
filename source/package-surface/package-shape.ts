@@ -3,12 +3,15 @@ import { isDefined, pickBy } from 'remeda';
 import type { PackageRoot } from '../common/package-root.ts';
 import type { PackageSurface } from './surface.ts';
 
-export type RootFileDescription = PackageRoot<{
-    readonly inputFilePath: string;
-    readonly targetFilePath: string;
-    readonly isExecutable: boolean;
-    readonly content: string;
-}, { readonly inputFilePath: string; readonly targetFilePath: string; }>;
+export type RootFileDescription = PackageRoot<
+    {
+        readonly inputFilePath: string;
+        readonly targetFilePath: string;
+        readonly isExecutable: boolean;
+        readonly content: string;
+    },
+    { readonly inputFilePath: string; readonly targetFilePath: string; }
+>;
 
 export type BundleLike = {
     readonly name: string;

@@ -238,6 +238,22 @@ function createModeProject(
     };
 }
 
+function generatedPackageFiles(packageName: string, packageFiles: readonly PackageFile[]): readonly PackageFile[] {
+    return [
+        {
+            filePath: '.packtory-consumer-entrypoints.ts',
+            content: publicEntrypointSource(packageName, packageFiles)
+        },
+        { filePath: '.packtory-javascript-imports.ts', content: javaScriptPackageImportSource(packageFiles) }
+    ]
+        .filter(function (file) {
+            return file.content.length > 0;
+        })
+        .map(function (file) {
+            return { filePath: file.filePath, content: `${file.content}\n` };
+        });
+}
+
 export function createDeclarationProjectFactory(
     dependencies: DeclarationProjectDependencies
 ): DeclarationProjectsFactory {
@@ -262,7 +278,7 @@ export function createDeclarationProjectFactory(
         );
         for (const packageFile of sourceFiles) {
             const { filePath } = packageFile;
-            if (path.basename(packageFile.filePath) === 'package.json') {
+            if (path.basename(filePath) === 'package.json') {
                 project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
             } else {
                 project.createSourceFile(filePath, packageFile.content);
@@ -284,22 +300,6 @@ export function createDeclarationProjectFactory(
                 target: ScriptTarget.ESNext
             }
         });
-    }
-
-    function generatedPackageFiles(packageName: string, packageFiles: readonly PackageFile[]): readonly PackageFile[] {
-        return [
-            {
-                filePath: '.packtory-consumer-entrypoints.ts',
-                content: publicEntrypointSource(packageName, packageFiles)
-            },
-            { filePath: '.packtory-javascript-imports.ts', content: javaScriptPackageImportSource(packageFiles) }
-        ]
-            .filter(function (file) {
-                return file.content.length > 0;
-            })
-            .map(function (file) {
-                return { filePath: file.filePath, content: `${file.content}\n` };
-            });
     }
 
     function createProjectForMode(

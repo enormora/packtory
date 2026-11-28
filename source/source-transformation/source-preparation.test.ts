@@ -43,7 +43,7 @@ suite('source preparation', function () {
             const preparation = createSourcePreparation(createProject().createSourceFile('index.ts', content));
             assert.throws(function () {
                 preparation.applyEdits([ { start: Number.NaN, end: content.length, content: '' } ]);
-            }, /index must be an integer/);
+            }, /index must be an integer/u);
             assert.strictEqual(preparation.sourceFile.getFullText(), content);
             assert.deepStrictEqual(preparation.transformations, []);
         });

@@ -9,7 +9,7 @@ function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
     if (filePath.endsWith('.sbom.json') || filePath.endsWith('.cyclonedx.json')) {
         return 'software-bill-of-materials';
     }
-    if (/\.(?:cjs|d\.[cm]ts|jsx?|map|mjs|tsx?)$/.test(filePath)) {
+    if (/\.(?:cjs|d\.[cm]ts|jsx?|map|mjs|tsx?)$/u.test(filePath)) {
         return 'source';
     }
     return 'additional';

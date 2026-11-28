@@ -64,8 +64,13 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents emits bundle contents after the manifest', function () {
+            const artifactContents = collectArtifactContents(
+                bundle({ contents: [ contentEntry('a.txt', 'a') ] }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), undefined, []),
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'a.txt', content: 'a', isExecutable: false }
@@ -80,10 +85,15 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents appends extra files after the bundle contents', function () {
-            assert.deepStrictEqual(
-                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), undefined, [
+            const artifactContents = collectArtifactContents(
+                bundle({ contents: [ contentEntry('a.txt', 'a') ] }),
+                undefined,
+                [
                     { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
-                ]),
+                ]
+            );
+            assert.deepStrictEqual(
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'a.txt', content: 'a', isExecutable: false },
@@ -93,10 +103,15 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents applies the prefix to bundle contents and extra files', function () {
-            assert.deepStrictEqual(
-                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
+            const artifactContents = collectArtifactContents(
+                bundle({ contents: [ contentEntry('a.txt', 'a') ] }),
+                'package',
+                [
                     { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
-                ]),
+                ]
+            );
+            assert.deepStrictEqual(
+                artifactContents,
                 [
                     { filePath: 'package/package.json', content: '{}', isExecutable: false },
                     { filePath: 'package/a.txt', content: 'a', isExecutable: false },
@@ -110,15 +125,16 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents forces explicit bin targets to executable', function () {
+            const artifactContents = collectArtifactContents(
+                bundle({
+                    contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                    executableField: { 'package-a': './cli.js' }
+                }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                collectArtifactContents(
-                    bundle({
-                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
-                        executableField: { 'package-a': './cli.js' }
-                    }),
-                    undefined,
-                    []
-                ),
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
@@ -127,15 +143,16 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents forces a string bin target to executable', function () {
+            const artifactContents = collectArtifactContents(
+                bundle({
+                    contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                    executableField: './cli.js'
+                }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                collectArtifactContents(
-                    bundle({
-                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
-                        executableField: './cli.js'
-                    }),
-                    undefined,
-                    []
-                ),
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
@@ -144,15 +161,16 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents ignores non-string bin entries and applies valid ones', function () {
+            const artifactContents = collectArtifactContents(
+                bundle({
+                    contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                    executableField: { 'package-a': './cli.js', broken: 123 as never }
+                }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                collectArtifactContents(
-                    bundle({
-                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
-                        executableField: { 'package-a': './cli.js', broken: 123 as never }
-                    }),
-                    undefined,
-                    []
-                ),
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
@@ -161,15 +179,16 @@ suite('content-collection', function () {
         });
 
         test('collectArtifactContents only strips a leading dot-slash from explicit bin targets', function () {
+            const artifactContents = collectArtifactContents(
+                bundle({
+                    contents: [ contentEntry('nested/./cli.js', '#!/usr/bin/env node') ],
+                    executableField: 'nested/./cli.js'
+                }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                collectArtifactContents(
-                    bundle({
-                        contents: [ contentEntry('nested/./cli.js', '#!/usr/bin/env node') ],
-                        executableField: 'nested/./cli.js'
-                    }),
-                    undefined,
-                    []
-                ),
+                artifactContents,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     { filePath: 'nested/./cli.js', content: '#!/usr/bin/env node', isExecutable: true }
@@ -180,12 +199,13 @@ suite('content-collection', function () {
 
     suite('reporting', function () {
         test('describeArtifactsForReport carries inputFilePath and isSubstituted for bundle entries', function () {
+            const artifactDescriptions = describeArtifactsForReport(
+                bundle({ contents: [ contentEntry('a.txt', 'a', { isSubstituted: true }) ] }),
+                undefined,
+                []
+            );
             assert.deepStrictEqual(
-                describeArtifactsForReport(
-                    bundle({ contents: [ contentEntry('a.txt', 'a', { isSubstituted: true }) ] }),
-                    undefined,
-                    []
-                ),
+                artifactDescriptions,
                 [
                     { filePath: 'package.json', content: '{}', isExecutable: false },
                     {
@@ -206,10 +226,15 @@ suite('content-collection', function () {
         });
 
         test('describeArtifactsForReport applies the prefix to manifest, contents, and extra files', function () {
-            assert.deepStrictEqual(
-                describeArtifactsForReport(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
+            const artifactDescriptions = describeArtifactsForReport(
+                bundle({ contents: [ contentEntry('a.txt', 'a') ] }),
+                'package',
+                [
                     { filePath: 'software-bill-of-materials.cyclonedx.json', content: '{}', isExecutable: false }
-                ]),
+                ]
+            );
+            assert.deepStrictEqual(
+                artifactDescriptions,
                 [
                     { filePath: 'package/package.json', content: '{}', isExecutable: false },
                     {

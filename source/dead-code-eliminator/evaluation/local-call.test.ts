@@ -18,9 +18,12 @@ suite('bounded local evaluation values', function () {
 
     suite('evaluation limits', function () {
         for (
-            const [ depth, expected ] of [ [ 31, {
-                value: 42
-            } ], [ 32, undefined ] ] as const
+            const [ depth, expected ] of [
+                [ 31, {
+                    value: 42
+                } ],
+                [ 32, undefined ]
+            ] as const
         ) {
             test(`bounds recursive evaluation at input depth ${String(depth)}`, function () {
                 const call = variableInitializer(

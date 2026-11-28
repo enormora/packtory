@@ -24,28 +24,29 @@ function resultWithIssues(issues: CanaryRunResult['issues']): CanaryRunResult {
 
 suite('canary-summary', function () {
     test('formatCanarySummary renders counts and readable issue details', function () {
+        const summary = formatCanarySummary(resultWithIssues([
+            { kind: 'regression', message: 'missing api' },
+            {
+                kind: 'baseline-rot',
+                message: [
+                    `${terminalControlRed}baseline failed${terminalControlReset}`,
+                    '/workspace/packtory-canary-overkill-baseline-abcd/file.js'
+                ]
+                    .join('\n')
+            },
+            {
+                kind: 'warning',
+                message: [
+                    'warning line',
+                    '',
+                    whitespaceOnlyLine,
+                    'trimmed   '
+                ]
+                    .join('\n')
+            }
+        ]));
         assert.strictEqual(
-            formatCanarySummary(resultWithIssues([
-                { kind: 'regression', message: 'missing api' },
-                {
-                    kind: 'baseline-rot',
-                    message: [
-                        `${terminalControlRed}baseline failed${terminalControlReset}`,
-                        '/workspace/packtory-canary-overkill-baseline-abcd/file.js'
-                    ]
-                        .join('\n')
-                },
-                {
-                    kind: 'warning',
-                    message: [
-                        'warning line',
-                        '',
-                        whitespaceOnlyLine,
-                        'trimmed   '
-                    ]
-                        .join('\n')
-                }
-            ])),
+            summary,
             [
                 '## Packtory canary: sample',
                 '',

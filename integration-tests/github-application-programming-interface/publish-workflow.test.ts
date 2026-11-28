@@ -12,15 +12,13 @@ import {
 } from '../../source/test-libraries/github-release-gate-test-support.ts';
 import { readGitHubReleaseGateRunnerConfiguration } from '../../source/github-release-gate/runner-configuration.ts';
 
-const workflowSchema = z.object({
-    jobs: z.object({
-        'evaluate-gate': z.looseObject({
-            permissions: z.object({ actions: z.literal('read') }),
-            steps: z.array(z.record(z.string(), z.unknown()))
-        })
-    })
-});
-const gateStepSchema = z.object({
+const gateJobFields = {
+    permissions: z.object({ actions: z.literal('read') }),
+    steps: z.array(z.record(z.string(), z.unknown()))
+};
+const workflowFields = { jobs: z.object({ 'evaluate-gate': z.looseObject(gateJobFields) }) };
+const workflowSchema = z.object(workflowFields);
+const gateStepFields = {
     run: z.string(),
     env: z.strictObject({
         CHECKED_OUT_HEAD_HASH: z.string().check(z.regex(/^\$\{\{ steps\.main-head\.outputs\.main_head_sha \}\}$/u)),
@@ -31,7 +29,8 @@ const gateStepSchema = z.object({
         MAXIMUM_LATENCY_HOURS: z.string(),
         QUIET_PERIOD_MINUTES: z.string()
     })
-});
+};
+const gateStepSchema = z.object(gateStepFields);
 
 async function readGateStep(): Promise<z.infer<typeof gateStepSchema>> {
     const fileManager = createFileManager({ hostFileSystem: fileSystem.promises });
@@ -56,9 +55,10 @@ suite('publish workflow release gate contract', function () {
         const content = await fileManager.readFile(
             path.join('.github/workflows', configuration.continuousIntegrationWorkflowFile)
         );
+        const continuousIntegrationWorkflowFields = { push: z.object({ branches: z.array(z.string()) }) };
         const continuousIntegration = z
             .object({
-                on: z.object({ push: z.object({ branches: z.array(z.string()) }) })
+                on: z.object(continuousIntegrationWorkflowFields)
             })
             .parse(parse(content));
 

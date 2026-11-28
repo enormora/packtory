@@ -23,7 +23,7 @@ suite('hypertext-markup-language-renderer', function () {
     test('renders a doctype and html skeleton', function () {
         const hypertextMarkupLanguage = renderHypertextMarkupLanguageReport(createPreviewDocumentFixture());
 
-        assert.match(hypertextMarkupLanguage, /^<!doctype html>/);
+        assert.match(hypertextMarkupLanguage, /^<!doctype html>/u);
         assert.ok(hypertextMarkupLanguage.includes('<title>Packtory build report</title>'));
         assert.ok(hypertextMarkupLanguage.includes('Schema version: 1'));
         assert.ok(hypertextMarkupLanguage.includes('Generated at: 2026-05-11T00:00:00.000Z'));

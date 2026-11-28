@@ -22,7 +22,7 @@ type ChangesFixture = {
 
 function createChangesFixture(): ChangesFixture {
     const configuration = createConfigurationWithRegistry({ packages: twoPackageEntries });
-    const outcome = toReleaseDiffOutcome(Result.ok([
+    const successfulResult = Result.ok([
         createPackageReleaseDiff({ name: 'package-a' }),
         createPackageReleaseDiff({
             name: 'package-b',
@@ -33,7 +33,8 @@ function createChangesFixture(): ChangesFixture {
                 modified: [ textModifiedFileFactory.build({ path: 'index.js' }) ]
             }
         })
-    ]));
+    ]);
+    const outcome = toReleaseDiffOutcome(successfulResult);
 
     const diffAgainstLatestPublished = fake.resolves(outcome);
     const pageOutput = fake.resolves(undefined);
@@ -105,7 +106,7 @@ suite('inspect changes command', function () {
 
     test('shows workspace failures alongside the selected successful package', async function () {
         const pageOutput = fake.resolves(undefined);
-        const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.err({
+        const releaseDiffOutcome = toReleaseDiffOutcome(Result.err({
             skipped: [],
             type: 'partial',
             succeeded: [
@@ -113,7 +114,8 @@ suite('inspect changes command', function () {
                 createPackageReleaseDiff({ name: 'package-b' })
             ],
             failures: [ new Error('sibling failed') ]
-        })));
+        }));
+        const diffAgainstLatestPublished = fake.resolves(releaseDiffOutcome);
         const runner = createRunner({
             diffAgainstLatestPublished,
             pageOutput,

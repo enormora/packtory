@@ -321,15 +321,16 @@ suite('changelog-destinations', function () {
         test('reports package markdown without config', async function () {
             const fileManager = createFakeFileManager();
 
+            const changelogWrite = writeConfiguredChangelogs(
+                { ...dependencies, fileManager },
+                createChangelogConfiguration({
+                    changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'missing', 'markdown' ] ]) })
+            );
             await assert.rejects(
-                writeConfiguredChangelogs(
-                    { ...dependencies, fileManager },
-                    createChangelogConfiguration({
-                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
-                    }),
-                    { updateChangelog: fake.returns('updated') },
-                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'missing', 'markdown' ] ]) })
-                ),
+                changelogWrite,
                 /Config for package "missing" is missing/u
             );
         });
@@ -337,17 +338,18 @@ suite('changelog-destinations', function () {
         test('reports package-file outputs without sourcesFolder', async function () {
             const fileManager = createFakeFileManager();
 
+            const changelogWrite = writeConfiguredChangelogs(
+                { ...dependencies, fileManager },
+                createChangelogConfiguration({
+                    changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                    commonPackageSettings: undefined,
+                    packages: [ { name: 'package-a' } ]
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'package-a', 'markdown' ] ]) })
+            );
             await assert.rejects(
-                writeConfiguredChangelogs(
-                    { ...dependencies, fileManager },
-                    createChangelogConfiguration({
-                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
-                        commonPackageSettings: undefined,
-                        packages: [ { name: 'package-a' } ]
-                    }),
-                    { updateChangelog: fake.returns('updated') },
-                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'package-a', 'markdown' ] ]) })
-                ),
+                changelogWrite,
                 /Config for package "package-a" is missing the sources folder/u
             );
         });
@@ -414,27 +416,28 @@ suite('changelog-destinations', function () {
         test('reports package markdown without an explicit path', async function () {
             const fileManager = createFakeFileManager();
 
+            const changelogWrite = writeConfiguredChangelogs(
+                { ...dependencies, fileManager },
+                createChangelogConfiguration({
+                    changelog: {
+                        outputs: [
+                            {
+                                kind: 'package-file',
+                                paths: { 'package-a': 'packages/package-a/CHANGELOG.md' }
+                            }
+                        ]
+                    }
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({
+                    packageMarkdownByName: new Map([
+                        [ 'package-a', 'package-a' ],
+                        [ 'package-b', 'package-b' ]
+                    ])
+                })
+            );
             await assert.rejects(
-                writeConfiguredChangelogs(
-                    { ...dependencies, fileManager },
-                    createChangelogConfiguration({
-                        changelog: {
-                            outputs: [
-                                {
-                                    kind: 'package-file',
-                                    paths: { 'package-a': 'packages/package-a/CHANGELOG.md' }
-                                }
-                            ]
-                        }
-                    }),
-                    { updateChangelog: fake.returns('updated') },
-                    createGeneratedChangelog({
-                        packageMarkdownByName: new Map([
-                            [ 'package-a', 'package-a' ],
-                            [ 'package-b', 'package-b' ]
-                        ])
-                    })
-                ),
+                changelogWrite,
                 /Changelog output path for package "package-b" is missing/u
             );
         });

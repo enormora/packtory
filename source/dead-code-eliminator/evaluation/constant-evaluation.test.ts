@@ -37,10 +37,12 @@ suite('shared source evaluations', function () {
         );
     });
     for (
-        const [ content, expected ] of [ [ '{}', true ], [ '({value:1})', true ], [ 'effect()', false ], [
-            '({value:effect()})',
-            false
-        ] ] as const
+        const [ content, expected ] of [
+            [ '{}', true ],
+            [ '({value:1})', true ],
+            [ 'effect()', false ],
+            [ '({value:effect()})', false ]
+        ] as const
     ) {
         test(`separates discarded effects from a public primitive result in ${content}`, function () {
             const source = createProject().createSourceFile('input.ts', `const observed=${content};`);

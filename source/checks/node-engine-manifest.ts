@@ -6,18 +6,23 @@ import { safeParse } from '../common/schema-validation.ts';
 import { compareValues } from '../common/sort-values.ts';
 
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
+const enginesFields = { node: z.optional(z.string()) };
+const legacyEnginesSchema = z.readonly(z.array(z.string()));
 const enginesSchema = z.union([
-    z.object({ node: z.optional(z.string()) }),
-    z.readonly(z.array(z.string()))
+    z.object(enginesFields),
+    legacyEnginesSchema
 ]);
-const manifestSchema = z.object({
+const peerMetadataSchema = z.object({ optional: z.optional(z.boolean()) });
+const peerDependencyMetadataSchema = z.optional(z.record(z.string(), peerMetadataSchema));
+const manifestFields = {
     version: z.optional(z.string()),
     engines: z.optional(enginesSchema),
     dependencies: dependencyMapSchema,
     optionalDependencies: dependencyMapSchema,
     peerDependencies: dependencyMapSchema,
-    peerDependenciesMeta: z.optional(z.record(z.string(), z.object({ optional: z.optional(z.boolean()) })))
-});
+    peerDependenciesMeta: peerDependencyMetadataSchema
+};
+const manifestSchema = z.object(manifestFields);
 
 export type NodeEngineManifest = {
     readonly nodeRange: string | undefined;

@@ -60,6 +60,14 @@ suite('runner report and preview', function () {
         };
     }
 
+    async function runPublishWithReport(extraArguments: readonly string[]): Promise<FakeFileManager> {
+        const fileManager = createFakeFileManager();
+        const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
+        const runner = createRunner({ buildAndPublishAll, fileManager });
+        await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
+        return fileManager;
+    }
+
     async function runOpenPreview(): Promise<OpenPreviewResult> {
         const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
         const fileManager = createFakeFileManager();
@@ -87,14 +95,6 @@ suite('runner report and preview', function () {
         test('publish with --report-html requests collectReport: true', async function () {
             await expectCollectReportFlag('--report-html');
         });
-
-        async function runPublishWithReport(extraArguments: readonly string[]): Promise<FakeFileManager> {
-            const fileManager = createFakeFileManager();
-            const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
-            const runner = createRunner({ buildAndPublishAll, fileManager });
-            await runner.run([ 'foo', 'bar', 'publish', ...extraArguments ]);
-            return fileManager;
-        }
 
         test('publish writes packtory-report.json when --report-json is set and getReport returns a report', async function () {
             const fileManager = await runPublishWithReport([ '--report-json' ]);
@@ -170,8 +170,8 @@ suite('runner report and preview', function () {
 
             assert.strictEqual(exitCode, 0);
             assert.strictEqual(pageOutput.callCount, 1);
-            assert.match(String(pageOutput.firstCall.args[0]), /Packtory preview/);
-            assert.match(String(pageOutput.firstCall.args[0]), /\[Dry run]/);
+            assert.match(String(pageOutput.firstCall.args[0]), /Packtory preview/u);
+            assert.match(String(pageOutput.firstCall.args[0]), /\[Dry run\]/u);
             assert.strictEqual(log.callCount, 0);
         });
 
@@ -229,13 +229,14 @@ suite('runner report and preview', function () {
         });
 
         test('preview treats partial failures with no successful packages as failure-only output', async function () {
+            const outcome = createOutcomeWithReport(Result.err({
+                skipped: [],
+                type: 'partial',
+                succeeded: [],
+                failures: [ new Error('boom') ]
+            }));
             const buildAndPublishAll = fake.resolves(
-                createOutcomeWithReport(Result.err({
-                    skipped: [],
-                    type: 'partial',
-                    succeeded: [],
-                    failures: [ new Error('boom') ]
-                }))
+                outcome
             );
             const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
 
@@ -253,7 +254,7 @@ suite('runner report and preview', function () {
             assert.strictEqual(exitCode, 0);
             assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
             assert.deepStrictEqual(fileManager.getWriteFileCall(0).filePath, '/workspace/packtory-preview-test.html');
-            assert.match(fileManager.getWriteFileCall(0).content, /^<!doctype html>/);
+            assert.match(fileManager.getWriteFileCall(0).content, /^<!doctype html>/u);
             assertDeepSubset(openFile, {
                 callCount: 1,
                 firstCall: {

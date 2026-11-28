@@ -33,7 +33,8 @@ async function createPackConfiguration(fixturePath: string): Promise<PacktoryCon
 suite('pack', function () {
     test('writes configured bundle peer dependencies into packed package metadata', async function () {
         const fixturePath = getFixturePath('multiple-packages-with-substitution');
-        const outputPath = path.join(await mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-')), 'third');
+        const temporaryFolder = mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-'));
+        const outputPath = path.join(await temporaryFolder, 'third');
 
         const outcome = await packPackage(await createPackConfiguration(fixturePath), {
             packageName: 'third',
@@ -44,8 +45,9 @@ suite('pack', function () {
         });
 
         assert.strictEqual(outcome.result.isOk, true);
+        const packageManifest: unknown = JSON.parse(await readFile(path.join(outputPath, 'package.json'), 'utf8'));
         assert.partialDeepStrictEqual(
-            JSON.parse(await readFile(path.join(outputPath, 'package.json'), 'utf8')),
+            packageManifest,
             {
                 name: 'third',
                 version: '1.2.3',
@@ -60,7 +62,8 @@ suite('pack', function () {
 
     test('writes every configured package into a package-named folder', async function () {
         const fixturePath = getFixturePath('multiple-packages-with-substitution');
-        const outputPath = path.join(await mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-all-')), 'packages');
+        const temporaryFolder = mkdtemp(path.join(temporaryDirectory(), 'packtory-pack-all-'));
+        const outputPath = path.join(await temporaryFolder, 'packages');
 
         const outcome = await packAllPackages(await createPackConfiguration(fixturePath), {
             outputPath,
@@ -72,12 +75,18 @@ suite('pack', function () {
             outcome.result.isOk ? outcome.result.value : 'errored',
             { packageNames: [ 'second', 'third' ] }
         );
-        assert.partialDeepStrictEqual(
-            JSON.parse(await readFile(path.join(outputPath, 'second', 'package.json'), 'utf8')),
-            { name: 'second', version: '2.3.4' }
+        const packageManifest: unknown = JSON.parse(
+            await readFile(path.join(outputPath, 'second', 'package.json'), 'utf8')
         );
         assert.partialDeepStrictEqual(
-            JSON.parse(await readFile(path.join(outputPath, 'third', 'package.json'), 'utf8')),
+            packageManifest,
+            { name: 'second', version: '2.3.4' }
+        );
+        const thirdPackageManifest: unknown = JSON.parse(
+            await readFile(path.join(outputPath, 'third', 'package.json'), 'utf8')
+        );
+        assert.partialDeepStrictEqual(
+            thirdPackageManifest,
             { name: 'third', version: '2.3.4' }
         );
         assert.strictEqual(

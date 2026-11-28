@@ -194,12 +194,13 @@ function registerDependencyEntryTests(): void {
     });
 
     test('preserves pull request links for manifest dependency entries', async function () {
+        const filterPullRequestsByTargetFile = fake.resolves(
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ] ])
+        );
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([ { identifier: 1, title: 'Update React to v19' } ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ] ])
-            )
+            readPullRequestChangedFiles: filterPullRequestsByTargetFile
         });
 
         const changelog = await generateReactDependencyChangelog(engine);
@@ -221,18 +222,19 @@ function registerDependencyEntryTests(): void {
     });
 
     test('uses manifest dependency pull requests over other package pull requests', async function () {
+        const filterPullRequestsByTargetFile = fake.resolves(
+            new Map([
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ]
+            ])
+        );
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([
                 { identifier: 1, title: 'Update React to v19' },
                 { identifier: 2, title: 'Fix package' }
             ]),
             filterPullRequestsByTargetFiles: fake.returns([ { identifier: 2, title: 'Fix package' } ]),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([
-                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ],
-                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ]
-                ])
-            )
+            readPullRequestChangedFiles: filterPullRequestsByTargetFile
         });
 
         const changelog = await generateReactDependencyChangelog(engine);
@@ -241,18 +243,19 @@ function registerDependencyEntryTests(): void {
     });
 
     test('renders dependency updates for substantive package changes', async function () {
+        const filterPullRequestsByTargetFile = fake.resolves(
+            new Map([
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
+            ])
+        );
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([
                 { identifier: 1, title: 'Add feature' },
                 { identifier: 2, title: 'Update React to v19' }
             ]),
             filterPullRequestsByTargetFiles: fake.returns([ { identifier: 1, title: 'Add feature' } ]),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([
-                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/package-a.ts' }) ] ],
-                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
-                ])
-            ),
+            readPullRequestChangedFiles: filterPullRequestsByTargetFile,
             resolvePullRequestLabels: fake(async function (options: ResolvePullRequestLabelsOptions) {
                 return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
                     return {
@@ -448,14 +451,15 @@ function registerManifestDependencyFilterTests(): void {
                 return target.mergedPullRequests;
             }));
         });
+        const filterPullRequestsByTargetFile = fake.resolves(
+            new Map([ [ 697, [ pullRequestChangedFileFactory.build({ path: 'package.json' }) ] ] ])
+        );
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves(pullRequests),
             filterPullRequestsByTargetFiles: fake(function (input: FilterPullRequestsByTargetFilesInput) {
                 return input.targetSourceFiles.includes('package.json') ? input.pullRequests : [];
             }),
-            readPullRequestChangedFiles: fake.resolves(
-                new Map([ [ 697, [ pullRequestChangedFileFactory.build({ path: 'package.json' }) ] ] ])
-            ),
+            readPullRequestChangedFiles: filterPullRequestsByTargetFile,
             renderGroupedTargetChangelog,
             resolvePullRequestLabels: fake(async function (options: ResolvePullRequestLabelsOptions) {
                 return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {

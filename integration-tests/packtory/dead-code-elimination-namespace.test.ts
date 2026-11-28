@@ -3,7 +3,9 @@ import path from 'node:path';
 import { pathToFileURL as pathToFileAddress } from 'node:url';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { assertValidDeadCodeEliminationOutput } from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
+import {
+    assertValidDeadCodeEliminationOutput
+} from '../../source/test-libraries/dead-code-elimination-invariant-assertions.ts';
 import { runNodeProbe } from '../../source/test-libraries/run-node-probe.ts';
 import { assertDefined } from '../../source/test-libraries/deep-subset-assertion.ts';
 import { loadPackageManifest } from '../load-package-manifest.ts';
@@ -16,10 +18,11 @@ const expected = {
     escaped: [ [ 'increment', 'other', 'value' ], 9 ]
 };
 
+const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-namespace');
+const entryPath = path.join(fixturePath, 'source/index.js');
+
 suite('dead-code-elimination namespace', function () {
     test('preserves namespace keys, values, and live bindings through the production pipeline', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-namespace');
-        const entryPath = path.join(fixturePath, 'source/index.js');
         const outcome = await resolveAndLinkAll({
             commonPackageSettings: {
                 sourcesFolder: path.join(fixturePath, 'source'),
@@ -37,11 +40,12 @@ suite('dead-code-elimination namespace', function () {
         const [ resolvedPackage ] = outcome.result.value;
         assertDefined(resolvedPackage);
 
-        assert.deepStrictEqual(
-            await runNodeProbe(`
+        const probeResult = runNodeProbe(`
             const module = await import(${JSON.stringify(pathToFileAddress(entryPath).href)});
             console.log(JSON.stringify(module.api()));
-        `),
+        `);
+        assert.deepStrictEqual(
+            await probeResult,
             expected
         );
         assertValidDeadCodeEliminationOutput('namespace observation', [ resolvedPackage.analyzedBundle ]);

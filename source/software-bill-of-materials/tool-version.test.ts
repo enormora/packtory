@@ -115,10 +115,11 @@ suite('tool-version', function () {
         });
 
         test('rejects an identity when neither package can be resolved', async function () {
+            const rejectManifestImport = fake.rejects(
+                Object.assign(new Error('missing'), { code: 'ERR_MODULE_NOT_FOUND' })
+            );
             const resolve = createPacktoryAnalysisIdentityResolver({
-                importPackageManifest: fake.rejects(
-                    Object.assign(new Error('missing'), { code: 'ERR_MODULE_NOT_FOUND' })
-                )
+                importPackageManifest: rejectManifestImport
             });
             await assert.rejects(resolve(), { message: unresolvableExpectedMessage });
         });
@@ -163,10 +164,11 @@ suite('tool-version', function () {
 
     suite('resolution failures', function () {
         test('throws when neither @packtory/cli nor packtory can be resolved', async function () {
+            const rejectManifestImport = fake.rejects(
+                Object.assign(new Error('missing'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })
+            );
             await expectResolutionError({
-                importPackageManifest: fake.rejects(
-                    Object.assign(new Error('missing'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })
-                ),
+                importPackageManifest: rejectManifestImport,
                 expectedMessage: unresolvableExpectedMessage
             });
         });

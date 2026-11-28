@@ -63,14 +63,16 @@ suite('config schema basics', function () {
             invalidConfiguration(configurationWith({ packages: [] }), [ 'invalid value doesn’t match expected union' ])
         );
 
+        const rejectLegacyEntryPoints = invalidConfiguration(
+            configurationWith({ packages: [ packageConfiguration({ roots: undefined, entryPoints: [] }) ] }),
+            [
+                'invalid value doesn’t match expected union'
+            ]
+        );
+
         test(
             'validation fails when a package supplies entryPoints instead of roots',
-            invalidConfiguration(
-                configurationWith({ packages: [ packageConfiguration({ roots: undefined, entryPoints: [] }) ] }),
-                [
-                    'invalid value doesn’t match expected union'
-                ]
-            )
+            rejectLegacyEntryPoints
         );
 
         test(
@@ -87,12 +89,14 @@ suite('config schema basics', function () {
             ])
         );
 
+        const acceptPackageDuplicationAllowList = validConfiguration(configurationWith({
+            checks: { noDuplicatedFiles: { enabled: true } },
+            packages: [ packageConfiguration({ checks: { noDuplicatedFiles: { allowList: [ 'foo/bar.ts' ] } } }) ]
+        }));
+
         test(
             'validation succeeds when a package declares a per-package noDuplicatedFiles allowList',
-            validConfiguration(configurationWith({
-                checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [ packageConfiguration({ checks: { noDuplicatedFiles: { allowList: [ 'foo/bar.ts' ] } } }) ]
-            }))
+            acceptPackageDuplicationAllowList
         );
 
         test(

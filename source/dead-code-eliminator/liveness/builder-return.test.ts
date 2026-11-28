@@ -22,7 +22,8 @@ suite('builder object shapes', function () {
         const source = createProject().createSourceFile('input.ts', 'function run(value){var value;return value;}');
         const target = source.getFunctionOrThrow('run');
         const expression = target.getFirstDescendantByKindOrThrow(SyntaxKind.ReturnStatement).getExpressionOrThrow();
-        assert.strictEqual(returnCreationIsPure(expression, new Set(target.getParameters())), true);
+        const creationIsPure = returnCreationIsPure(expression, new Set(target.getParameters()));
+        assert.strictEqual(creationIsPure, true);
     });
 
     for (

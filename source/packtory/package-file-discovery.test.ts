@@ -78,10 +78,13 @@ suite('package-file-discovery', function () {
         const lastBranch = resource('z.js', [ 'leaf.js' ]);
         const leaf = resource('leaf.js', []);
         const first = inspect([ entry, firstBranch, lastBranch, leaf ], [ leaf ]);
-        const second = inspect([ leaf, lastBranch, firstBranch, {
-            ...entry,
-            directDependencies: new Set([ 'a.js', 'z.js' ])
-        } ], [ leaf ]);
+        const second = inspect(
+            [ leaf, lastBranch, firstBranch, {
+                ...entry,
+                directDependencies: new Set([ 'a.js', 'z.js' ])
+            } ],
+            [ leaf ]
+        );
         assert.deepStrictEqual(first, second);
         assert.deepStrictEqual(first[0]?.discovery, {
             type: 'discovered',

@@ -190,10 +190,11 @@ function registerStageTimingTests(): void {
     test('withStageTimings still emits when the wrapped method rejects', async function () {
         const { broadcaster, stages } = createStageCollector();
 
+        const processor = createPlainProcessor({
+            resolveAndLink: fake.rejects(new Error('boom')) as unknown as PackageProcessor['resolveAndLink']
+        });
         const wrapped = withStageTimings(
-            createPlainProcessor({
-                resolveAndLink: fake.rejects(new Error('boom')) as unknown as PackageProcessor['resolveAndLink']
-            }),
+            processor,
             broadcaster.provider
         );
 

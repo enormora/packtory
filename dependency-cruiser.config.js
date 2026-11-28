@@ -1,17 +1,17 @@
 const configurationFiles = [
-    '^dependency-cruiser\\.config\\.js$',
-    '^eslint\\.config\\.js$',
-    '^mocha\\.config\\..*\\.js$',
-    '^packtory\\.config\\.js$'
+    String.raw`^dependency-cruiser\.config\.js$`,
+    String.raw`^eslint\.config\.js$`,
+    String.raw`^mocha\.config\..*\.js$`,
+    String.raw`^packtory\.config\.js$`
 ];
 
-const entryPointFiles = [ '^source/packages/.+\\.entry-point\\.ts$' ];
+const entryPointFiles = [ String.raw`^source/packages/.+\.entry-point\.ts$` ];
 const buildSupportFiles = [ '^source/build-support/' ];
 
-const testFiles = [ '\\.(test|property|type-test)\\.ts$', '^integration-tests/' ];
-const testSupportFiles = [ '^source/.+test-support\\.ts$' ];
+const testFiles = [ String.raw`\.(test|property|type-test)\.ts$`, '^integration-tests/' ];
+const testSupportFiles = [ String.raw`^source/.+test-support\.ts$` ];
 const testLibraryFiles = [ '^source/test-libraries/' ];
-const excludedFiles = [ '^(\\./)?integration-tests/fixtures/', '^(\\./)?target/' ];
+const excludedFiles = [ String.raw`^(\./)?integration-tests/fixtures/`, String.raw`^(\./)?target/` ];
 
 const ignoreFromOrphans = [
     ...configurationFiles,
@@ -67,7 +67,7 @@ export default {
                     ...ignoreFromOrphans,
                     ...testSupportFiles,
                     ...testLibraryFiles,
-                    '.*(?<!\\.(ts|js))$',
+                    String.raw`.*(?<!\.(ts|js))$`,
                     '^node_modules/',
                     ...excludedFiles
                 ]
@@ -101,7 +101,7 @@ export default {
             to: {
                 dependencyTypes: [ 'npm-dev' ],
                 moreThanOneDependencyType: false,
-                pathNot: [ '^node_modules/@types/', '\\.d\\.ts$' ]
+                pathNot: [ '^node_modules/@types/', String.raw`\.d\.ts$` ]
             }
         },
         {

@@ -126,10 +126,10 @@ suite('code-file-analyzer', function () {
                 }
             }
         });
-        assert.deepStrictEqual({
-            transformCount: result.transforms.length,
-            survivingBindings: result.resource.analysis.survivingBindings
-        }, { transformCount: 1, survivingBindings: new Set([ 'foo' ]) });
+        assert.deepStrictEqual(
+            { transformCount: result.transforms.length, survivingBindings: result.resource.analysis.survivingBindings },
+            { transformCount: 1, survivingBindings: new Set([ 'foo' ]) }
+        );
     });
 
     test('buildAnalyzedResource omits transform records when enabled transformations leave source unchanged', function () {

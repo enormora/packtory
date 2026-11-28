@@ -19,10 +19,13 @@ suite('workspace import comparison', function () {
             emittedSpecifier: 'external'
         };
         assert.deepStrictEqual(
-            compareWorkspaceImports([ first, { ...first, sourcePath: 'another.js' }, first, removed ], [ first, {
-                ...first,
-                sourcePath: 'another.js'
-            } ]),
+            compareWorkspaceImports(
+                [ first, { ...first, sourcePath: 'another.js' }, first, removed ],
+                [ first, {
+                    ...first,
+                    sourcePath: 'another.js'
+                } ]
+            ),
             [
                 { label: 'external imports', before: 'old.js: external', after: 'no retained import' },
                 {

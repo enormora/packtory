@@ -2,7 +2,8 @@ import { z } from 'zod/mini';
 
 const stringRecordSchema = z.readonly(z.record(z.string(), z.string()));
 const optionalStringRecordSchema = z.optional(stringRecordSchema);
-const optionalImportsSchema = z.optional(z.readonly(z.record(z.string(), z.json())));
+const importsMapSchema = z.readonly(z.record(z.string(), z.json()));
+const optionalImportsSchema = z.optional(importsMapSchema);
 
 export const mainPackageManifestSchema = z.readonly(
     z.object({

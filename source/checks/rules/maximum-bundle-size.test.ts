@@ -12,6 +12,15 @@ function bundleWithBytes(name: string): AnalyzedBundle {
     });
 }
 
+async function runWithGlobalAndOverride(globalBytes: number, override: number): Promise<readonly string[]> {
+    return await maximumBundleSizeRule.run({
+        bundles: [ bundleWithBytes('a') ],
+        settings: { maximumBundleSize: { enabled: true, bytes: globalBytes } },
+        sourceFolders: new Map(),
+        perPackageSettings: new Map([ [ 'a', { maximumBundleSize: { bytes: override } } ] ])
+    });
+}
+
 suite('max-bundle-size', function () {
     suite('disabled and empty settings', function () {
         test('rule definition exposes name, schemas and a run function', function () {
@@ -73,15 +82,6 @@ suite('max-bundle-size', function () {
             assert.deepStrictEqual(result, []);
         });
     });
-
-    async function runWithGlobalAndOverride(globalBytes: number, override: number): Promise<readonly string[]> {
-        return await maximumBundleSizeRule.run({
-            bundles: [ bundleWithBytes('a') ],
-            settings: { maximumBundleSize: { enabled: true, bytes: globalBytes } },
-            sourceFolders: new Map(),
-            perPackageSettings: new Map([ [ 'a', { maximumBundleSize: { bytes: override } } ] ])
-        });
-    }
 
     test('per-package bytes overrides the global default upward', async function () {
         assert.deepStrictEqual(await runWithGlobalAndOverride(50, 1000), []);

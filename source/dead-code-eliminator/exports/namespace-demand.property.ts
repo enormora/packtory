@@ -17,17 +17,18 @@ function expectedJoin(left: NamespaceDemand, right: NamespaceDemand): NamespaceD
 
 const demands = fastCheck
     .letrec<{ readonly demand: NamespaceDemand; }>(function (tie) {
+        const propertyDemands = fastCheck
+            .array(fastCheck.tuple(fastCheck.constantFrom('first', 'second', 'third'), tie('demand')), {
+                maxLength: 4
+            })
+            .map(function (entries) {
+                return new Map(entries);
+            });
         return {
             demand: fastCheck.oneof(
                 { maxDepth: 4 },
                 fastCheck.constant<NamespaceDemand>(allNamespaceProperties),
-                fastCheck
-                    .array(fastCheck.tuple(fastCheck.constantFrom('first', 'second', 'third'), tie('demand')), {
-                        maxLength: 4
-                    })
-                    .map(function (entries) {
-                        return new Map(entries);
-                    })
+                propertyDemands
             )
         };
     })

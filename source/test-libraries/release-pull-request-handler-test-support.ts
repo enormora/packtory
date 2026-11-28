@@ -6,7 +6,9 @@ import {
     runReleasePullRequestHandler,
     type ReleasePullRequestHandlerDependencies
 } from '../command-line-interface/runner/release-pull-request-handler.ts';
-import type { ReleasePullRequestGitHubClient } from '../command-line-interface/runner/release-pull-request-github-client.ts';
+import type {
+    ReleasePullRequestGitHubClient
+} from '../command-line-interface/runner/release-pull-request-github-client.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 import {
@@ -187,16 +189,18 @@ export function createDependencies(
 export function createReleaseContentDependencies(
     overrides: Readonly<Partial<ReleasePullRequestHandlerDependencies>> = {}
 ): CreatedReleasePullRequestDependencies {
+    const buildAllPackages = fake.resolves({
+        result: Result.ok({ packages: [ createReleasePackage() ] }),
+        getReport() {
+            return createBuildReportFixture();
+        }
+    });
+    const packtory = createPacktoryWithPlan(
+        buildAllPackages
+    );
     return createDependencies({
         flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
-        packtory: createPacktoryWithPlan(
-            fake.resolves({
-                result: Result.ok({ packages: [ createReleasePackage() ] }),
-                getReport() {
-                    return createBuildReportFixture();
-                }
-            })
-        ),
+        packtory,
         ...overrides
     });
 }

@@ -34,6 +34,14 @@ function readmeBundleResource(targetFilePath: string): AnalyzedBundleResource {
 }
 
 async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof createReleasePlanPackage> {
+    const releaseBuildResult = buildResultFor({
+        previousReleaseArtifacts: previousReleaseArtifactsFor({
+            version: '1.0.0',
+            publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+            files: input.previousArtifactFiles
+        }),
+        ...input.packageName === undefined ? {} : { packageName: input.packageName }
+    });
     return createReleasePlanPackage(
         {
             fileManager: {
@@ -50,14 +58,7 @@ async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof crea
             name: 'package-a',
             contents: input.bundleContents
         }),
-        buildResultFor({
-            previousReleaseArtifacts: previousReleaseArtifactsFor({
-                version: '1.0.0',
-                publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                files: input.previousArtifactFiles
-            }),
-            ...input.packageName === undefined ? {} : { packageName: input.packageName }
-        }),
+        releaseBuildResult,
         {
             changelogSourceOptions: {
                 additionalPackageManifestAttributes: input.additionalPackageManifestAttributes ?? {},

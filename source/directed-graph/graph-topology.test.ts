@@ -15,6 +15,17 @@ const fourEmptyNodes: readonly (readonly [string, string])[] = [
     [ 'd', '' ]
 ];
 
+function buildSimpleAToBGraphWithReverse(): SimpleGraphWithReverse {
+    const graph = createGraphWithNodes({
+        nodes: [
+            [ 'a', 'foo' ],
+            [ 'b', 'bar' ]
+        ],
+        connections: [ { from: 'a', to: 'b' } ]
+    });
+    return { graph, reversedGraph: graph.reverse() };
+}
+
 suite('graph topology and traversal', function () {
     suite('topological generations', function () {
         suite('basic generations', function () {
@@ -280,17 +291,6 @@ suite('graph topology and traversal', function () {
     });
 
     suite('reverse and adjacency', function () {
-        function buildSimpleAToBGraphWithReverse(): SimpleGraphWithReverse {
-            const graph = createGraphWithNodes({
-                nodes: [
-                    [ 'a', 'foo' ],
-                    [ 'b', 'bar' ]
-                ],
-                connections: [ { from: 'a', to: 'b' } ]
-            });
-            return { graph, reversedGraph: graph.reverse() };
-        }
-
         test('reverse() returns a new graph with the edges reversed', function () {
             const { graph, reversedGraph } = buildSimpleAToBGraphWithReverse();
 

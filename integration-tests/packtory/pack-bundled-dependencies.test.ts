@@ -103,18 +103,21 @@ async function importConsumerArtifact(artifactFolder: string): Promise<string> {
 
 async function verifySharedPrivateArtifact(configuration: PacktoryConfiguration, projectFolder: string): Promise<void> {
     const outputPath = path.join(projectFolder, 'artifact');
-    const outcome = await packPackage({
-        ...configuration,
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [
-                    path.join(projectFolder, 'source/shared.js'),
-                    path.join(projectFolder, 'source/shared.d.ts')
-                ]
+    const outcome = await packPackage(
+        {
+            ...configuration,
+            checks: {
+                noDuplicatedFiles: {
+                    enabled: true,
+                    allowList: [
+                        path.join(projectFolder, 'source/shared.js'),
+                        path.join(projectFolder, 'source/shared.d.ts')
+                    ]
+                }
             }
-        }
-    }, { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
+        },
+        { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true }
+    );
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     assert.strictEqual(
         await readArtifactText(path.join(outputPath, 'a.js')),
@@ -140,12 +143,15 @@ async function verifyDuplicationConsent(projectFolder: string): Promise<void> {
 async function verifyImplicitSharingArtifact(projectFolder: string): Promise<void> {
     const explicitConfiguration = await sharedPrivateConfiguration(projectFolder, []);
     const outputPath = path.join(projectFolder, 'artifact');
-    const outcome = await packPackage({
-        ...explicitConfiguration,
-        packages: explicitConfiguration.packages.map(function useImplicitSurface(packageConfiguration) {
-            return omit(packageConfiguration, [ 'packageInterface' ]);
-        })
-    }, { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true });
+    const outcome = await packPackage(
+        {
+            ...explicitConfiguration,
+            packages: explicitConfiguration.packages.map(function useImplicitSurface(packageConfiguration) {
+                return omit(packageConfiguration, [ 'packageInterface' ]);
+            })
+        },
+        { packageName: 'package-a', format: 'folder', outputPath, version: '1.2.3', vendorDependencies: true }
+    );
     assert.deepStrictEqual(outcome.result.isOk ? outcome.result.value : outcome.result.error, undefined);
     assert.strictEqual(
         await readArtifactText(path.join(outputPath, 'a.js')),

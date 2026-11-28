@@ -74,6 +74,8 @@ suite('primitive values', function () {
                 [ SyntaxKind.LessThanToken, 1n, 'text', false ],
                 [ SyntaxKind.LessThanToken, Number.NaN, 1n, false ],
                 [ SyntaxKind.LessThanToken, null, 1, true ],
+                [ SyntaxKind.LessThanToken, true, '2', true ],
+                [ SyntaxKind.GreaterThanEqualsToken, false, null, true ],
                 [ SyntaxKind.GreaterThanEqualsToken, undefined, 0, false ],
                 [ SyntaxKind.LessThanToken, 1n, Number.POSITIVE_INFINITY, true ],
                 [ SyntaxKind.EqualsEqualsToken, true, 1, true ],

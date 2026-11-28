@@ -72,25 +72,31 @@ type ControlledWaitArguments = {
     readonly realWait: SpinnerSharedAtomics['wait'];
 };
 
+const realAdd: SpinnerSharedAtomics['add'] = function (typedArray, index, value) {
+    return Atomics.add(typedArray, index, value);
+};
+
+const loadSharedValue: SpinnerSharedAtomics['load'] = function (typedArray, index) {
+    return Atomics.load(typedArray, index);
+};
+
+const realNotify: SpinnerSharedAtomics['notify'] = function (typedArray, index, count) {
+    return Atomics.notify(typedArray, index, count);
+};
+
+const realStore: SpinnerSharedAtomics['store'] = function (typedArray, index, value) {
+    return Atomics.store(typedArray, index, value);
+};
+
+const realWait: SpinnerSharedAtomics['wait'] = function (typedArray, index, value, timeout) {
+    return Atomics.wait(typedArray, index, value, timeout);
+};
+
 function createControlledAtomics(overrides: ControlledAtomicsOverrides = {}): ControlledAtomics {
     let loadCallCount = 0;
     let waitCallCount = 0;
     const waitCalls: (readonly [number, number, number | undefined])[] = [];
-    const realAdd: SpinnerSharedAtomics['add'] = function (typedArray, index, value) {
-        return Atomics.add(typedArray, index, value);
-    };
-    const realLoad: SpinnerSharedAtomics['load'] = function (typedArray, index) {
-        return Atomics.load(typedArray, index);
-    };
-    const realNotify: SpinnerSharedAtomics['notify'] = function (typedArray, index, count) {
-        return Atomics.notify(typedArray, index, count);
-    };
-    const realStore: SpinnerSharedAtomics['store'] = function (typedArray, index, value) {
-        return Atomics.store(typedArray, index, value);
-    };
-    const realWait: SpinnerSharedAtomics['wait'] = function (typedArray, index, value, timeout) {
-        return Atomics.wait(typedArray, index, value, timeout);
-    };
+
     const controlled: ControlledAtomics = {
         get loadCallCount() {
             return loadCallCount;
@@ -104,7 +110,7 @@ function createControlledAtomics(overrides: ControlledAtomicsOverrides = {}): Co
         add: realAdd,
         load(typedArray, index) {
             loadCallCount += 1;
-            return overrides.load?.(typedArray, index, realLoad) ?? realLoad(typedArray, index);
+            return overrides.load?.(typedArray, index, loadSharedValue) ?? loadSharedValue(typedArray, index);
         },
         notify: realNotify,
         store: realStore,

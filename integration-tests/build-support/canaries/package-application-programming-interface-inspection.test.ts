@@ -4,8 +4,7 @@ import { suite, test } from 'mocha';
 import { inspectCanaryPackages } from '../../../source/build-support/canaries/canary-package-inspection.entry-point.ts';
 
 import {
-    createNodeImportProbe,
-    inspectPackageApplicationProgrammingInterfaces
+    createNodeImportProbe
 } from '../../../source/build-support/canaries/package-application-programming-interface-inspection.ts';
 import {
     fileManager,
@@ -13,6 +12,9 @@ import {
     writePackage,
     writeScopedPackage
 } from '../../../source/test-libraries/canary-package-fixtures.ts';
+import {
+    inspectPackageApplicationProgrammingInterfaces
+} from '../../../source/test-libraries/canary-inspection.ts';
 import { assertPresent } from '../../../source/test-libraries/deep-subset-assertion.ts';
 
 import { createNativeCanaryRuntime, executeNativeCanaryProcess, nativeNodePath } from './native-runtime.ts';

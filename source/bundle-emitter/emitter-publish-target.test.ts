@@ -4,6 +4,7 @@ import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { emptyTarball, tarballWithOneFile } from '../test-libraries/tarball-fixtures.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createBundleEmitter, type BundleEmitter, type BundleEmitterDependencies } from './emitter.ts';
 
@@ -96,10 +97,11 @@ async function verifyTarget(input: TargetVerificationInput): ReturnType<BundleEm
         ...input.collectContents === undefined ? {} : { collectContents: input.collectContents }
     });
 
-    return emitter.verifyBundlePublishTarget({
+    const verification = emitter.verifyBundlePublishTarget({
         registrySettings,
         bundle: versionedNamedBundle()
     });
+    return await withPromiseDeadline(verification, 'published artifact verification');
 }
 
 suite('emitter publish target verification', function () {

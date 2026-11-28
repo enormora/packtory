@@ -1,18 +1,20 @@
 import { z } from 'zod/mini';
 import { nonEmptyStringSchema } from './base-validations.ts';
 
+const pureImportTrustFields = {
+    from: nonEmptyStringSchema,
+    imports: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+};
 const pureImportTrustSchema = z.readonly(
-    z.strictObject({
-        from: nonEmptyStringSchema,
-        imports: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-    })
+    z.strictObject(pureImportTrustFields)
 );
 
+const deadCodeEliminationSettingsFields = {
+    enabled: z.boolean(),
+    pureImports: z.optional(z.readonly(z.array(pureImportTrustSchema)))
+};
 export const deadCodeEliminationSettingsSchema = z.readonly(
-    z.strictObject({
-        enabled: z.boolean(),
-        pureImports: z.optional(z.readonly(z.array(pureImportTrustSchema)))
-    })
+    z.strictObject(deadCodeEliminationSettingsFields)
 );
 
 export type DeadCodeEliminationSettings = z.infer<typeof deadCodeEliminationSettingsSchema>;

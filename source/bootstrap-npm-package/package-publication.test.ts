@@ -135,6 +135,25 @@ function assertRetryOptions(retryOptions: LibnpmpublishOptions | undefined): voi
     });
 }
 
+async function runChallengeAndRecordPromptAddresses(
+    challenge: Readonly<Record<string, unknown>> | undefined
+): Promise<readonly (WebOneTimePasswordAddresses | undefined)[]> {
+    const noop = function (): void {
+        return undefined;
+    };
+    const publish: LibnpmpublishFunction = challenge === undefined
+        ? createPublishWithBodylessOneTimePasswordChallenge()
+        : createPublishWithSingleOneTimePasswordChallenge(challenge, noop);
+    const recordedAddresses: (WebOneTimePasswordAddresses | undefined)[] = [];
+    const promptForOneTimePassword: OneTimePasswordPrompt = async function (addresses) {
+        recordedAddresses.push(addresses);
+        return 'classic-otp';
+    };
+    const publication = createPackagePublication({ publish });
+    await publication.publish(buildInput({ promptForOneTimePassword }));
+    return recordedAddresses;
+}
+
 suite('package-publication', function () {
     test('invokes libnpmpublish with the supplied dist-tag, registry, token and web auth-type', async function () {
         const { publish, calls } = createRecordingPublish();
@@ -193,25 +212,6 @@ suite('package-publication', function () {
         const [ retryOptions ] = retries;
         assertRetryOptions(retryOptions);
     });
-
-    async function runChallengeAndRecordPromptAddresses(
-        challenge: Readonly<Record<string, unknown>> | undefined
-    ): Promise<readonly (WebOneTimePasswordAddresses | undefined)[]> {
-        const noop = function (): void {
-            return undefined;
-        };
-        const publish: LibnpmpublishFunction = challenge === undefined
-            ? createPublishWithBodylessOneTimePasswordChallenge()
-            : createPublishWithSingleOneTimePasswordChallenge(challenge, noop);
-        const recordedAddresses: (WebOneTimePasswordAddresses | undefined)[] = [];
-        const promptForOneTimePassword: OneTimePasswordPrompt = async function (addresses) {
-            recordedAddresses.push(addresses);
-            return 'classic-otp';
-        };
-        const publication = createPackagePublication({ publish });
-        await publication.publish(buildInput({ promptForOneTimePassword }));
-        return recordedAddresses;
-    }
 
     test('falls back to the prompt without urls when an EOTP body does not include web-OTP urls', async function () {
         const recordedAddresses = await runChallengeAndRecordPromptAddresses({ error: 'OTP required' });

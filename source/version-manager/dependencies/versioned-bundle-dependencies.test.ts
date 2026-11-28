@@ -22,17 +22,18 @@ suite('versioned-bundle-dependencies', function () {
     });
 
     test('distributeDependencies merges bundle-linked and external dependency groups', function () {
+        const dependencies = distributeDependencies({
+            bundle: {
+                externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]),
+                linkedBundleDependencies: new Map([ [ 'my-bundle-dep', externalDependency('my-bundle-dep') ] ])
+            },
+            mainPackageManifest: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
+            bundleDependencies: [ { name: 'my-bundle-dep', version: '2.0.0' } ],
+            bundlePeerDependencies: [],
+            allowMutableSpecifiers: []
+        });
         assert.deepStrictEqual(
-            distributeDependencies({
-                bundle: {
-                    externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ]),
-                    linkedBundleDependencies: new Map([ [ 'my-bundle-dep', externalDependency('my-bundle-dep') ] ])
-                },
-                mainPackageManifest: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
-                bundleDependencies: [ { name: 'my-bundle-dep', version: '2.0.0' } ],
-                bundlePeerDependencies: [],
-                allowMutableSpecifiers: []
-            }),
+            dependencies,
             {
                 dependencies: { 'left-pad': '^1.0.0', 'my-bundle-dep': '2.0.0' },
                 peerDependencies: {}

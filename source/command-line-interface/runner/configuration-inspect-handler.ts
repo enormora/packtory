@@ -80,10 +80,10 @@ function formatSuccess(configuration: CommandLineInterfacePacktoryConfiguration)
 
 function validateInspectableConfiguration(configuration: unknown): CommandLineInterfacePacktoryConfigurationResult {
     const commandLineInterfaceResult = validateCommandLineInterfacePacktoryConfiguration(configuration);
-    const packtoryResult = validatePacktoryConfiguration(configuration);
     if (commandLineInterfaceResult.isErr) {
         return commandLineInterfaceResult;
     }
+    const packtoryResult = validatePacktoryConfiguration(configuration);
     if (packtoryResult.isErr) {
         return Result.err(packtoryResult.error);
     }

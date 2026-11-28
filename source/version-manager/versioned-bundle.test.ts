@@ -85,29 +85,31 @@ suite('versioned-bundle', function () {
     });
 
     test('buildVersionedBundle() groups bundle dependencies and peer dependencies by package name', function () {
+        const sourceBundle = createAnalyzedBundle({
+            linkedBundleDependencies: new Map([
+                [ 'bundle-dependency', createReferencedDependency('bundle-dependency') ],
+                [ 'peer-dependency', createReferencedDependency('peer-dependency') ]
+            ])
+        });
+        const versioningOptions = buildOptions({
+            bundle: sourceBundle,
+            bundleDependencies: [
+                versionedBundle({
+                    name: 'bundle-dependency',
+                    version: '2.0.0',
+                    mainFile: { inputFilePath: '/source/dep.js', targetFilePath: 'dep.js' }
+                })
+            ],
+            bundlePeerDependencies: [
+                versionedBundle({
+                    name: 'peer-dependency',
+                    version: '3.0.0',
+                    mainFile: { inputFilePath: '/source/peer.js', targetFilePath: 'peer.js' }
+                })
+            ]
+        });
         const result = buildVersionedBundle(
-            buildOptions({
-                bundle: createAnalyzedBundle({
-                    linkedBundleDependencies: new Map([
-                        [ 'bundle-dependency', createReferencedDependency('bundle-dependency') ],
-                        [ 'peer-dependency', createReferencedDependency('peer-dependency') ]
-                    ])
-                }),
-                bundleDependencies: [
-                    versionedBundle({
-                        name: 'bundle-dependency',
-                        version: '2.0.0',
-                        mainFile: { inputFilePath: '/source/dep.js', targetFilePath: 'dep.js' }
-                    })
-                ],
-                bundlePeerDependencies: [
-                    versionedBundle({
-                        name: 'peer-dependency',
-                        version: '3.0.0',
-                        mainFile: { inputFilePath: '/source/peer.js', targetFilePath: 'peer.js' }
-                    })
-                ]
-            })
+            versioningOptions
         );
 
         assert.partialDeepStrictEqual(result, {
@@ -167,17 +169,18 @@ suite('versioned-bundle', function () {
     });
 
     test('buildVersionedBundle() exposes the imports field for surviving #imports specifiers', function () {
+        const versioningOptions = buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/source/index.js', {
+                        content: 'export { foo } from "#foo";\n'
+                    })
+                ]
+            }),
+            mainPackageManifest: { type: 'module', imports: { '#foo': './source/foo.js' } }
+        });
         const result = buildVersionedBundle(
-            buildOptions({
-                bundle: createAnalyzedBundle({
-                    contents: [
-                        analyzedBundleResource('/source/index.js', {
-                            content: 'export { foo } from "#foo";\n'
-                        })
-                    ]
-                }),
-                mainPackageManifest: { type: 'module', imports: { '#foo': './source/foo.js' } }
-            })
+            versioningOptions
         );
 
         assert.deepStrictEqual(result.importsField, { '#foo': './source/foo.js' });

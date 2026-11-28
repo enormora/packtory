@@ -47,12 +47,17 @@ export type RegistryClientOverrides = {
 };
 
 function createDefaultFetch(): typeof globalThis.fetch {
-    return fake.resolves(Response.json({
-        token_type: 'oidc',
-        token: 'oidc-exchange-token',
-        created: '2026-05-06T10:00:00.000Z',
-        expires: '2026-05-06T11:00:00.000Z'
-    }, { status: 201 }));
+    return fake.resolves(
+        Response.json(
+            {
+                token_type: 'oidc',
+                token: 'oidc-exchange-token',
+                created: '2026-05-06T10:00:00.000Z',
+                expires: '2026-05-06T11:00:00.000Z'
+            },
+            { status: 201 }
+        )
+    );
 }
 
 type DefaultRegistryClientOverrides = Required<

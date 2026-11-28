@@ -16,15 +16,16 @@ const packageFileOutputSchema = z.readonly(
     })
 );
 
+const explicitPackageFileOutputFields = {
+    kind: z.literal('package-file'),
+    paths: z.readonly(z.record(nonEmptyStringSchema, bundleRelativePathSchema)).check(
+        z.refine(function (value) {
+            return Object.keys(value).length > 0;
+        })
+    )
+};
 const explicitPackageFileOutputSchema = z.readonly(
-    z.strictObject({
-        kind: z.literal('package-file'),
-        paths: z.readonly(z.record(nonEmptyStringSchema, bundleRelativePathSchema)).check(
-            z.refine(function (value) {
-                return Object.keys(value).length > 0;
-            })
-        )
-    })
+    z.strictObject(explicitPackageFileOutputFields)
 );
 
 const githubReleaseOutputSchema = z.readonly(
@@ -40,47 +41,50 @@ const changelogOutputSchema = z.union([
     githubReleaseOutputSchema
 ]);
 
-const pullRequestLogVersionBumpsSchema = z.readonly(
-    z.strictObject({
-        major: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-        minor: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-        patch: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-    })
-);
+const labelListSchema = z.optional(z.readonly(z.array(nonEmptyStringSchema)));
 
+const pullRequestLogVersionBumpsSchema = z.readonly(z.strictObject({
+    major: labelListSchema,
+    minor: labelListSchema,
+    patch: labelListSchema
+}));
+
+const pullRequestLogCollapseRuleFields = {
+    label: nonEmptyStringSchema,
+    pattern: nonEmptyStringSchema,
+    replace: nonEmptyStringSchema,
+    keyGroup: z.optional(nonEmptyStringSchema),
+    collapse: z.optional(z.literal('same')),
+    fromGroup: z.optional(nonEmptyStringSchema),
+    toGroup: z.optional(nonEmptyStringSchema),
+    versionGroup: z.optional(nonEmptyStringSchema)
+};
 const pullRequestLogCollapseRuleSchema = z.readonly(
-    z.strictObject({
-        label: nonEmptyStringSchema,
-        pattern: nonEmptyStringSchema,
-        replace: nonEmptyStringSchema,
-        keyGroup: z.optional(nonEmptyStringSchema),
-        collapse: z.optional(z.literal('same')),
-        fromGroup: z.optional(nonEmptyStringSchema),
-        toGroup: z.optional(nonEmptyStringSchema),
-        versionGroup: z.optional(nonEmptyStringSchema)
-    })
+    z.strictObject(pullRequestLogCollapseRuleFields)
 );
 
+const pullRequestLogSettingsFields = {
+    validLabels: z.optional(z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema))),
+    ignoredLabels: labelListSchema,
+    versionBumps: z.optional(pullRequestLogVersionBumpsSchema),
+    dateFormat: z.optional(nonEmptyStringSchema),
+    collapseRules: z.optional(z.readonly(z.array(pullRequestLogCollapseRuleSchema))),
+    labelLookupIntervalMilliseconds: z.optional(z.number()),
+    maximumRateLimitRetryCount: z.optional(z.number())
+};
 const pullRequestLogSettingsSchema = z.readonly(
-    z.strictObject({
-        validLabels: z.optional(z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema))),
-        ignoredLabels: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-        versionBumps: z.optional(pullRequestLogVersionBumpsSchema),
-        dateFormat: z.optional(nonEmptyStringSchema),
-        collapseRules: z.optional(z.readonly(z.array(pullRequestLogCollapseRuleSchema))),
-        labelLookupIntervalMilliseconds: z.optional(z.number()),
-        maximumRateLimitRetryCount: z.optional(z.number())
-    })
+    z.strictObject(pullRequestLogSettingsFields)
 );
 
+const changelogSettingsFields = {
+    explicitBaseReference: z.optional(nonEmptyStringSchema),
+    outputs: z.optional(z.readonly(z.tuple([ changelogOutputSchema ], changelogOutputSchema))),
+    packageTagFormat: z.optional(nonEmptyStringSchema),
+    pullRequestLog: z.optional(pullRequestLogSettingsSchema),
+    targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
+};
 export const changelogSettingsSchema = z.readonly(
-    z.strictObject({
-        explicitBaseReference: z.optional(nonEmptyStringSchema),
-        outputs: z.optional(z.readonly(z.tuple([ changelogOutputSchema ], changelogOutputSchema))),
-        packageTagFormat: z.optional(nonEmptyStringSchema),
-        pullRequestLog: z.optional(pullRequestLogSettingsSchema),
-        targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
-    })
+    z.strictObject(changelogSettingsFields)
 );
 
 export type ChangelogOutput = z.infer<typeof changelogOutputSchema>;

@@ -489,17 +489,19 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async readWorkflowRunResult(runIdentifier) {
+            const workflowResponse = resolveGitHubResponse(
+                octokit.rest.actions.getWorkflowRun(toGitHubRequest({ ...requestContext, run_id: runIdentifier }))
+            );
+            const jobsResponse = resolveGitHubResponse(
+                octokit.rest.actions.listJobsForWorkflowRun(toGitHubRequest({
+                    ...requestContext,
+                    run_id: runIdentifier,
+                    per_page: 100
+                }))
+            );
             const [ runResponse, jobResponse ] = await Promise.all([
-                resolveGitHubResponse(
-                    octokit.rest.actions.getWorkflowRun(toGitHubRequest({ ...requestContext, run_id: runIdentifier }))
-                ),
-                resolveGitHubResponse(
-                    octokit.rest.actions.listJobsForWorkflowRun(toGitHubRequest({
-                        ...requestContext,
-                        run_id: runIdentifier,
-                        per_page: 100
-                    }))
-                )
+                workflowResponse,
+                jobsResponse
             ]);
             return {
                 conclusion: runResponse.data.conclusion ?? undefined,

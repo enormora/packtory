@@ -79,6 +79,76 @@ function localFileShapes(localFiles: DependencyFiles['localFiles']): readonly Re
     });
 }
 
+async function expectScanReturnsOnlyEntry(scanArguments: Parameters<DependencyScanner['scan']>): Promise<void> {
+    const getReferencedModules = fake.returns([]);
+    const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
+    const dependencyScanner = dependencyScannerFactory({
+        analyzeProject,
+        locate: fake.resolves(Maybe.just('/dir/foo.map'))
+    });
+
+    const graph = await dependencyScanner.scan(...scanArguments);
+    const result = graph.flatten('/dir/entry.js');
+
+    assert.partialDeepStrictEqual(result, {
+        localFiles: [ { directDependencies: new Set(), filePath: '/dir/entry.js', project: {} } ],
+        externalDependencies: new Map()
+    });
+}
+
+async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFiles> {
+    const getReferencedModules = fake.returns([]);
+    const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
+    const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
+
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        includeSourceMapFiles: true,
+        mainPackageManifest: defaultMainPackageManifest
+    });
+    return graph.flatten('/dir/entry.js');
+}
+
+async function scanWithReferencedModules(
+    referencedModules: readonly ModuleReference[]
+): Promise<DependencyFiles> {
+    const getReferencedModules = fake.returns(referencedModules);
+    const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
+    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        mainPackageManifest: defaultMainPackageManifest
+    });
+    return graph.flatten('/dir/entry.js');
+}
+
+async function scanWithReferencedModuleStub(getReferencedModules: SinonSpy): Promise<DependencyFiles> {
+    const dependencyScanner = dependencyScannerFactory({
+        analyzeProject: createFakeAnalyzeProject({ getReferencedModules })
+    });
+
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        mainPackageManifest: defaultMainPackageManifest
+    });
+
+    return graph.flatten('/dir/entry.js');
+}
+
+async function expectExternalDependencies(
+    referencedModules: readonly ModuleReference[],
+    expectedDependencies: ReadonlyMap<
+        string,
+        {
+            readonly name: string;
+            readonly referencedFrom: readonly string[];
+            readonly references?: readonly unknown[];
+        }
+    >
+): Promise<void> {
+    const result = await scanWithReferencedModules(referencedModules);
+
+    assert.deepStrictEqual(result.externalDependencies, expectedDependencies);
+}
+
 suite('scanner', function () {
     suite('project analysis', function () {
         test('analyzes the given entryPoint file in the given folder as a typescript project', async function () {
@@ -174,23 +244,6 @@ suite('scanner', function () {
     });
 
     suite('source maps', function () {
-        async function expectScanReturnsOnlyEntry(scanArguments: Parameters<DependencyScanner['scan']>): Promise<void> {
-            const getReferencedModules = fake.returns([]);
-            const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
-            const dependencyScanner = dependencyScannerFactory({
-                analyzeProject,
-                locate: fake.resolves(Maybe.just('/dir/foo.map'))
-            });
-
-            const graph = await dependencyScanner.scan(...scanArguments);
-            const result = graph.flatten('/dir/entry.js');
-
-            assert.partialDeepStrictEqual(result, {
-                localFiles: [ { directDependencies: new Set(), filePath: '/dir/entry.js', project: {} } ],
-                externalDependencies: new Map()
-            });
-        }
-
         test('returns no dependencies if the given file doesn’t have any dependencies', async function () {
             await expectScanReturnsOnlyEntry([ '/dir/entry.js', '/dir', {
                 mainPackageManifest: defaultMainPackageManifest
@@ -233,18 +286,6 @@ suite('scanner', function () {
                 }
             });
         });
-
-        async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFiles> {
-            const getReferencedModules = fake.returns([]);
-            const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
-            const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
-
-            const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                includeSourceMapFiles: true,
-                mainPackageManifest: defaultMainPackageManifest
-            });
-            return graph.flatten('/dir/entry.js');
-        }
 
         test('returns no additional dependencies for source maps if they don’t exist', async function () {
             const locate = fake.resolves(Maybe.nothing());
@@ -335,47 +376,6 @@ suite('scanner', function () {
                 { directDependencies: new Set(), filePath: '/dir/baz.js', project: {} }
             ]);
         });
-
-        async function scanWithReferencedModules(
-            referencedModules: readonly ModuleReference[]
-        ): Promise<DependencyFiles> {
-            const getReferencedModules = fake.returns(referencedModules);
-            const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
-            const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-            const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageManifest: defaultMainPackageManifest
-            });
-            return graph.flatten('/dir/entry.js');
-        }
-
-        async function scanWithReferencedModuleStub(getReferencedModules: SinonSpy): Promise<DependencyFiles> {
-            const dependencyScanner = dependencyScannerFactory({
-                analyzeProject: createFakeAnalyzeProject({ getReferencedModules })
-            });
-
-            const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-                mainPackageManifest: defaultMainPackageManifest
-            });
-
-            return graph.flatten('/dir/entry.js');
-        }
-
-        async function expectExternalDependencies(
-            referencedModules: readonly ModuleReference[],
-            expectedDependencies: ReadonlyMap<
-                string,
-                {
-                    readonly name: string;
-                    readonly referencedFrom: readonly string[];
-                    readonly references?: readonly unknown[];
-                }
-            >
-        ): Promise<void> {
-            const result = await scanWithReferencedModules(referencedModules);
-
-            assert.deepStrictEqual(result.externalDependencies, expectedDependencies);
-        }
 
         suite('external dependencies', function () {
             test('doesn’t include any package imports in localFiles', async function () {
