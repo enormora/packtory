@@ -18,7 +18,7 @@ import {
 } from '../../packtory/published-artifact-smoke-gate.ts';
 import { typedExportSpecifiers } from './package-type-surface.ts';
 
-type PackageFolder = {
+export type PackageFolder = {
     readonly name: string;
     readonly folderPath: string;
 };

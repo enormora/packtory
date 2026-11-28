@@ -11,6 +11,7 @@ import {
     readGeneratedPackageFolders,
     type CanaryPackageOutput,
     type InspectPackagesInput,
+    type PackageFolder,
     type PackageApplicationProgrammingInterfaceInspection
 } from './package-application-programming-interface-inspection.ts';
 
@@ -22,7 +23,7 @@ const packageInspectionWorkFields = {
 const packageInspectionWork = z.object(packageInspectionWorkFields);
 
 type PackageInspectionWork = CanaryPackageOutput & {
-    readonly folders: Parameters<typeof inspectPackageFolders>[1];
+    readonly folders: readonly PackageFolder[];
 };
 
 const minimumParallelRunnerCores = 4;
