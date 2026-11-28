@@ -178,11 +178,12 @@ suite('extract-tar', function () {
                 }
             } ]);
             await expectFailure(async function () {
-                await extractTarEntries(Buffer.from('unused'), {
+                const extraction = extractTarEntries(Buffer.from('unused'), {
                     createSource() {
                         return createFakeTarSource(entries);
                     }
                 });
+                await withPromiseDeadline(extraction, 'invalid tar chunk validation');
             }, /Expected tar stream to yield chunks with a numeric length and toString method/u);
         }
     });
