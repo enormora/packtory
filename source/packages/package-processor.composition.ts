@@ -3,6 +3,7 @@ import { execFile as executeFile, type ExecException as ExecuteFileException } f
 import { tmpdir as temporaryDirectory } from 'node:os';
 import path from 'node:path';
 import { InMemoryFileSystemHost, RealFileSystemHost, type FileSystemHost } from '@ts-morph/common';
+import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { getProxyForUrl as getProxyForAddress } from 'proxy-from-env';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
@@ -190,7 +191,6 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
     return createRegistryClient({
         npmFetch: createRegistryJavaScriptObjectNotationFetch({ npmFetch, resolveProxy: getProxyForAddress, clock }),
         async publish(manifest, tarData, publishOptions) {
-            const { publish } = await import('libnpmpublish');
             return withRegistryTransport(
                 { resolveProxy: getProxyForAddress, clock },
                 publishOptions ?? {},
